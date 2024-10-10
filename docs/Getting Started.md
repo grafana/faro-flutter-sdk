@@ -7,7 +7,6 @@
 
 ### Onboarding
 
-
 ### Installation
 
 Add the following dependencies to your `pubspec.yaml`
@@ -20,9 +19,15 @@ rum_sdk:
     ref: main
 ```
 
+### Setup Grafana Alloy
+
+- Set up a [Grafana Alloy](https://grafana.com/docs/alloy/latest/configure/) instance.
+- Configure your instance with [app-agent-receiver](https://grafana.com/docs/alloy/latest/reference/components/faro/faro.receiver/#server-block) integration. The integration exposes an http collection endpoint.
+
 ### Initialise RUM
 
 Add the following snippet to initialize RUM Monitoring with the default configurations
+use the faro.receiver endpoint as collectorUrl in RumConfig
 
 ```dart
 
@@ -34,6 +39,7 @@ Add the following snippet to initialize RUM Monitoring with the default configur
         appVersion: "1.0.0",
         appEnv: "Test",
         apiKey: "<API_KEY>",
+        collectorUrl: "faro receiver endpoint"
     ),
     appRunner: () => runApp(
      RumUserInteractionWidget(child: MyApp())
@@ -43,6 +49,5 @@ Add the following snippet to initialize RUM Monitoring with the default configur
 
 
 ```
-
 
 See all [configuration](./Configurations.md) options for RUM Flutter
