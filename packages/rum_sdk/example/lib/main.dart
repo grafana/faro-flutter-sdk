@@ -120,7 +120,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ElevatedButton(
               onPressed: () async {
                 final response = await http.post(
-                  Uri.parse('http://10.0.2.2:4000/failpost/'),
+                  Uri.parse('<mock_api_endpoint>'),
                   body: jsonEncode(<String, String>{
                     'title': "This is a title",
                   }),
@@ -131,7 +131,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ElevatedButton(
               onPressed: () async {
                 final response = await http.post(
-                  Uri.parse('http://10.0.2.2:4000/successpost/'),
+                  Uri.parse('<mock_api_endpoint>'),
                   body: jsonEncode(<String, String>{
                     'title': "This is a title",
                   }),
@@ -142,14 +142,14 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ElevatedButton(
               onPressed: () async {
                 final response = await http
-                    .get(Uri.parse('http://10.0.2.2:4000/successpath/'));
+                    .get(Uri.parse('<mock_api_endpoint>'));
               },
               child: const Text('HTTP GET Request - success'),
             ),
             ElevatedButton(
               onPressed: () async {
                 final response =
-                    await http.get(Uri.parse('http://10.0.2.2:4000/failpath/'));
+                    await http.get(Uri.parse('<mock_api_endpoint>'));
               },
               child: const Text('HTTP GET Request - fail'),
             ),
