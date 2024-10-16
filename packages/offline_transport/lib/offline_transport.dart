@@ -3,15 +3,14 @@ import 'dart:developer';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:rum_sdk/rum_flutter.dart';
-import 'package:rum_sdk/src/models/payload.dart';
-import 'package:rum_sdk/src/transport/rum_base_transport.dart';
+import 'package:rum_sdk/rum_sdk.dart';
 import 'dart:io';
 
 class OfflineTransport extends BaseTransport {
   bool isOnline = true;
   Duration? _maxCacheDuration;
-  OfflineTransport({Duration? maxCacheDuration}) {
+  String collectorUrl;
+  OfflineTransport({Duration? maxCacheDuration, required this.collectorUrl}) {
     _maxCacheDuration = maxCacheDuration;
     checkConnectivity();
     monitorConnectivity();
@@ -29,36 +28,31 @@ class OfflineTransport extends BaseTransport {
 
   Future<void> checkConnectivity() async {
     var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.firstOrNull == ConnectivityResult.none) {
-      isOnline = false;
-    } else {
-      isOnline = await _isConnectedToInternet();
-      readFromFile();
-    }
+    _handleConnectivity(connectivityResult);
   }
-
+    Future<void> _handleConnectivity(List<ConnectivityResult> connectivityResult) async {
+    if (connectivityResult.firstOrNull == ConnectivityResult.none) {
+        isOnline = false;
+    } else {
+        isOnline = await _isConnectedToInternet();
+     }
+     
+    if (isOnline) {
+        await readFromFile();
+    }
+}
   Future<void>? monitorConnectivity() {
     Connectivity()
         .onConnectivityChanged
         .listen((List<ConnectivityResult> result) async {
-      if (result.contains(ConnectivityResult.none)) {
-        isOnline = false;
-      } else {
-        bool isConnected = await _isConnectedToInternet();
-        if (isConnected) {
-          isOnline = true;
-          readFromFile();
-        } else {
-          isOnline = false;
-        }
-      }
+          _handleConnectivity(result);
     });
     return null;
   }
 
   Future<bool> _isConnectedToInternet() async {
     try {
-      final result = await InternetAddress.lookup('example.com');
+      final result = await InternetAddress.lookup(collectorUrl);
       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
     } on SocketException catch (_) {
       return false;
@@ -95,7 +89,6 @@ class OfflineTransport extends BaseTransport {
         .transform(utf8.decoder) // Decode bytes to UTF-8.
         .transform(const LineSplitter()); // Convert stream to individual lines.
 
-    final List<String> remainingLines = [];
     final currentTime = DateTime.now().millisecondsSinceEpoch;
 
     await for (var line in lines) {
@@ -123,11 +116,6 @@ class OfflineTransport extends BaseTransport {
       }
     }
 
-    if (remainingLines.isEmpty) {
-      await file.writeAsString('');
-    } else {
-      await file.writeAsString(remainingLines.join('\n') + '\n');
-    }
   }
 
   Future<File> _getCacheFile() async {

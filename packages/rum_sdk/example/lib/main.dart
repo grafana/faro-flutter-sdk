@@ -13,7 +13,7 @@ void main() async {
   await dotenv.load(fileName: ".env");
   RumFlutter()
       .transports
-      .add(OfflineTransport(maxCacheDuration: const Duration(days: 3)));
+      .add(OfflineTransport(maxCacheDuration: const Duration(days: 3), collectorUrl: dotenv.env['FARO_COLLECTOR_URL'] ?? ''));
   await RumFlutter().runApp(
       optionsConfiguration: RumConfig(
         appName: "example_app",

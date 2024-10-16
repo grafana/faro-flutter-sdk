@@ -15,6 +15,7 @@ A new Flutter plugin project.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
+  s.dependency 'PLCrashReporter'
   s.static_framework = true
   s.ios.deployment_target = '11.0'
   s.platform = :ios, '11.0'
