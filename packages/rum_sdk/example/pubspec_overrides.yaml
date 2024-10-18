@@ -1,0 +1,6 @@
+# melos_managed_dependency_overrides: rum_sdk,offline_transport
+dependency_overrides:
+  offline_transport:
+    path: ../../offline_transport
+  rum_sdk:
+    path: ..

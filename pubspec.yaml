@@ -1,0 +1,11 @@
+publish_to: none
+name: rum_flutter
+description: Flutter Real User Monitoring
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+dev_dependencies:
+  melos: ^6.0.0
