@@ -1,8 +1,8 @@
 import 'dart:math';
 
 String generateSessionID(){
-  const String chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  final Random rnd = Random();
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  final rnd = Random();
   const length = 10;
 
   return String.fromCharCodes(Iterable.generate(

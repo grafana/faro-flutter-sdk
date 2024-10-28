@@ -1,4 +1,4 @@
-import 'rum_sdk_platform_interface.dart';
+import 'package:rum_sdk/rum_sdk_platform_interface.dart';
 
 class RumNativeMethods{
   Future<double?> getMemoryUsage(){

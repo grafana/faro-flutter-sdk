@@ -1,17 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+
 import 'package:http/http.dart' as http;
 import 'package:rum_sdk/src/data_collection_policy.dart';
 import 'package:rum_sdk/src/transport/rum_base_transport.dart';
 import 'package:rum_sdk/src/transport/task_buffer.dart';
-import 'package:rum_sdk/src/models/payload.dart';
 
 class RUMTransport extends BaseTransport {
-  final String collectorUrl;
-  final String apiKey;
-  final String? sessionId;
-  TaskBuffer<dynamic>? _taskBuffer;
 
   RUMTransport({
     required this.collectorUrl,
@@ -21,6 +17,10 @@ class RUMTransport extends BaseTransport {
   }) {
     _taskBuffer = TaskBuffer(maxBufferLimit);
   }
+  final String collectorUrl;
+  final String apiKey;
+  final String? sessionId;
+  TaskBuffer<dynamic>? _taskBuffer;
 
   @override
   Future<void> send(Map<String, dynamic> payload) async {

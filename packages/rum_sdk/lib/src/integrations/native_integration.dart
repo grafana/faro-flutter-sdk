@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
-import 'package:rum_sdk/rum_flutter.dart';
-import 'package:flutter/services.dart';
+
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:rum_sdk/rum_flutter.dart';
 
 
 class NativeIntegration{
@@ -23,23 +24,23 @@ class NativeIntegration{
   }
 
   void getAppStart() async {
-      Map<String, dynamic>? appStart = await RumFlutter().nativeChannel
+      final appStart = await RumFlutter().nativeChannel
           ?.getAppStart();
       RumFlutter().pushMeasurement({
-        "appStartDuration": appStart!["appStartDuration"],
-        "coldStart": 1
-      }, "app_startup");
+        'appStartDuration': appStart!['appStartDuration'],
+        'coldStart': 1
+      }, 'app_startup');
   }
   void setWarmStart() {
     warmStart = DateTime.now().millisecondsSinceEpoch;
   }
   void getWarmStart() async {
-      int warmStartDuration = DateTime.now().millisecondsSinceEpoch - warmStart;
+      final var warmStartDuration = DateTime.now().millisecondsSinceEpoch - warmStart;
       if(warmStartDuration>0){
         RumFlutter().pushMeasurement({
-          "appStartDuration":warmStartDuration,
-          "coldStart": 0
-        },"app_startup");
+          'appStartDuration':warmStartDuration,
+          'coldStart': 0
+        },'app_startup');
       }
   }
 
@@ -74,65 +75,65 @@ class NativeIntegration{
   }
 
   void _pushRefreshRate() async{
-    double? refreshRate = await RumFlutter().nativeChannel?.getRefreshRate();
-    log("refreshRate $refreshRate");
+    final refreshRate = await RumFlutter().nativeChannel?.getRefreshRate();
+    log('refreshRate $refreshRate');
     if(refreshRate != null){
       RumFlutter().pushMeasurement({
-        "refresh_rate" :refreshRate
-      },"app_refresh_rate");
+        'refresh_rate' :refreshRate
+      },'app_refresh_rate');
     }
 
   }
 
   void _pushCpuUsage() async {
-    double? cpuUsage = await RumFlutter().nativeChannel?.getCpuUsage();
+    final cpuUsage = await RumFlutter().nativeChannel?.getCpuUsage();
     if(cpuUsage!>0.0 && cpuUsage<100.0){
       RumFlutter().pushMeasurement({
-        "cpu_usage" :cpuUsage
-      },"app_cpu_usage");
+        'cpu_usage' :cpuUsage
+      },'app_cpu_usage');
     }
   }
   void _getAnrStatus() async {
-    List<String>? anr = await RumFlutter().nativeChannel?.getANRStatus();
-    if(anr !=null && anr.length>0){
+    final anr = await RumFlutter().nativeChannel?.getANRStatus();
+    if(anr !=null && anr.isNotEmpty){
       RumFlutter().pushMeasurement({
-        "anr_count" :anr.length
-      },"anr");
+        'anr_count' :anr.length
+      },'anr');
     }
   }
   void _pushMemoryUsage() async {
-    double? memUsage = await RumFlutter().nativeChannel?.getMemoryUsage();
+    final memUsage = await RumFlutter().nativeChannel?.getMemoryUsage();
     RumFlutter().pushMeasurement({
-      "mem_usage" :memUsage
-    },"app_memory");
+      'mem_usage' :memUsage
+    },'app_memory');
   }
 
   static void initializeMethodChannel() {
-    instance._channel.setMethodCallHandler((MethodCall call) async {
+    instance._channel.setMethodCallHandler((call) async {
       if(call.method == 'lastCrashReport'){
-        RumFlutter().pushLog(call.arguments,level: "error");
+        RumFlutter().pushLog(call.arguments,level: 'error');
       }
       if (call.method == 'onFrozenFrame') {
 
         if(call.arguments != null) {
           RumFlutter().pushMeasurement({
-            "frozen_frames": call.arguments,
-          }, "app_frozen_frame");
+            'frozen_frames': call.arguments,
+          }, 'app_frozen_frame');
         }
       }
       if (call.method == 'onRefreshRate') {
         if(call.arguments !=null) {
           RumFlutter().pushMeasurement({
-            "refresh_rate": call.arguments,
-          }, "app_refresh_rate");
+            'refresh_rate': call.arguments,
+          }, 'app_refresh_rate');
           // Handle the message from Java
         }
       }
       if (call.method == 'onSlowFrames') {
         if(call.arguments!=null){
           RumFlutter().pushMeasurement({
-            "slow_frames" :call.arguments
-          },"app_frames_rate");
+            'slow_frames' :call.arguments
+          },'app_frames_rate');
         }
 
       }

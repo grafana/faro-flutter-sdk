@@ -178,7 +178,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
                   throw Error();
                 });
               },
-              child: Text('Error'),
+              child: const Text('Error'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -187,7 +187,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
                   throw Exception("This is an Exception!");
                 });
               },
-              child: Text('Exception'),
+              child: const Text('Exception'),
             ),
             ElevatedButton(
               onPressed: () async {

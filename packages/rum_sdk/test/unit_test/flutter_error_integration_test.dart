@@ -22,8 +22,8 @@ void main(){
     late MockFunctions mockFunctions;
 
     setUpAll((){
-      registerFallbackValue(FlutterErrorDetails(exception: FlutterError("Fallback Error")));
-      registerFallbackValue(RumException("exception", "test exception", {}));
+      registerFallbackValue(FlutterErrorDetails(exception: FlutterError('Fallback Error')));
+      registerFallbackValue(RumException('exception', 'test exception', {}));
     });
     
     setUp((){
@@ -31,12 +31,12 @@ void main(){
       mockFunctions = MockFunctions();
       RumFlutter().batchTransport = mockBatchTransport;
       when(()=> mockBatchTransport.addExceptions(any())).thenAnswer((_) async {});
-      flutterErrorDetails = FlutterErrorDetails(exception: FlutterError("Test Error"),stack: StackTrace.fromString("Test Stack Trace"));
+      flutterErrorDetails = FlutterErrorDetails(exception: FlutterError('Test Error'),stack: StackTrace.fromString('Test Stack Trace'));
     });
     
     tearDown((){});
     
-    test("call method should push errors to rum when error occurs ", (){
+    test('call method should push errors to rum when error occurs ', (){
       FlutterError.onError = null;
       FlutterErrorIntegration().call();
       FlutterError.onError?.call(flutterErrorDetails);
@@ -53,7 +53,7 @@ void main(){
     });
 
     test('Closing Flutter Error Integration sets back the default error handler', () {
-      FlutterErrorIntegration flutterErrorIntegration = FlutterErrorIntegration();
+      final flutterErrorIntegration = FlutterErrorIntegration();
       FlutterError.onError = mockFunctions.defaultOnError;
       flutterErrorIntegration.call();
       flutterErrorIntegration.close();

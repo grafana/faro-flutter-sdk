@@ -1,6 +1,6 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'rum_sdk_method_channel.dart';
+import 'package:rum_sdk/rum_sdk_method_channel.dart';
 
 abstract class RumSdkPlatform extends PlatformInterface {
   /// Constructs a RumSdkPlatform.
@@ -60,7 +60,7 @@ abstract class RumSdkPlatform extends PlatformInterface {
   }
 
   Future<List<String>?> getCrashReport() {
-    throw UnimplementedError("getCrashReport() has not been implemented");
+    throw UnimplementedError('getCrashReport() has not been implemented');
   }
 
 }

@@ -1,10 +1,6 @@
 import 'package:intl/intl.dart';
 
 class Event {
-  String name = "";
-  String domain = "flutter";
-  Map<String, dynamic>? attributes = {};
-  String timestamp = DateFormat('yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\'').format(DateTime.now().toUtc());
 
   Event(this.name, {this.attributes});
 
@@ -14,6 +10,10 @@ class Event {
     attributes = json['attributes'];
     timestamp = json['timestamp'];
   }
+  String name = '';
+  String domain = 'flutter';
+  Map<String, dynamic>? attributes = {};
+  String timestamp = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(DateTime.now().toUtc());
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

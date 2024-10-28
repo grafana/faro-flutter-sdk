@@ -1,10 +1,6 @@
-import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:rum_sdk/rum_sdk.dart';
-import 'package:rum_sdk/src/configurations/batch_config.dart';
-import 'package:rum_sdk/src/models/models.dart';
-import 'package:rum_sdk/src/transport/rum_base_transport.dart';
 import 'package:rum_sdk/src/transport/batch_transport.dart';
 
 class MockPayload extends Mock implements Payload {}
@@ -23,7 +19,7 @@ void main() {
     mockBaseTransport =MockBaseTransport();
 
     when(() => mockBatchConfig.enabled).thenReturn(true);
-    when(() => mockBatchConfig.sendTimeout).thenReturn(Duration(seconds: 1));
+    when(() => mockBatchConfig.sendTimeout).thenReturn(const Duration(seconds: 1));
     when(() => mockBatchConfig.payloadItemLimit).thenReturn(2);
     when(() => mockPayload.events).thenReturn([]);
     when(() => mockPayload.measurements).thenReturn([]);
@@ -48,35 +44,35 @@ void main() {
   });
 
   test('addEvent should add event and check payload item limit', () async {
-    final event = Event("test_event");
+    final event = Event('test_event');
     await batchTransport.addEvent(event);
     verify(() => mockPayload.events.add(event)).called(1);
     expect(batchTransport.items, equals(1));
   });
 
   test('addMeasurement should add measurement and check payload item limit', () async {
-    final measurement = Measurement({"test_value":12}, "test") ;
+    final measurement = Measurement({'test_value':12}, 'test') ;
     await batchTransport.addMeasurement(measurement);
     verify(() => mockPayload.measurements.add(measurement)).called(1);
     expect(batchTransport.items, equals(1));
   });
 
   test('addLog should add log and check payload item limit', () async {
-    final log = RumLog("Test log");
+    final log = RumLog('Test log');
     await batchTransport.addLog(log);
     verify(() => mockPayload.logs.add(log)).called(1);
     expect(batchTransport.items, equals(1));
   });
 
   test('addExceptions should add exception and check payload item limit', () async {
-    final exception = RumException("TestException", "Test", {});
+    final exception = RumException('TestException', 'Test', {});
     await batchTransport.addExceptions(exception);
     verify(() => mockPayload.exceptions.add(exception)).called(1);
     expect(batchTransport.items, equals(1));
   });
   //
   test('flush should send payload and reset it', () async {
-    final exception = RumException("TestException", "Test", {});
+    final exception = RumException('TestException', 'Test', {});
     await batchTransport.addExceptions(exception);
     await batchTransport.flush();
     verify(() => mockBaseTransport.send(any())).called(1);
@@ -94,7 +90,7 @@ void main() {
     verifyNever(() => mockBaseTransport.send(any()));
   });
   test('checkPayloadItemLimit should flush when item limit is reached', () async {
-    final event = Event("test_event");
+    final event = Event('test_event');
     batchTransport = BatchTransport(
       payload: mockPayload,
       transports: [mockBaseTransport],
@@ -117,7 +113,7 @@ void main() {
     expect(batchTransport.isPayloadEmpty(), isTrue);
   });
   test('isPayloadEmpty should return false if payload is not empty', () {
-    when(() => mockPayload.events).thenReturn([Event("test_event")]);
+    when(() => mockPayload.events).thenReturn([Event('test_event')]);
     when(() => mockPayload.measurements).thenReturn([]);
     when(() => mockPayload.logs).thenReturn([]);
     when(() => mockPayload.exceptions).thenReturn([]);
@@ -148,7 +144,7 @@ void main() {
       transports: [mockBaseTransport],
     );
 
-    final event = Event("test_event");
+    final event = Event('test_event');
     await batchTransportDisabled.addEvent(event);
     await Future.delayed(const Duration(milliseconds: 500));
     verify(() => mockBaseTransport.send(any())).called(1);

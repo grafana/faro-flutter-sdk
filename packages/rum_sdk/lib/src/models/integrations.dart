@@ -1,6 +1,4 @@
 class Integration {
-  String name = "";
-  String version = "";
 
   Integration(this.name, this.version);
 
@@ -8,6 +6,8 @@ class Integration {
     name = json['name'];
     version = json['version'];
   }
+  String name = '';
+  String version = '';
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

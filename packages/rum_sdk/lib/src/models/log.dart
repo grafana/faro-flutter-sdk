@@ -1,11 +1,6 @@
 import 'package:intl/intl.dart';
 
 class RumLog{
-  String message = "";
-  String? level = "";
-  Map<String, dynamic>? context = {};
-  Map<String, dynamic>? trace = {};
-  String timestamp = DateFormat('yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\'').format(DateTime.now().toUtc());
 
   RumLog(this.message, {this.level,this.context,this.trace});
 
@@ -16,6 +11,11 @@ class RumLog{
     timestamp = json['timestamp'];
      trace = json['trace'];
   }
+  String message = '';
+  String? level = '';
+  Map<String, dynamic>? context = {};
+  Map<String, dynamic>? trace = {};
+  String timestamp = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(DateTime.now().toUtc());
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

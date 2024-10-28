@@ -1,11 +1,6 @@
 import 'package:rum_sdk/rum_sdk.dart';
 import 'package:rum_sdk/src/models/models.dart';
 class Payload {
-  List<Event> events = [];
-  List<Measurement> measurements = [];
-  List<RumLog> logs = [];
-  List<RumException> exceptions = [];
-  Meta? meta;
 
   Payload(this.meta) {
     events = [];
@@ -38,6 +33,11 @@ class Payload {
     }
     meta = json['meta'] != null ? Meta.fromJson(json['meta']) : null;
   }
+  List<Event> events = [];
+  List<Measurement> measurements = [];
+  List<RumLog> logs = [];
+  List<RumException> exceptions = [];
+  Meta? meta;
 
 
 

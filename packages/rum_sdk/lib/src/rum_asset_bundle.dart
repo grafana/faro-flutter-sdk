@@ -1,30 +1,28 @@
 
-import 'dart:typed_data';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:rum_sdk/rum_flutter.dart';
 
 class RumAssetBundle extends AssetBundle{
-  AssetBundle _bundle;
   RumAssetBundle({
     AssetBundle? bundle
 }): _bundle = bundle?? rootBundle;
+  final AssetBundle _bundle;
 
   @override
   Future<ByteData> load(String key) async {
     ByteData? data;
     int? dataSize;
     try{
-      var beforeLoad = DateTime.now().millisecondsSinceEpoch;
+      final beforeLoad = DateTime.now().millisecondsSinceEpoch;
       data = await _bundle.load(key);
-      var afterLoad = DateTime.now().millisecondsSinceEpoch;
-      int duration = afterLoad - beforeLoad;
+      final afterLoad = DateTime.now().millisecondsSinceEpoch;
+      final duration = afterLoad - beforeLoad;
       dataSize = _getDataLength(data);
-      RumFlutter().pushEvent("Asset-load",attributes: {
-       "name":_getFileName(key),
-       "size":"$dataSize",
-        "duration":"$duration"
+      RumFlutter().pushEvent('Asset-load',attributes: {
+       'name':_getFileName(key),
+       'size':'$dataSize',
+        'duration':'$duration'
       });
     } catch(exception){
       rethrow;
@@ -37,15 +35,15 @@ class RumAssetBundle extends AssetBundle{
     String? data;
     int? dataSize;
     try{
-      var beforeLoad = DateTime.now().millisecondsSinceEpoch;
+      final beforeLoad = DateTime.now().millisecondsSinceEpoch;
       data = await _bundle.loadString(key,cache:cache);
-      var afterLoad = DateTime.now().millisecondsSinceEpoch;
-      int duration = afterLoad-beforeLoad;
+      final afterLoad = DateTime.now().millisecondsSinceEpoch;
+      final duration = afterLoad-beforeLoad;
       dataSize = _getDataLength(data);
-      RumFlutter().pushEvent("Asset-load", attributes: {
-        "name":_getFileName(key),
-        "size":"$dataSize",
-        "duration":"$duration"
+      RumFlutter().pushEvent('Asset-load', attributes: {
+        'name':_getFileName(key),
+        'size':'$dataSize',
+        'duration':'$duration'
       }
       );
     } catch (exception){

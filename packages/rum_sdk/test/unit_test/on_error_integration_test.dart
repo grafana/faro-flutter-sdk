@@ -1,13 +1,14 @@
-import 'package:mocktail/mocktail.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'dart:ui';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 class MockPlatformDispatcher extends Mock implements PlatformDispatcher {}
 
 class OnErrorIntegration {
-  final PlatformDispatcher platformDispatcher;
 
   OnErrorIntegration({required this.platformDispatcher});
+  final PlatformDispatcher platformDispatcher;
 
   bool isOnErrorSupported() {
     try {

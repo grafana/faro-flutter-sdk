@@ -1,26 +1,23 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'dart:developer';
-
-import '../rum_flutter.dart';
+import 'package:rum_sdk/rum_flutter.dart';
 
 Element? _clickTrackerElement;
 const _tapAreaSizeSquared = 20 * 20.0;
 
 
 class UserInteractionProperties{
+  UserInteractionProperties({this.element,this.elementType,this.description,this.eventType});
   Element? element;
   String? elementType;
   String? description;
   String? eventType;
-  UserInteractionProperties({this.element,this.elementType,this.description,this.eventType}) {
-}
 }
 
 class RumUserInteractionWidget extends StatefulWidget {
+  const RumUserInteractionWidget({super.key, required this.child});
   final Widget child;
-  const RumUserInteractionWidget({Key? key, required this.child}) : super(key: key);
 
   @override
   StatefulElement createElement() {
@@ -61,7 +58,7 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
 
       final distanceSquared = distanceOffset.distanceSquared;
       if (distanceSquared < _tapAreaSizeSquared) {
-        _onTapped(event.localPosition, "tap");
+        _onTapped(event.localPosition, 'tap');
       }
     }
   }
@@ -70,10 +67,10 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
     final tappedElement = _findElementTapped(localPosition);
     if(tappedElement !=null) {
       RumFlutter().pushEvent('user_interaction', attributes: {
-        "element_type": tappedElement.elementType,
-        "element_description": tappedElement.description,
-        "event_type": tappedElement.eventType,
-        "event": "onClick"
+        'element_type': tappedElement.elementType,
+        'element_description': tappedElement.description,
+        'event_type': tappedElement.eventType,
+        'event': 'onClick'
       });
     }
   }
@@ -90,13 +87,13 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
       }
       final renderObject = element.renderObject;
       if (renderObject == null) {
-        return null;
+        return;
       }
       var hitFound = true;
       final hitTest = BoxHitTestResult();
       if (renderObject is RenderPointerListener) {
-        final widgetName = element?.widget.toString();
-        final widgetKey = element?.widget.key.toString();
+        final widgetName = element.widget.toString();
+        final widgetKey = element.widget.key.toString();
         hitFound = renderObject.hitTest(hitTest, position: position);
       }
       final transform = renderObject.getTransformTo(rootElement.renderObject);
@@ -119,10 +116,10 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
   }
 
   String _getElementDescription(Element element, {bool allowText = true}) {
-    String description = "";
+    var description = '';
     // traverse tree to find a suiting element
     void descriptionFinder(Element element) {
-      bool foundDescription = false;
+      var foundDescription = false;
 
       final widget = element.widget;
       if (allowText && widget is Text) {
@@ -157,9 +154,9 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
       if (widget.enabled) {
         return UserInteractionProperties(
             element: element,
-            elementType: "ButtonStyleButton",
+            elementType: 'ButtonStyleButton',
             description: _getElementDescription(element),
-            eventType: "onClick"
+            eventType: 'onClick'
         );
       }
     }
@@ -167,54 +164,54 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
         if (widget.enabled) {
           return UserInteractionProperties(
               element: element,
-              elementType: "MaterialButton",
+              elementType: 'MaterialButton',
               description: _getElementDescription(element),
-              eventType: "onClick"
+              eventType: 'onClick'
           );
         }
       } else if (widget is CupertinoButton) {
         if (widget.enabled) {
           return UserInteractionProperties(
               element: element,
-              elementType: "CupertinoButton",
+              elementType: 'CupertinoButton',
               description: _getElementDescription(element),
-              eventType: "onPressed"
+              eventType: 'onPressed'
           );
         }
       } else if (widget is PopupMenuButton) {
         if (widget.enabled) {
           return UserInteractionProperties(
               element: element,
-              elementType: "PopupMenuButton",
+              elementType: 'PopupMenuButton',
               description: _getElementDescription(element),
-              eventType: "onTap"
+              eventType: 'onTap'
           );
         }
       } else if (widget is PopupMenuItem) {
         if (widget.enabled) {
           return UserInteractionProperties(
               element: element,
-              elementType: "PopupMenuItem",
+              elementType: 'PopupMenuItem',
               description: _getElementDescription(element),
-              eventType: "onTap"
+              eventType: 'onTap'
           );
         }
       } else if (widget is InkWell) {
         if (widget.onTap != null) {
           return UserInteractionProperties(
               element: element,
-              elementType: "InkWell",
+              elementType: 'InkWell',
               description: _getElementDescription(element),
-              eventType: "onTap"
+              eventType: 'onTap'
           );
         }
       } else if (widget is IconButton) {
         if (widget.onPressed != null) {
           return UserInteractionProperties(
               element: element,
-              elementType: "IconButton",
+              elementType: 'IconButton',
               description: _getElementDescription(element),
-              eventType: "onPressed"
+              eventType: 'onPressed'
           );
         }
       }

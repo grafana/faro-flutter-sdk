@@ -1,40 +1,40 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:uuid/uuid.dart';
 
-import '../../rum_flutter.dart';
+import 'package:rum_sdk/rum_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 
 class RumHttpOverrides extends HttpOverrides {
-  final HttpOverrides? existingOverrides;
 
   RumHttpOverrides(this.existingOverrides);
+  final HttpOverrides? existingOverrides;
 
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    var innerClient = existingOverrides?.createHttpClient(context) ??
+    final innerClient = existingOverrides?.createHttpClient(context) ??
         super.createHttpClient(context);
     return RumHttpTrackingClient(innerClient);
   }
 }
 
 class RumHttpTrackingClient implements HttpClient {
-  final HttpClient innerClient;
 
   RumHttpTrackingClient(
       this.innerClient,
       );
+  final HttpClient innerClient;
 
   @override
   Future<HttpClientRequest> open(
       String method, String host, int port, String path) {
-    const int hashMark = 0x23;
-    const int questionMark = 0x3f;
-    int fragmentStart = path.length;
-    int queryStart = path.length;
-    for (int i = path.length - 1; i >= 0; i--) {
-      var char = path.codeUnitAt(i);
+    const hashMark = 0x23;
+    const questionMark = 0x3f;
+    var fragmentStart = path.length;
+    var queryStart = path.length;
+    for (var i = path.length - 1; i >= 0; i--) {
+      final char = path.codeUnitAt(i);
       if (char == hashMark) {
         fragmentStart = i;
         queryStart = i;
@@ -47,7 +47,7 @@ class RumHttpTrackingClient implements HttpClient {
       query = path.substring(queryStart + 1, fragmentStart);
       path = path.substring(0, queryStart);
     }
-    Uri uri =
+    final uri =
     Uri(scheme: 'http', host: host, port: port, path: path, query: query);
     return _openUrl(method, uri);
   }
@@ -55,12 +55,12 @@ class RumHttpTrackingClient implements HttpClient {
   Future<HttpClientRequest> _openUrl(String method, Uri url) async {
 
     HttpClientRequest request;
-    Map<String, Object?> userAttributes = {};
+    final userAttributes = <String, Object?>{};
     try {
       request = await innerClient.openUrl(method, url);
       if(url.toString()!= RumFlutter().config?.collectorUrl) {
-        String key = const Uuid().v1();
-        RumFlutter().markEventStart(key, "http_request");
+        final key = const Uuid().v1();
+        RumFlutter().markEventStart(key, 'http_request');
         request = RumTrackingHttpClientRequest(key, request, userAttributes);
       }
     } catch (e) {
@@ -193,17 +193,16 @@ class RumHttpTrackingClient implements HttpClient {
 }
 
 class RumTrackingHttpClientRequest implements HttpClientRequest {
-  final HttpClientRequest innerContext;
-  final Map<String, Object?> userAttributes;
-  String key;
 
 
   RumTrackingHttpClientRequest(
       this.key,
       this.innerContext,
       this.userAttributes,
-      ) {
-  }
+      );
+  final HttpClientRequest innerContext;
+  final Map<String, Object?> userAttributes;
+  String key;
 
   @override
   Future<HttpClientResponse> get done {
@@ -220,12 +219,12 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
 
     return innerContext.close().then((value) {
       return RumTrackingHttpResponse(key,value,{
-        "response_size": "${value.headers.contentLength}",
-        "content_type": "${value.headers.contentType}",
-        "status_code": "${value.statusCode}",
-        "method": innerContext.method,
-        "request_size": "${innerContext.contentLength}",
-        "url": innerContext.uri.toString(),
+        'response_size': '${value.headers.contentLength}',
+        'content_type': '${value.headers.contentType}',
+        'status_code': '${value.statusCode}',
+        'method': innerContext.method,
+        'request_size': '${innerContext.contentLength}',
+        'url': innerContext.uri.toString(),
       });
     }, onError: (Object e, StackTrace? st) {
       throw e;
@@ -321,16 +320,16 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
 
 class RumTrackingHttpResponse extends Stream<List<int>>
     implements HttpClientResponse {
-  final HttpClientResponse innerResponse;
-  final Map<String, Object?> userAttributes;
-  Object? lastError;
-  String key;
 
   RumTrackingHttpResponse(
       this.key,
       this.innerResponse,
       this.userAttributes,
       );
+  final HttpClientResponse innerResponse;
+  final Map<String, Object?> userAttributes;
+  Object? lastError;
+  String key;
 
   @override
   StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
@@ -347,7 +346,7 @@ class RumTrackingHttpResponse extends Stream<List<int>>
         } else if (onError is void Function(Object)) {
           onError(e);
         } else {
-          RumFlutter().pushLog("network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}", level:"error");
+          RumFlutter().pushLog("network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}", level:'error');
         }
       },
       onDone: () {
@@ -360,7 +359,7 @@ class RumTrackingHttpResponse extends Stream<List<int>>
   }
 
   void _onFinish() {
-    RumFlutter().markEventEnd(key, "http_request", attributes: userAttributes);
+    RumFlutter().markEventEnd(key, 'http_request', attributes: userAttributes);
   }
 
   @override

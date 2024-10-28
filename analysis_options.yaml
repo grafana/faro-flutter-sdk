@@ -4,8 +4,6 @@ linter:
   rules:
     # Additional information about this file can be found at
     # https://dart.dev/guides/language/analysis-options
-    - prefer_final_parameters
-    - always_specify_types
     - avoid_types_on_closure_parameters
     - empty_statements
     - use_key_in_widget_constructors

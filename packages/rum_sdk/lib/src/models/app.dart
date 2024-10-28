@@ -1,7 +1,4 @@
 class App {
-  String? name;
-  String? version;
-  String? environment;
 
   App(this.name,  this.environment, this.version);
 
@@ -10,6 +7,9 @@ class App {
     version = json['version'];
     environment = json['environment'];
   }
+  String? name;
+  String? version;
+  String? environment;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

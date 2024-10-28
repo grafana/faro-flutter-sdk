@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:rum_sdk/rum_flutter.dart';
-import 'dart:async';
 import 'package:rum_sdk/rum_native_methods.dart';
 import 'package:rum_sdk/rum_sdk.dart';
 
@@ -34,7 +32,7 @@ void main() {
         cpuusage: true,
         anr: true,
         refreshrate: true,
-        setSendUsageInterval: Duration(seconds: 60),
+        setSendUsageInterval: const Duration(seconds: 60),
       );
 
       verify(() => mockNativeChannel.initRefreshRate()).called(1);
@@ -42,10 +40,10 @@ void main() {
 
     test('getWarmStart correctly pushes warm start measurement', () async {
       nativeIntegration.setWarmStart();
-      await Future.delayed(Duration(milliseconds: 10));
+      await Future.delayed(const Duration(milliseconds: 10));
       nativeIntegration.getWarmStart();
 
-      verify(() => mockRumFlutter.pushMeasurement(any(), "app_startup")).called(1);
+      verify(() => mockRumFlutter.pushMeasurement(any(), 'app_startup')).called(1);
     });
   });
 }

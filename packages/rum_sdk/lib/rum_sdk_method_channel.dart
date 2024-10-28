@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import 'rum_sdk_platform_interface.dart';
+import 'package:rum_sdk/rum_sdk_platform_interface.dart';
 
 /// An implementation of [RumSdkPlatform] that uses method channels.
 class MethodChannelRumSdk extends RumSdkPlatform {
@@ -40,11 +40,11 @@ class MethodChannelRumSdk extends RumSdkPlatform {
 
   @override
   Future<double?> getMemoryUsage() async {
-    return await methodChannel.invokeMethod<double?>('getMemoryUsage');
+    return methodChannel.invokeMethod<double?>('getMemoryUsage');
   }
   @override
   Future<double?> getCpuUsage() async {
-    return await methodChannel.invokeMethod<double?>('getCpuUsage');
+    return methodChannel.invokeMethod<double?>('getCpuUsage');
   }
 
   @override

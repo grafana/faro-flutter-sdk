@@ -1,9 +1,6 @@
-import 'integrations.dart';
+import 'package:rum_sdk/src/models/integrations.dart';
 
 class Sdk {
-  String name = "";
-  String version = "";
-  List<Integration> integrations = [];
 
   Sdk(this.name, this.version, this.integrations);
 
@@ -17,6 +14,9 @@ class Sdk {
       });
     }
   }
+  String name = '';
+  String version = '';
+  List<Integration> integrations = [];
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
