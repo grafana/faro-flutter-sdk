@@ -1,0 +1,63 @@
+name: Flutter checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test-packages:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package-path:
+          - rum_sdk
+          - offline_transport
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter version check
+        run: flutter --version
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.package-path }}
+        run: flutter pub get
+
+      - name: Check format
+        run: dart format --set-exit-if-changed .
+
+      - name: Analyze code
+        working-directory: ${{ matrix.package-path }}
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: ${{ matrix.package-path }}
+        run: flutter test --reporter failures-only
+
+  build-example-app:
+    runs-on: ubuntu-latest
+    needs: build-and-test-packages # Ensures packages are built before the example app
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: rum_sdk/example
+        run: flutter pub get
+
+      - name: Analyze code
+        working-directory: rum_sdk/example
+        run: flutter analyze
+
+      - name: Build example app
+        working-directory: rum_sdk/example
+        run: flutter build apk # Replace 'apk' with 'ios', 'web', etc., as needed
