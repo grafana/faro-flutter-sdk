@@ -1,0 +1,2 @@
+# The api-config file will contain your Faro secrets. Do not commit this file!
+example/api-config.json

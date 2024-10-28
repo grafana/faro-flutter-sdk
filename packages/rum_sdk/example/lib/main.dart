@@ -4,25 +4,27 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:offline_transport/offline_transport.dart';
 import 'package:rum_sdk/rum_sdk.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = RumHttpOverrides(HttpOverrides.current);
-  await dotenv.load(fileName: ".env");
+
+  const faroApiKey = String.fromEnvironment('FARO_API_KEY');
+  const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
+
   RumFlutter().transports.add(OfflineTransport(
       maxCacheDuration: const Duration(days: 3),
-      collectorUrl: dotenv.env['FARO_COLLECTOR_URL'] ?? ''));
+      collectorUrl: faroCollectorUrl));
   await RumFlutter().runApp(
       optionsConfiguration: RumConfig(
         appName: "example_app",
         appVersion: "2.0.1",
         appEnv: "Test",
-        apiKey: dotenv.env['FARO_API_KEY'] ?? '',
+        apiKey: faroApiKey,
         anrTracking: true,
         cpuUsageVitals: true,
-        collectorUrl: dotenv.env['FARO_COLLECTOR_URL'] ?? '',
+        collectorUrl: faroCollectorUrl,
         enableCrashReporting: true,
         memoryUsageVitals: true,
         refreshRateVitals: true,

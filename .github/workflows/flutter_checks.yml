@@ -30,6 +30,10 @@ jobs:
         working-directory: ${{ matrix.package-path }}
         run: flutter pub get
 
+      - name: Create api-config file (only for rum_sdk)
+        if: ${{ matrix.package-path == 'packages/rum_sdk' }}
+        run: scripts/create-api-config-file.sh
+
       - name: Check format
         run: dart format --set-exit-if-changed .
 
@@ -56,6 +60,10 @@ jobs:
       - name: Install dependencies
         working-directory: packages/rum_sdk/example
         run: flutter pub get
+
+      - name: Create api-config file (only for rum_sdk)
+        working-directory: packages/rum_sdk
+        run: scripts/create-api-config-file.sh
 
       - name: Analyze code
         working-directory: packages/rum_sdk/example

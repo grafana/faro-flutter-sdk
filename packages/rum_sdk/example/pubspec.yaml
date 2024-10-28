@@ -18,7 +18,6 @@ dependencies:
     path: ../
   offline_transport:
     path: ../../offline_transport
-  flutter_dotenv: ^5.1.0
   http: ^1.2.2
   #    path: ../../rum_dart
 
@@ -44,7 +43,6 @@ dev_dependencies:
 flutter:
   assets:
     - assets/
-    - .env
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
