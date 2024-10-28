@@ -15,19 +15,19 @@ class Payload {
     }
     if (json['measurements'] != null) {
       measurements = [];
-      json['measurements'].forEach((v) {
+      json['measurements'].forEach((dynamic v) {
         measurements.add(Measurement.fromJson(v));
       });
     }
     if (json['logs'] != null) {
       logs = [];
-      json['logs'].forEach((v) {
+      json['logs'].forEach((dynamic v) {
         logs.add(RumLog.fromJson(v));
       });
     }
     if (json['exceptions'] != null) {
       exceptions = [];
-      json['exceptions'].forEach((v) {
+      json['exceptions'].forEach((dynamic v) {
         exceptions.add(RumException.fromJson(v));
       });
     }

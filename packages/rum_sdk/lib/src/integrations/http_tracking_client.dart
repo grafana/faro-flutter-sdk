@@ -25,7 +25,11 @@ class RumHttpTrackingClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> open(
-      String method, String host, int port, String path) {
+    String method,
+    String host,
+    int port,
+    String path,
+  ) {
     const hashMark = 0x23;
     const questionMark = 0x3f;
     var fragmentStart = path.length;
@@ -40,12 +44,18 @@ class RumHttpTrackingClient implements HttpClient {
       }
     }
     String? query;
+    var parsedPath = path;
     if (queryStart < fragmentStart) {
       query = path.substring(queryStart + 1, fragmentStart);
-      path = path.substring(0, queryStart);
+      parsedPath = path.substring(0, queryStart);
     }
-    final uri =
-        Uri(scheme: 'http', host: host, port: port, path: path, query: query);
+    final uri = Uri(
+      scheme: 'http',
+      host: host,
+      port: port,
+      path: parsedPath,
+      query: query,
+    );
     return _openUrl(method, uri);
   }
 
@@ -73,7 +83,8 @@ class RumHttpTrackingClient implements HttpClient {
       innerClient.connectionFactory = f;
 
   @override
-  set keyLog(Function(String line)? callback) => innerClient.keyLog = callback;
+  set keyLog(void Function(String line)? callback) =>
+      innerClient.keyLog = callback;
 
   @override
   bool get autoUncompress => innerClient.autoUncompress;
@@ -203,8 +214,8 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
     final innerFuture = innerContext.done;
     return innerFuture.then((value) {
       return value;
-    }, onError: (Object e, StackTrace? st) {
-      throw e;
+    }, onError: (Object error, StackTrace? stackTrace) {
+      throw Exception('Error: $error, StackTrace: $stackTrace');
     });
   }
 
@@ -219,8 +230,8 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
         'request_size': '${innerContext.contentLength}',
         'url': innerContext.uri.toString(),
       });
-    }, onError: (Object e, StackTrace? st) {
-      throw e;
+    }, onError: (Object error, StackTrace? stackTrace) {
+      throw Exception('Error: $error, StackTrace: $stackTrace');
     });
   }
 
@@ -338,8 +349,10 @@ class RumTrackingHttpResponse extends Stream<List<int>>
           onError(e);
         } else {
           RumFlutter().pushLog(
-              "network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}",
-              level: 'error');
+            // ignore: lines_longer_than_80_chars
+            "network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}",
+            level: 'error',
+          );
         }
       },
       onDone: () {

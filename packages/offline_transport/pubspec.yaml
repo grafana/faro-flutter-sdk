@@ -9,17 +9,17 @@ environment:
   flutter: ">=1.17.0"
 
 dependencies:
+  connectivity_plus: ^6.0.3
   flutter:
     sdk: flutter
+  path_provider: ^2.1.3
   rum_sdk:
     path: ../rum_sdk
-  connectivity_plus: ^6.0.3
-  path_provider: ^2.1.3
 
 dev_dependencies:
+  flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

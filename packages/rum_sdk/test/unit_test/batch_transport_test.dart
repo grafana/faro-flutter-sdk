@@ -181,6 +181,7 @@ void main() {
     expect(batchTransportDisabled.batchConfig.payloadItemLimit, equals(1));
   });
   test(
+      // ignore: lines_longer_than_80_chars
       'addEvent should flush immediately if batchConfig is disabled and not wait for timeout',
       () async {
     when(() => mockBatchConfig.enabled).thenReturn(false);

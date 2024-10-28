@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:rum_sdk/rum_flutter.dart';
 
@@ -53,7 +52,6 @@ class NativeIntegration {
     }
   }
 
-  @visibleForTesting
   void _scheduleCalls(
       {bool memusage = false,
       bool cpuusage = false,

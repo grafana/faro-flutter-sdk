@@ -73,7 +73,7 @@ class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
 
   @override
-  _HomePageState createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
@@ -119,7 +119,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
           children: [
             ElevatedButton(
               onPressed: () async {
-                final response = await http.post(
+                await http.post(
                   Uri.parse('<mock_api_endpoint>'),
                   body: jsonEncode(<String, String>{
                     'title': "This is a title",
@@ -130,7 +130,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final response = await http.post(
+                await http.post(
                   Uri.parse('<mock_api_endpoint>'),
                   body: jsonEncode(<String, String>{
                     'title': "This is a title",
@@ -141,15 +141,13 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final response =
-                    await http.get(Uri.parse('<mock_api_endpoint>'));
+                await http.get(Uri.parse('<mock_api_endpoint>'));
               },
               child: const Text('HTTP GET Request - success'),
             ),
             ElevatedButton(
               onPressed: () async {
-                final response =
-                    await http.get(Uri.parse('<mock_api_endpoint>'));
+                await http.get(Uri.parse('<mock_api_endpoint>'));
               },
               child: const Text('HTTP GET Request - fail'),
             ),
@@ -162,7 +160,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ElevatedButton(
               onPressed: () {
                 RumFlutter()
-                    .pushMeasurement({'customvalue': 1}, "custom_measurement");
+                    .pushMeasurement({'custom_value': 1}, "custom_measurement");
               },
               child: const Text('Custom Measurement'),
             ),
@@ -183,7 +181,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  double a = 0 / 0;
+                  double _ = 0 / 0;
                   throw Exception("This is an Exception!");
                 });
               },
@@ -213,5 +211,5 @@ class FeaturesPage extends StatefulWidget {
   const FeaturesPage({Key? key}) : super(key: key);
 
   @override
-  _FeaturesPageState createState() => _FeaturesPageState();
+  State<FeaturesPage> createState() => _FeaturesPageState();
 }

@@ -79,6 +79,7 @@ class OfflineTransport extends BaseTransport {
 
   Future<void> readFromFile() async {
     final file = await _getCacheFile();
+    // ignore: avoid_slow_async_io
     if (!await file.exists()) {
       return;
     }
