@@ -5,10 +5,6 @@ on:
     branches:
       - main
 
-defaults:
-  run:
-    working-directory: packages/
-
 jobs:
   build-and-test-packages:
     runs-on: ubuntu-latest
@@ -17,8 +13,8 @@ jobs:
       fail-fast: true # Ensures that all matrix jobs are canceled if one fails
       matrix:
         package-path:
-          - rum_sdk
-          - offline_transport
+          - packages/rum_sdk
+          - packages/offline_transport
     steps:
       - uses: actions/checkout@v3
 
@@ -58,13 +54,13 @@ jobs:
           channel: stable
 
       - name: Install dependencies
-        working-directory: rum_sdk/example
+        working-directory: packages/rum_sdk/example
         run: flutter pub get
 
       - name: Analyze code
-        working-directory: rum_sdk/example
+        working-directory: packages/rum_sdk/example
         run: flutter analyze
 
       - name: Build example app
-        working-directory: rum_sdk/example
+        working-directory: packages/rum_sdk/example
         run: flutter build apk # Replace 'apk' with 'ios', 'web', etc., as needed
