@@ -5,9 +5,7 @@ import 'dart:io';
 import 'package:rum_sdk/rum_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-
 class RumHttpOverrides extends HttpOverrides {
-
   RumHttpOverrides(this.existingOverrides);
   final HttpOverrides? existingOverrides;
 
@@ -20,10 +18,9 @@ class RumHttpOverrides extends HttpOverrides {
 }
 
 class RumHttpTrackingClient implements HttpClient {
-
   RumHttpTrackingClient(
-      this.innerClient,
-      );
+    this.innerClient,
+  );
   final HttpClient innerClient;
 
   @override
@@ -48,17 +45,16 @@ class RumHttpTrackingClient implements HttpClient {
       path = path.substring(0, queryStart);
     }
     final uri =
-    Uri(scheme: 'http', host: host, port: port, path: path, query: query);
+        Uri(scheme: 'http', host: host, port: port, path: path, query: query);
     return _openUrl(method, uri);
   }
 
   Future<HttpClientRequest> _openUrl(String method, Uri url) async {
-
     HttpClientRequest request;
     final userAttributes = <String, Object?>{};
     try {
       request = await innerClient.openUrl(method, url);
-      if(url.toString()!= RumFlutter().config?.collectorUrl) {
+      if (url.toString() != RumFlutter().config?.collectorUrl) {
         final key = const Uuid().v1();
         RumFlutter().markEventStart(key, 'http_request');
         request = RumTrackingHttpClientRequest(key, request, userAttributes);
@@ -71,9 +67,9 @@ class RumHttpTrackingClient implements HttpClient {
 
   @override
   set connectionFactory(
-      Future<ConnectionTask<Socket>> Function(
-          Uri url, String? proxyHost, int? proxyPort)?
-      f) =>
+          Future<ConnectionTask<Socket>> Function(
+                  Uri url, String? proxyHost, int? proxyPort)?
+              f) =>
       innerClient.connectionFactory = f;
 
   @override
@@ -120,20 +116,20 @@ class RumHttpTrackingClient implements HttpClient {
 
   @override
   set authenticate(
-      Future<bool> Function(Uri url, String scheme, String? realm)? f) =>
+          Future<bool> Function(Uri url, String scheme, String? realm)? f) =>
       innerClient.authenticate = f;
 
   @override
   set authenticateProxy(
-      Future<bool> Function(
-          String host, int port, String scheme, String? realm)?
-      f) =>
+          Future<bool> Function(
+                  String host, int port, String scheme, String? realm)?
+              f) =>
       innerClient.authenticateProxy = f;
 
   @override
   set badCertificateCallback(
-      bool Function(X509Certificate cert, String host, int port)?
-      callback) =>
+          bool Function(X509Certificate cert, String host, int port)?
+              callback) =>
       innerClient.badCertificateCallback = callback;
 
   @override
@@ -193,13 +189,11 @@ class RumHttpTrackingClient implements HttpClient {
 }
 
 class RumTrackingHttpClientRequest implements HttpClientRequest {
-
-
   RumTrackingHttpClientRequest(
-      this.key,
-      this.innerContext,
-      this.userAttributes,
-      );
+    this.key,
+    this.innerContext,
+    this.userAttributes,
+  );
   final HttpClientRequest innerContext;
   final Map<String, Object?> userAttributes;
   String key;
@@ -216,9 +210,8 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
 
   @override
   Future<HttpClientResponse> close() {
-
     return innerContext.close().then((value) {
-      return RumTrackingHttpResponse(key,value,{
+      return RumTrackingHttpResponse(key, value, {
         'response_size': '${value.headers.contentLength}',
         'content_type': '${value.headers.contentType}',
         'status_code': '${value.statusCode}',
@@ -230,7 +223,6 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
       throw e;
     });
   }
-
 
   @override
   bool get bufferOutput => innerContext.bufferOutput;
@@ -320,12 +312,11 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
 
 class RumTrackingHttpResponse extends Stream<List<int>>
     implements HttpClientResponse {
-
   RumTrackingHttpResponse(
-      this.key,
-      this.innerResponse,
-      this.userAttributes,
-      );
+    this.key,
+    this.innerResponse,
+    this.userAttributes,
+  );
   final HttpClientResponse innerResponse;
   final Map<String, Object?> userAttributes;
   Object? lastError;
@@ -346,7 +337,9 @@ class RumTrackingHttpResponse extends Stream<List<int>>
         } else if (onError is void Function(Object)) {
           onError(e);
         } else {
-          RumFlutter().pushLog("network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}", level:'error');
+          RumFlutter().pushLog(
+              "network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}",
+              level: 'error');
         }
       },
       onDone: () {

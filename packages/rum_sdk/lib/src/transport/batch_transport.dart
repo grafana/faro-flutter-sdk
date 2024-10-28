@@ -47,7 +47,7 @@ class BatchTransport {
     payload.meta = meta;
   }
 
-  Future<void> flush(Map<String,dynamic> payload)  async {
+  Future<void> flush(Map<String, dynamic> payload) async {
     if (isPayloadEmpty()) {
       return;
     }
@@ -78,12 +78,10 @@ class BatchTransport {
   }
 
   int payloadSize() {
-        return 
-            payload.logs.length + 
-            payload.measurements.length + 
-            payload.events.length + 
-            payload.exceptions.length 
-        ;
+    return payload.logs.length +
+        payload.measurements.length +
+        payload.events.length +
+        payload.exceptions.length;
   }
 
   void resetPayload() {
