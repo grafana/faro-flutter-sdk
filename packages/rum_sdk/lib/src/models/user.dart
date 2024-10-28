@@ -1,5 +1,4 @@
 class User {
-
   User({this.id, this.username, this.email});
 
   User.fromJson(dynamic json) {
