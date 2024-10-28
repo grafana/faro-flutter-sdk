@@ -17,12 +17,10 @@ class TaskBuffer<T> {
       _bufferCount++;
       try {
         return await task();
-      }
-      catch (e) {
+      } catch (e) {
         log('Error executing task: $e');
         return Future.value();
-      }
-      finally {
+      } finally {
         _bufferCount--;
       }
     }

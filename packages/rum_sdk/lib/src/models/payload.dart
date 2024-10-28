@@ -1,7 +1,7 @@
 import 'package:rum_sdk/rum_sdk.dart';
 import 'package:rum_sdk/src/models/models.dart';
-class Payload {
 
+class Payload {
   Payload(this.meta) {
     events = [];
   }
@@ -9,7 +9,7 @@ class Payload {
   Payload.fromJson(dynamic json) {
     if (json['events'] != null) {
       events = [];
-      json['events'].forEach((v) {
+      json['events'].forEach((dynamic v) {
         events.add(Event.fromJson(v));
       });
     }
@@ -39,8 +39,6 @@ class Payload {
   List<RumException> exceptions = [];
   Meta? meta;
 
-
-
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
 
@@ -54,5 +52,4 @@ class Payload {
     }
     return map;
   }
-
 }

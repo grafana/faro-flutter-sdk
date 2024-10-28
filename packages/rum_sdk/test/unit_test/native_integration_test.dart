@@ -4,6 +4,7 @@ import 'package:rum_sdk/rum_native_methods.dart';
 import 'package:rum_sdk/rum_sdk.dart';
 
 class MockRumFlutter extends Mock implements RumFlutter {}
+
 class MockNativeChannel extends Mock implements RumNativeMethods {}
 
 void main() {
@@ -18,7 +19,8 @@ void main() {
     nativeIntegration = NativeIntegration();
 
     when(() => mockRumFlutter.nativeChannel).thenReturn(mockNativeChannel);
-    when(() => mockNativeChannel.getMemoryUsage()).thenAnswer((_) async => 50.0);
+    when(() => mockNativeChannel.getMemoryUsage())
+        .thenAnswer((_) async => 50.0);
     when(() => mockNativeChannel.initRefreshRate()).thenAnswer((_) async {});
 
     RumFlutter.instance = mockRumFlutter;
@@ -26,7 +28,6 @@ void main() {
 
   group('NativeIntegration', () {
     test('init initializes refresh rate and method channel', () async {
-
       nativeIntegration.init(
         memusage: true,
         cpuusage: true,
@@ -40,10 +41,11 @@ void main() {
 
     test('getWarmStart correctly pushes warm start measurement', () async {
       nativeIntegration.setWarmStart();
-      await Future.delayed(const Duration(milliseconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
       nativeIntegration.getWarmStart();
 
-      verify(() => mockRumFlutter.pushMeasurement(any(), 'app_startup')).called(1);
+      verify(() => mockRumFlutter.pushMeasurement(any(), 'app_startup'))
+          .called(1);
     });
   });
 }

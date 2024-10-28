@@ -15,26 +15,29 @@ class MethodChannelRumSdk extends RumSdkPlatform {
   }
 
   @override
-  Future<Map<String,dynamic>?> getAppStart() async {
-    final appStart = await methodChannel.invokeMapMethod<String,dynamic>('getAppStart');
+  Future<Map<String, dynamic>?> getAppStart() async {
+    final appStart =
+        await methodChannel.invokeMapMethod<String, dynamic>('getAppStart');
     return appStart;
   }
 
   @override
-  Future<Map<String,dynamic>?> getWarmStart() async {
-    final appStart = await methodChannel.invokeMapMethod<String,dynamic>('getWarmStart');
+  Future<Map<String, dynamic>?> getWarmStart() async {
+    final appStart =
+        await methodChannel.invokeMapMethod<String, dynamic>('getWarmStart');
     return appStart;
   }
+
   @override
   Future<List<String>?> getANRStatus() async {
     final anr = await methodChannel.invokeListMethod<String>('getANRStatus');
     return anr;
   }
 
-
   @override
   Future<double?> getRefreshRate() async {
-    final refreshRate = await methodChannel.invokeMethod<double?>('getRefreshRate');
+    final refreshRate =
+        await methodChannel.invokeMethod<double?>('getRefreshRate');
     return refreshRate;
   }
 
@@ -42,6 +45,7 @@ class MethodChannelRumSdk extends RumSdkPlatform {
   Future<double?> getMemoryUsage() async {
     return methodChannel.invokeMethod<double?>('getMemoryUsage');
   }
+
   @override
   Future<double?> getCpuUsage() async {
     return methodChannel.invokeMethod<double?>('getCpuUsage');
@@ -49,23 +53,25 @@ class MethodChannelRumSdk extends RumSdkPlatform {
 
   @override
   Future<String?> coldStart() async {
-    final coldstart = await methodChannel.invokeMethod<String>('coldStart');
-    return coldstart;
+    final coldStart = await methodChannel.invokeMethod<String>('coldStart');
+    return coldStart;
   }
 
   @override
   Future<String?> warmStart() async {
-    final warmstart = await methodChannel.invokeMethod<String>('warmStart');
-    return warmstart;
+    final warmStart = await methodChannel.invokeMethod<String>('warmStart');
+    return warmStart;
   }
 
-    @override
-  Future<void> enableCrashReporter(Map<String,dynamic> config) async {
-    await methodChannel.invokeMethod<void>('enableCrashReporter',config);
-  }
   @override
-  Future<List<String>?>  getCrashReport() async {
-    final crashInfo =  await methodChannel.invokeListMethod<String>('getCrashReport');
+  Future<void> enableCrashReporter(Map<String, dynamic> config) async {
+    await methodChannel.invokeMethod<void>('enableCrashReporter', config);
+  }
+
+  @override
+  Future<List<String>?> getCrashReport() async {
+    final crashInfo =
+        await methodChannel.invokeListMethod<String>('getCrashReport');
     return crashInfo;
   }
 }

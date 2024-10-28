@@ -7,7 +7,6 @@ import 'package:rum_sdk/src/models/user.dart';
 import 'package:rum_sdk/src/models/view_meta.dart';
 
 class Meta {
-
   Meta({
     this.session,
     this.sdk,
@@ -15,7 +14,7 @@ class Meta {
     this.view,
     this.browser,
     this.page,
-    this.user
+    this.user,
   });
 
   Meta.fromJson(dynamic json) {

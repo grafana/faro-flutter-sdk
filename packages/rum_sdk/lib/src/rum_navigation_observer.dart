@@ -3,7 +3,7 @@ import 'package:rum_sdk/rum_sdk.dart';
 
 class RumNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
   @override
-  void didPop(Route route, Route? previousRoute) {
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
     RumFlutter().setViewMeta(name: previousRoute?.settings.name);
     RumFlutter().pushEvent('view_changed', attributes: {
@@ -13,7 +13,7 @@ class RumNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
   }
 
   @override
-  void didPush(Route route, Route? previousRoute) {
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
     RumFlutter().setViewMeta(name: route.settings.name);
     RumFlutter().pushEvent('view_changed', attributes: {
@@ -23,7 +23,7 @@ class RumNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
   }
 
   @override
-  void didReplace({Route? newRoute, Route? oldRoute}) {
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
     RumFlutter().setViewMeta(name: newRoute?.settings.name);
     RumFlutter().pushEvent('view_changed', attributes: {

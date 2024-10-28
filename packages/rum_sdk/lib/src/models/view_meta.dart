@@ -1,5 +1,4 @@
 class ViewMeta {
-
   ViewMeta(this.name);
 
   ViewMeta.fromJson(dynamic json) {

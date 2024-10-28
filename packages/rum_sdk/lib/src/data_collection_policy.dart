@@ -1,7 +1,6 @@
 import 'dart:developer';
 
 class DataCollectionPolicy {
-
   factory DataCollectionPolicy() {
     return _instance;
   }

@@ -1,7 +1,6 @@
 import 'package:rum_sdk/src/models/integrations.dart';
 
 class Sdk {
-
   Sdk(this.name, this.version, this.integrations);
 
   Sdk.fromJson(dynamic json) {
@@ -9,7 +8,7 @@ class Sdk {
     version = json['version'];
     if (json['integrations'] != null) {
       integrations = [];
-      json['integrations'].forEach((v) {
+      json['integrations'].forEach((dynamic v) {
         integrations.add(Integration.fromJson(v));
       });
     }

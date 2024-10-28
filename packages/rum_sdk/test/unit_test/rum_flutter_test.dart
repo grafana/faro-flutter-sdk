@@ -32,7 +32,9 @@ void main() {
         buildSignature: 'buildSignature',
       );
 
-      registerFallbackValue(RumException('test', 'something', {'frames': []}));
+      registerFallbackValue(
+        RumException('test', 'something', {'frames': <Map<String, dynamic>>[]}),
+      );
       registerFallbackValue(Event('test', attributes: {'test': 'test'}));
       registerFallbackValue(RumLog('This is a message'));
       registerFallbackValue(Measurement({'test': 123}, 'test'));
@@ -125,12 +127,6 @@ void main() {
           type: errorType,
           value: flutterErrorDetails.exception.toString(),
           stacktrace: flutterErrorDetails.stack);
-      var parsedStackTrace = <String, dynamic>{};
-      if (flutterErrorDetails.stack != null) {
-        parsedStackTrace = {
-          'frames': RumException.stackTraceParse(flutterErrorDetails.stack!)
-        };
-      }
       verify(() => mockBatchTransport.addExceptions(any())).called(1);
     });
 

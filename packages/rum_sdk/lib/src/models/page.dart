@@ -1,5 +1,4 @@
 class Page {
-
   Page(this.url);
 
   Page.fromJson(dynamic json) {

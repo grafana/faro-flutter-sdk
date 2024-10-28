@@ -1,7 +1,6 @@
 import 'package:rum_sdk/rum_sdk.dart';
 
 class RumConfig {
-
   RumConfig({
     required this.appName,
     required this.appEnv,

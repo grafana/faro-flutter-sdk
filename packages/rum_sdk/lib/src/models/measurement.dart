@@ -1,7 +1,6 @@
 import 'package:intl/intl.dart';
 
 class Measurement {
-
   Measurement(this.values, this.type);
 
   Measurement.fromJson(dynamic json) {
@@ -11,8 +10,8 @@ class Measurement {
   }
   Map<String, dynamic>? values;
   String type = '';
-  String timestamp = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-      .format(DateTime.now().toUtc());
+  String timestamp =
+      DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(DateTime.now().toUtc());
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

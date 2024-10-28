@@ -1,5 +1,4 @@
 class Integration {
-
   Integration(this.name, this.version);
 
   Integration.fromJson(dynamic json) {

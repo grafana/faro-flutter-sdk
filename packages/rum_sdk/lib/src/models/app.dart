@@ -1,6 +1,5 @@
 class App {
-
-  App(this.name,  this.environment, this.version);
+  App(this.name, this.environment, this.version);
 
   App.fromJson(dynamic json) {
     name = json['name'];

@@ -6,9 +6,9 @@ import 'package:rum_sdk/rum_flutter.dart';
 Element? _clickTrackerElement;
 const _tapAreaSizeSquared = 20 * 20.0;
 
-
-class UserInteractionProperties{
-  UserInteractionProperties({this.element,this.elementType,this.description,this.eventType});
+class UserInteractionProperties {
+  UserInteractionProperties(
+      {this.element, this.elementType, this.description, this.eventType});
   Element? element;
   String? elementType;
   String? description;
@@ -23,10 +23,11 @@ class RumUserInteractionWidget extends StatefulWidget {
   StatefulElement createElement() {
     final element = super.createElement();
     _clickTrackerElement = element;
-   return element;
+    return element;
   }
 
   @override
+  // ignore: library_private_types_in_public_api
   _RumUserInteractionWidgetState createState() =>
       _RumUserInteractionWidgetState();
 }
@@ -65,7 +66,7 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
 
   void _onTapped(Offset localPosition, String tap) {
     final tappedElement = _findElementTapped(localPosition);
-    if(tappedElement !=null) {
+    if (tappedElement != null) {
       RumFlutter().pushEvent('user_interaction', attributes: {
         'element_type': tappedElement.elementType,
         'element_description': tappedElement.description,
@@ -92,25 +93,31 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
       var hitFound = true;
       final hitTest = BoxHitTestResult();
       if (renderObject is RenderPointerListener) {
+        // These are not used currently, but they were in the code.
+        // Do we want to use these? Let's think about it.
+        // ignore: unused_local_variable
         final widgetName = element.widget.toString();
+        // ignore: unused_local_variable
         final widgetKey = element.widget.key.toString();
+
         hitFound = renderObject.hitTest(hitTest, position: position);
       }
       final transform = renderObject.getTransformTo(rootElement.renderObject);
       final paintBounds =
-      MatrixUtils.transformRect(transform, renderObject.paintBounds);
+          MatrixUtils.transformRect(transform, renderObject.paintBounds);
 
       if (!paintBounds.contains(position)) {
         return;
       }
 
-      tappedWidget = _getWidgetfromElement(element);
+      tappedWidget = _getWidgetFromElement(element);
 
       if (tappedWidget == null || !hitFound) {
         tappedWidget = null;
         element.visitChildElements(elementFind);
       }
     }
+
     rootElement.visitChildElements(elementFind);
     return tappedWidget;
   }
@@ -144,77 +151,70 @@ class _RumUserInteractionWidgetState extends State<RumUserInteractionWidget> {
         element.visitChildren(descriptionFinder);
       }
     }
+
     descriptionFinder(element);
     return description;
   }
 
-  UserInteractionProperties? _getWidgetfromElement(Element element) {
-    final  widget = element.widget;
+  UserInteractionProperties? _getWidgetFromElement(Element element) {
+    final widget = element.widget;
     if (widget is ButtonStyleButton) {
       if (widget.enabled) {
         return UserInteractionProperties(
             element: element,
             elementType: 'ButtonStyleButton',
             description: _getElementDescription(element),
-            eventType: 'onClick'
-        );
+            eventType: 'onClick');
+      }
+    } else if (widget is MaterialButton) {
+      if (widget.enabled) {
+        return UserInteractionProperties(
+            element: element,
+            elementType: 'MaterialButton',
+            description: _getElementDescription(element),
+            eventType: 'onClick');
+      }
+    } else if (widget is CupertinoButton) {
+      if (widget.enabled) {
+        return UserInteractionProperties(
+            element: element,
+            elementType: 'CupertinoButton',
+            description: _getElementDescription(element),
+            eventType: 'onPressed');
+      }
+    } else if (widget is PopupMenuButton) {
+      if (widget.enabled) {
+        return UserInteractionProperties(
+            element: element,
+            elementType: 'PopupMenuButton',
+            description: _getElementDescription(element),
+            eventType: 'onTap');
+      }
+    } else if (widget is PopupMenuItem) {
+      if (widget.enabled) {
+        return UserInteractionProperties(
+            element: element,
+            elementType: 'PopupMenuItem',
+            description: _getElementDescription(element),
+            eventType: 'onTap');
+      }
+    } else if (widget is InkWell) {
+      if (widget.onTap != null) {
+        return UserInteractionProperties(
+            element: element,
+            elementType: 'InkWell',
+            description: _getElementDescription(element),
+            eventType: 'onTap');
+      }
+    } else if (widget is IconButton) {
+      if (widget.onPressed != null) {
+        return UserInteractionProperties(
+            element: element,
+            elementType: 'IconButton',
+            description: _getElementDescription(element),
+            eventType: 'onPressed');
       }
     }
-    else if (widget is MaterialButton) {
-        if (widget.enabled) {
-          return UserInteractionProperties(
-              element: element,
-              elementType: 'MaterialButton',
-              description: _getElementDescription(element),
-              eventType: 'onClick'
-          );
-        }
-      } else if (widget is CupertinoButton) {
-        if (widget.enabled) {
-          return UserInteractionProperties(
-              element: element,
-              elementType: 'CupertinoButton',
-              description: _getElementDescription(element),
-              eventType: 'onPressed'
-          );
-        }
-      } else if (widget is PopupMenuButton) {
-        if (widget.enabled) {
-          return UserInteractionProperties(
-              element: element,
-              elementType: 'PopupMenuButton',
-              description: _getElementDescription(element),
-              eventType: 'onTap'
-          );
-        }
-      } else if (widget is PopupMenuItem) {
-        if (widget.enabled) {
-          return UserInteractionProperties(
-              element: element,
-              elementType: 'PopupMenuItem',
-              description: _getElementDescription(element),
-              eventType: 'onTap'
-          );
-        }
-      } else if (widget is InkWell) {
-        if (widget.onTap != null) {
-          return UserInteractionProperties(
-              element: element,
-              elementType: 'InkWell',
-              description: _getElementDescription(element),
-              eventType: 'onTap'
-          );
-        }
-      } else if (widget is IconButton) {
-        if (widget.onPressed != null) {
-          return UserInteractionProperties(
-              element: element,
-              elementType: 'IconButton',
-              description: _getElementDescription(element),
-              eventType: 'onPressed'
-          );
-        }
-      }
-      return null;
-    }
+    return null;
   }
+}

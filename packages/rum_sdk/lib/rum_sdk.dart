@@ -1,6 +1,5 @@
 library;
 
-
 export './src/configurations/batch_config.dart';
 export './src/configurations/rum_config.dart';
 export './src/integrations/flutter_error_integration.dart';
@@ -18,4 +17,3 @@ export './src/transport/rum_transport.dart';
 export 'rum_flutter.dart';
 export 'rum_sdk_method_channel.dart';
 export 'rum_sdk_platform_interface.dart';
-

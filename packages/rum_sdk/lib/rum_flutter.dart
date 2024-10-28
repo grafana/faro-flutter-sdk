@@ -17,7 +17,6 @@ Timer? timer;
 typedef AppRunner = FutureOr<void> Function();
 
 class RumFlutter {
-
   factory RumFlutter() {
     return _instance;
   }
@@ -172,11 +171,12 @@ class RumFlutter {
     return null;
   }
 
-  Future<void>? pushError(
-      {required type,
-      required value,
-      StackTrace? stacktrace,
-      Map<String, String>? context}) {
+  Future<void>? pushError({
+    required String type,
+    required String value,
+    StackTrace? stacktrace,
+    Map<String, String>? context,
+  }) {
     var parsedStackTrace = <String, dynamic>{};
     if (stacktrace != null) {
       parsedStackTrace = {'frames': RumException.stackTraceParse(stacktrace)};

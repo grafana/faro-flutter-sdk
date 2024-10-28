@@ -1,5 +1,4 @@
 class Session {
-
   Session(this.id, {this.attributes});
 
   Session.fromJson(dynamic json) {

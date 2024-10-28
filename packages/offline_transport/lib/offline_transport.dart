@@ -15,9 +15,10 @@ class OfflineTransport extends BaseTransport {
   bool isOnline = true;
   Duration? _maxCacheDuration;
   String collectorUrl;
+
   @override
-  Future<void> send(Map<String,dynamic> data) async {
-    final payload = Payload.fromJson(data);
+  Future<void> send(Map<String, dynamic> payloadJson) async {
+    final payload = Payload.fromJson(payloadJson);
     if (!isOnline) {
       if (isPayloadEmpty(payload)) {
         return;
@@ -30,22 +31,23 @@ class OfflineTransport extends BaseTransport {
     final connectivityResult = await Connectivity().checkConnectivity();
     _handleConnectivity(connectivityResult);
   }
-    Future<void> _handleConnectivity(List<ConnectivityResult> connectivityResult) async {
+
+  Future<void> _handleConnectivity(
+      List<ConnectivityResult> connectivityResult) async {
     if (connectivityResult.firstOrNull == ConnectivityResult.none) {
-        isOnline = false;
+      isOnline = false;
     } else {
-        isOnline = await _isConnectedToInternet();
-     }
-     
-    if (isOnline) {
-        await readFromFile();
+      isOnline = await _isConnectedToInternet();
     }
-}
+
+    if (isOnline) {
+      await readFromFile();
+    }
+  }
+
   Future<void>? monitorConnectivity() {
-    Connectivity()
-        .onConnectivityChanged
-        .listen((result) async {
-          _handleConnectivity(result);
+    Connectivity().onConnectivityChanged.listen((result) async {
+      _handleConnectivity(result);
     });
     return null;
   }
@@ -115,12 +117,12 @@ class OfflineTransport extends BaseTransport {
         await sendCachedData(payload);
       }
     }
-
   }
 
   Future<File> _getCacheFile() async {
     final directory = await getApplicationDocumentsDirectory();
     final filepath = '${directory.path}/rum_log.json';
+    // ignore: avoid_slow_async_io
     if (!await File(filepath).exists()) {
       return File(filepath).create(recursive: true);
     }

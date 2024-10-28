@@ -1,5 +1,6 @@
-class Browser {
+// ignore_for_file: avoid_positional_boolean_parameters
 
+class Browser {
   Browser(this.name, this.version, this.os, this.userAgent, this.language,
       this.mobile);
 

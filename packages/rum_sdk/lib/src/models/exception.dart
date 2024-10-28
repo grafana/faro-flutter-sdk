@@ -26,7 +26,6 @@ class StackFrames {
 }
 
 class RumException {
-
   RumException(this.type, this.value, this.stacktrace, {this.context});
 
   RumException.fromJson(dynamic json) {
@@ -41,8 +40,8 @@ class RumException {
   Map<String, dynamic> stacktrace = {};
   String trace = '';
   Map<String, String>? context = {};
-  String timestamp = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-      .format(DateTime.now().toUtc());
+  String timestamp =
+      DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(DateTime.now().toUtc());
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
@@ -66,6 +65,7 @@ class RumException {
       final regExp = RegExp(pattern);
       final regExpMatch = regExp.firstMatch(sf[sf.length - 1]);
       final filename =
+          // ignore: lines_longer_than_80_chars
           "${regExpMatch?.namedGroup("module")}:${regExpMatch?.namedGroup("filename")}";
       final lineno = regExpMatch?.namedGroup('lineno');
       final colno = regExpMatch?.namedGroup('colno');
