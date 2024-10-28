@@ -15,7 +15,12 @@ jobs:
         package-path:
           - packages/rum_sdk
           - packages/offline_transport
-    name: build & test ${{ matrix.package-path }} # Custom name for each matrix run
+        include:
+          - name: rum_sdk
+            package-path: packages/rum_sdk
+          - name: offline_transport
+            package-path: packages/offline_transport
+    name: build & test ${{ matrix.name }} # Custom name for each matrix run
     steps:
       - uses: actions/checkout@v3
 
@@ -33,7 +38,8 @@ jobs:
 
       - name: Create api-config file (only for rum_sdk)
         if: ${{ matrix.package-path == 'packages/rum_sdk' }}
-        run: ${{ github.workspace }}/scripts/create-api-config-file.sh
+        working-directory: ${{ matrix.package-path }}
+        run: scripts/create-api-config-file.sh
 
       - name: Check format
         run: dart format --set-exit-if-changed .
