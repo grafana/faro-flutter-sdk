@@ -5,10 +5,16 @@ on:
     branches:
       - main
 
+defaults:
+  run:
+    working-directory: packages/
+
 jobs:
   build-and-test-packages:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
+      fail-fast: true # Ensures that all matrix jobs are canceled if one fails
       matrix:
         package-path:
           - rum_sdk
@@ -42,6 +48,7 @@ jobs:
   build-example-app:
     runs-on: ubuntu-latest
     needs: build-and-test-packages # Ensures packages are built before the example app
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v3
 
