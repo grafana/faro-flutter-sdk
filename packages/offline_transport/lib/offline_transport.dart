@@ -1,23 +1,23 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:rum_sdk/rum_sdk.dart';
-import 'dart:io';
 
 class OfflineTransport extends BaseTransport {
-  bool isOnline = true;
-  Duration? _maxCacheDuration;
-  String collectorUrl;
   OfflineTransport({Duration? maxCacheDuration, required this.collectorUrl}) {
     _maxCacheDuration = maxCacheDuration;
     checkConnectivity();
     monitorConnectivity();
   }
+  bool isOnline = true;
+  Duration? _maxCacheDuration;
+  String collectorUrl;
   @override
   Future<void> send(Map<String,dynamic> data) async {
-    Payload payload = Payload.fromJson(data);
+    final payload = Payload.fromJson(data);
     if (!isOnline) {
       if (isPayloadEmpty(payload)) {
         return;
@@ -27,7 +27,7 @@ class OfflineTransport extends BaseTransport {
   }
 
   Future<void> checkConnectivity() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
+    final connectivityResult = await Connectivity().checkConnectivity();
     _handleConnectivity(connectivityResult);
   }
     Future<void> _handleConnectivity(List<ConnectivityResult> connectivityResult) async {
@@ -44,7 +44,7 @@ class OfflineTransport extends BaseTransport {
   Future<void>? monitorConnectivity() {
     Connectivity()
         .onConnectivityChanged
-        .listen((List<ConnectivityResult> result) async {
+        .listen((result) async {
           _handleConnectivity(result);
     });
     return null;
@@ -60,19 +60,19 @@ class OfflineTransport extends BaseTransport {
   }
 
   bool isPayloadEmpty(Payload payload) {
-    return (payload.events.isEmpty &&
+    return payload.events.isEmpty &&
         payload.measurements.isEmpty &&
         payload.logs.isEmpty &&
-        payload.exceptions.isEmpty);
+        payload.exceptions.isEmpty;
   }
 
   Future<void> writeToFile(Payload payload) async {
     final file = await _getCacheFile();
-    var logJson = {
-      "timestamp": DateTime.now().millisecondsSinceEpoch,
-      "payload": payload.toJson()
+    final logJson = {
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'payload': payload.toJson()
     };
-    await file.writeAsString(jsonEncode(logJson) + '\n', mode: FileMode.append);
+    await file.writeAsString('${jsonEncode(logJson)}\n', mode: FileMode.append);
   }
 
   Future<void> readFromFile() async {
@@ -84,22 +84,22 @@ class OfflineTransport extends BaseTransport {
       return;
     }
 
-    final Stream<String> lines = file
+    final lines = file
         .openRead()
         .transform(utf8.decoder) // Decode bytes to UTF-8.
         .transform(const LineSplitter()); // Convert stream to individual lines.
 
     final currentTime = DateTime.now().millisecondsSinceEpoch;
 
-    await for (var line in lines) {
+    await for (final line in lines) {
       if (line.trim().isEmpty) continue;
 
       int? timestamp;
       Payload? payload;
       try {
         final logJson = jsonDecode(line);
-        timestamp = logJson["timestamp"];
-        payload = Payload.fromJson(logJson["payload"]);
+        timestamp = logJson['timestamp'];
+        payload = Payload.fromJson(logJson['payload']);
       } catch (error) {
         log('Failed to parse log: $line\nWith error: $error');
       }
@@ -132,7 +132,7 @@ class OfflineTransport extends BaseTransport {
   }
 
   Future<void> sendCachedData(Payload payload) async {
-    for (var transport in RumFlutter().transports) {
+    for (final transport in RumFlutter().transports) {
       if (this != transport) {
         transport.send(payload.toJson());
       }
