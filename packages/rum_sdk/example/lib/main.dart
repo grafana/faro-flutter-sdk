@@ -11,9 +11,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = RumHttpOverrides(HttpOverrides.current);
   await dotenv.load(fileName: ".env");
-  RumFlutter()
-      .transports
-      .add(OfflineTransport(maxCacheDuration: const Duration(days: 3), collectorUrl: dotenv.env['FARO_COLLECTOR_URL'] ?? ''));
+  RumFlutter().transports.add(OfflineTransport(
+      maxCacheDuration: const Duration(days: 3),
+      collectorUrl: dotenv.env['FARO_COLLECTOR_URL'] ?? ''));
   await RumFlutter().runApp(
       optionsConfiguration: RumConfig(
         appName: "example_app",
@@ -141,8 +141,8 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final response = await http
-                    .get(Uri.parse('<mock_api_endpoint>'));
+                final response =
+                    await http.get(Uri.parse('<mock_api_endpoint>'));
               },
               child: const Text('HTTP GET Request - success'),
             ),
