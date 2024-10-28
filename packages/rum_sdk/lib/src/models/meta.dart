@@ -1,20 +1,12 @@
-import 'session.dart';
-import 'sdk.dart';
-import 'app.dart';
-import 'view_meta.dart';
-import 'browser.dart';
-import 'user.dart';
-import 'page.dart';
+import 'package:rum_sdk/src/models/app.dart';
+import 'package:rum_sdk/src/models/browser.dart';
+import 'package:rum_sdk/src/models/page.dart';
+import 'package:rum_sdk/src/models/sdk.dart';
+import 'package:rum_sdk/src/models/session.dart';
+import 'package:rum_sdk/src/models/user.dart';
+import 'package:rum_sdk/src/models/view_meta.dart';
 
 class Meta {
-  Session? session;
-  Sdk? sdk;
-  App? app;
-  ViewMeta? view;
-  Browser? browser;
-  Page? page;
-  User? user;
-
   Meta({
     this.session,
     this.sdk,
@@ -22,7 +14,7 @@ class Meta {
     this.view,
     this.browser,
     this.page,
-    this.user
+    this.user,
   });
 
   Meta.fromJson(dynamic json) {
@@ -36,6 +28,13 @@ class Meta {
     page = json['page'] != null ? Page.fromJson(json['page']) : null;
     user = json['user'] != null ? User.fromJson(json['user']) : null;
   }
+  Session? session;
+  Sdk? sdk;
+  App? app;
+  ViewMeta? view;
+  Browser? browser;
+  Page? page;
+  User? user;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

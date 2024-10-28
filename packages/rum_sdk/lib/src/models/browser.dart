@@ -1,11 +1,6 @@
-class Browser {
-  String name = "";
-  String version = "";
-  String os = "";
-  String userAgent = "";
-  String language = "";
-  bool mobile = false;
+// ignore_for_file: avoid_positional_boolean_parameters
 
+class Browser {
   Browser(this.name, this.version, this.os, this.userAgent, this.language,
       this.mobile);
 
@@ -17,6 +12,12 @@ class Browser {
     language = json['language'];
     mobile = json['mobile'];
   }
+  String name = '';
+  String version = '';
+  String os = '';
+  String userAgent = '';
+  String language = '';
+  bool mobile = false;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

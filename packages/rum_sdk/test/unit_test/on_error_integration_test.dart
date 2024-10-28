@@ -1,13 +1,13 @@
-import 'package:mocktail/mocktail.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'dart:ui';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 class MockPlatformDispatcher extends Mock implements PlatformDispatcher {}
 
 class OnErrorIntegration {
-  final PlatformDispatcher platformDispatcher;
-
   OnErrorIntegration({required this.platformDispatcher});
+  final PlatformDispatcher platformDispatcher;
 
   bool isOnErrorSupported() {
     try {
@@ -25,7 +25,8 @@ void main() {
 
   setUp(() {
     mockPlatformDispatcher = MockPlatformDispatcher();
-    onErrorIntegration = OnErrorIntegration(platformDispatcher: mockPlatformDispatcher);
+    onErrorIntegration =
+        OnErrorIntegration(platformDispatcher: mockPlatformDispatcher);
   });
 
   test('call method sets up error integration correctly', () {
@@ -37,7 +38,8 @@ void main() {
   });
 
   test('isOnErrorSupported returns false when onError is not supported', () {
-    when(() => mockPlatformDispatcher.onError).thenThrow(NoSuchMethodError.withInvocation(
+    when(() => mockPlatformDispatcher.onError)
+        .thenThrow(NoSuchMethodError.withInvocation(
       mockPlatformDispatcher,
       Invocation.getter(#onError),
     ));

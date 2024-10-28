@@ -1,13 +1,12 @@
 import 'dart:developer';
 
 class DataCollectionPolicy {
-  static final DataCollectionPolicy _instance = DataCollectionPolicy._();
-
-  DataCollectionPolicy._();
-
   factory DataCollectionPolicy() {
     return _instance;
   }
+
+  DataCollectionPolicy._();
+  static final DataCollectionPolicy _instance = DataCollectionPolicy._();
 
   bool _isEnabled = true;
   bool get isEnabled => _isEnabled;

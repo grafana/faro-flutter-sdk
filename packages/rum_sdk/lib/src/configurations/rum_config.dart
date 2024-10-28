@@ -1,23 +1,6 @@
 import 'package:rum_sdk/rum_sdk.dart';
 
-import './batch_config.dart';
 class RumConfig {
-  final String appName;
-  final String appEnv;
-  final String apiKey;
-  final String? appVersion;
-  final String? collectorUrl;
-  final List<RUMTransport>? transports;
-  final bool memoryUsageVitals;
-  final bool cpuUsageVitals;
-  final bool anrTracking;
-  final bool enableCrashReporting;
-  final bool refreshRateVitals;
-  final BatchConfig batchConfig;
-  final int maxBufferLimit;
-  final Duration? fetchVitalsInterval;
-  final List<RegExp>? ignoreUrls;
-
   RumConfig({
     required this.appName,
     required this.appEnv,
@@ -38,7 +21,22 @@ class RumConfig {
         assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
         assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
         assert(maxBufferLimit > 0, 'maxBufferLimit must be greater than 0'),
-        this.batchConfig = batchConfig ?? BatchConfig();
+        batchConfig = batchConfig ?? BatchConfig();
+  final String appName;
+  final String appEnv;
+  final String apiKey;
+  final String? appVersion;
+  final String? collectorUrl;
+  final List<RUMTransport>? transports;
+  final bool memoryUsageVitals;
+  final bool cpuUsageVitals;
+  final bool anrTracking;
+  final bool enableCrashReporting;
+  final bool refreshRateVitals;
+  final BatchConfig batchConfig;
+  final int maxBufferLimit;
+  final Duration? fetchVitalsInterval;
+  final List<RegExp>? ignoreUrls;
 
 // Other methods or properties of RumConfig can be added here
 }

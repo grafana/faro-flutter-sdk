@@ -1,18 +1,13 @@
 import 'dart:async';
 import 'package:rum_sdk/rum_sdk.dart';
-import 'package:rum_sdk/src/transport/rum_base_transport.dart';
 
 class BatchTransport {
-  Payload payload;
-  BatchConfig batchConfig;
-  List<BaseTransport> transports;
-  Timer? flushTimer;
   BatchTransport(
       {required this.payload,
       required this.batchConfig,
       required this.transports}) {
     if (batchConfig.enabled) {
-      Timer.periodic(batchConfig.sendTimeout, (Timer t) {
+      Timer.periodic(batchConfig.sendTimeout, (t) {
         flushTimer = t;
         flush(payload.toJson());
         resetPayload();
@@ -21,6 +16,10 @@ class BatchTransport {
       batchConfig.payloadItemLimit = 1;
     }
   }
+  Payload payload;
+  BatchConfig batchConfig;
+  List<BaseTransport> transports;
+  Timer? flushTimer;
 
   Future<void> addEvent(Event event) async {
     payload.events.add(event);
@@ -48,13 +47,13 @@ class BatchTransport {
     payload.meta = meta;
   }
 
-  Future<void> flush(Map<String,dynamic> payload)  async {
+  Future<void> flush(Map<String, dynamic> payload) async {
     if (isPayloadEmpty()) {
       return;
     }
     if (transports.isNotEmpty) {
       final currentTransports = transports;
-      for (var transport in currentTransports) {
+      for (final transport in currentTransports) {
         await transport.send(payload);
       }
     }
@@ -72,19 +71,17 @@ class BatchTransport {
   }
 
   bool isPayloadEmpty() {
-    return (payload.events.isEmpty &&
+    return payload.events.isEmpty &&
         payload.measurements.isEmpty &&
         payload.logs.isEmpty &&
-        payload.exceptions.isEmpty);
+        payload.exceptions.isEmpty;
   }
 
   int payloadSize() {
-        return (
-            payload.logs.length + 
-            payload.measurements.length + 
-            payload.events.length + 
-            payload.exceptions.length 
-        );
+    return payload.logs.length +
+        payload.measurements.length +
+        payload.events.length +
+        payload.exceptions.length;
   }
 
   void resetPayload() {

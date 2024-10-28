@@ -1,0 +1,87 @@
+name: Flutter checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test-packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true # Ensures that all matrix jobs are canceled if one fails
+      matrix:
+        package-path:
+          - packages/rum_sdk
+          - packages/offline_transport
+        include:
+          - name: rum_sdk
+            package-path: packages/rum_sdk
+          - name: offline_transport
+            package-path: packages/offline_transport
+    name: build & test ${{ matrix.name }} # Custom name for each matrix run
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter version check
+        run: flutter --version
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.package-path }}
+        run: flutter pub get
+
+      - name: Create api-config file (only for rum_sdk)
+        if: ${{ matrix.package-path == 'packages/rum_sdk' }}
+        working-directory: ${{ matrix.package-path }}
+        run: scripts/create-api-config-file.sh
+
+      - name: Check format
+        run: dart format --set-exit-if-changed .
+
+      - name: Analyze code
+        working-directory: ${{ matrix.package-path }}
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: ${{ matrix.package-path }}
+        run: flutter test --reporter failures-only
+
+  build-example-app:
+    name: build Example app
+    runs-on: ubuntu-latest
+    needs: build-and-test-packages # Ensures packages are built before the example app
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: packages/rum_sdk/example
+        run: flutter pub get
+
+      - name: Create api-config file (only for rum_sdk)
+        working-directory: packages/rum_sdk
+        run: scripts/create-api-config-file.sh
+
+      - name: Analyze code
+        working-directory: packages/rum_sdk/example
+        run: flutter analyze
+
+      - name: Build example app
+        working-directory: packages/rum_sdk/example
+        run: flutter build apk # Replace 'apk' with 'ios', 'web', etc., as needed

@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run example app",
+      "type": "dart",
+      "request": "launch",
+      "flutterMode": "debug",
+      "cwd": "${workspaceFolder}/packages/rum_sdk/example/",
+      "args": [
+        "-t",
+        "lib/main.dart",
+        "--dart-define-from-file",
+        "api-config.json"
+      ]
+    }
+  ]
+}

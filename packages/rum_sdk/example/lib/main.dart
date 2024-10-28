@@ -4,25 +4,27 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:offline_transport/offline_transport.dart';
 import 'package:rum_sdk/rum_sdk.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = RumHttpOverrides(HttpOverrides.current);
-  await dotenv.load(fileName: ".env");
-  RumFlutter()
-      .transports
-      .add(OfflineTransport(maxCacheDuration: const Duration(days: 3), collectorUrl: dotenv.env['FARO_COLLECTOR_URL'] ?? ''));
+
+  const faroApiKey = String.fromEnvironment('FARO_API_KEY');
+  const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
+
+  RumFlutter().transports.add(OfflineTransport(
+      maxCacheDuration: const Duration(days: 3),
+      collectorUrl: faroCollectorUrl));
   await RumFlutter().runApp(
       optionsConfiguration: RumConfig(
         appName: "example_app",
         appVersion: "2.0.1",
         appEnv: "Test",
-        apiKey: dotenv.env['FARO_API_KEY'] ?? '',
+        apiKey: faroApiKey,
         anrTracking: true,
         cpuUsageVitals: true,
-        collectorUrl: dotenv.env['FARO_COLLECTOR_URL'] ?? '',
+        collectorUrl: faroCollectorUrl,
         enableCrashReporting: true,
         memoryUsageVitals: true,
         refreshRateVitals: true,
@@ -73,7 +75,7 @@ class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
 
   @override
-  _HomePageState createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
@@ -119,7 +121,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
           children: [
             ElevatedButton(
               onPressed: () async {
-                final response = await http.post(
+                await http.post(
                   Uri.parse('<mock_api_endpoint>'),
                   body: jsonEncode(<String, String>{
                     'title': "This is a title",
@@ -130,7 +132,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final response = await http.post(
+                await http.post(
                   Uri.parse('<mock_api_endpoint>'),
                   body: jsonEncode(<String, String>{
                     'title': "This is a title",
@@ -141,15 +143,13 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final response = await http
-                    .get(Uri.parse('<mock_api_endpoint>'));
+                await http.get(Uri.parse('<mock_api_endpoint>'));
               },
               child: const Text('HTTP GET Request - success'),
             ),
             ElevatedButton(
               onPressed: () async {
-                final response =
-                    await http.get(Uri.parse('<mock_api_endpoint>'));
+                await http.get(Uri.parse('<mock_api_endpoint>'));
               },
               child: const Text('HTTP GET Request - fail'),
             ),
@@ -162,7 +162,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
             ElevatedButton(
               onPressed: () {
                 RumFlutter()
-                    .pushMeasurement({'customvalue': 1}, "custom_measurement");
+                    .pushMeasurement({'custom_value': 1}, "custom_measurement");
               },
               child: const Text('Custom Measurement'),
             ),
@@ -178,16 +178,16 @@ class _FeaturesPageState extends State<FeaturesPage> {
                   throw Error();
                 });
               },
-              child: Text('Error'),
+              child: const Text('Error'),
             ),
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  double a = 0 / 0;
+                  double _ = 0 / 0;
                   throw Exception("This is an Exception!");
                 });
               },
-              child: Text('Exception'),
+              child: const Text('Exception'),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -213,5 +213,5 @@ class FeaturesPage extends StatefulWidget {
   const FeaturesPage({Key? key}) : super(key: key);
 
   @override
-  _FeaturesPageState createState() => _FeaturesPageState();
+  State<FeaturesPage> createState() => _FeaturesPageState();
 }

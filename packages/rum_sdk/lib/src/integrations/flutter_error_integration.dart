@@ -8,10 +8,10 @@ class FlutterErrorIntegration {
 
   void call() {
     _defaultOnError = FlutterError.onError;
-    _onErrorIntegration = (FlutterErrorDetails details) async {
+    _onErrorIntegration = (details) async {
       if (details.stack != null) {
         RumFlutter().pushError(
-            type: "flutter_error",
+            type: 'flutter_error',
             value: details.exceptionAsString(),
             stacktrace: details.stack);
       }
