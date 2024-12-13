@@ -9,6 +9,8 @@ import 'package:rum_sdk/rum_native_methods.dart';
 import 'package:rum_sdk/rum_sdk.dart';
 import 'package:rum_sdk/src/data_collection_policy.dart';
 import 'package:rum_sdk/src/models/session_attributes.dart';
+import 'package:rum_sdk/src/models/span_record.dart';
+import 'package:rum_sdk/src/tracing/tracer_provider.dart';
 import 'package:rum_sdk/src/transport/batch_transport.dart';
 import 'package:rum_sdk/src/util/generate_session.dart';
 
@@ -156,19 +158,33 @@ class RumFlutter {
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
 
-  Future<void>? pushEvent(String name, {Map<String, String?>? attributes}) {
-    _batchTransport?.addEvent(Event(name, attributes: attributes));
+  Future<void>? pushEvent(
+    String name, {
+    Map<String, dynamic>? attributes,
+    Map<String, String>? trace,
+  }) {
+    _batchTransport?.addEvent(Event(
+      name,
+      attributes: attributes,
+      trace: trace,
+    ));
     return null;
   }
 
-  Future<void>? pushLog(String message,
-      {String? level,
-      Map<String, dynamic>? context,
-      Map<String, dynamic>? trace}) {
+  Future<void>? pushLog(
+    String message, {
+    String? level,
+    Map<String, dynamic>? context,
+    Map<String, String>? trace,
+  }) {
     _batchTransport?.addLog(
       RumLog(message, level: level, context: context, trace: trace),
     );
     return null;
+  }
+
+  Future<void> pushSpan(SpanRecord spanRecord) async {
+    _batchTransport?.addSpan(spanRecord);
   }
 
   Future<void>? pushError({
@@ -190,6 +206,10 @@ class RumFlutter {
   Future<void>? pushMeasurement(Map<String, dynamic>? values, String type) {
     _batchTransport?.addMeasurement(Measurement(values, type));
     return null;
+  }
+
+  Tracer getTracer() {
+    return DartOtelTracerProvider().getTracer();
   }
 
   void markEventStart(String key, String name) {

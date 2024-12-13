@@ -1,17 +1,19 @@
 import 'package:intl/intl.dart';
 
 class Event {
-  Event(this.name, {this.attributes});
+  Event(this.name, {this.attributes, this.trace});
 
   Event.fromJson(dynamic json) {
     name = json['name'];
     domain = json['domain'];
     attributes = json['attributes'];
     timestamp = json['timestamp'];
+    trace = json['trace'];
   }
   String name = '';
   String domain = 'flutter';
   Map<String, dynamic>? attributes = {};
+  Map<String, dynamic>? trace = {};
   String timestamp = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(
     DateTime.now().toUtc(),
   );
@@ -23,6 +25,7 @@ class Event {
     map['domain'] = domain;
     map['timestamp'] = timestamp;
     map['attributes'] = attributes;
+    map['trace'] = trace;
     return map;
   }
 }
