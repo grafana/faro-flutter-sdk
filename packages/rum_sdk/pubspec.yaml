@@ -9,9 +9,9 @@ environment:
 
 dependencies:
   device_info_plus: ^10.1.2
+  fixnum: ^1.1.1
   flutter:
     sdk: flutter
-  fixnum: ^1.1.1
   http: ^1.2.2
   intl: ^0.19.0
   opentelemetry: ^0.18.6
