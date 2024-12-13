@@ -29,6 +29,7 @@ void main() {
     when(() => mockPayload.measurements).thenReturn([]);
     when(() => mockPayload.logs).thenReturn([]);
     when(() => mockPayload.exceptions).thenReturn([]);
+    when(() => mockPayload.traces).thenReturn(Traces());
     when(() => mockPayload.toJson()).thenReturn({});
     when(() => mockBaseTransport.send(any())).thenAnswer((_) async {});
 

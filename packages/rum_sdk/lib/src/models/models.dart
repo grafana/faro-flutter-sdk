@@ -12,3 +12,4 @@ export './sdk.dart';
 export './session.dart';
 export './user.dart';
 export './view_meta.dart';
+export 'trace/trace.dart';

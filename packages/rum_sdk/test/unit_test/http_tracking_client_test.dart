@@ -20,14 +20,20 @@ void main() {
   group('RumHttpTrackingClient', () {
     late MockHttpClient mockHttpClient;
     late RumHttpTrackingClient rumHttpTrackingClient;
+    late MockHttpClientRequest mockHttpClientRequest;
+    late MockHttpHeaders mockHttpHeaders;
 
     setUp(() {
       mockHttpClient = MockHttpClient();
+      mockHttpClientRequest = MockHttpClientRequest();
+      mockHttpHeaders = MockHttpHeaders();
+
+      when(() => mockHttpClientRequest.method).thenReturn('GET');
+      when(() => mockHttpClientRequest.headers).thenReturn(mockHttpHeaders);
       rumHttpTrackingClient = RumHttpTrackingClient(mockHttpClient);
     });
 
     test('openUrl should call innerClient.openUrl', () async {
-      final mockHttpClientRequest = MockHttpClientRequest();
       final url = Uri.parse('http://example.com/path');
 
       when(() => mockHttpClient.openUrl('GET', url))
@@ -53,6 +59,8 @@ void main() {
 
       when(() => mockHttpHeaders.contentLength).thenReturn(100);
       when(() => mockHttpHeaders.contentType).thenReturn(null);
+      when(() => mockHttpClientRequest.method).thenReturn('GET');
+      when(() => mockHttpClientRequest.headers).thenReturn(mockHttpHeaders);
 
       userAttributes = {
         'method': 'GET',

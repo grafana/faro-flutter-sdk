@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:rum_sdk/rum_sdk.dart';
+import 'package:rum_sdk/src/models/span_record.dart';
 
 class BatchTransport {
   BatchTransport(
@@ -33,6 +34,11 @@ class BatchTransport {
 
   Future<void> addLog(RumLog rumLog) async {
     payload.logs.add(rumLog);
+    checkPayloadItemLimit();
+  }
+
+  Future<void> addSpan(SpanRecord spanRecord) async {
+    payload.traces.addSpan(spanRecord);
     checkPayloadItemLimit();
   }
 
@@ -74,14 +80,16 @@ class BatchTransport {
     return payload.events.isEmpty &&
         payload.measurements.isEmpty &&
         payload.logs.isEmpty &&
-        payload.exceptions.isEmpty;
+        payload.exceptions.isEmpty &&
+        payload.traces.hasNoTraces();
   }
 
   int payloadSize() {
     return payload.logs.length +
         payload.measurements.length +
         payload.events.length +
-        payload.exceptions.length;
+        payload.exceptions.length +
+        payload.traces.numberSpans();
   }
 
   void resetPayload() {
@@ -89,5 +97,6 @@ class BatchTransport {
     payload.measurements = [];
     payload.logs = [];
     payload.exceptions = [];
+    payload.traces.resetSpans();
   }
 }

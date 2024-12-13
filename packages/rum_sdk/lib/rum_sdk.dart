@@ -12,6 +12,8 @@ export './src/rum_asset_bundle.dart';
 export './src/rum_navigation_observer.dart';
 export './src/rum_user_interaction_widget.dart';
 export './src/rum_widgets_binding_observer.dart';
+export './src/tracing/span.dart';
+export './src/tracing/tracer.dart';
 export './src/transport/rum_base_transport.dart';
 export './src/transport/rum_transport.dart';
 export 'rum_flutter.dart';

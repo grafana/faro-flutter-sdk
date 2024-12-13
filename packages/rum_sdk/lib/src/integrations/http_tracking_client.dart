@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:rum_sdk/rum_flutter.dart';
+import 'package:rum_sdk/src/tracing/span.dart';
 import 'package:uuid/uuid.dart';
 
 class RumHttpOverrides extends HttpOverrides {
@@ -204,10 +205,19 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
     this.key,
     this.innerContext,
     this.userAttributes,
-  );
+  ) {
+    _httpSpan =
+        RumFlutter().getTracer().startSpan('HTTP_${innerContext.method}');
+    if (_httpSpan is InternalSpan) {
+      innerContext.headers
+          .add('traceparent', (_httpSpan as InternalSpan).toHttpTraceparent());
+    }
+  }
+
   final HttpClientRequest innerContext;
   final Map<String, Object?> userAttributes;
   String key;
+  late final Span _httpSpan;
 
   @override
   Future<HttpClientResponse> get done {
@@ -222,6 +232,11 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
   @override
   Future<HttpClientResponse> close() {
     return innerContext.close().then((value) {
+      final traceId = _httpSpan.traceId;
+      final spanId = _httpSpan.spanId;
+
+      _httpSpan.setStatus(SpanStatusCode.ok);
+      _httpSpan.end();
       return RumTrackingHttpResponse(key, value, {
         'response_size': '${value.headers.contentLength}',
         'content_type': '${value.headers.contentType}',
@@ -229,8 +244,12 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
         'method': innerContext.method,
         'request_size': '${innerContext.contentLength}',
         'url': innerContext.uri.toString(),
+        'trace_id': traceId,
+        'span_id': spanId,
       });
     }, onError: (Object error, StackTrace? stackTrace) {
+      _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
+      _httpSpan.end();
       throw Exception('Error: $error, StackTrace: $stackTrace');
     });
   }
@@ -262,6 +281,7 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
 
   @override
   bool get persistentConnection => innerContext.persistentConnection;
+
   @override
   set persistentConnection(bool value) =>
       innerContext.persistentConnection = value;

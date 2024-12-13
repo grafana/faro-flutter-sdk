@@ -31,21 +31,40 @@ class Payload {
         exceptions.add(RumException.fromJson(v));
       });
     }
+    if (json['traces'] != null) {
+      traces = Traces.fromJson(json['traces']);
+    }
     meta = json['meta'] != null ? Meta.fromJson(json['meta']) : null;
   }
   List<Event> events = [];
   List<Measurement> measurements = [];
   List<RumLog> logs = [];
   List<RumException> exceptions = [];
+  Traces traces = Traces();
   Meta? meta;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
 
-    map['events'] = events.map((v) => v.toJson()).toList();
-    map['measurements'] = measurements.map((v) => v.toJson()).toList();
-    map['logs'] = logs.map((v) => v.toJson()).toList();
-    map['exceptions'] = exceptions.map((v) => v.toJson()).toList();
+    if (events.isNotEmpty) {
+      map['events'] = events.map((v) => v.toJson()).toList();
+    }
+
+    if (measurements.isNotEmpty) {
+      map['measurements'] = measurements.map((v) => v.toJson()).toList();
+    }
+
+    if (logs.isNotEmpty) {
+      map['logs'] = logs.map((v) => v.toJson()).toList();
+    }
+
+    if (exceptions.isNotEmpty) {
+      map['exceptions'] = exceptions.map((v) => v.toJson()).toList();
+    }
+
+    if (traces.hasTraces()) {
+      map['traces'] = traces.toJson();
+    }
 
     if (meta != null) {
       map['meta'] = meta!.toJson();
