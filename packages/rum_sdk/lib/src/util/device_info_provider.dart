@@ -1,14 +1,17 @@
-import 'dart:io';
-
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rum_sdk/src/models/device_info.dart';
+import 'package:rum_sdk/src/util/platform_info_provider.dart';
 
 class DeviceInfoProvider {
   DeviceInfoProvider({
     required DeviceInfoPlugin deviceInfoPlugin,
-  }) : _deviceInfoPlugin = deviceInfoPlugin;
+    required PlatformInfoProvider platformInfoProvider,
+  })  : _deviceInfoPlugin = deviceInfoPlugin,
+        _platformInfoProvider = platformInfoProvider;
 
   final DeviceInfoPlugin _deviceInfoPlugin;
+  final PlatformInfoProvider _platformInfoProvider;
+
   DeviceInfo? _deviceInfo;
 
   Future<DeviceInfo> getDeviceInfo() async {
@@ -16,16 +19,16 @@ class DeviceInfoProvider {
       return _deviceInfo!;
     }
 
-    final dartVersion = Platform.version;
-    var deviceOs = Platform.operatingSystem;
-    var deviceOsVersion = Platform.operatingSystemVersion;
+    final dartVersion = _platformInfoProvider.dartVersion;
+    var deviceOs = _platformInfoProvider.operatingSystem;
+    var deviceOsVersion = _platformInfoProvider.operatingSystemVersion;
     var deviceOsDetail = 'unknown';
     var deviceManufacturer = 'unknown';
     var deviceModel = 'unknown';
     var deviceBrand = 'unknown';
     var deviceIsPhysical = true;
 
-    if (Platform.isAndroid) {
+    if (_platformInfoProvider.isAndroid) {
       final androidInfo = await _deviceInfoPlugin.androidInfo;
       final release = androidInfo.version.release;
       final sdkInt = androidInfo.version.sdkInt;
@@ -39,7 +42,7 @@ class DeviceInfoProvider {
       deviceIsPhysical = androidInfo.isPhysicalDevice;
     }
 
-    if (Platform.isIOS) {
+    if (_platformInfoProvider.isIOS) {
       final iosInfo = await _deviceInfoPlugin.iosInfo;
       deviceOs = iosInfo.systemName;
       deviceOsVersion = iosInfo.systemVersion;
@@ -58,7 +61,7 @@ class DeviceInfoProvider {
       deviceManufacturer: deviceManufacturer,
       deviceModel: deviceModel,
       deviceBrand: deviceBrand,
-      deviceIsPhysical: '$deviceIsPhysical',
+      deviceIsPhysical: deviceIsPhysical,
     );
     _deviceInfo = deviceInfo;
     return deviceInfo;
@@ -66,7 +69,10 @@ class DeviceInfoProvider {
 }
 
 class DeviceInfoProviderFactory {
-  DeviceInfoProvider getDeviceInfoProvider() {
-    return DeviceInfoProvider(deviceInfoPlugin: DeviceInfoPlugin());
+  DeviceInfoProvider create() {
+    return DeviceInfoProvider(
+      deviceInfoPlugin: DeviceInfoPlugin(),
+      platformInfoProvider: PlatformInfoProviderFactory().create(),
+    );
   }
 }

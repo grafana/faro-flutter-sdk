@@ -74,7 +74,7 @@ class RumFlutter {
 
   Future<void> init({required RumConfig optionsConfiguration}) async {
     final attributesProvider =
-        await SessionAttributesProviderFactory().getAttributesProvider();
+        await SessionAttributesProviderFactory().create();
     meta.session?.attributes = await attributesProvider.getAttributes();
 
     _nativeChannel ??= RumNativeMethods();

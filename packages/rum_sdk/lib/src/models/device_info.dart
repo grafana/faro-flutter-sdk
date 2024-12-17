@@ -17,5 +17,5 @@ class DeviceInfo {
   final String deviceManufacturer;
   final String deviceModel;
   final String deviceBrand;
-  final String deviceIsPhysical;
+  final bool deviceIsPhysical;
 }

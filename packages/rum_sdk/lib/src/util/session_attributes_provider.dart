@@ -23,7 +23,7 @@ class SessionAttributesProvider {
       'device_manufacturer': deviceInfo.deviceManufacturer,
       'device_model': deviceInfo.deviceModel,
       'device_brand': deviceInfo.deviceBrand,
-      'device_is_physical': deviceInfo.deviceIsPhysical,
+      'device_is_physical': '${deviceInfo.deviceIsPhysical}',
       'device_id': '$deviceId',
     };
 
@@ -32,11 +32,9 @@ class SessionAttributesProvider {
 }
 
 class SessionAttributesProviderFactory {
-  Future<SessionAttributesProvider> getAttributesProvider() async {
-    final deviceIdProvider =
-        await DeviceIdProviderFactory().getDeviceIdProvider();
-    final deviceInfoProvider =
-        DeviceInfoProviderFactory().getDeviceInfoProvider();
+  Future<SessionAttributesProvider> create() async {
+    final deviceIdProvider = await DeviceIdProviderFactory().create();
+    final deviceInfoProvider = DeviceInfoProviderFactory().create();
 
     return SessionAttributesProvider(
       deviceIdProvider: deviceIdProvider,

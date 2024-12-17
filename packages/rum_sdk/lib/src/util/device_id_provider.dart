@@ -1,14 +1,19 @@
 import 'package:rum_sdk/src/models/device_id.dart';
+import 'package:rum_sdk/src/util/uuid_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 class DeviceIdProvider {
   DeviceIdProvider({
     required SharedPreferences sharedPreferences,
-  }) : _sharedPreferences = sharedPreferences;
+    required UuidProvider uuidProvider,
+  })  : _sharedPreferences = sharedPreferences,
+        _uuidProvider = uuidProvider;
 
   final String _deviceIdPrefsKey = 'device_id';
+
   final SharedPreferences _sharedPreferences;
+  final UuidProvider _uuidProvider;
+
   DeviceId? _deviceId;
 
   Future<DeviceId> getDeviceId() async {
@@ -22,7 +27,7 @@ class DeviceIdProvider {
     if (storedDeviceId != null) {
       deviceId = DeviceId(storedDeviceId);
     } else {
-      final newDeviceId = const Uuid().v4();
+      final newDeviceId = _uuidProvider.getUuidV4();
       await _sharedPreferences.setString(_deviceIdPrefsKey, newDeviceId);
       deviceId = DeviceId(newDeviceId);
     }
@@ -33,8 +38,12 @@ class DeviceIdProvider {
 }
 
 class DeviceIdProviderFactory {
-  Future<DeviceIdProvider> getDeviceIdProvider() async {
+  Future<DeviceIdProvider> create() async {
     final sharedPreferences = await SharedPreferences.getInstance();
-    return DeviceIdProvider(sharedPreferences: sharedPreferences);
+    final uuidProvider = UuidProviderFactory.create();
+    return DeviceIdProvider(
+      sharedPreferences: sharedPreferences,
+      uuidProvider: uuidProvider,
+    );
   }
 }

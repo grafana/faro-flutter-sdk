@@ -1,5 +1,7 @@
 export './app.dart';
 export './browser.dart';
+export './device_id.dart';
+export './device_info.dart';
 export './event.dart';
 export './exception.dart';
 export './integrations.dart';
