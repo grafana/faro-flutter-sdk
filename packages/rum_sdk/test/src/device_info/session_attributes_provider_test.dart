@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:rum_sdk/src/models/models.dart';
 import 'package:rum_sdk/src/device_info/device_id_provider.dart';
 import 'package:rum_sdk/src/device_info/device_info_provider.dart';
 import 'package:rum_sdk/src/device_info/session_attributes_provider.dart';
+import 'package:rum_sdk/src/models/models.dart';
 
 class MockDeviceIdProvider extends Mock implements DeviceIdProvider {}
 
