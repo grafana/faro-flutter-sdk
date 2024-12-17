@@ -10,8 +10,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = RumHttpOverrides(HttpOverrides.current);
 
-  const faroApiKey = String.fromEnvironment('FARO_API_KEY');
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
+  final faroApiKey = faroCollectorUrl.split('/').last;
 
   RumFlutter().transports.add(OfflineTransport(
       maxCacheDuration: const Duration(days: 3),
