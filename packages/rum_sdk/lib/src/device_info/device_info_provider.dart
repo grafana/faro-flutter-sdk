@@ -1,6 +1,6 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rum_sdk/src/models/device_info.dart';
-import 'package:rum_sdk/src/util/platform_info_provider.dart';
+import 'package:rum_sdk/src/device_info/platform_info_provider.dart';
 
 class DeviceInfoProvider {
   DeviceInfoProvider({

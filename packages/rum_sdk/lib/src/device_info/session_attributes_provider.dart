@@ -1,5 +1,5 @@
-import 'package:rum_sdk/src/util/device_id_provider.dart';
-import 'package:rum_sdk/src/util/device_info_provider.dart';
+import 'package:rum_sdk/src/device_info/device_id_provider.dart';
+import 'package:rum_sdk/src/device_info/device_info_provider.dart';
 
 class SessionAttributesProvider {
   SessionAttributesProvider({
