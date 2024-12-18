@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:rum_sdk/rum_native_methods.dart';
 import 'package:rum_sdk/rum_sdk.dart';
 import 'package:rum_sdk/src/transport/batch_transport.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockRUMTransport extends Mock implements RUMTransport {}
 
@@ -24,6 +25,9 @@ void main() {
     late MockRumNativeMethods mockRumNativeMethods;
 
     setUp(() {
+      // Mock SharedPreferences
+      SharedPreferences.setMockInitialValues({});
+
       PackageInfo.setMockInitialValues(
         appName: appName,
         packageName: 'com.example.example',

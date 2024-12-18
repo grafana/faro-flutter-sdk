@@ -8,7 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:rum_sdk/rum_native_methods.dart';
 import 'package:rum_sdk/rum_sdk.dart';
 import 'package:rum_sdk/src/data_collection_policy.dart';
-import 'package:rum_sdk/src/models/session_attributes.dart';
+import 'package:rum_sdk/src/device_info/session_attributes_provider.dart';
 import 'package:rum_sdk/src/models/span_record.dart';
 import 'package:rum_sdk/src/tracing/tracer_provider.dart';
 import 'package:rum_sdk/src/transport/batch_transport.dart';
@@ -73,7 +73,9 @@ class RumFlutter {
   }
 
   Future<void> init({required RumConfig optionsConfiguration}) async {
-    meta.session?.attributes = await SessionAttributes().getAttributes();
+    final attributesProvider =
+        await SessionAttributesProviderFactory().create();
+    meta.session?.attributes = await attributesProvider.getAttributes();
 
     _nativeChannel ??= RumNativeMethods();
     config = optionsConfiguration;
