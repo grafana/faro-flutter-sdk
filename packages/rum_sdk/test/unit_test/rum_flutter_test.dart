@@ -19,6 +19,7 @@ void main() {
     const appVersion = '2.0.3';
     const appEnv = 'Test';
     const apiKey = 'TestAPIKey';
+    const appNamespace = 'FlutterApp';
 
     late MockRUMTransport mockRUMTransport;
     late MockBatchTransport mockBatchTransport;
@@ -77,15 +78,20 @@ void main() {
 
       await RumFlutter().init(optionsConfiguration: rumConfig);
 
-      expect(RumFlutter().meta.app?.name, rumConfig.appName);
-      expect(RumFlutter().meta.app?.version, rumConfig.appVersion);
-      expect(RumFlutter().meta.app?.environment, rumConfig.appEnv);
+      final app = RumFlutter().meta.app;
+      expect(app?.name, rumConfig.appName);
+      expect(app?.version, rumConfig.appVersion);
+      expect(app?.environment, rumConfig.appEnv);
       verify(() => mockBatchTransport.addEvent(any())).called(1);
     });
 
     test('set App Meta data', () {
-      RumFlutter()
-          .setAppMeta(appName: appName, appEnv: appEnv, appVersion: appVersion);
+      RumFlutter().setAppMeta(
+        appName: appName,
+        appEnv: appEnv,
+        appVersion: appVersion,
+        namespace: appNamespace,
+      );
       expect(RumFlutter().meta.app?.name, appName);
       expect(RumFlutter().meta.app?.environment, appEnv);
       expect(RumFlutter().meta.app?.version, appVersion);

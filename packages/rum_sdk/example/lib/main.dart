@@ -22,6 +22,7 @@ void main() async {
         appVersion: "2.0.1",
         appEnv: "Test",
         apiKey: faroApiKey,
+        namespace: 'flutter_app',
         anrTracking: true,
         cpuUsageVitals: true,
         collectorUrl: faroCollectorUrl,
@@ -120,86 +121,86 @@ class _FeaturesPageState extends State<FeaturesPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
-              onPressed: () async {
-                await http.post(
-                  Uri.parse('<mock_api_endpoint>'),
-                  body: jsonEncode(<String, String>{
-                    'title': "This is a title",
-                  }),
-                );
-              },
-              child: const Text('HTTP POST Request - fail'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await http.post(
-                  Uri.parse('<mock_api_endpoint>'),
-                  body: jsonEncode(<String, String>{
-                    'title': "This is a title",
-                  }),
-                );
-              },
               child: const Text('HTTP POST Request - success'),
+              onPressed: () async {
+                await http.post(
+                  Uri.parse('https://httpbin.io/post'),
+                  body: jsonEncode(<String, String>{
+                    'title': "This is a title",
+                  }),
+                );
+              },
             ),
             ElevatedButton(
+              child: const Text('HTTP POST Request - fail'),
               onPressed: () async {
-                await http.get(Uri.parse('<mock_api_endpoint>'));
+                await http.post(
+                  Uri.parse('https://httpbin.io/unstable'),
+                  body: jsonEncode(<String, String>{
+                    'title': "This is a title",
+                  }),
+                );
               },
+            ),
+            ElevatedButton(
               child: const Text('HTTP GET Request - success'),
-            ),
-            ElevatedButton(
               onPressed: () async {
-                await http.get(Uri.parse('<mock_api_endpoint>'));
+                await http.get(Uri.parse('https://httpbin.io/get?foo=bar'));
               },
-              child: const Text('HTTP GET Request - fail'),
             ),
             ElevatedButton(
+              child: const Text('HTTP GET Request - fail'),
+              onPressed: () async {
+                await http.get(Uri.parse('https://httpbin.io/unstable'));
+              },
+            ),
+            ElevatedButton(
+              child: const Text('Custom Warn Log'),
               onPressed: () {
                 RumFlutter().pushLog("Custom Log", level: "warn");
               },
-              child: const Text('Custom Warn Log'),
             ),
             ElevatedButton(
+              child: const Text('Custom Measurement'),
               onPressed: () {
                 RumFlutter()
                     .pushMeasurement({'custom_value': 1}, "custom_measurement");
               },
-              child: const Text('Custom Measurement'),
             ),
             ElevatedButton(
+              child: const Text('Custom Event'),
               onPressed: () {
                 RumFlutter().pushEvent("custom_event");
               },
-              child: const Text('Custom Event'),
             ),
             ElevatedButton(
+              child: const Text('Error'),
               onPressed: () {
                 setState(() {
                   throw Error();
                 });
               },
-              child: const Text('Error'),
             ),
             ElevatedButton(
+              child: const Text('Exception'),
               onPressed: () {
                 setState(() {
                   double _ = 0 / 0;
                   throw Exception("This is an Exception!");
                 });
               },
-              child: const Text('Exception'),
             ),
             ElevatedButton(
+              child: const Text('Mark Event Start'),
               onPressed: () async {
                 RumFlutter().markEventStart("event1", "event1_duration");
               },
-              child: const Text('Mark Event Start'),
             ),
             ElevatedButton(
+              child: const Text('Mark Event End'),
               onPressed: () async {
                 RumFlutter().markEventEnd("event1", "event1_duration");
               },
-              child: const Text('Mark Event End'),
             ),
             const SizedBox(height: 16),
           ],

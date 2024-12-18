@@ -22,24 +22,27 @@ class DartOtelTracerResourcesFactory {
           otel_api.ResourceAttributes.serviceVersion,
           rumFlutter.meta.app?.version ?? unknownString,
         ),
-
-        // Faro info
-        otel_api.Attribute.fromString('faro.sdk.name', 'faro-flutter-sdk'),
-        otel_api.Attribute.fromString('faro.sdk.language', 'dart'),
         otel_api.Attribute.fromString(
-          'faro.sdk.version',
-          '1.0.0',
+          otel_api.ResourceAttributes.serviceNamespace,
+          rumFlutter.meta.app?.namespace ?? 'flutter_app',
         ),
 
         // Otel info
         otel_api.Attribute.fromString(
           'telemetry.sdk.name',
-          'opentelemetry-dart',
+          'faro-flutter-sdk',
         ),
-        otel_api.Attribute.fromString('telemetry.sdk.language', 'dart'),
+        otel_api.Attribute.fromString(
+          'telemetry.sdk.language',
+          'dart',
+        ),
         otel_api.Attribute.fromString(
           'telemetry.sdk.version',
-          '0.18.6',
+          '1.0.0',
+        ),
+        otel_api.Attribute.fromString(
+          'telemetry.sdk.platform',
+          'flutter',
         ),
       ],
     );
