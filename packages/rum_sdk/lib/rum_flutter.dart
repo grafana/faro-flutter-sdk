@@ -48,7 +48,7 @@ class RumFlutter {
   Meta meta = Meta(
       session: Session(generateSessionID(), attributes: {}),
       sdk: Sdk('rum-flutter', '1.3.5', []),
-      app: App('', '', '', ''),
+      app: App(name: '', environment: '', version: ''),
       view: ViewMeta('default'));
 
   List<RegExp>? ignoreUrls = [];
@@ -144,7 +144,12 @@ class RumFlutter {
     required String appVersion,
     required String? namespace,
   }) {
-    final appMeta = App(appName, appEnv, appVersion, namespace ?? '');
+    final appMeta = App(
+      name: appName,
+      environment: appEnv,
+      version: appVersion,
+      namespace: namespace,
+    );
     _instance.meta =
         Meta.fromJson({..._instance.meta.toJson(), 'app': appMeta.toJson()});
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
