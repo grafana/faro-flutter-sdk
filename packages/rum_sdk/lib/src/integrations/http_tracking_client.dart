@@ -68,7 +68,12 @@ class RumHttpTrackingClient implements HttpClient {
       if (url.toString() != RumFlutter().config?.collectorUrl) {
         final key = const Uuid().v1();
         RumFlutter().markEventStart(key, 'http_request');
-        request = RumTrackingHttpClientRequest(key, request, userAttributes);
+        request = RumTrackingHttpClientRequest(
+          key,
+          request,
+          userAttributes,
+          userAgent: innerClient.userAgent,
+        );
       }
     } catch (e) {
       rethrow;
@@ -204,10 +209,19 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
   RumTrackingHttpClientRequest(
     this.key,
     this.innerContext,
-    this.userAttributes,
-  ) {
-    _httpSpan =
-        RumFlutter().getTracer().startSpan('HTTP_${innerContext.method}');
+    this.userAttributes, {
+    String? userAgent,
+  }) {
+    _httpSpan = RumFlutter().getTracer().startSpan(
+      'HTTP ${innerContext.method}',
+      attributes: {
+        'http.method': innerContext.method,
+        'http.scheme': innerContext.uri.scheme,
+        'http.url': innerContext.uri.toString(),
+        'http.host': innerContext.uri.host,
+        'http.user_agent': userAgent ?? '',
+      },
+    );
     if (_httpSpan is InternalSpan) {
       innerContext.headers
           .add('traceparent', (_httpSpan as InternalSpan).toHttpTraceparent());
@@ -234,6 +248,10 @@ class RumTrackingHttpClientRequest implements HttpClientRequest {
     return innerContext.close().then((value) {
       final traceId = _httpSpan.traceId;
       final spanId = _httpSpan.spanId;
+
+      _httpSpan.setAttributes({
+        'http.status_code': '${value.statusCode}',
+      });
 
       _httpSpan.setStatus(SpanStatusCode.ok);
       _httpSpan.end();

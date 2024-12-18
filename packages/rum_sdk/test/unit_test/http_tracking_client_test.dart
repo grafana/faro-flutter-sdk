@@ -30,6 +30,9 @@ void main() {
 
       when(() => mockHttpClientRequest.method).thenReturn('GET');
       when(() => mockHttpClientRequest.headers).thenReturn(mockHttpHeaders);
+      when(() => mockHttpClientRequest.uri)
+          .thenReturn(Uri.parse('http://example.com/path'));
+
       rumHttpTrackingClient = RumHttpTrackingClient(mockHttpClient);
     });
 
@@ -61,6 +64,8 @@ void main() {
       when(() => mockHttpHeaders.contentType).thenReturn(null);
       when(() => mockHttpClientRequest.method).thenReturn('GET');
       when(() => mockHttpClientRequest.headers).thenReturn(mockHttpHeaders);
+      when(() => mockHttpClientRequest.uri)
+          .thenReturn(Uri.parse('http://example.com/path'));
 
       userAttributes = {
         'method': 'GET',

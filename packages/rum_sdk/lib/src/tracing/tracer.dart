@@ -59,10 +59,12 @@ class Tracer {
     );
 
     final rumFlutter = RumFlutter();
-    otelSpan.setAttribute(otel_api.Attribute.fromString(
-      'session_id',
-      rumFlutter.meta.session?.id ?? '',
-    ));
+
+    final sessionId = rumFlutter.meta.session?.id ?? '';
+    otelSpan.setAttributes([
+      otel_api.Attribute.fromString('session_id', sessionId),
+      otel_api.Attribute.fromString('session.id', sessionId),
+    ]);
 
     final span = SpanProvider().getSpan(otelSpan);
     if (isActive) {

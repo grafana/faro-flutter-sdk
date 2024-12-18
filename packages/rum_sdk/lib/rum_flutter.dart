@@ -48,7 +48,7 @@ class RumFlutter {
   Meta meta = Meta(
       session: Session(generateSessionID(), attributes: {}),
       sdk: Sdk('rum-flutter', '1.3.5', []),
-      app: App('', '', ''),
+      app: App(name: '', environment: '', version: ''),
       view: ViewMeta('default'));
 
   List<RegExp>? ignoreUrls = [];
@@ -100,11 +100,13 @@ class RumFlutter {
     _instance.ignoreUrls = optionsConfiguration.ignoreUrls ?? [];
     final packageInfo = await PackageInfo.fromPlatform();
     _instance.setAppMeta(
-        appName: optionsConfiguration.appName,
-        appEnv: optionsConfiguration.appEnv,
-        appVersion: optionsConfiguration.appVersion == null
-            ? packageInfo.version
-            : optionsConfiguration.appVersion!);
+      appName: optionsConfiguration.appName,
+      appEnv: optionsConfiguration.appEnv,
+      appVersion: optionsConfiguration.appVersion == null
+          ? packageInfo.version
+          : optionsConfiguration.appVersion!,
+      namespace: optionsConfiguration.namespace,
+    );
     if (config?.enableCrashReporting == true) {
       _instance.enableCrashReporter(
         app: _instance.meta.app!,
@@ -136,11 +138,18 @@ class RumFlutter {
     await appRunner!();
   }
 
-  void setAppMeta(
-      {required String appName,
-      required String appEnv,
-      required String appVersion}) {
-    final appMeta = App(appName, appEnv, appVersion);
+  void setAppMeta({
+    required String appName,
+    required String appEnv,
+    required String appVersion,
+    required String? namespace,
+  }) {
+    final appMeta = App(
+      name: appName,
+      environment: appEnv,
+      version: appVersion,
+      namespace: namespace,
+    );
     _instance.meta =
         Meta.fromJson({..._instance.meta.toJson(), 'app': appMeta.toJson()});
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);

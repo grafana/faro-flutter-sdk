@@ -7,6 +7,7 @@ class RumConfig {
     required this.apiKey,
     required this.collectorUrl,
     this.appVersion,
+    this.namespace,
     this.transports,
     this.enableCrashReporting = false,
     this.memoryUsageVitals = true,
@@ -26,6 +27,7 @@ class RumConfig {
   final String appEnv;
   final String apiKey;
   final String? appVersion;
+  final String? namespace;
   final String? collectorUrl;
   final List<RUMTransport>? transports;
   final bool memoryUsageVitals;
