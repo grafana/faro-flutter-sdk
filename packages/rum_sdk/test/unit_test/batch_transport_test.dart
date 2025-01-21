@@ -134,12 +134,15 @@ void main() {
 
   test('checkPayloadItemLimit should flush when item limit is reached',
       () async {
+    final payload = Payload(Meta(view: ViewMeta('')));
     final event = Event('test_event');
+
     batchTransport = BatchTransport(
-        payload: mockPayload,
+        payload: payload,
         transports: [mockBaseTransport],
         batchConfig: BatchConfig(
             sendTimeout: const Duration(seconds: 5), payloadItemLimit: 1));
+
     await batchTransport.addEvent(event);
     await batchTransport.addEvent(event); // This should trigger flush
     verify(() => mockBaseTransport.send(any())).called(2);
@@ -172,6 +175,7 @@ void main() {
     verify(() => mockPayload.logs = []).called(1);
     verify(() => mockPayload.exceptions = []).called(1);
   });
+
   test('constructor with batchConfig disabled should set payloadItemLimit to 1',
       () {
     final batchTransportDisabled = BatchTransport(
@@ -181,14 +185,19 @@ void main() {
     );
     expect(batchTransportDisabled.batchConfig.payloadItemLimit, equals(1));
   });
+
   test(
       // ignore: lines_longer_than_80_chars
       'addEvent should flush immediately if batchConfig is disabled and not wait for timeout',
       () async {
-    when(() => mockBatchConfig.enabled).thenReturn(false);
+    final payload = Payload(Meta(view: ViewMeta('')));
+
     final batchTransportDisabled = BatchTransport(
-      payload: mockPayload,
-      batchConfig: BatchConfig(sendTimeout: const Duration(seconds: 10)),
+      payload: payload,
+      batchConfig: BatchConfig(
+        enabled: false,
+        sendTimeout: const Duration(seconds: 10),
+      ),
       transports: [mockBaseTransport],
     );
 

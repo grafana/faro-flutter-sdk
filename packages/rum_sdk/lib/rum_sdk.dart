@@ -8,6 +8,7 @@ export './src/integrations/native_integration.dart';
 export './src/integrations/on_error_integration.dart';
 export './src/integrations/run_zoned_integration.dart';
 export './src/models/models.dart';
+export './src/offline_transport/offline_transport.dart';
 export './src/rum_asset_bundle.dart';
 export './src/rum_navigation_observer.dart';
 export './src/rum_user_interaction_widget.dart';

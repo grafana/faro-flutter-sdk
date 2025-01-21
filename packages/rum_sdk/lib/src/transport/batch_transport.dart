@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:rum_sdk/rum_sdk.dart';
 import 'package:rum_sdk/src/models/span_record.dart';
+import 'package:rum_sdk/src/util/payload_extension.dart';
 
 class BatchTransport {
   BatchTransport(
@@ -10,7 +11,7 @@ class BatchTransport {
     if (batchConfig.enabled) {
       Timer.periodic(batchConfig.sendTimeout, (t) {
         flushTimer = t;
-        flush(payload.toJson());
+        flush(payload);
         resetPayload();
       });
     } else {
@@ -48,26 +49,31 @@ class BatchTransport {
   }
 
   void updatePayloadMeta(Meta meta) {
-    flush(payload.toJson());
+    flush(payload);
     resetPayload();
     payload.meta = meta;
   }
 
-  Future<void> flush(Map<String, dynamic> payload) async {
-    if (isPayloadEmpty()) {
+  Future<void> flush(Payload payload) async {
+    if (payload.isEmpty()) {
       return;
     }
+    final payloadJson = payload.toJson();
+    if (payloadJson.isEmpty) {
+      return;
+    }
+
     if (transports.isNotEmpty) {
       final currentTransports = transports;
       for (final transport in currentTransports) {
-        await transport.send(payload);
+        await transport.send(payloadJson);
       }
     }
   }
 
   void checkPayloadItemLimit() {
     if (payloadSize() >= batchConfig.payloadItemLimit) {
-      flush(payload.toJson());
+      flush(payload);
       resetPayload();
     }
   }
@@ -77,11 +83,7 @@ class BatchTransport {
   }
 
   bool isPayloadEmpty() {
-    return payload.events.isEmpty &&
-        payload.measurements.isEmpty &&
-        payload.logs.isEmpty &&
-        payload.exceptions.isEmpty &&
-        payload.traces.hasNoTraces();
+    return payload.isEmpty();
   }
 
   int payloadSize() {
