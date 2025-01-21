@@ -12,11 +12,9 @@ void main() async {
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
   final faroApiKey = faroCollectorUrl.split('/').last;
 
-  RumFlutter().transports.add(
-        OfflineTransport(
-          maxCacheDuration: const Duration(days: 3),
-        ),
-      );
+  RumFlutter().transports.add(OfflineTransport(
+        maxCacheDuration: const Duration(days: 3),
+      ));
   await RumFlutter().runApp(
       optionsConfiguration: RumConfig(
         appName: "example_app",
