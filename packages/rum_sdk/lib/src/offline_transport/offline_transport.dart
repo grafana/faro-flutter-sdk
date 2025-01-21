@@ -15,11 +15,10 @@ class OfflineTransport extends BaseTransport {
     Duration? maxCacheDuration,
     String? internetConnectionCheckerUrl,
     InternetConnectivityService? internetConnectivityService,
-  }) : _connectivityService = internetConnectivityService ??
+  })  : _connectivityService = internetConnectivityService ??
             InternetConnectivityServiceFactory().create(
-                internetConnectionCheckerUrl: internetConnectionCheckerUrl) {
-    _maxCacheDuration = maxCacheDuration;
-
+                internetConnectionCheckerUrl: internetConnectionCheckerUrl),
+        _maxCacheDuration = maxCacheDuration {
     _connectivityService.onConnectivityChanged.listen((isOnline) {
       if (isOnline) {
         try {
@@ -35,7 +34,7 @@ class OfflineTransport extends BaseTransport {
     });
   }
 
-  Duration? _maxCacheDuration;
+  final Duration? _maxCacheDuration;
   final InternetConnectivityService _connectivityService;
 
   // File operation lock to prevent concurrent access
