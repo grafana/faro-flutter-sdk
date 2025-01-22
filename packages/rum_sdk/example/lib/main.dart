@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:offline_transport/offline_transport.dart';
 import 'package:rum_sdk/rum_sdk.dart';
 import 'package:http/http.dart' as http;
 
@@ -14,8 +13,8 @@ void main() async {
   final faroApiKey = faroCollectorUrl.split('/').last;
 
   RumFlutter().transports.add(OfflineTransport(
-      maxCacheDuration: const Duration(days: 3),
-      collectorUrl: faroCollectorUrl));
+        maxCacheDuration: const Duration(days: 3),
+      ));
   await RumFlutter().runApp(
       optionsConfiguration: RumConfig(
         appName: "example_app",
