@@ -42,6 +42,7 @@ public class RumSdkPlugin implements FlutterPlugin, MethodCallHandler, ActivityA
   private Context context;
   private @Nullable WeakReference<Activity> activity= null;
   private ANRTracker anrTracker;
+  private ExitInfoHelper exitInfoHelper;
   private Window window;
   private Application application;
 
@@ -82,6 +83,7 @@ public class RumSdkPlugin implements FlutterPlugin, MethodCallHandler, ActivityA
     }
     context = binding.getActivity();
     RumCache.setContext(activity.get().getApplicationContext());
+    exitInfoHelper = new ExitInfoHelper(context);
     RumCache rumCache = new RumCache();
     ArrayList<String> lst = rumCache.readFromCache();
     if(lst.size()>0){
@@ -189,12 +191,12 @@ public class RumSdkPlugin implements FlutterPlugin, MethodCallHandler, ActivityA
   }
 
   private List<String> getExitInfo() throws JSONException {
-    List<ApplicationExitInfo> exitInfos = ExitInfoHelper.getApplicationExitInfo(context);
+    List<ApplicationExitInfo> exitInfos = exitInfoHelper.getApplicationExitInfo(context);
     List<String> infoList = new ArrayList<>();
 
     if (exitInfos != null) {
       for (ApplicationExitInfo exitInfo : exitInfos) {
-        JSONObject info = ExitInfoHelper.getExitInfo(exitInfo);
+        JSONObject info = exitInfoHelper.getExitInfo(exitInfo);
         if(info != null && info.length() > 0){
           String infoString = info.toString();
           infoList.add(infoString);

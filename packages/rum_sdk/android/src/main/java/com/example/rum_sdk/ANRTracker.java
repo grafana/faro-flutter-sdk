@@ -2,21 +2,15 @@ package com.example.rum_sdk;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 
 import androidx.annotation.Nullable;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.lang.Exception;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-
-import io.flutter.Log;
-
 
 
 public class ANRTracker extends Thread {

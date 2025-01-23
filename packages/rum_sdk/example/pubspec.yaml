@@ -16,8 +16,6 @@ dependencies:
     sdk: flutter
   rum_sdk:
     path: ../
-  offline_transport:
-    path: ../../offline_transport
   http: ^1.2.2
   #    path: ../../rum_dart
 
