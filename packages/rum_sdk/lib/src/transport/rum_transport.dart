@@ -45,7 +45,7 @@ class RUMTransport extends BaseTransport {
     if (response != null && response?.statusCode ~/ 100 != 2) {
       log(
         // ignore: lines_longer_than_80_chars
-        'Error sending payload: ${response?.statusCode}, body: ${response?.body}',
+        'Error sending payload: ${response?.statusCode}, body: ${response?.body} payload:${jsonEncode(payloadJson)}',
       );
     }
   }

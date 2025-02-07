@@ -25,7 +25,11 @@ class Event {
     map['domain'] = domain;
     map['timestamp'] = timestamp;
     map['attributes'] = attributes;
-    map['trace'] = trace;
+
+    if(trace != null){
+      map['trace'] = trace;
+    }
+    
     return map;
   }
 }
