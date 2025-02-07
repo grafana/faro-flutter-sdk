@@ -26,10 +26,10 @@ class Event {
     map['timestamp'] = timestamp;
     map['attributes'] = attributes;
 
-    if(trace != null){
+    if (trace != null) {
       map['trace'] = trace;
     }
-    
+
     return map;
   }
 }
