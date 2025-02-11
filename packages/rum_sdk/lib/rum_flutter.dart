@@ -105,7 +105,7 @@ class RumFlutter {
       appVersion: optionsConfiguration.appVersion == null
           ? packageInfo.version
           : optionsConfiguration.appVersion!,
-      namespace: optionsConfiguration.namespace,
+      namespace: optionsConfiguration.namespace ?? '',
     );
     if (config?.enableCrashReporting == true) {
       _instance.enableCrashReporter(
