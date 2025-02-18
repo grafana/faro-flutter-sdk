@@ -161,7 +161,7 @@ class RumFlutter {
         Meta.fromJson({..._instance.meta.toJson(), 'user': userMeta.toJson()});
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
 
-    RumFlutter().pushEvent('faro_internal_user_updated')
+    RumFlutter().pushEvent('faro_internal_user_updated');
   }
 
   void setViewMeta({String? name}) {
