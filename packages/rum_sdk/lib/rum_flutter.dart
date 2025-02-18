@@ -160,6 +160,14 @@ class RumFlutter {
     _instance.meta =
         Meta.fromJson({..._instance.meta.toJson(), 'user': userMeta.toJson()});
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
+
+    if (userId != null || userName != null || userEmail != null) {
+      RumFlutter().pushEvent('user_updated', attributes: {
+        'userId': userId ?? '',
+        'userName': userName ?? '',
+        'userEmail': userEmail ?? ''
+      });
+    }
   }
 
   void setViewMeta({String? name}) {
