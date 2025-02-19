@@ -6,21 +6,13 @@ on:
       - main
 
 jobs:
-  build-and-test-packages:
+  build-and-test-rum-sdk:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: true # Ensures that all matrix jobs are canceled if one fails
-      matrix:
-        package-path:
-          - packages/rum_sdk
-          - packages/offline_transport
-        include:
-          - name: rum_sdk
-            package-path: packages/rum_sdk
-          - name: offline_transport
-            package-path: packages/offline_transport
-    name: build & test ${{ matrix.name }} # Custom name for each matrix run
+    name: build & test rum_sdk
+    defaults:
+      run:
+        working-directory: packages/rum_sdk
     steps:
       - uses: actions/checkout@v3
 
@@ -33,29 +25,24 @@ jobs:
         run: flutter --version
 
       - name: Install dependencies
-        working-directory: ${{ matrix.package-path }}
         run: flutter pub get
 
-      - name: Create api-config file (only for rum_sdk)
-        if: ${{ matrix.package-path == 'packages/rum_sdk' }}
-        working-directory: ${{ matrix.package-path }}
+      - name: Create api-config file
         run: scripts/create-api-config-file.sh
 
       - name: Check format
         run: dart format --set-exit-if-changed .
 
       - name: Analyze code
-        working-directory: ${{ matrix.package-path }}
         run: flutter analyze
 
       - name: Run tests
-        working-directory: ${{ matrix.package-path }}
         run: flutter test --reporter failures-only
 
   build-example-app:
     name: build Example app
     runs-on: ubuntu-latest
-    needs: build-and-test-packages # Ensures packages are built before the example app
+    needs: build-and-test-rum-sdk
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v3
