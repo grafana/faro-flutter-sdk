@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+# Add concurrency group to cancel in-progress jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test-rum-sdk:
     runs-on: ubuntu-latest
