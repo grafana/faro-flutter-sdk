@@ -256,13 +256,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.5.0"
-  offline_transport:
-    dependency: "direct overridden"
-    description:
-      path: "../../offline_transport"
-      relative: true
-    source: path
-    version: "1.0.0"
   opentelemetry:
     dependency: transitive
     description:

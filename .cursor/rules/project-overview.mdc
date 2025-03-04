@@ -1,0 +1,53 @@
+---
+description: Faro Flutter project overview
+globs: 
+alwaysApply: false
+---
+
+# Faro Flutter SDK
+
+## Project Overview
+
+This is a Flutter SDK that implements the Grafana Faro protocol for mobile observability. It allows Flutter applications to send monitoring data to Grafana Cloud, providing comprehensive insights into app performance, user interactions, errors, and more.
+
+## Key Components
+
+### Main Packages
+
+- **rum_sdk**: The core SDK that implements the Grafana Faro protocol and handles collecting and sending data
+
+### Features
+
+- Performance monitoring (CPU, memory, app startup time)
+- Exception and error tracking
+- User interaction tracking
+- Network request monitoring
+- Session tracking
+- Custom events and measurements
+
+### Technical Details
+
+- Implements the Grafana Faro protocol
+- Uses OpenTelemetry for tracing
+- Provides platform-specific implementations for iOS and Android
+- Supports configurable data collection policies
+
+## Integration
+
+The SDK is designed to be integrated into Flutter applications with minimal configuration:
+
+1. Add the SDK as a dependency
+2. Initialize with configuration (API key, collector URL)
+3. Wrap the app in monitoring widgets
+
+## Data Flow
+
+1. SDK collects app and device metadata
+2. Monitors app performance and user interactions
+3. Formats data according to Faro protocol
+4. Batches and sends telemetry to Grafana Cloud
+
+## Project Structure
+
+- `packages/rum_sdk`: Core SDK implementation
+- `docs/`: Documentation for usage and configuration
