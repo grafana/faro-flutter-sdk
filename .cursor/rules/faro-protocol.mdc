@@ -1,0 +1,70 @@
+---
+description: Grafana Faro Protocol Overview
+globs: 
+alwaysApply: false
+---
+
+# Grafana Faro Protocol Overview
+
+## What is Grafana Faro?
+
+Grafana Faro is an observability protocol designed by Grafana Labs for frontend and mobile application monitoring. It provides a standardized way to collect, process, and visualize application telemetry data.
+
+## Key Concepts
+
+### Data Types
+
+Faro handles several types of telemetry data:
+
+- **Logs**: Application logs and messages
+- **Exceptions**: Error and exception data
+- **Measurements**: Performance metrics like CPU, memory usage
+- **Events**: User interactions and application lifecycle events
+- **Traces**: Distributed tracing information
+
+### Metadata
+
+Each telemetry message includes metadata about:
+
+- Application (name, version, environment)
+- Session information
+- Device characteristics
+- User information (when available)
+
+### Transport
+
+The protocol defines how data is:
+
+- Batched for efficiency
+- Formatted (typically JSON)
+- Sent to Grafana Cloud endpoints
+
+## Integration with Grafana Ecosystem
+
+Faro connects with:
+
+- **Grafana Alloy**: For processing and routing telemetry data
+- **Grafana Cloud**: For storage and visualization
+- **Grafana Dashboards**: For analyzing application performance
+
+## Benefits for Flutter Applications
+
+- **Unified Observability**: Single protocol for different telemetry types
+- **Lightweight**: Designed for mobile environments
+- **Privacy-focused**: Controls for sensitive data
+- **Complete Picture**: Combines frontend and backend monitoring
+
+## Implementation in this SDK
+
+This Flutter SDK implements:
+
+1. Data collection matching Faro specifications
+2. Proper metadata enrichment
+3. Efficient batching and transport
+4. Integration with Flutter's widget and HTTP lifecycle
+
+## Additional Resources
+
+- [Grafana Faro Documentation](https:/grafana.com/docs/grafana-cloud/faro-web-sdk)
+- [Grafana Alloy Documentation](https:/grafana.com/docs/alloy/latest)
+- [Faro Receiver Component](https:/grafana.com/docs/alloy/latest/reference/components/faro/faro.receiver)
