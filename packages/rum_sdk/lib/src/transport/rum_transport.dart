@@ -28,25 +28,32 @@ class RUMTransport extends BaseTransport {
       return;
     }
 
-    final sessionId = this.sessionId;
+    try {
+      // Try to encode the payload to check for any JSON encoding issues
+      final encodedPayload = jsonEncode(payloadJson);
 
-    final headers = {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      if (sessionId != null) 'x-faro-session-id': sessionId,
-    };
-    final response = await _taskBuffer?.add(() {
-      return http.post(
-        Uri.parse(collectorUrl),
-        headers: headers,
-        body: jsonEncode(payloadJson),
-      );
-    });
-    if (response != null && response?.statusCode ~/ 100 != 2) {
-      log(
-        // ignore: lines_longer_than_80_chars
-        'Error sending payload: ${response?.statusCode}, body: ${response?.body} payload:${jsonEncode(payloadJson)}',
-      );
+      final sessionId = this.sessionId;
+
+      final headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        if (sessionId != null) 'x-faro-session-id': sessionId,
+      };
+      final response = await _taskBuffer?.add(() {
+        return http.post(
+          Uri.parse(collectorUrl),
+          headers: headers,
+          body: encodedPayload,
+        );
+      });
+      if (response != null && response?.statusCode ~/ 100 != 2) {
+        log(
+          // ignore: lines_longer_than_80_chars
+          'Error sending payload: ${response?.statusCode}, body: ${response?.body} payload:$encodedPayload',
+        );
+      }
+    } catch (error) {
+      log('Error encoding payload: $error');
     }
   }
 }

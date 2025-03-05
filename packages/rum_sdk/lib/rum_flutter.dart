@@ -1,3 +1,5 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
@@ -278,8 +280,34 @@ class RumFlutter {
             final int status = crashInfoJson['status'];
             // String description = crashInfoJson["description"];
             // description/stacktrace fails to send format and sanitize before push
+
+            // Convert crashInfoJson from Map<String, dynamic> to Map<String, String>
+            final stringifiedContext = <String, String>{};
+            crashInfoJson.forEach((String key, dynamic value) {
+              stringifiedContext[key] = value?.toString() ?? '';
+            });
+
+            final description =
+                stringifiedContext['description'] ?? 'No description';
+            final stacktrace =
+                stringifiedContext['stacktrace'] ?? 'No stacktrace';
+            final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
+            final importance =
+                stringifiedContext['importance'] ?? 'No importance';
+            final processName =
+                stringifiedContext['processName'] ?? 'No processName';
+
             await _instance.pushError(
-                type: 'crash', value: ' $reason , status: $status');
+              type: 'crash',
+              value: '$reason , status: $status',
+              context: {
+                'description': description,
+                'stacktrace': stacktrace,
+                'timestamp': timestamp,
+                'importance': importance,
+                'processName': processName,
+              },
+            );
           }
         }
       }

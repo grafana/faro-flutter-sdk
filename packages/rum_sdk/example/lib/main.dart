@@ -54,6 +54,21 @@ class _MyAppState extends State<MyApp> {
     setState(() {});
   }
 
+  // Method to simulate an ANR by blocking the main thread
+  void simulateANR({int seconds = 10}) {
+    debugPrint(
+        'Simulating ANR by blocking main thread for $seconds seconds...');
+    final startTime = DateTime.now();
+    // This loop will block the main thread
+    while (DateTime.now().difference(startTime).inSeconds < seconds) {
+      // Perform intensive calculations to block the thread
+      for (int i = 0; i < 10000000; i++) {
+        final _ = i * i * i;
+      }
+    }
+    debugPrint('ANR simulation completed');
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -107,6 +122,21 @@ class _FeaturesPageState extends State<FeaturesPage> {
   void initState() {
     super.initState();
     RumFlutter().markEventEnd("home_event_start", "home_page_load");
+  }
+
+  // Method to simulate an ANR by blocking the main thread
+  void simulateANR({int seconds = 10}) {
+    debugPrint(
+        'Simulating ANR by blocking main thread for $seconds seconds...');
+    final startTime = DateTime.now();
+    // This loop will block the main thread
+    while (DateTime.now().difference(startTime).inSeconds < seconds) {
+      // Perform intensive calculations to block the thread
+      for (int i = 0; i < 10000000; i++) {
+        final _ = i * i * i;
+      }
+    }
+    debugPrint('ANR simulation completed');
   }
 
   @override
@@ -200,6 +230,14 @@ class _FeaturesPageState extends State<FeaturesPage> {
               onPressed: () async {
                 RumFlutter().markEventEnd("event1", "event1_duration");
               },
+            ),
+            ElevatedButton(
+              onPressed: () => simulateANR(),
+              child: const Text('Simulate ANR (10s)'),
+            ),
+            ElevatedButton(
+              onPressed: () => simulateANR(seconds: 8),
+              child: const Text('Simulate ANR (8s)'),
             ),
             const SizedBox(height: 16),
           ],
