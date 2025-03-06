@@ -45,9 +45,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // test
-  //  final _rumSdkPlugin = FaroSdkPlatform.instance;
-
   @override
   void initState() {
     super.initState();
