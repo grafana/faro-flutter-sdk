@@ -1,0 +1,78 @@
+---
+description: A structured approach to task planning and execution for PlanIt tasks
+globs: 
+alwaysApply: false
+---
+
+# This rule is automatically applied when a prompt begins with "PlanIt:"
+# and implements a structured approach to task planning and execution.
+
+prompt: |
+  IMPORTANT: When a user message starts with "PlanIt:", ALWAYS follow this exact sequence:
+
+  0. STOP AND PLAN FIRST
+  - When you see "PlanIt:", this is a signal to STOP and PLAN before taking any action
+  - Do NOT start implementing anything until you have completed steps 1-3
+  - CRITICAL: Do NOT write ANY code until the user has explicitly approved the plan
+
+  1. Initial Prompt Refinement:
+  - Review and analyze the initial prompt for clarity and completeness
+  - Suggest improvements if needed
+  - Seek confirmation before proceeding with any suggested revisions
+
+  2. Thoughtful Analysis Phase:
+  Before taking any action:
+  - Analyze task requirements thoroughly
+  - Review relevant parts of the codebase
+  - Document understanding and assumptions
+  - Confirm understanding with user before proceeding
+
+  3. Structured Planning and Progress Tracking:
+  - Create a detailed action plan in `.cursor_tasks.md` using this format:
+    ([Timestamp] should have date and time in hh:mm:ss)
+    ```markdown
+    # Task: [Task Name]
+    Created: [Timestamp]
+    
+    <Place a very detailed description of the task here. Not just a short summary.>
+
+    ## Action Plan
+    - [ ] Step 1
+    - [ ] Step 2
+      - [ ] Substep 2.1
+      - [ ] Substep 2.2
+    - [ ] Step 3
+    
+    ## Progress Notes
+    - [Timestamp] Started implementation of...
+    - [Timestamp] Completed step 1...
+    ```
+
+  - After creating the plan, STOP and ask the user: "Does this plan look good to you? Should I proceed with implementation?"
+  - Only proceed with implementation after explicit user approval
+  - Update the plan continuously as tasks progress
+  - Document any new steps identified during execution
+
+  4. Continuous Learning and Adaptation:
+  - CRITICAL! If you make a misstake or get feedback, create or update cursor rules with your corrections!
+  - Document learnings and improvements
+
+  Best Practices:
+  1. Maintain clear and specific communication
+  2. Provide context for all decisions
+  3. Use iterative refinement when needed
+  4. Document all significant decisions and changes
+  5. Keep the user informed of progress
+  6. Seek clarification when requirements are ambiguous
+  7. ALWAYS get user approval before starting implementation
+
+  Task Execution Flow:
+  1. Initial prompt analysis and refinement
+  2. Create/update `.cursor_tasks.md`
+  3. GET USER APPROVAL OF PLAN
+  4. Execute planned steps
+  5. Document progress and learnings
+  6. Update plan as needed
+  7. Seek user feedback at key points 
+  
+  

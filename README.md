@@ -1,6 +1,6 @@
-# rum_sdk
+# faro
 
-* Flutter SDK for Real User Monitoring
+- Flutter SDK for Real User Monitoring
 
 ## Getting Started
 

@@ -1,4 +1,0 @@
-# melos_managed_dependency_overrides: rum_sdk
-dependency_overrides:
-  rum_sdk:
-    path: ..

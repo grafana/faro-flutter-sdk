@@ -14,7 +14,7 @@ This is a Flutter SDK that implements the Grafana Faro protocol for mobile obser
 
 ### Main Packages
 
-- **rum_sdk**: The core SDK that implements the Grafana Faro protocol and handles collecting and sending data
+- **faro**: The core SDK that implements the Grafana Faro protocol and handles collecting and sending data
 
 ### Features
 
@@ -49,5 +49,6 @@ The SDK is designed to be integrated into Flutter applications with minimal conf
 
 ## Project Structure
 
-- `packages/rum_sdk`: Core SDK implementation
+- `packages/faro`: Core SDK implementation
 - `docs/`: Documentation for usage and configuration
+

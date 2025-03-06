@@ -1,6 +1,6 @@
-## Rum Features
+## Faro Features
 
-## RUM Event metadata
+## Faro Event metadata
 
 - view info
 - app info (name, version , env)
@@ -35,7 +35,7 @@
   - content/type
   - request/ response size
 
-- Rum Asset Bundle
+- Faro Asset Bundle
   - asset size
   - asset load time
 
