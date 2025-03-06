@@ -1,9 +1,9 @@
-# RUM Flutter - 0.0.1 Alpha
+# Faro Flutter SDK
 
 ## Getting Started
 
 - Installation
-- Initialise RUM
+- Initialize Faro
 
 ### Onboarding
 
@@ -24,10 +24,10 @@ faro:
 - Set up a [Grafana Alloy](https://grafana.com/docs/alloy/latest/configure/) instance.
 - Configure your instance with [app-agent-receiver](https://grafana.com/docs/alloy/latest/reference/components/faro/faro.receiver/#server-block) integration. The integration exposes an http collection endpoint.
 
-### Initialise Faro
+### Initialize Faro
 
-Add the following snippet to initialize RUM Monitoring with the default configurations
-use the faro.receiver endpoint as collectorUrl in RumConfig
+Add the following snippet to initialize Faro Monitoring with the default configurations
+use the faro.receiver endpoint as collectorUrl in FaroConfig
 
 ```dart
 
@@ -46,8 +46,6 @@ use the faro.receiver endpoint as collectorUrl in RumConfig
     ),
   );
 
-
-
 ```
 
-See all [configuration](./Configurations.md) options for RUM Flutter
+See all [configuration](./Configurations.md) options for Faro Flutter
