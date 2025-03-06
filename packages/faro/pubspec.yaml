@@ -1,0 +1,46 @@
+publish_to: none
+name: faro
+description: Grafana Faro SDK for Flutter applications - Monitor your Flutter app with ease.
+version: 0.2.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.0.0"
+
+dependencies:
+  connectivity_plus: ^6.1.2
+  device_info_plus: ^10.1.2
+  fixnum: ^1.1.1
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  intl: ^0.19.0
+  opentelemetry: ^0.18.6
+  package_info_plus: ^8.0.1
+  path_provider: ^2.1.5
+  plugin_platform_interface: ^2.0.2
+  shared_preferences: ^2.3.3
+  uuid: ^4.1.0
+
+dev_dependencies:
+  build_runner: ^2.4.8
+  fake_async: ^1.3.1
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.3
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.example.faro
+        pluginClass: FaroPlugin
+      ios:
+        pluginClass: FaroPlugin
+      linux:
+        pluginClass: FaroPlugin
+      macos:
+        pluginClass: FaroPlugin
+      windows:
+        pluginClass: FaroPluginCApi

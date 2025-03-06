@@ -12,10 +12,10 @@
 Add the following dependencies to your `pubspec.yaml`
 
 ```yml
-rum_sdk:
+faro:
   git:
     url: <git_url>
-    path: packages/rum_sdk
+    path: packages/faro
     ref: main
 ```
 
@@ -24,17 +24,17 @@ rum_sdk:
 - Set up a [Grafana Alloy](https://grafana.com/docs/alloy/latest/configure/) instance.
 - Configure your instance with [app-agent-receiver](https://grafana.com/docs/alloy/latest/reference/components/faro/faro.receiver/#server-block) integration. The integration exposes an http collection endpoint.
 
-### Initialise RUM
+### Initialise Faro
 
 Add the following snippet to initialize RUM Monitoring with the default configurations
 use the faro.receiver endpoint as collectorUrl in RumConfig
 
 ```dart
 
-  HttpOverrides.global = RumHttpOverrides(HttpOverrides.current); // enable http tracking
+  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current); // enable http tracking
 
-  RumFlutter().runApp(
-    optionsConfiguration: RumConfig(
+  Faro().runApp(
+    optionsConfiguration: FaroConfig(
         appName: "<App_Name>",
         appVersion: "1.0.0",
         appEnv: "Test",
@@ -42,7 +42,7 @@ use the faro.receiver endpoint as collectorUrl in RumConfig
         collectorUrl: "faro receiver endpoint"
     ),
     appRunner: () => runApp(
-     RumUserInteractionWidget(child: MyApp())
+     FaroUserInteractionWidget(child: MyApp())
     ),
   );
 
