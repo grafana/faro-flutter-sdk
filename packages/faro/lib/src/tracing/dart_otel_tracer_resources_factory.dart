@@ -1,6 +1,6 @@
+import 'package:faro/faro.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
-import 'package:faro/faro.dart';
 
 class DartOtelTracerResourcesFactory {
   otel_sdk.Resource getTracerResource() {

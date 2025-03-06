@@ -2,9 +2,10 @@
 
 import 'dart:async';
 import 'dart:io';
+
+import 'package:faro/faro_sdk.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:faro/faro_sdk.dart';
 
 class MockHttpClient extends Mock implements HttpClient {}
 

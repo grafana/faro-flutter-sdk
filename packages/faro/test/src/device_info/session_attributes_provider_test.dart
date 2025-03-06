@@ -1,9 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:faro/src/device_info/device_id_provider.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/models/models.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 class MockDeviceIdProvider extends Mock implements DeviceIdProvider {}
 

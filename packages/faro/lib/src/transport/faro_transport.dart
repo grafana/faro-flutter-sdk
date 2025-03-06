@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:http/http.dart' as http;
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/task_buffer.dart';
+import 'package:http/http.dart' as http;
 
 class FaroTransport extends BaseTransport {
   FaroTransport({

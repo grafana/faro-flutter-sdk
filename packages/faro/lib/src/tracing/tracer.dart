@@ -1,6 +1,6 @@
-import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:faro/faro.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:opentelemetry/api.dart' as otel_api;
 
 class Tracer {
   Tracer._({required otel_api.Tracer otelTracer}) : _otelTracer = otelTracer;

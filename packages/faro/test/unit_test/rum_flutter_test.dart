@@ -1,10 +1,10 @@
+import 'package:faro/faro_native_methods.dart';
+import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/transport/batch_transport.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:faro/faro_native_methods.dart';
-import 'package:faro/faro_sdk.dart';
-import 'package:faro/src/transport/batch_transport.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockFaroTransport extends Mock implements FaroTransport {}
@@ -38,7 +38,11 @@ void main() {
       );
 
       registerFallbackValue(
-        FaroException('test', 'something', {'frames': <Map<String, dynamic>>[]}),
+        FaroException(
+          'test',
+          'something',
+          {'frames': <Map<String, dynamic>>[]},
+        ),
       );
       registerFallbackValue(Event('test', attributes: {'test': 'test'}));
       registerFallbackValue(FaroLog('This is a message'));

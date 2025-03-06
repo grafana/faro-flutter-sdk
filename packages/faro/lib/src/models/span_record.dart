@@ -1,8 +1,8 @@
-import 'package:opentelemetry/sdk.dart' as otel_sdk;
 import 'package:faro/src/models/trace/trace_resource.dart';
 import 'package:faro/src/models/trace/trace_scope_spans.dart';
 import 'package:faro/src/models/trace/trace_span.dart';
 import 'package:faro/src/tracing/extensions.dart';
+import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 class SpanRecord {
   SpanRecord({

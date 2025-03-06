@@ -1,9 +1,9 @@
-import 'package:opentelemetry/api.dart' as otel_api;
-import 'package:opentelemetry/sdk.dart' as otel_sdk;
 import 'package:faro/faro.dart';
 import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
 import 'package:faro/src/tracing/tracer.dart';
+import 'package:opentelemetry/api.dart' as otel_api;
+import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 abstract class TracerProvider {
   Tracer getTracer();

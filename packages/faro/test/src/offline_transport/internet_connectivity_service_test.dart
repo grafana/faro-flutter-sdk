@@ -1,9 +1,10 @@
 import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:faro/src/offline_transport/connectivity_checker.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 class MockConnectivityChecker extends Mock implements ConnectivityChecker {}
 

@@ -1,6 +1,6 @@
-import 'package:opentelemetry/sdk.dart' as otel_sdk;
 import 'package:faro/faro.dart';
 import 'package:faro/src/models/span_record.dart';
+import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 class FaroExporter implements otel_sdk.SpanExporter {
   var _isShutdown = false;

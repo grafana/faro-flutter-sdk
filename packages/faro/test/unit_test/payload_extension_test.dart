@@ -1,9 +1,9 @@
 // ignore_for_file: avoid_positional_boolean_parameters, use_setters_to_change_properties, lines_longer_than_80_chars
 
-import 'package:flutter_test/flutter_test.dart';
 import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/util/payload_extension.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 class MockTraces extends Traces {
   bool _hasTraces = false;

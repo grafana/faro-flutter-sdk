@@ -1,8 +1,8 @@
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 class MockDeviceInfoPlugin extends Mock implements DeviceInfoPlugin {}
 

@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:faro/faro.dart';
+import 'package:flutter/foundation.dart';
 
 class FlutterErrorIntegration {
   FlutterExceptionHandler? _defaultOnError;

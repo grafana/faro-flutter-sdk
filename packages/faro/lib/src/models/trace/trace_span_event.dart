@@ -1,5 +1,5 @@
-import 'package:fixnum/fixnum.dart';
 import 'package:faro/src/models/trace/trace_attribute.dart';
+import 'package:fixnum/fixnum.dart';
 
 class TraceSpanEvent {
   TraceSpanEvent({

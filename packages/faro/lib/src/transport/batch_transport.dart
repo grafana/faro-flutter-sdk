@@ -1,7 +1,7 @@
 import 'dart:async';
-import '../../faro_sdk.dart';
-import '../models/span_record.dart';
-import '../util/payload_extension.dart';
+import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/models/span_record.dart';
+import 'package:faro/src/util/payload_extension.dart';
 
 class BatchTransport {
   BatchTransport(
