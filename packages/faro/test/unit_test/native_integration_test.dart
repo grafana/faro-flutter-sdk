@@ -44,8 +44,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 10));
       nativeIntegration.getWarmStart();
 
-      verify(() => mockFaro.pushMeasurement(any(), 'app_startup'))
-          .called(1);
+      verify(() => mockFaro.pushMeasurement(any(), 'app_startup')).called(1);
     });
   });
 }
