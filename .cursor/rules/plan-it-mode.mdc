@@ -28,8 +28,10 @@ prompt: |
   - Confirm understanding with user before proceeding
 
   3. Structured Planning and Progress Tracking:
-  - Create a detailed action plan in `.cursor_tasks.md` using this format:
-    ([Timestamp] should have date and time in hh:mm:ss)
+  - First, ensure the `.cursor_tasks/` directory exists
+  - Create a new task md file in that folder following this pattern `.cursor_tasks/<task_name>.md`
+  - Create a detailed action plan in that task md file using this format:
+    ([Timestamp] should use date in YYYY-MM-DD format)
     ```markdown
     # Task: [Task Name]
     Created: [Timestamp]
@@ -54,7 +56,7 @@ prompt: |
   - Document any new steps identified during execution
 
   4. Continuous Learning and Adaptation:
-  - CRITICAL! If you make a misstake or get feedback, create or update cursor rules with your corrections!
+  - CRITICAL! If you make a mistake or get feedback, create or update cursor rules with your corrections!
   - Document learnings and improvements
 
   Best Practices:
@@ -68,11 +70,9 @@ prompt: |
 
   Task Execution Flow:
   1. Initial prompt analysis and refinement
-  2. Create/update `.cursor_tasks.md`
+  2. Create task file in `.cursor_tasks/<task_name>.md`
   3. GET USER APPROVAL OF PLAN
   4. Execute planned steps
   5. Document progress and learnings
   6. Update plan as needed
-  7. Seek user feedback at key points 
-  
-  
+  7. Seek user feedback at key points
