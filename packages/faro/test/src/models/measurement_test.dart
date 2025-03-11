@@ -146,6 +146,32 @@ void main() {
       expect(measurement.values!['valid'], 42.0);
       expect(measurement.type, 'device');
     });
+
+    test('fromJsonOrNull should return null for missing required fields', () {
+      // Missing type field
+      final missingType = {
+        'values': {'cpu': 50.0},
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      // Missing timestamp field
+      final missingTimestamp = {
+        'values': {'cpu': 50.0},
+        'type': 'device',
+      };
+
+      // Valid measurement
+      final validJson = {
+        'values': {'cpu': 50.0},
+        'type': 'device',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      // Tests
+      expect(Measurement.fromJsonOrNull(missingType), isNull);
+      expect(Measurement.fromJsonOrNull(missingTimestamp), isNull);
+      expect(Measurement.fromJsonOrNull(validJson), isNotNull);
+    });
   });
 }
 

@@ -16,6 +16,24 @@ class Measurement {
     timestamp = json['timestamp'];
   }
 
+  /// Creates a Measurement from JSON, but returns null if required fields are missing
+  /// This allows callers to easily filter out invalid measurements
+  static Measurement? fromJsonOrNull(dynamic json) {
+    // Check if required fields exist and build a list of missing fields
+    final missingFields = <String>[];
+    if (json['type'] == null) {
+      missingFields.add('type');
+    }
+    if (json['timestamp'] == null) {
+      missingFields.add('timestamp');
+    }
+    if (missingFields.isNotEmpty) {
+      log('Dropping measurement with missing required fields: ${missingFields.join(', ')}');
+      return null;
+    }
+    return Measurement.fromJson(json);
+  }
+
   /// Sanitizes the input values to ensure they're JSON-encodable
   /// Tests each value with jsonEncode and replaces any non-encodable values
   Map<String, dynamic> _sanitizeValues(Map<String, dynamic>? inputValues) {
