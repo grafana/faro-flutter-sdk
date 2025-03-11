@@ -1,3 +1,10 @@
+## 0.2.1
+
+- Enhanced Android Exit Info filtering to reduce noise in crash reports
+- Improved JSON parsing and error handling in model classes
+- Added comprehensive test coverage for model serialization
+- Fixed handling of non-string values in exception context and stacktrace
+
 ## 0.2.0
 
 - Renamed package from `rum_sdk` to `faro`
