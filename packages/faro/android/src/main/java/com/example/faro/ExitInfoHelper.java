@@ -42,6 +42,15 @@ public class ExitInfoHelper {
     }
 
     /**
+     * Get the SharedPreferencesService
+     * @return The SharedPreferencesService instance
+     * Note: This method is primarily for testing
+     */
+    public SharedPreferencesService getPreferencesService() {
+        return preferencesService;
+    }
+
+    /**
      * Get application exit information from the system
      * @param context Context to access system services
      * @return List of ApplicationExitInfo objects, or null if not available
@@ -115,7 +124,8 @@ public class ExitInfoHelper {
     @Nullable
     @RequiresApi(api = Build.VERSION_CODES.R)
     public JSONObject getExitInfo(@NonNull ApplicationExitInfo exitInfo) throws JSONException {
-        if (!ApplicationExitInfoExt.shouldBeReported(exitInfo)) {
+        // Check if this exit info should be filtered out
+        if (!ApplicationExitInfoExt.shouldBeReported(exitInfo) || ApplicationExitInfoExt.shouldBeFilteredOut(exitInfo)) {
             return null;
         }
         

@@ -109,4 +109,31 @@ public class ApplicationExitInfoExt {
             return "ERROR_GETTING_REASON";
         }
     }
+
+    /**
+     * Determine if an exit info should be filtered out based on specific criteria
+     * This filters out normal system terminations of background apps due to low memory
+     * or excessive resource usage
+     * @param exitInfo The exit info to check
+     * @return true if the exit should be filtered out (not reported), false otherwise
+     */
+    @RequiresApi(api = Build.VERSION_CODES.R)
+    public static boolean shouldBeFilteredOut(@NonNull ApplicationExitInfo exitInfo) {
+        try {
+            // Status code 0 (normal exit) + importance > 300 (background)
+            boolean isBackgroundNormalExit = exitInfo.getStatus() == 0 && exitInfo.getImportance() > 300;
+            
+            // Filter out LOW_MEMORY and EXCESSIVE_RESOURCE_USAGE for backgroundNormalExits
+            if (isBackgroundNormalExit) {
+                int reason = exitInfo.getReason();
+                return reason == ApplicationExitInfo.REASON_LOW_MEMORY || 
+                       reason == ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE;
+            }
+            
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking if exit info should be filtered out", e);
+            return false; // When in doubt, don't filter out
+        }
+    }
 }

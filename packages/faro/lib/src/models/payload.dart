@@ -16,7 +16,10 @@ class Payload {
     if (json['measurements'] != null) {
       measurements = [];
       json['measurements'].forEach((dynamic v) {
-        measurements.add(Measurement.fromJson(v));
+        final measurement = Measurement.fromJsonOrNull(v);
+        if (measurement != null) {
+          measurements.add(measurement);
+        }
       });
     }
     if (json['logs'] != null) {
@@ -28,7 +31,10 @@ class Payload {
     if (json['exceptions'] != null) {
       exceptions = [];
       json['exceptions'].forEach((dynamic v) {
-        exceptions.add(FaroException.fromJson(v));
+        final exception = FaroException.fromJsonOrNull(v);
+        if (exception != null) {
+          exceptions.add(exception);
+        }
       });
     }
     if (json['traces'] != null) {

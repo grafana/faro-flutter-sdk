@@ -47,7 +47,9 @@ class Meta {
     if (app != null) {
       map['app'] = app!.toJson();
     }
-    map['view'] = view!.toJson();
+    if (view != null) {
+      map['view'] = view!.toJson();
+    }
     if (browser != null) {
       map['browser'] = browser!.toJson();
     }
