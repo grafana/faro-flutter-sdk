@@ -55,27 +55,27 @@ void main() {
       final validException = {
         'type': 'error_type',
         'value': 'Error message',
-        'stacktrace': {'frames': []},
+        'stacktrace': {'frames': <String>[]},
         'timestamp': '2023-01-01T12:00:00.000Z',
         'context': {'string': 'value', 'number': 42}, // Mixed type context
       };
 
       final invalidExceptionMissingType = {
         'value': 'Error message',
-        'stacktrace': {'frames': []},
+        'stacktrace': {'frames': <String>[]},
         'timestamp': '2023-01-01T12:00:00.000Z',
       };
 
       final invalidExceptionMissingValue = {
         'type': 'error_type',
-        'stacktrace': {'frames': []},
+        'stacktrace': {'frames': <String>[]},
         'timestamp': '2023-01-01T12:00:00.000Z',
       };
 
       final invalidExceptionMissingTimestamp = {
         'type': 'error_type',
         'value': 'Error message',
-        'stacktrace': {'frames': []},
+        'stacktrace': {'frames': <String>[]},
       };
 
       final jsonData = {
@@ -104,7 +104,7 @@ void main() {
     });
 
     test('fromJson should properly handle empty data', () {
-      final emptyJson = {};
+      final emptyJson = <String, dynamic>{};
       final payload = Payload.fromJson(emptyJson);
 
       expect(payload.events, isEmpty);

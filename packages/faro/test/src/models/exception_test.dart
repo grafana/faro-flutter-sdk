@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_redundant_argument_values
+// ignore_for_file: avoid_redundant_argument_values, lines_longer_than_80_chars
 
 import 'dart:convert';
 
@@ -247,7 +247,7 @@ void main() {
       expect(frames, isA<List<Map<String, dynamic>>>());
       expect(frames.length, equals(2));
 
-      // The actual implementation extracts the path differently than expected
+      // The actual implementation extracts the path differently than expected.
       // Use contains to check for the relevant parts without enforcing exact equality
       expect(frames[0]['filename'], contains('app/file.dart'));
       expect(frames[1]['filename'], contains('app/another_file.dart'));
