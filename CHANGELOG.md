@@ -1,3 +1,7 @@
+## 0.3.0
+
+- Restructure where faro code is located. Moved from `packages/faro` to root. Since we only have one package in this repo for now
+
 ## 0.2.2
 
 - Enhanced Android Exit Info filtering to reduce noise in crash reports
