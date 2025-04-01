@@ -39,7 +39,6 @@ Add the following dependencies to your `pubspec.yaml`:
 faro:
   git:
     url: https://github.com/grafana/faro-flutter-sdk.git
-    path: packages/faro
     ref: <version number>
 ```
 
