@@ -28,12 +28,12 @@ class Tracer {
     otel_api.Context? context;
     if (parentSpan != null && parentSpan is InternalSpan) {
       context = otel_api.contextWithSpan(
-        otel_api.globalContextManager.active,
+        otel_api.Context.current,
         parentSpan.otelSpan,
       );
     } else if (activeSpan != null) {
       context = otel_api.contextWithSpan(
-        otel_api.globalContextManager.active,
+        otel_api.Context.current,
         activeSpan.otelSpan,
       );
     }

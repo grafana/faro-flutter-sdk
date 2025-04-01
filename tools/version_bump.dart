@@ -9,10 +9,6 @@ enum BumpType {
 
 /// Represents a semantic version
 class Version {
-  final int major;
-  final int minor;
-  final int patch;
-
   Version(this.major, this.minor, this.patch);
 
   /// Parse version string into Version object
@@ -27,6 +23,10 @@ class Version {
       int.parse(parts[2]),
     );
   }
+
+  final int major;
+  final int minor;
+  final int patch;
 
   /// Bump version according to specified type
   Version bump(BumpType type) {
@@ -82,7 +82,8 @@ Future<void> updateChangelog(String version) async {
   final file = File('CHANGELOG.md');
   final content = await file.readAsString();
 
-  final newEntry = '''## $version
+  final newEntry = '''
+## $version
 
 - Version bump
 
@@ -94,7 +95,7 @@ Future<void> updateChangelog(String version) async {
 /// Main entry point
 Future<void> main(List<String> args) async {
   if (args.isEmpty) {
-    print('Usage: dart version_bump.dart <patch|minor|major>');
+    stderr.writeln('Usage: dart version_bump.dart <patch|minor|major>');
     exit(1);
   }
 
@@ -113,7 +114,8 @@ Future<void> main(List<String> args) async {
       bumpType = BumpType.major;
       break;
     default:
-      print('Invalid bump type: $bumpTypeStr. Must be patch, minor, or major');
+      stderr.writeln(
+          'Invalid bump type: $bumpTypeStr. Must be patch, minor, or major');
       exit(1);
   }
 
@@ -125,7 +127,7 @@ Future<void> main(List<String> args) async {
         RegExp(r'version: (\d+\.\d+\.\d+)').firstMatch(pubspecContent);
 
     if (versionMatch == null) {
-      print('Could not find version in pubspec.yaml');
+      stderr.writeln('Could not find version in pubspec.yaml');
       exit(1);
     }
 
@@ -133,8 +135,7 @@ Future<void> main(List<String> args) async {
     final currentVersion = Version.parse(versionMatch.group(1)!);
     final newVersion = currentVersion.bump(bumpType);
 
-    print(
-        'Bumping version: ${currentVersion.toString()} -> ${newVersion.toString()}');
+    stdout.writeln('Bumping version: $currentVersion -> $newVersion');
 
     // Update all files
     await updatePubspec(newVersion.toString());
@@ -142,9 +143,9 @@ Future<void> main(List<String> args) async {
     await updateBuildGradle(newVersion.toString());
     await updateChangelog(newVersion.toString());
 
-    print('Successfully updated version to ${newVersion.toString()}');
+    stdout.writeln('Successfully updated version to $newVersion');
   } catch (e) {
-    print('Error updating version: $e');
+    stderr.writeln('Error updating version: $e');
     exit(1);
   }
 }

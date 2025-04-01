@@ -86,7 +86,7 @@ class _MyAppState extends State<MyApp> {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -115,7 +115,7 @@ class _HomePageState extends State<HomePage> {
 }
 
 class FeaturesPage extends StatefulWidget {
-  const FeaturesPage({Key? key}) : super(key: key);
+  const FeaturesPage({super.key});
 
   @override
   State<FeaturesPage> createState() => _FeaturesPageState();
