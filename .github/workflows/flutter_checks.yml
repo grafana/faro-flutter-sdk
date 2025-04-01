@@ -15,9 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     name: build & test faro
-    defaults:
-      run:
-        working-directory: packages/faro
     steps:
       - uses: actions/checkout@v4
 
@@ -63,17 +60,16 @@ jobs:
           channel: stable
 
       - name: Install dependencies
-        working-directory: packages/faro/example
+        working-directory: example
         run: flutter pub get
 
-      - name: Create api-config file (only for faro)
-        working-directory: packages/faro
+      - name: Create api-config file
         run: scripts/create-api-config-file.sh
 
       - name: Analyze code
-        working-directory: packages/faro/example
+        working-directory: example
         run: flutter analyze
 
       - name: Build example app
-        working-directory: packages/faro/example
+        working-directory: example
         run: flutter build apk # Replace 'apk' with 'ios', 'web', etc., as needed

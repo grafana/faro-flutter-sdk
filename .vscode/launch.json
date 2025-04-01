@@ -6,7 +6,7 @@
       "type": "dart",
       "request": "launch",
       "flutterMode": "debug",
-      "cwd": "${workspaceFolder}/packages/faro/example/",
+      "cwd": "${workspaceFolder}/example/",
       "args": [
         "-t",
         "lib/main.dart",

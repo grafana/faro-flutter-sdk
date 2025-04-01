@@ -1,5 +1,0 @@
-name: rum-flutter
-
-packages:
-  - apps/**
-  - packages/**
