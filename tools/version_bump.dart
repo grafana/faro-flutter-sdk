@@ -81,18 +81,14 @@ Future<void> updateBuildGradle(String version) async {
 Future<void> updateChangelog(String version) async {
   final file = File('CHANGELOG.md');
   final content = await file.readAsString();
-  final date = DateTime.now().toIso8601String().split('T')[0];
 
-  final newEntry = '''
-## $version - $date
+  final newEntry = '''## $version
+
+- Version bump
 
 ''';
 
-  final updated = content.replaceFirst(
-    RegExp(r'##\s+\d+\.\d+\.\d+'),
-    newEntry + '## ${Version.parse(version)}',
-  );
-  await file.writeAsString(updated);
+  await file.writeAsString(newEntry + content);
 }
 
 /// Main entry point
