@@ -6,9 +6,8 @@ This document describes the process for releasing new versions of the Faro Flutt
 
 1. **Update Version**
 
-   - Update the version in `pubspec.yaml`
-   - Update `CHANGELOG.md` with the new version and its changes
-   - Run `dart run tools/version_bump.dart` to update version references
+   - Run `dart run tools/version_bump.dart <type>` where type is patch, minor, or major
+   - Go to the auto-generated CHANGELOG.md entry and add detailed release notes
 
 2. **Testing**
 
