@@ -1,15 +1,19 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class PlatformInfoProvider {
-  final isAndroid = Platform.isAndroid;
+  final bool isWeb = kIsWeb;
 
-  final isIOS = Platform.isIOS;
+  final bool isAndroid = !kIsWeb ? Platform.isAndroid : false;
 
-  final dartVersion = Platform.version;
+  final bool isIOS = !kIsWeb ? Platform.isIOS : false;
 
-  final operatingSystem = Platform.operatingSystem;
+  final String dartVersion = !kIsWeb ? Platform.version : 'unknown (web)';
 
-  final operatingSystemVersion = Platform.operatingSystemVersion;
+  final String operatingSystem = !kIsWeb ? Platform.operatingSystem : 'web';
+
+  final String operatingSystemVersion =
+      !kIsWeb ? Platform.operatingSystemVersion : 'unknown';
 }
 
 class PlatformInfoProviderFactory {

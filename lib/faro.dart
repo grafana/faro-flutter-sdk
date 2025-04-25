@@ -8,12 +8,16 @@ import 'dart:io';
 import 'package:faro/faro_native_methods.dart';
 import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/data_collection_policy.dart';
+import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
+import 'package:faro/src/integrations/faro_web_http_client.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/tracing/tracer_provider.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/util/generate_session.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 Timer? timer;
@@ -56,6 +60,7 @@ class Faro {
   List<RegExp>? ignoreUrls = [];
   Map<String, dynamic> eventMark = {};
   FaroNativeMethods? _nativeChannel;
+  late PlatformInfoProvider _platformInfoProvider;
 
   FaroNativeMethods? get nativeChannel => _nativeChannel;
 
@@ -78,6 +83,8 @@ class Faro {
     final attributesProvider =
         await SessionAttributesProviderFactory().create();
     meta.session?.attributes = await attributesProvider.getAttributes();
+
+    _platformInfoProvider = PlatformInfoProviderFactory().create();
 
     _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
@@ -116,18 +123,20 @@ class Faro {
         collectorUrl: optionsConfiguration.collectorUrl ?? '',
       );
     }
-    if (Platform.isAndroid || Platform.isIOS) {
-      NativeIntegration.instance.init(
-          memusage: optionsConfiguration.memoryUsageVitals,
-          cpuusage: optionsConfiguration.cpuUsageVitals,
-          anr: optionsConfiguration.anrTracking,
-          refreshrate: optionsConfiguration.refreshRateVitals,
-          setSendUsageInterval: optionsConfiguration.fetchVitalsInterval);
+    if (!_platformInfoProvider.isWeb) {
+      if (Platform.isAndroid || Platform.isIOS) {
+        NativeIntegration.instance.init(
+            memusage: optionsConfiguration.memoryUsageVitals,
+            cpuusage: optionsConfiguration.cpuUsageVitals,
+            anr: optionsConfiguration.anrTracking,
+            refreshrate: optionsConfiguration.refreshRateVitals,
+            setSendUsageInterval: optionsConfiguration.fetchVitalsInterval);
+      }
+      await _instance.pushEvent('session_start');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        NativeIntegration.instance.getAppStart();
+      });
     }
-    await _instance.pushEvent('session_start');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NativeIntegration.instance.getAppStart();
-    });
     WidgetsBinding.instance.addObserver(FaroWidgetsBindingObserver());
   }
 
@@ -137,7 +146,14 @@ class Faro {
     OnErrorIntegration().call();
     FlutterErrorIntegration().call();
     await init(optionsConfiguration: optionsConfiguration);
-    await appRunner!();
+    if (kIsWeb){
+      await http.runWithClient(
+        () async => await appRunner!(),
+        () => _instance.createHttpClient(),
+      );
+    } else {
+      await appRunner!();
+    }
   }
 
   void setAppMeta({
@@ -268,54 +284,77 @@ class Faro {
       metadata['app'] = app.toJson();
       metadata['apiKey'] = apiKey;
       metadata['collectorUrl'] = collectorUrl;
-      if (Platform.isIOS) {
-        _nativeChannel?.enableCrashReporter(metadata);
-      }
-      if (Platform.isAndroid) {
-        final crashReports = await _nativeChannel?.getCrashReport();
-        if (crashReports != null) {
-          for (final crashInfo in crashReports) {
-            final crashInfoJson = json.decode(crashInfo);
-            final String reason = crashInfoJson['reason'];
-            final int status = crashInfoJson['status'];
-            // String description = crashInfoJson["description"];
-            // description/stacktrace fails to send format and sanitize before push
+      if (!_platformInfoProvider.isWeb) {
+        if (Platform.isIOS) {
+          _nativeChannel?.enableCrashReporter(metadata);
+        }
+        if (Platform.isAndroid) {
+          final crashReports = await _nativeChannel?.getCrashReport();
+          if (crashReports != null) {
+            for (final crashInfo in crashReports) {
+              final crashInfoJson = json.decode(crashInfo);
+              final String reason = crashInfoJson['reason'];
+              final int status = crashInfoJson['status'];
+              // String description = crashInfoJson["description"];
+              // description/stacktrace fails to send format and sanitize before push
 
-            // Convert crashInfoJson from Map<String, dynamic> to Map<String, String>
-            final stringifiedContext = <String, String>{};
-            crashInfoJson.forEach((String key, dynamic value) {
-              stringifiedContext[key] = value?.toString() ?? '';
-            });
+              // Convert crashInfoJson from Map<String, dynamic> to Map<String, String>
+              final stringifiedContext = <String, String>{};
+              crashInfoJson.forEach((String key, dynamic value) {
+                stringifiedContext[key] = value?.toString() ?? '';
+              });
 
-            final description =
-                stringifiedContext['description'] ?? 'No description';
-            final stacktrace =
-                stringifiedContext['stacktrace'] ?? 'No stacktrace';
-            final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
-            final importance =
-                stringifiedContext['importance'] ?? 'No importance';
-            final processName =
-                stringifiedContext['processName'] ?? 'No processName';
+              final description =
+                  stringifiedContext['description'] ?? 'No description';
+              final stacktrace =
+                  stringifiedContext['stacktrace'] ?? 'No stacktrace';
+              final timestamp =
+                  stringifiedContext['timestamp'] ?? 'No timestamp';
+              final importance =
+                  stringifiedContext['importance'] ?? 'No importance';
+              final processName =
+                  stringifiedContext['processName'] ?? 'No processName';
 
-            await _instance.pushError(
-              type: 'crash',
-              value: '$reason , status: $status',
-              context: {
-                'description': description,
-                'stacktrace': stacktrace,
-                'timestamp': timestamp,
-                'importance': importance,
-                'processName': processName,
-              },
-            );
+              await _instance.pushError(
+                type: 'crash',
+                value: '$reason , status: $status',
+                context: {
+                  'description': description,
+                  'stacktrace': stacktrace,
+                  'timestamp': timestamp,
+                  'importance': importance,
+                  'processName': processName,
+                },
+              );
+            }
           }
         }
-      }
+      } // TODO: else set up Web Error Handeling
     } catch (error, stacktrace) {
       log(
         'Faro: enableCrashReporter failed with error: $error',
         stackTrace: stacktrace,
       );
+    }
+  }
+
+  /// Creates an `http.Client` suitable for making HTTP requests that will be
+  /// automatically traced by Faro.
+  ///
+  /// - On **Flutter Web**, this returns a [FaroWebHttpClient] which wraps the
+  ///   standard browser client and injects trace headers. Ensure your backend
+  ///   APIs accept the `traceparent` header via CORS.
+  /// - On **Mobile/Desktop (non-web)**, this currently returns a standard `http.Client`.
+  ///   For tracing on these platforms, ensure you have set up `FaroHttpOverrides`
+  ///   in your `main.dart` file, as documented. This global override intercepts
+  ///   standard `dart:io:HttpClient` creation used by `http.Client`.
+  ///
+  /// It is crucial to `close()` the returned client when it's no longer needed.
+  http.Client createHttpClient() {
+    if (kIsWeb) {
+      return FaroWebHttpClient();
+    } else {
+      return http.Client();
     }
   }
 }
