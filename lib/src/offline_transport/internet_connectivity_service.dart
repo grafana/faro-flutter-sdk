@@ -1,7 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:faro/src/offline_transport/connectivity_checker.dart';
+import 'package:faro/src/offline_transport/native_connectivity_check_stub.dart'
+    if (dart.library.io) 'native_connectivity_check.dart';
+import 'package:flutter/foundation.dart';
 
 class InternetConnectivityService {
   InternetConnectivityService({
@@ -63,11 +65,13 @@ class InternetConnectivityService {
 
   Future<bool> _isConnectedToInternet() async {
     try {
-      final result = await InternetAddress.lookup(
-        _internetConnectionCheckerUrl,
-      );
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } on SocketException catch (_) {
+      if (kIsWeb) {
+        final connectivityResult = await Connectivity().checkConnectivity();
+        return !connectivityResult.contains(ConnectivityResult.none);
+      } else {
+        return await performNativeInternetCheck(_internetConnectionCheckerUrl);
+      }
+    } catch (_) {
       return false;
     }
   }

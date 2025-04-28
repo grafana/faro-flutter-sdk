@@ -1,11 +1,12 @@
 import 'package:faro/faro.dart';
 import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
+import 'package:faro/src/tracing/otel_web_provider_stub.dart'
+    if (dart.library.html) 'package:opentelemetry/web_sdk.dart' as otel_web_sdk;
 import 'package:faro/src/tracing/tracer.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
-import 'package:opentelemetry/web_sdk.dart' as otel_web_sdk;
 
 abstract class TracerProvider {
   Tracer getTracer();

@@ -18,6 +18,9 @@ import 'package:http/http.dart';
 ///
 /// Note: The server being called must accept the 'traceparent' header via CORS
 /// configuration (`Access-Control-Allow-Headers`).
+
+Client createFaroWebHttpClient() => FaroWebHttpClient();
+
 class FaroWebHttpClient extends BaseClient {
   FaroWebHttpClient()
       : _inner = BrowserClient(),

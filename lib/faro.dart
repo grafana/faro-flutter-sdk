@@ -10,7 +10,8 @@ import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
-import 'package:faro/src/integrations/faro_web_http_client.dart';
+import 'package:faro/src/integrations/faro_web_http_client_stub.dart'
+    if (dart.library.html) 'package:faro/src/integrations/faro_web_http_client.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/tracing/tracer_provider.dart';
 import 'package:faro/src/transport/batch_transport.dart';
@@ -352,7 +353,7 @@ class Faro {
   /// It is crucial to `close()` the returned client when it's no longer needed.
   http.Client createHttpClient() {
     if (kIsWeb) {
-      return FaroWebHttpClient();
+      return createFaroWebHttpClient();
     } else {
       return http.Client();
     }
