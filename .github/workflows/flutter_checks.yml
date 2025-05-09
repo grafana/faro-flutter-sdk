@@ -34,7 +34,7 @@ jobs:
         run: flutter pub get
 
       - name: Create api-config file
-        run: scripts/create-api-config-file.sh
+        run: tool/create-api-config-file.sh
 
       - name: Check format
         run: dart format --set-exit-if-changed .
@@ -70,7 +70,7 @@ jobs:
         run: flutter pub get
 
       - name: Create api-config file
-        run: scripts/create-api-config-file.sh
+        run: tool/create-api-config-file.sh
 
       - name: Analyze code
         working-directory: example

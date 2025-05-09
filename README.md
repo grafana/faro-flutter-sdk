@@ -1,6 +1,6 @@
 # Grafana Faro Flutter SDK
 
-<img src="./docs/assets/faro_logo.png" alt="Grafana Faro logo" width="500" />
+<img src="./doc/assets/faro_logo.png" alt="Grafana Faro logo" width="500" />
 
 The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile applications by instrumenting Flutter apps to collect telemetry.
 
@@ -25,7 +25,7 @@ The Faro Flutter SDK provides real user monitoring capabilities including:
 - **Asset Loading**: Track asset loading performance
 - **Offline Support**: Caching of events when offline
 
-See [Features Documentation](./docs/Features.md) for a complete list.
+See [Features Documentation](./doc/Features.md) for a complete list.
 
 ## Getting Started
 
@@ -65,9 +65,9 @@ Faro().runApp(
 
 ## Documentation
 
-- [Getting Started Guide](./docs/Getting%20Started.md)
-- [Configuration Options](./docs/Configurations.md)
-- [Feature Documentation](./docs/Features.md)
+- [Getting Started Guide](./doc/Getting%20Started.md)
+- [Configuration Options](./doc/Configurations.md)
+- [Feature Documentation](./doc/Features.md)
 
 ## Releases
 
