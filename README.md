@@ -1,6 +1,10 @@
 # Grafana Faro Flutter SDK
 
-<img src="./doc/assets/faro_logo.png" alt="Grafana Faro logo" width="500" />
+<img src="https://github.com/grafana/faro-flutter-sdk/raw/main/doc/assets/faro_logo.png?raw=true" alt="Grafana Faro logo" width="500" />
+
+[![Flutter checks](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml/badge.svg)](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml)
+![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+[![pub package](https://img.shields.io/pub/v/faro.svg)](https://pub.dev/packages/faro)
 
 The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile applications by instrumenting Flutter apps to collect telemetry.
 
