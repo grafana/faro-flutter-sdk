@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:faro/faro_sdk.dart';
 import 'package:http/http.dart' as http;
@@ -14,9 +15,11 @@ void main() async {
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
   final faroApiKey = faroCollectorUrl.split('/').last;
 
-  Faro().transports.add(OfflineTransport(
-        maxCacheDuration: const Duration(days: 3),
-      ));
+  if (!kIsWeb) {
+    Faro().transports.add(OfflineTransport(
+          maxCacheDuration: const Duration(days: 3),
+        ));
+  }
   await Faro().runApp(
       optionsConfiguration: FaroConfig(
         appName: "example_app",
