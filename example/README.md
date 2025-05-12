@@ -4,15 +4,37 @@ This example demonstrates how to integrate and use the Grafana Faro SDK in a Flu
 
 ## Setup
 
-1. Copy the `.env-example` file to create your environment configuration:
+1. Get your Grafana Cloud Faro collector URL
 
-   ```bash
-   cp .env-example .env
+2. There are two ways to configure the Faro collector URL:
+
+   ### Option 1: Using api-config.json (Recommended)
+
+   a. Create an `api-config.json` file in the example directory manually with:
+
+   ```json
+   {
+     "FARO_COLLECTOR_URL": "https://your-collector-url"
+   }
    ```
 
-2. Get your Grafana Cloud Faro collector URL and update the environment configuration.
+   OR run the provided script to create it:
 
-3. Run the example app with the environment configuration:
+   ```bash
+   // From the root of the repo
+   FARO_COLLECTOR_URL=https://your-collector-url ./tool/create-api-config-file.sh
+   ```
+
+   b. Run the example app with:
+
+   ```bash
+   flutter run --dart-define-from-file api-config.json
+   ```
+
+   ### Option 2: Using direct dart-define
+
+   Run the example app with the environment configuration directly:
+
    ```bash
    flutter run --dart-define=FARO_COLLECTOR_URL=https://your-collector-url
    ```

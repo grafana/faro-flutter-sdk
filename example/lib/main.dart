@@ -1,6 +1,3 @@
-// To run this example, set the FARO_COLLECTOR_URL environment variable:
-// flutter run --dart-define=FARO_COLLECTOR_URL=https://your-collector-url
-
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';

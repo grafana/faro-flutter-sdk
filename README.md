@@ -2,6 +2,10 @@
 
 <img src="./doc/assets/faro_logo.png" alt="Grafana Faro logo" width="500" />
 
+[![Flutter checks](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml/badge.svg)](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml)
+![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+[![pub package](https://img.shields.io/pub/v/faro.svg)](https://pub.dev/packages/faro)
+
 The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile applications by instrumenting Flutter apps to collect telemetry.
 
 The collected data can be visualized in **Grafana Mobile Observability** (currently in private beta), which will provide immediate, clear, actionable insights into the end user experience of your Flutter applications. Similar to [Grafana Frontend Observability](https://grafana.com/products/cloud/frontend-observability-for-real-user-monitoring/), but with a focus on mobile-specific vitals and telemetry, this will allow you to monitor real-time mobile app health, track errors, and resolve issues with end-to-end visibility across your stack.
@@ -31,15 +35,11 @@ See [Features Documentation](./doc/Features.md) for a complete list.
 
 ### Installation
 
-> **Note:** The Faro Flutter SDK is not yet published on pub.dev. You need to reference the git repository directly for now. The package will be published to pub.dev very soonish, which will simplify the installation process.
-
 Add the following dependencies to your `pubspec.yaml`:
 
 ```yaml
-faro:
-  git:
-    url: https://github.com/grafana/faro-flutter-sdk.git
-    ref: <version number>
+dependencies:
+  faro: ^0.3.0
 ```
 
 ### Initialize Faro
