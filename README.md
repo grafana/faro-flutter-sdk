@@ -1,6 +1,6 @@
 # Grafana Faro Flutter SDK
 
-<img src="https://github.com/grafana/faro-flutter-sdk/raw/main/doc/assets/faro_logo.png?raw=true" alt="Grafana Faro logo" width="500" />
+<img src="./doc/assets/faro_logo.png" alt="Grafana Faro logo" width="500" />
 
 [![Flutter checks](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml/badge.svg)](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
@@ -35,15 +35,11 @@ See [Features Documentation](./doc/Features.md) for a complete list.
 
 ### Installation
 
-> **Note:** The Faro Flutter SDK is not yet published on pub.dev. You need to reference the git repository directly for now. The package will be published to pub.dev very soonish, which will simplify the installation process.
-
 Add the following dependencies to your `pubspec.yaml`:
 
 ```yaml
-faro:
-  git:
-    url: https://github.com/grafana/faro-flutter-sdk.git
-    ref: <version number>
+dependencies:
+  faro: ^0.3.0
 ```
 
 ### Initialize Faro
