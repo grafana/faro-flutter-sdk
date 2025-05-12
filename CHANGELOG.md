@@ -1,6 +1,6 @@
 ## 0.3.1
 
-- Version bump
+- Updates README
 
 ## 0.3.0
 
