@@ -46,6 +46,17 @@ jobs:
           VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Validate package (dry run)
+        run: flutter pub publish --dry-run
+
+      - name: Setup pub credentials
+        run: |
+          mkdir -p $HOME/.config/dart
+          echo "${{ env.PUB_DEV_CREDENTIALS }}" | base64 -d > $HOME/.config/dart/pub-credentials.json
+
+      - name: Publish to pub.dev
+        run: flutter pub publish --force
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
@@ -55,14 +66,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup pub credentials
-        run: |
-          mkdir -p $HOME/.config/dart
-          echo "${{ env.PUB_DEV_CREDENTIALS }}" | base64 -d > $HOME/.config/dart/pub-credentials.json
-
-      - name: Validate package (dry run)
-        run: flutter pub publish --dry-run
-
-      - name: Publish to pub.dev
-        run: flutter pub publish --force
