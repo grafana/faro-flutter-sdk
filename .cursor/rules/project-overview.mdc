@@ -49,6 +49,6 @@ The SDK is designed to be integrated into Flutter applications with minimal conf
 
 ## Project Structure
 
-- `packages/faro`: Core SDK implementation
-- `docs/`: Documentation for usage and configuration
+- `lib/`: Core SDK implementation
+- `doc/`: Documentation for usage and configuration
 

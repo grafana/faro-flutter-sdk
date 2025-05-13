@@ -1,3 +1,11 @@
+## 0.3.2
+
+- Version bump
+
+## 0.3.1
+
+- Updates README
+
 ## 0.3.0
 
 - Restructure where faro code is located. Moved from `packages/faro` to root. Since we only have one package in this repo for now
