@@ -1,21 +1,22 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:faro/src/offline_transport/connectivity_checker.dart';
-import 'package:faro/src/offline_transport/native_connectivity_check_stub.dart'
-    if (dart.library.io) 'native_connectivity_check.dart';
-import 'package:flutter/foundation.dart';
+import 'package:faro/src/offline_transport/network_reachability_checker/network_reachability_checker.dart';
 
 class InternetConnectivityService {
   InternetConnectivityService({
     required ConnectivityChecker connectivity,
     required String internetConnectionCheckerUrl,
+    required NetworkReachabilityChecker networkReachabilityChecker,
   })  : _connectivity = connectivity,
+        _networkReachabilityChecker = networkReachabilityChecker,
         _internetConnectionCheckerUrl = internetConnectionCheckerUrl {
     _checkConnectivity();
     _monitorConnectivity();
   }
 
   final ConnectivityChecker _connectivity;
+  final NetworkReachabilityChecker _networkReachabilityChecker;
   final _connectivityController = StreamController<bool>.broadcast();
   final String _internetConnectionCheckerUrl;
   StreamSubscription<List<ConnectivityResult>>?
@@ -64,16 +65,9 @@ class InternetConnectivityService {
   }
 
   Future<bool> _isConnectedToInternet() async {
-    try {
-      if (kIsWeb) {
-        final connectivityResult = await Connectivity().checkConnectivity();
-        return !connectivityResult.contains(ConnectivityResult.none);
-      } else {
-        return await performNativeInternetCheck(_internetConnectionCheckerUrl);
-      }
-    } catch (_) {
-      return false;
-    }
+    return _networkReachabilityChecker.isConnectedToInternet(
+      _internetConnectionCheckerUrl,
+    );
   }
 }
 
@@ -84,6 +78,7 @@ class InternetConnectivityServiceFactory {
     final checkerUrl = internetConnectionCheckerUrl ?? 'one.one.one.one';
     return InternetConnectivityService(
       connectivity: ConnectivityCheckerFactory().create(),
+      networkReachabilityChecker: NetworkReachabilityCheckerFactory().create(),
       internetConnectionCheckerUrl: checkerUrl,
     );
   }

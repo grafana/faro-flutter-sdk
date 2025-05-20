@@ -10,15 +10,11 @@ import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
-import 'package:faro/src/integrations/faro_web_http_client_stub.dart'
-    if (dart.library.html) 'package:faro/src/integrations/faro_web_http_client.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/tracing/tracer_provider.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/util/generate_session.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 Timer? timer;
@@ -125,7 +121,7 @@ class Faro {
       );
     }
     if (!_platformInfoProvider.isWeb) {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (_platformInfoProvider.isAndroid || _platformInfoProvider.isIOS) {
         NativeIntegration.instance.init(
             memusage: optionsConfiguration.memoryUsageVitals,
             cpuusage: optionsConfiguration.cpuUsageVitals,
@@ -133,11 +129,12 @@ class Faro {
             refreshrate: optionsConfiguration.refreshRateVitals,
             setSendUsageInterval: optionsConfiguration.fetchVitalsInterval);
       }
-      await _instance.pushEvent('session_start');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         NativeIntegration.instance.getAppStart();
       });
     }
+    await _instance.pushEvent('session_start');
+
     WidgetsBinding.instance.addObserver(FaroWidgetsBindingObserver());
   }
 
@@ -147,14 +144,7 @@ class Faro {
     OnErrorIntegration().call();
     FlutterErrorIntegration().call();
     await init(optionsConfiguration: optionsConfiguration);
-    if (kIsWeb){
-      await http.runWithClient(
-        () async => await appRunner!(),
-        () => _instance.createHttpClient(),
-      );
-    } else {
-      await appRunner!();
-    }
+    await appRunner!();
   }
 
   void setAppMeta({
@@ -330,32 +320,12 @@ class Faro {
             }
           }
         }
-      } // TODO: else set up Web Error Handeling
+      }
     } catch (error, stacktrace) {
       log(
         'Faro: enableCrashReporter failed with error: $error',
         stackTrace: stacktrace,
       );
-    }
-  }
-
-  /// Creates an `http.Client` suitable for making HTTP requests that will be
-  /// automatically traced by Faro.
-  ///
-  /// - On **Flutter Web**, this returns a [FaroWebHttpClient] which wraps the
-  ///   standard browser client and injects trace headers. Ensure your backend
-  ///   APIs accept the `traceparent` header via CORS.
-  /// - On **Mobile/Desktop (non-web)**, this currently returns a standard `http.Client`.
-  ///   For tracing on these platforms, ensure you have set up `FaroHttpOverrides`
-  ///   in your `main.dart` file, as documented. This global override intercepts
-  ///   standard `dart:io:HttpClient` creation used by `http.Client`.
-  ///
-  /// It is crucial to `close()` the returned client when it's no longer needed.
-  http.Client createHttpClient() {
-    if (kIsWeb) {
-      return createFaroWebHttpClient();
-    } else {
-      return http.Client();
     }
   }
 }

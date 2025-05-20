@@ -31,3 +31,4 @@ build/
 
 # Cursor related
 .cursor_tasks/
+example/.vscode/launch.json
