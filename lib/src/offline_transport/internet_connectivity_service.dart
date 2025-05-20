@@ -1,19 +1,22 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:faro/src/offline_transport/connectivity_checker.dart';
+import 'package:faro/src/offline_transport/network_reachability_checker/network_reachability_checker.dart';
 
 class InternetConnectivityService {
   InternetConnectivityService({
     required ConnectivityChecker connectivity,
     required String internetConnectionCheckerUrl,
+    required NetworkReachabilityChecker networkReachabilityChecker,
   })  : _connectivity = connectivity,
+        _networkReachabilityChecker = networkReachabilityChecker,
         _internetConnectionCheckerUrl = internetConnectionCheckerUrl {
     _checkConnectivity();
     _monitorConnectivity();
   }
 
   final ConnectivityChecker _connectivity;
+  final NetworkReachabilityChecker _networkReachabilityChecker;
   final _connectivityController = StreamController<bool>.broadcast();
   final String _internetConnectionCheckerUrl;
   StreamSubscription<List<ConnectivityResult>>?
@@ -62,14 +65,9 @@ class InternetConnectivityService {
   }
 
   Future<bool> _isConnectedToInternet() async {
-    try {
-      final result = await InternetAddress.lookup(
-        _internetConnectionCheckerUrl,
-      );
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } on SocketException catch (_) {
-      return false;
-    }
+    return _networkReachabilityChecker.isConnectedToInternet(
+      _internetConnectionCheckerUrl,
+    );
   }
 }
 
@@ -80,6 +78,7 @@ class InternetConnectivityServiceFactory {
     final checkerUrl = internetConnectionCheckerUrl ?? 'one.one.one.one';
     return InternetConnectivityService(
       connectivity: ConnectivityCheckerFactory().create(),
+      networkReachabilityChecker: NetworkReachabilityCheckerFactory().create(),
       internetConnectionCheckerUrl: checkerUrl,
     );
   }

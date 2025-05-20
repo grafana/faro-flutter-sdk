@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:faro/src/offline_transport/connectivity_checker.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
+import 'package:faro/src/offline_transport/network_reachability_checker/network_reachability_checker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -19,12 +20,14 @@ void main() {
   late List<ConnectivityResult> fakeConnectivityResults;
   late StreamController<List<ConnectivityResult>> fakeConnectivityController;
   late InternetConnectivityService service;
+  late NetworkReachabilityChecker networkReachabilityChecker;
 
   setUp(() {
     mockConnectivity = MockConnectivityChecker();
     fakeConnectivityController =
         StreamController<List<ConnectivityResult>>.broadcast();
     fakeConnectivityResults = [ConnectivityResult.none];
+    networkReachabilityChecker = NetworkReachabilityCheckerFactory().create();
 
     when(() => mockConnectivity.checkConnectivity())
         .thenAnswer((_) async => fakeConnectivityResults);
@@ -33,6 +36,7 @@ void main() {
 
     service = InternetConnectivityService(
       connectivity: mockConnectivity,
+      networkReachabilityChecker: networkReachabilityChecker,
       internetConnectionCheckerUrl: 'localhost',
     );
   });
@@ -49,6 +53,7 @@ void main() {
 
         final service = InternetConnectivityService(
           connectivity: mockConnectivity,
+          networkReachabilityChecker: networkReachabilityChecker,
           internetConnectionCheckerUrl: 'localhost',
         );
 
@@ -62,6 +67,7 @@ void main() {
 
         final service = InternetConnectivityService(
           connectivity: mockConnectivity,
+          networkReachabilityChecker: networkReachabilityChecker,
           internetConnectionCheckerUrl: 'localhost',
         );
 
@@ -87,6 +93,7 @@ void main() {
           () async {
         service = InternetConnectivityService(
           connectivity: mockConnectivity,
+          networkReachabilityChecker: networkReachabilityChecker,
           internetConnectionCheckerUrl: 'invalid.domain.that.does.not.exist',
         );
 

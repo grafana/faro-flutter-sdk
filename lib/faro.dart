@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:faro/faro_native_methods.dart';
 import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/data_collection_policy.dart';
+import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/tracing/tracer_provider.dart';
@@ -56,6 +57,7 @@ class Faro {
   List<RegExp>? ignoreUrls = [];
   Map<String, dynamic> eventMark = {};
   FaroNativeMethods? _nativeChannel;
+  late PlatformInfoProvider _platformInfoProvider;
 
   FaroNativeMethods? get nativeChannel => _nativeChannel;
 
@@ -78,6 +80,8 @@ class Faro {
     final attributesProvider =
         await SessionAttributesProviderFactory().create();
     meta.session?.attributes = await attributesProvider.getAttributes();
+
+    _platformInfoProvider = PlatformInfoProviderFactory().create();
 
     _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
@@ -116,18 +120,21 @@ class Faro {
         collectorUrl: optionsConfiguration.collectorUrl ?? '',
       );
     }
-    if (Platform.isAndroid || Platform.isIOS) {
-      NativeIntegration.instance.init(
-          memusage: optionsConfiguration.memoryUsageVitals,
-          cpuusage: optionsConfiguration.cpuUsageVitals,
-          anr: optionsConfiguration.anrTracking,
-          refreshrate: optionsConfiguration.refreshRateVitals,
-          setSendUsageInterval: optionsConfiguration.fetchVitalsInterval);
+    if (!_platformInfoProvider.isWeb) {
+      if (_platformInfoProvider.isAndroid || _platformInfoProvider.isIOS) {
+        NativeIntegration.instance.init(
+            memusage: optionsConfiguration.memoryUsageVitals,
+            cpuusage: optionsConfiguration.cpuUsageVitals,
+            anr: optionsConfiguration.anrTracking,
+            refreshrate: optionsConfiguration.refreshRateVitals,
+            setSendUsageInterval: optionsConfiguration.fetchVitalsInterval);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        NativeIntegration.instance.getAppStart();
+      });
     }
     await _instance.pushEvent('session_start');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NativeIntegration.instance.getAppStart();
-    });
+
     WidgetsBinding.instance.addObserver(FaroWidgetsBindingObserver());
   }
 
@@ -268,46 +275,49 @@ class Faro {
       metadata['app'] = app.toJson();
       metadata['apiKey'] = apiKey;
       metadata['collectorUrl'] = collectorUrl;
-      if (Platform.isIOS) {
-        _nativeChannel?.enableCrashReporter(metadata);
-      }
-      if (Platform.isAndroid) {
-        final crashReports = await _nativeChannel?.getCrashReport();
-        if (crashReports != null) {
-          for (final crashInfo in crashReports) {
-            final crashInfoJson = json.decode(crashInfo);
-            final String reason = crashInfoJson['reason'];
-            final int status = crashInfoJson['status'];
-            // String description = crashInfoJson["description"];
-            // description/stacktrace fails to send format and sanitize before push
+      if (!_platformInfoProvider.isWeb) {
+        if (Platform.isIOS) {
+          _nativeChannel?.enableCrashReporter(metadata);
+        }
+        if (Platform.isAndroid) {
+          final crashReports = await _nativeChannel?.getCrashReport();
+          if (crashReports != null) {
+            for (final crashInfo in crashReports) {
+              final crashInfoJson = json.decode(crashInfo);
+              final String reason = crashInfoJson['reason'];
+              final int status = crashInfoJson['status'];
+              // String description = crashInfoJson["description"];
+              // description/stacktrace fails to send format and sanitize before push
 
-            // Convert crashInfoJson from Map<String, dynamic> to Map<String, String>
-            final stringifiedContext = <String, String>{};
-            crashInfoJson.forEach((String key, dynamic value) {
-              stringifiedContext[key] = value?.toString() ?? '';
-            });
+              // Convert crashInfoJson from Map<String, dynamic> to Map<String, String>
+              final stringifiedContext = <String, String>{};
+              crashInfoJson.forEach((String key, dynamic value) {
+                stringifiedContext[key] = value?.toString() ?? '';
+              });
 
-            final description =
-                stringifiedContext['description'] ?? 'No description';
-            final stacktrace =
-                stringifiedContext['stacktrace'] ?? 'No stacktrace';
-            final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
-            final importance =
-                stringifiedContext['importance'] ?? 'No importance';
-            final processName =
-                stringifiedContext['processName'] ?? 'No processName';
+              final description =
+                  stringifiedContext['description'] ?? 'No description';
+              final stacktrace =
+                  stringifiedContext['stacktrace'] ?? 'No stacktrace';
+              final timestamp =
+                  stringifiedContext['timestamp'] ?? 'No timestamp';
+              final importance =
+                  stringifiedContext['importance'] ?? 'No importance';
+              final processName =
+                  stringifiedContext['processName'] ?? 'No processName';
 
-            await _instance.pushError(
-              type: 'crash',
-              value: '$reason , status: $status',
-              context: {
-                'description': description,
-                'stacktrace': stacktrace,
-                'timestamp': timestamp,
-                'importance': importance,
-                'processName': processName,
-              },
-            );
+              await _instance.pushError(
+                type: 'crash',
+                value: '$reason , status: $status',
+                context: {
+                  'description': description,
+                  'stacktrace': stacktrace,
+                  'timestamp': timestamp,
+                  'importance': importance,
+                  'processName': processName,
+                },
+              );
+            }
           }
         }
       }
