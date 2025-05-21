@@ -1,3 +1,7 @@
+## 0.3.3
+
+- Version bump
+
 - Updated intl dependency to newer version to be compatible with latest flutter version
 
 ## 0.3.2
