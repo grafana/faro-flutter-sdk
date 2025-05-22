@@ -82,14 +82,48 @@ Future<void> updateChangelog(String version) async {
   final file = File('CHANGELOG.md');
   final content = await file.readAsString();
 
-  final newEntry = '''
-## $version
+  // Get current date
+  final now = DateTime.now();
+  final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
 
-- Version bump
+  // Replace "## [Unreleased]" with version and date, then add new Unreleased
+  final updated = content.replaceFirst(
+    '## [Unreleased]',
+    '''
+## [Unreleased]
 
-''';
+## [$version] - $dateStr''',
+  );
 
-  await file.writeAsString(newEntry + content);
+  // If there was no "[Unreleased]" section, add the version at the top
+  // after the header
+  if (updated == content) {
+    // Find the end of the header section (after "## [Unreleased]")
+    final unreleasedIndex = content.indexOf('## [Unreleased]');
+    if (unreleasedIndex != -1) {
+      final beforeUnreleased = content.substring(0, unreleasedIndex);
+      final afterUnreleased = content.substring(unreleasedIndex);
+      final newEntry = '''
+$beforeUnreleased## [Unreleased]
+
+## [$version] - $dateStr
+
+$afterUnreleased''';
+      await file.writeAsString(newEntry);
+    } else {
+      // Fallback: add at the beginning if no Unreleased section found
+      final newEntry = '''
+## [Unreleased]
+
+## [$version] - $dateStr
+
+$content''';
+      await file.writeAsString(newEntry);
+    }
+  } else {
+    await file.writeAsString(updated);
+  }
 }
 
 /// Main entry point

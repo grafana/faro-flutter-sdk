@@ -2,36 +2,99 @@
 
 This document describes the process for releasing new versions of the Faro Flutter SDK.
 
-## Process
+## Development Workflow
 
-1. **Update Version**
+### Adding Changes
+As you develop new features or fix bugs, add entries to the `CHANGELOG.md` under the `## Unreleased` section:
 
-   - Run `dart run tools/version_bump.dart <type>` where type is patch, minor, or major
-   - Go to the auto-generated CHANGELOG.md entry and add detailed release notes
+```markdown
+## Unreleased
 
-2. **Testing**
+- Add new feature X
+- Fix bug Y  
+- Update dependency Z
 
-   - Ensure all tests pass: `flutter test`
-   - Verify the example app builds and runs correctly
-   - Test on both Android and iOS platforms
+## 0.3.3
+...
+```
 
-3. **Documentation**
+### Release Process
 
-   - Update any version references in documentation
-   - Verify all documentation links are working
-   - Ensure example code snippets are up to date
+1. **Create Release Branch**
 
-4. **Publishing**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b release/v0.3.4
+   ```
 
-   - Run `flutter pub publish --dry-run` to check for issues
-   - Submit to pub.dev: `flutter pub publish`
-   - Tag the release: `git tag -a v{version} -m "Release v{version}"`
-   - Push the tag: `git push origin v{version}`
+2. **Pre-Version-Bump Safety Check**
 
-5. **Post-Release**
-   - Create a release on GitHub with the changelog notes
-   - Verify the package is available on pub.dev
-   - Check the example project can depend on the new version
+   ```bash
+   dart tool/pre_release_check.dart
+   ```
+   
+   This automatically verifies:
+   - ✅ Dependencies are up to date
+   - ✅ Code formatting is correct
+   - ✅ Code analyzer passes
+   - ✅ All tests pass
+   - ✅ CHANGELOG has unreleased content
+
+3. **Version Bump**
+
+   ```bash
+   dart tool/version_bump.dart <patch|minor|major>
+   ```
+   
+   This automatically:
+   - Updates version in `pubspec.yaml`, `ios/faro.podspec`, and `android/build.gradle`
+   - Converts `## Unreleased` → `## 0.3.4 (2025-01-22)` in `CHANGELOG.md`
+   - Creates a new empty `## Unreleased` section
+
+4. **Post-Version-Bump Validation**
+
+   ```bash
+   dart tool/pre_release_check.dart --post
+   ```
+   
+   This verifies:
+   - ✅ `flutter pub publish --dry-run` succeeds with new version
+
+5. **Create Release PR**
+
+   ```bash
+   git add .
+   git commit -m "chore: bump version to v0.3.4"
+   git push origin release/v0.3.4
+   ```
+   
+   Then create a Pull Request to `main` with:
+   - Title: `chore: bump version to v0.3.4`
+   - Description: Review changelog and version updates
+
+6. **Merge and Tag**
+
+   After PR review and merge:
+   
+   ```bash
+   git checkout main
+   git pull origin main
+   git tag v0.3.4
+   git push origin v0.3.4
+   ```
+
+7. **Automated Publishing**
+   
+   - GitHub Actions automatically publishes to pub.dev when you push a version tag
+   - Uses the `pub.dev` GitHub environment for security
+   - Creates a GitHub release automatically
+   - No manual `flutter pub publish` needed!
+
+8. **Post-Release**
+   - Verify the package is available on [pub.dev](https://pub.dev/packages/faro)
+   - Check the [GitHub release](https://github.com/grafana/faro-flutter-sdk/releases) was created
+   - Test that the example project can depend on the new version
 
 ## Version Numbering
 
