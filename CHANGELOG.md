@@ -1,12 +1,16 @@
-## 0.3.3
+## Unreleased
 
-- Version bump
+- Automated pub.dev deployment with GitHub Actions
+- Improved release workflow with safety checks
+- Added pre-release validation tools
+
+## 0.3.3
 
 - Updated intl dependency to newer version to be compatible with latest flutter version
 
 ## 0.3.2
 
-- Version bump
+- Maintenance release
 
 ## 0.3.1
 

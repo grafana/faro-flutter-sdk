@@ -82,14 +82,32 @@ Future<void> updateChangelog(String version) async {
   final file = File('CHANGELOG.md');
   final content = await file.readAsString();
 
-  final newEntry = '''
-## $version
+  // Get current date
+  final now = DateTime.now();
+  final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
 
-- Version bump
+  // Replace "## Unreleased" with version and date, then add new Unreleased
+  final updated = content.replaceFirst(
+    '## Unreleased',
+    '''
+## Unreleased
+
+## $version ($dateStr)''',
+  );
+
+  // If there was no "Unreleased" section, add the version at the top
+  if (updated == content) {
+    final newEntry = '''
+## Unreleased
+
+## $version ($dateStr)
 
 ''';
-
-  await file.writeAsString(newEntry + content);
+    await file.writeAsString(newEntry + content);
+  } else {
+    await file.writeAsString(updated);
+  }
 }
 
 /// Main entry point
