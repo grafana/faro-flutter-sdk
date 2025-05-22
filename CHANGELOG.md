@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.3.4 (2025-05-22)
+
 - Automated pub.dev deployment with GitHub Actions
 - Improved release workflow with safety checks
 - Added pre-release validation tools
