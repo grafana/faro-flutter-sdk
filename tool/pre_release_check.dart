@@ -51,7 +51,7 @@ class PreReleaseChecker {
     var nextVersionIndex = -1;
 
     for (var i = 0; i < lines.length; i++) {
-      if (lines[i].trim() == '## Unreleased') {
+      if (lines[i].trim() == '## [Unreleased]') {
         unreleasedIndex = i;
       } else if (unreleasedIndex != -1 &&
           lines[i].startsWith('## ') &&
@@ -89,8 +89,8 @@ class PreReleaseChecker {
 
   /// Check code formatting
   Future<bool> _checkFormatting() async {
-    // Just run dart format without checking for changes during development
-    final result = await Process.run('dart', ['format', '.']);
+    final result =
+        await Process.run('dart', ['format', '--set-exit-if-changed', '.']);
     return result.exitCode == 0;
   }
 
