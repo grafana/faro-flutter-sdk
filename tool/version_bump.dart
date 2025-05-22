@@ -90,19 +90,22 @@ Future<void> updateChangelog(String version) async {
   // Replace "## [Unreleased]" with version and date, then add new Unreleased
   final updated = content.replaceFirst(
     '## [Unreleased]',
-    '''## [Unreleased]
+    '''
+## [Unreleased]
 
 ## [$version] - $dateStr''',
   );
 
-  // If there was no "[Unreleased]" section, add the version at the top after the header
+  // If there was no "[Unreleased]" section, add the version at the top
+  // after the header
   if (updated == content) {
     // Find the end of the header section (after "## [Unreleased]")
     final unreleasedIndex = content.indexOf('## [Unreleased]');
     if (unreleasedIndex != -1) {
       final beforeUnreleased = content.substring(0, unreleasedIndex);
       final afterUnreleased = content.substring(unreleasedIndex);
-      final newEntry = '''$beforeUnreleased## [Unreleased]
+      final newEntry = '''
+$beforeUnreleased## [Unreleased]
 
 ## [$version] - $dateStr
 
@@ -110,7 +113,8 @@ $afterUnreleased''';
       await file.writeAsString(newEntry);
     } else {
       // Fallback: add at the beginning if no Unreleased section found
-      final newEntry = '''## [Unreleased]
+      final newEntry = '''
+## [Unreleased]
 
 ## [$version] - $dateStr
 
