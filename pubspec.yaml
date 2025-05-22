@@ -10,7 +10,7 @@ environment:
 
 dependencies:
   connectivity_plus: ^6.1.2
-  device_info_plus: ^10.1.2
+  device_info_plus: ^11.4.0
   fixnum: ^1.1.1
   flutter:
     sdk: flutter
@@ -39,9 +39,3 @@ flutter:
         pluginClass: FaroPlugin
       ios:
         pluginClass: FaroPlugin
-      linux:
-        pluginClass: FaroPlugin
-      macos:
-        pluginClass: FaroPlugin
-      windows:
-        pluginClass: FaroPluginCApi
