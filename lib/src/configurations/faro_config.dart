@@ -18,6 +18,7 @@ class FaroConfig {
     BatchConfig? batchConfig,
     this.ignoreUrls,
     this.maxBufferLimit = 30,
+    this.headers,
   })  : assert(appName.isNotEmpty, 'appName cannot be empty'),
         assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
         assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
@@ -39,6 +40,7 @@ class FaroConfig {
   final int maxBufferLimit;
   final Duration? fetchVitalsInterval;
   final List<RegExp>? ignoreUrls;
+  final Map<String, String>? headers;
 
 // Other methods or properties of FaroConfig can be added here
 }

@@ -13,6 +13,7 @@ class FaroTransport extends BaseTransport {
     required this.apiKey,
     this.sessionId,
     int? maxBufferLimit,
+    this.headers,
   }) {
     _taskBuffer = TaskBuffer(maxBufferLimit ?? 30);
   }
@@ -20,6 +21,7 @@ class FaroTransport extends BaseTransport {
   final String apiKey;
   final String? sessionId;
   TaskBuffer<dynamic>? _taskBuffer;
+  final Map<String, String>? headers;
 
   @override
   Future<void> send(Map<String, dynamic> payloadJson) async {
@@ -38,6 +40,7 @@ class FaroTransport extends BaseTransport {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         if (sessionId != null) 'x-faro-session-id': sessionId,
+        ...?this.headers,
       };
       final response = await _taskBuffer?.add(() {
         return http.post(
