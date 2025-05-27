@@ -94,6 +94,7 @@ class Faro {
               apiKey: optionsConfiguration.apiKey,
               maxBufferLimit: config?.maxBufferLimit,
               sessionId: meta.session?.id,
+              headers: optionsConfiguration.collectorHeaders,
             ),
           );
     } else {

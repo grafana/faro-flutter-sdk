@@ -18,6 +18,7 @@ class FaroConfig {
     BatchConfig? batchConfig,
     this.ignoreUrls,
     this.maxBufferLimit = 30,
+    this.collectorHeaders,
   })  : assert(appName.isNotEmpty, 'appName cannot be empty'),
         assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
         assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
@@ -29,6 +30,7 @@ class FaroConfig {
   final String? appVersion;
   final String? namespace;
   final String? collectorUrl;
+  final Map<String, String>? collectorHeaders;
   final List<FaroTransport>? transports;
   final bool memoryUsageVitals;
   final bool cpuUsageVitals;
