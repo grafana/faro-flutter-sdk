@@ -55,7 +55,10 @@ Faro().runApp(
       appVersion: "1.0.0",
       appEnv: "Production",
       apiKey: "<API_KEY>",
-      collectorUrl: "faro receiver endpoint"
+      collectorUrl: "faro receiver endpoint",
+      collectorHeaders: {
+        ... // custom headers to be sent with each request to the collector url
+      }
   ),
   appRunner: () => runApp(
    FaroUserInteractionWidget(child: MyApp())
