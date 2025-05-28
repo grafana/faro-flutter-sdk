@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2025-05-28
+
+### Added
+
+- Support for custom HTTP headers in `FaroConfig` via the `collectorHeaders` field
+  - Allows users to specify headers that will be included in all requests to the collector endpoint
+  - Useful for deployments that require specific headers for routing or authentication
+
 ## [0.3.4] - 2025-05-22
 
 ### Added
