@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Data Collection Persistence**: The `enableDataCollection` setting now persists across app restarts
+  - Automatically saves the data collection preference to device storage using SharedPreferences
+  - Defaults to enabled on first app launch
+  - Fire-and-forget persistence - no need to await setting changes
+  - Maintains full backward compatibility with existing API
+  - Resolves issue #62: "Persist faro.enableDataCollection"
 - GitHub issue templates for bug reports and feature requests
 - Pull request template for standardized contributions
 - Code of Conduct (Contributor Covenant v1.4)

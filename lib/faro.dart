@@ -33,12 +33,15 @@ class Faro {
   @visibleForTesting
   static set instance(Faro instance) => _instance = instance;
 
-  bool get enableDataCollection => DataCollectionPolicy().isEnabled;
+  bool get enableDataCollection => _dataCollectionPolicy?.isEnabled ?? true;
+
+  /// Set data collection enabled/disabled.
+  /// This setting will be automatically persisted across app restarts.
   set enableDataCollection(bool enable) {
     if (enable) {
-      DataCollectionPolicy().enable();
+      _dataCollectionPolicy?.enable();
     } else {
-      DataCollectionPolicy().disable();
+      _dataCollectionPolicy?.disable();
     }
   }
 
@@ -46,6 +49,7 @@ class Faro {
   List<BaseTransport> _transports = [];
   BatchTransport? _batchTransport;
   List<BaseTransport> get transports => _transports;
+  DataCollectionPolicy? _dataCollectionPolicy;
 
   Meta meta = Meta(
       session: Session(generateSessionID(), attributes: {}),
@@ -74,7 +78,14 @@ class Faro {
     _batchTransport = batchTransport;
   }
 
+  @visibleForTesting
+  set dataCollectionPolicy(DataCollectionPolicy? policy) {
+    _dataCollectionPolicy = policy;
+  }
+
   Future<void> init({required FaroConfig optionsConfiguration}) async {
+    _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
+
     final attributesProvider =
         await SessionAttributesProviderFactory().create();
     meta.session?.attributes = await attributesProvider.getAttributes();

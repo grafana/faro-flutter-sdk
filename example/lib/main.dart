@@ -143,102 +143,114 @@ class _FeaturesPageState extends State<FeaturesPage> {
       appBar: AppBar(
         title: const Text('Features'),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              child: const Text('HTTP POST Request - success'),
-              onPressed: () async {
-                await http.post(
-                  Uri.parse('https://httpbin.io/post'),
-                  body: jsonEncode(<String, String>{
-                    'title': "This is a title",
-                  }),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: const Text('HTTP POST Request - fail'),
-              onPressed: () async {
-                await http.post(
-                  Uri.parse('https://httpbin.io/unstable'),
-                  body: jsonEncode(<String, String>{
-                    'title': "This is a title",
-                  }),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: const Text('HTTP GET Request - success'),
-              onPressed: () async {
-                await http.get(Uri.parse('https://httpbin.io/get?foo=bar'));
-              },
-            ),
-            ElevatedButton(
-              child: const Text('HTTP GET Request - fail'),
-              onPressed: () async {
-                await http.get(Uri.parse('https://httpbin.io/unstable'));
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Custom Warn Log'),
-              onPressed: () {
-                Faro().pushLog("Custom Log", level: "warn");
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Custom Measurement'),
-              onPressed: () {
-                Faro()
-                    .pushMeasurement({'custom_value': 1}, "custom_measurement");
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Custom Event'),
-              onPressed: () {
-                Faro().pushEvent("custom_event");
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Error'),
-              onPressed: () {
-                setState(() {
-                  throw Error();
-                });
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Exception'),
-              onPressed: () {
-                setState(() {
-                  double _ = 0 / 0;
-                  throw Exception("This is an Exception!");
-                });
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Mark Event Start'),
-              onPressed: () async {
-                Faro().markEventStart("event1", "event1_duration");
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Mark Event End'),
-              onPressed: () async {
-                Faro().markEventEnd("event1", "event1_duration");
-              },
-            ),
-            ElevatedButton(
-              onPressed: () => simulateANR(),
-              child: const Text('Simulate ANR (10s)'),
-            ),
-            ElevatedButton(
-              onPressed: () => simulateANR(seconds: 8),
-              child: const Text('Simulate ANR (8s)'),
-            ),
-            const SizedBox(height: 16),
-          ],
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                child: const Text('HTTP POST Request - success'),
+                onPressed: () async {
+                  await http.post(
+                    Uri.parse('https://httpbin.io/post'),
+                    body: jsonEncode(<String, String>{
+                      'title': "This is a title",
+                    }),
+                  );
+                },
+              ),
+              ElevatedButton(
+                child: const Text('HTTP POST Request - fail'),
+                onPressed: () async {
+                  await http.post(
+                    Uri.parse('https://httpbin.io/unstable'),
+                    body: jsonEncode(<String, String>{
+                      'title': "This is a title",
+                    }),
+                  );
+                },
+              ),
+              ElevatedButton(
+                child: const Text('HTTP GET Request - success'),
+                onPressed: () async {
+                  await http.get(Uri.parse('https://httpbin.io/get?foo=bar'));
+                },
+              ),
+              ElevatedButton(
+                child: const Text('HTTP GET Request - fail'),
+                onPressed: () async {
+                  await http.get(Uri.parse('https://httpbin.io/unstable'));
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Custom Warn Log'),
+                onPressed: () {
+                  Faro().pushLog("Custom Log", level: "warn");
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Custom Measurement'),
+                onPressed: () {
+                  Faro().pushMeasurement(
+                      {'custom_value': 1}, "custom_measurement");
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Custom Event'),
+                onPressed: () {
+                  Faro().pushEvent("custom_event");
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Error'),
+                onPressed: () {
+                  setState(() {
+                    throw Error();
+                  });
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Exception'),
+                onPressed: () {
+                  setState(() {
+                    double _ = 0 / 0;
+                    throw Exception("This is an Exception!");
+                  });
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Mark Event Start'),
+                onPressed: () async {
+                  Faro().markEventStart("event1", "event1_duration");
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Mark Event End'),
+                onPressed: () async {
+                  Faro().markEventEnd("event1", "event1_duration");
+                },
+              ),
+              ElevatedButton(
+                onPressed: () => simulateANR(),
+                child: const Text('Simulate ANR (10s)'),
+              ),
+              ElevatedButton(
+                onPressed: () => simulateANR(seconds: 8),
+                child: const Text('Simulate ANR (8s)'),
+              ),
+              ElevatedButton(
+                child: Text(
+                    'Data Collection: ${Faro().enableDataCollection ? "ENABLED" : "DISABLED"}'),
+                onPressed: () {
+                  Faro().enableDataCollection = !Faro().enableDataCollection;
+                  setState(() {}); // Refresh UI
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
