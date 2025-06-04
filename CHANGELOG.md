@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- GitHub issue templates for bug reports and feature requests
+- Pull request template for standardized contributions
+- Code of Conduct (Contributor Covenant v1.4)
+- Comprehensive Contributing Guidelines with setup instructions and development workflow
+- Maintainers documentation listing current project maintainers
+
+### Changed
+
+- Major documentation overhaul:
+  - Enhanced README with improved badges, clearer setup instructions, and better project description
+  - Completely rewritten Features documentation with detailed explanations and code examples
+  - Improved Getting Started guide with step-by-step setup for both Grafana Cloud and self-hosted options
+- Updated example app to demonstrate latest SDK features and best practices
+
+### Improved
+
+- Project governance and community guidelines establishment
+- Developer experience with better onboarding documentation
+- Code contribution workflow with standardized templates and processes
+
 ## [0.3.5] - 2025-05-28
 
 ### Added
