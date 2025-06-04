@@ -5,12 +5,15 @@
 [![Flutter checks](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml/badge.svg)](https://github.com/grafana/faro-flutter-sdk/actions/workflows/flutter_checks.yml)
 ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 [![pub package](https://img.shields.io/pub/v/faro.svg)](https://pub.dev/packages/faro)
+![iOS](https://img.shields.io/badge/iOS-supported-brightgreen?logo=apple&logoColor=white)
+![Android](https://img.shields.io/badge/Android-supported-brightgreen?logo=android&logoColor=white)
 
 The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile applications by instrumenting Flutter apps to collect telemetry.
 
-The collected data can be visualized in **Grafana Mobile Observability** (currently in private beta), which will provide immediate, clear, actionable insights into the end user experience of your Flutter applications. Similar to [Grafana Frontend Observability](https://grafana.com/products/cloud/frontend-observability-for-real-user-monitoring/), but with a focus on mobile-specific vitals and telemetry, this will allow you to monitor real-time mobile app health, track errors, and resolve issues with end-to-end visibility across your stack.
+The collected data can be visualized in [Grafana Frontend Observability](https://grafana.com/products/cloud/frontend-observability-for-real-user-monitoring/).  
+_Please note:_ Grafana Frontend Observability is primarily tailored for web RUM. But the session tracking and error monitoring capabilities work similarly for mobile applications. Additionally, all telemetry data collected by the Faro Flutter SDK is stored in Loki/Tempo, allowing you to create custom dashboards and perform detailed investigations using Loki/Tempo queries within Grafana.
 
-Importantly, you don't need to rely on Grafana Mobile Observability in Grafana Cloud to benefit from this SDK. The telemetry data can be forwarded to [Grafana Alloy](https://grafana.com/docs/alloy/latest/) (with faro receiver integration enabled) and then made accessible in a observability vendor of your choice and integrate Faro's powerful mobile instrumentation into your existing observability workflow.
+Importantly, you don't need to rely on Grafana Frontend Observability in Grafana Cloud to benefit from this SDK. The telemetry data can be forwarded to [Grafana Alloy](https://grafana.com/docs/alloy/latest/) (with faro receiver integration enabled) and then made accessible in a observability vendor of your choice and integrate Faro's powerful mobile instrumentation into your existing observability workflow.
 
 ## Features
 
@@ -39,7 +42,7 @@ Add the following dependencies to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  faro: ^0.3.0
+  faro: ^<latest_version>
 ```
 
 ### Initialize Faro
@@ -59,9 +62,13 @@ Faro().runApp(
       collectorHeaders: {
         ... // custom headers to be sent with each request to the collector url
       }
+      // ... other configurations
   ),
   appRunner: () => runApp(
-   FaroUserInteractionWidget(child: MyApp())
+    DefaultAssetBundle(
+      bundle: FaroAssetBundle(),
+      child: FaroUserInteractionWidget(child: MyApp())
+    )
   ),
 );
 ```
@@ -82,7 +89,9 @@ Faro releases follow the [Semantic Versioning](https://semver.org/) naming schem
 
 ## Contributing
 
-Contributions to the Faro Flutter SDK are welcome! Please see our contributing guidelines for more information.
+Contributions to the Faro Flutter SDK are welcome! Please see our [Contributing Guidelines](CONTRIBUTING.md) for detailed information on how to get started, submit issues, and contribute code.
+
+For questions about the project or need help getting started, feel free to open an issue or reach out to our maintainers.
 
 ## License
 
