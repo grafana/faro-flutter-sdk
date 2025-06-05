@@ -180,3 +180,34 @@ To capture the duration of an event you can use the following methods
     // example
     Faro().addUserMeta(userId:"123",userName:"user",userEmail:"jhondoes@something.com")
 ```
+
+### Data Collection Control
+
+Faro provides the ability to enable or disable data collection at runtime. This setting is automatically persisted across app restarts, so you don't need to set it every time your app starts.
+
+#### Getting Current State
+
+```dart
+bool isEnabled = Faro().enableDataCollection;
+```
+
+#### Enabling/Disabling Data Collection
+
+```dart
+// Disable data collection (automatically persisted)
+Faro().enableDataCollection = false;
+```
+
+#### Persistence Behavior
+
+- **Default State**: Data collection is enabled by default on first app launch
+- **Automatic Persistence**: Any changes to the data collection setting are automatically saved to device storage
+- **Cross-Session**: The setting persists across app restarts, device reboots, and app updates
+- **Storage**: Uses SharedPreferences on both iOS and Android for reliable persistence
+
+#### Use Cases
+
+This feature is particularly useful for:
+
+- **Privacy Controls**: Allow users to opt-out of data collection
+- **Compliance**: Meet regulatory requirements for data collection consent

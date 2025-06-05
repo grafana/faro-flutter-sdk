@@ -1,5 +1,6 @@
 import 'package:faro/faro_native_methods.dart';
 import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,8 @@ class MockBatchTransport extends Mock implements BatchTransport {}
 
 class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
+class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
+
 void main() {
   group('RUM Flutter initialization', () {
     const appName = 'TestApp';
@@ -24,10 +27,15 @@ void main() {
     late MockFaroTransport mockFaroTransport;
     late MockBatchTransport mockBatchTransport;
     late MockFaroNativeMethods mockFaroNativeMethods;
+    late MockDataCollectionPolicy mockDataCollectionPolicy;
 
     setUp(() {
       // Mock SharedPreferences
       SharedPreferences.setMockInitialValues({});
+      mockDataCollectionPolicy = MockDataCollectionPolicy();
+      when(() => mockDataCollectionPolicy.isEnabled).thenReturn(true);
+      when(() => mockDataCollectionPolicy.enable()).thenAnswer((_) async {});
+      when(() => mockDataCollectionPolicy.disable()).thenAnswer((_) async {});
 
       PackageInfo.setMockInitialValues(
         appName: appName,
@@ -149,6 +157,36 @@ void main() {
       const measurementValue = {'key1': 1233, 'key2': 100};
       Faro().pushMeasurement(measurementValue, measurementType);
       verify(() => mockBatchTransport.addMeasurement(any())).called(1);
+    });
+
+    test('enableDataCollection getter reflects DataCollectionPolicy state',
+        () async {
+      // Set the mock policy on Faro
+      Faro().dataCollectionPolicy = mockDataCollectionPolicy;
+
+      // Default should be enabled (as per our mock setup)
+      expect(Faro().enableDataCollection, isTrue);
+
+      // Test when policy reports disabled
+      when(() => mockDataCollectionPolicy.isEnabled).thenReturn(false);
+      expect(Faro().enableDataCollection, isFalse);
+
+      // Test when policy reports enabled
+      when(() => mockDataCollectionPolicy.isEnabled).thenReturn(true);
+      expect(Faro().enableDataCollection, isTrue);
+    });
+
+    test('enableDataCollection setter updates DataCollectionPolicy', () async {
+      // Set the mock policy on Faro
+      Faro().dataCollectionPolicy = mockDataCollectionPolicy;
+
+      // Test setting to false
+      Faro().enableDataCollection = false;
+      verify(() => mockDataCollectionPolicy.disable()).called(1);
+
+      // Test setting to true
+      Faro().enableDataCollection = true;
+      verify(() => mockDataCollectionPolicy.enable()).called(1);
     });
   });
 }
