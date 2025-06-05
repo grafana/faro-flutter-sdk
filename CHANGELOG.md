@@ -35,6 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Developer experience with better onboarding documentation
 - Code contribution workflow with standardized templates and processes
 
+### Fixed
+
+- **Critical NullPointerException in Android frame monitoring**: Fixed crash when frame monitoring callbacks execute after Flutter engine detachment
+  - Added proper cleanup in `stopFrameMonitoring()` to remove Choreographer callbacks
+  - Added null checks in `handleFrameDrop()`, `handleSlowFrameDrop()`, and `handleRefreshRate()` methods
+  - Added safety guards to prevent frame processing when monitoring is stopped
+  - Prevents crashes when app goes to background or during configuration changes
+
 ## [0.3.5] - 2025-05-28
 
 ### Added
