@@ -75,6 +75,8 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
 
     private boolean isAnrTrackerRunning = false;
     private boolean isActivityResumed = false;
+    private boolean isFrameMonitoringRunning = false;
+    private Choreographer.FrameCallback frameCallback;
     
     private final Application.ActivityLifecycleCallbacks activityLifecycleCallbacks = new Application.ActivityLifecycleCallbacks() {
         @Override
@@ -403,24 +405,46 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void startFrameMonitoring() {
+        if (isFrameMonitoringRunning) {
+            return; // Already running
+        }
+        
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
-            Choreographer.getInstance().postFrameCallback(frameTimeNanos -> {
-                checkFrameDuration(frameTimeNanos);
-                if(this.count<5){
-                    startFrameMonitoring();
+            frameCallback = new Choreographer.FrameCallback() {
+                @Override
+                public void doFrame(long frameTimeNanos) {
+                    checkFrameDuration(frameTimeNanos);
+                    if (count < 5 && isFrameMonitoringRunning) {
+                        Choreographer.getInstance().postFrameCallback(this);
+                    }
                 }
-            });
+            };
+            isFrameMonitoringRunning = true;
+            Choreographer.getInstance().postFrameCallback(frameCallback);
         } else {
+            // Fallback for older API levels
+            isFrameMonitoringRunning = true;
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 checkFrameDuration(System.nanoTime());
-                startFrameMonitoring();
+                if (isFrameMonitoringRunning) {
+                    startFrameMonitoring();
+                }
             }, 16);
         }
     }
 
     private void stopFrameMonitoring() {
-        // Cleanup or stop monitoring if needed
-        Log.d("Cleanup or stop monitoring if needed","");
+        isFrameMonitoringRunning = false;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN && frameCallback != null) {
+            Choreographer.getInstance().removeFrameCallback(frameCallback);
+            frameCallback = null;
+        }
+        // Reset monitoring state
+        lastFrameTimeNanos = 0;
+        count = 0;
+        frameCount = 0;
+        slowFrames.set(0);
+        frozenFrameCount[0] = 0;
     }
 
     private List<String> getExitInfo() throws JSONException {
@@ -451,6 +475,11 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void checkFrameDuration(long frameTimeNanos) {
+        // Safety check - don't process if monitoring is stopped or channel is null
+        if (!isFrameMonitoringRunning || channel == null) {
+            return;
+        }
+        
         long frameDuration = frameTimeNanos - lastFrameTimeNanos;
         this.frameCount++;
         this.refreshRate = NANOSECONDS_IN_SECOND / (double) frameDuration;
@@ -484,6 +513,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void handleFrameDrop() {
+        if (channel == null) {
+            Log.w(TAG, "Channel is null, skipping handleFrameDrop");
+            return;
+        }
         int frozenFrame = this.frozenFrameCount[0];
         // Handle the frozen frame event, e.g., log, send an event to Dart, etc.
         channel.invokeMethod("onFrozenFrame", frozenFrame);
@@ -491,6 +524,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void handleSlowFrameDrop() {
+        if (channel == null) {
+            Log.w(TAG, "Channel is null, skipping handleSlowFrameDrop");
+            return;
+        }
         int slowFramesCount = this.slowFrames.get();
         // Handle the frozen frame event, e.g., log, send an event to Dart, etc.
         channel.invokeMethod("onSlowFrames", slowFramesCount);
@@ -498,6 +535,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void handleRefreshRate() {
+        if (channel == null) {
+            Log.w(TAG, "Channel is null, skipping handleRefreshRate");
+            return;
+        }
         Object refreshRates = this.refreshRate;
         // Handle the frozen frame event, e.g., log, send an event to Dart, etc.
         channel.invokeMethod("onRefreshRate", refreshRates);
