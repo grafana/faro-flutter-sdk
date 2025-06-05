@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2025-06-05
+
 ### Added
 
 - **Data Collection Persistence**: The `enableDataCollection` setting now persists across app restarts
