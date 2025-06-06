@@ -59,6 +59,17 @@ class SpanRecord {
       faroEventAttributes[key] =
           _otelReadOnlySpan.attributes.get(key).toString();
     }
+
+    // Add span duration in nanoseconds
+    final startTime = _otelReadOnlySpan.startTime;
+    final endTime = _otelReadOnlySpan.endTime;
+    if (startTime.toInt() > 0 &&
+        endTime != null &&
+        endTime.toInt() > 0 &&
+        endTime >= startTime) {
+      faroEventAttributes['duration_ns'] = (endTime - startTime).toString();
+    }
+
     return faroEventAttributes;
   }
 
