@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Trace event duration**: Added duration information to trace events
+  - Events now include `duration_ns` attribute with span duration in nanoseconds
+  - Duration calculated as `endTime - startTime` when both timestamps are valid
+  - Improves observability by providing timing information for traced operations
+  - Resolves issue #23: Add duration to Faro events
+
 ### Fixed
 
 - **Span event naming**: Fixed incorrect event names for tracing spans
