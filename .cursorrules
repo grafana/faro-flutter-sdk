@@ -108,6 +108,27 @@ This is a Flutter SDK that implements the Grafana Faro protocol for mobile obser
 - Provide migration guides
 - Include troubleshooting information
 
+## Git & Commit Guidelines
+
+### Commit Messages
+
+- Use the `.gitmessage` template for commit message format
+- Do NOT use the `.github/pull_request_template.md` for commit messages
+- Follow conventional commit format: `type(scope): description`
+- Keep first line under 50 characters
+- Use imperative mood ("Add feature" not "Added feature")
+
+### Example Commit Format
+
+```
+feat(tracing): add span context propagation
+
+Implement proper span context propagation across async boundaries
+to ensure distributed tracing works correctly.
+
+Fixes #123
+```
+
 ## Dependencies & Versioning
 
 ### Dependency Management

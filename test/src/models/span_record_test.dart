@@ -158,5 +158,84 @@ void main() {
         expect(result, expectedName);
       });
     });
+
+    group('getFaroEventAttributes:', () {
+      test('sanitizes attribute values by removing surrounding quotes', () {
+        // Arrange
+        final mockSpan = MockReadOnlySpan();
+        final mockAttributes = MockAttributes();
+        when(() => mockSpan.attributes).thenReturn(mockAttributes);
+        when(() => mockAttributes.keys).thenReturn(['url', 'method', 'status']);
+        when(() => mockAttributes.get('url'))
+            .thenReturn('"https://example.com"');
+        when(() => mockAttributes.get('method')).thenReturn('GET');
+        when(() => mockAttributes.get('status')).thenReturn('"200"');
+
+        final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
+
+        // Act
+        final result = spanRecord.getFaroEventAttributes();
+
+        // Assert
+        expect(result['url'], 'https://example.com');
+        expect(result['method'], 'GET');
+        expect(result['status'], '200');
+      });
+
+      test('preserves values without quotes', () {
+        // Arrange
+        final mockSpan = MockReadOnlySpan();
+        final mockAttributes = MockAttributes();
+        when(() => mockSpan.attributes).thenReturn(mockAttributes);
+        when(() => mockAttributes.keys).thenReturn(['count', 'enabled']);
+        when(() => mockAttributes.get('count')).thenReturn('42');
+        when(() => mockAttributes.get('enabled')).thenReturn('true');
+
+        final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
+
+        // Act
+        final result = spanRecord.getFaroEventAttributes();
+
+        // Assert
+        expect(result['count'], '42');
+        expect(result['enabled'], 'true');
+      });
+
+      test('handles empty and null values correctly', () {
+        // Arrange
+        final mockSpan = MockReadOnlySpan();
+        final mockAttributes = MockAttributes();
+        when(() => mockSpan.attributes).thenReturn(mockAttributes);
+        when(() => mockAttributes.keys).thenReturn(['empty', 'null_value']);
+        when(() => mockAttributes.get('empty')).thenReturn('');
+        when(() => mockAttributes.get('null_value')).thenReturn(null);
+
+        final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
+
+        // Act
+        final result = spanRecord.getFaroEventAttributes();
+
+        // Assert
+        expect(result['empty'], '');
+        expect(result['null_value'], 'null');
+      });
+
+      test('handles single quote correctly', () {
+        // Arrange
+        final mockSpan = MockReadOnlySpan();
+        final mockAttributes = MockAttributes();
+        when(() => mockSpan.attributes).thenReturn(mockAttributes);
+        when(() => mockAttributes.keys).thenReturn(['single_quote']);
+        when(() => mockAttributes.get('single_quote')).thenReturn('"');
+
+        final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
+
+        // Act
+        final result = spanRecord.getFaroEventAttributes();
+
+        // Assert
+        expect(result['single_quote'], '"');
+      });
+    });
   });
 }
