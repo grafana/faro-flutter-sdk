@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Human-readable timestamps for Android crashes**: Added readable timestamp formatting for crash reports
+  - Crash context now includes both original Unix epoch timestamp and human-readable ISO 8601 format
+  - Added `timestamp_readable` field alongside existing `timestamp` field
+  - Timestamps converted to UTC ISO 8601 format (e.g., "2025-06-04T23:49:20.296Z")
+  - Includes new `TimestampExtension` utility for reusable timestamp conversion
+  - Improves debugging experience with easily interpretable crash timestamps
+  - Resolves issue #53: Add human readable timestamp for Android crashes
 - **Trace event duration**: Added duration information to trace events
   - Events now include `duration_ns` attribute with span duration in nanoseconds
   - Duration calculated as `endTime - startTime` when both timestamps are valid

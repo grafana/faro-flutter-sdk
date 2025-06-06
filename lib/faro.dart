@@ -13,6 +13,7 @@ import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/tracing/tracer_provider.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/util/generate_session.dart';
+import 'package:faro/src/util/timestamp_extension.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -304,6 +305,8 @@ class Faro {
             final stacktrace =
                 stringifiedContext['stacktrace'] ?? 'No stacktrace';
             final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
+            final humanReadableTimestamp = timestamp.toHumanReadableTimestamp();
+
             final importance =
                 stringifiedContext['importance'] ?? 'No importance';
             final processName =
@@ -316,6 +319,7 @@ class Faro {
                 'description': description,
                 'stacktrace': stacktrace,
                 'timestamp': timestamp,
+                'timestamp_readable': humanReadableTimestamp,
                 'importance': importance,
                 'processName': processName,
               },
