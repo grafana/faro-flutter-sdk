@@ -56,10 +56,17 @@ class SpanRecord {
   Map<String, String> getFaroEventAttributes() {
     final faroEventAttributes = <String, String>{};
     for (final key in _otelReadOnlySpan.attributes.keys) {
-      faroEventAttributes[key] =
-          _otelReadOnlySpan.attributes.get(key).toString();
+      final value = _otelReadOnlySpan.attributes.get(key).toString();
+      faroEventAttributes[key] = _sanitizeAttributeValue(value);
     }
     return faroEventAttributes;
+  }
+
+  String _sanitizeAttributeValue(String value) {
+    if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+      return value.substring(1, value.length - 1);
+    }
+    return value;
   }
 
   String getFaroEventName() {
