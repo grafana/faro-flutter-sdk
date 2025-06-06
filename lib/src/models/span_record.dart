@@ -61,4 +61,23 @@ class SpanRecord {
     }
     return faroEventAttributes;
   }
+
+  String getFaroEventName() {
+    // Check for HTTP semantic attributes to determine if it's an HTTP span
+    final attributes = _otelReadOnlySpan.attributes;
+    final httpScheme = attributes.get('http.scheme');
+    final httpMethod = attributes.get('http.method');
+
+    final hasHttpScheme =
+        httpScheme != null && httpScheme.toString().isNotEmpty;
+    final hasHttpMethod =
+        httpMethod != null && httpMethod.toString().isNotEmpty;
+
+    if (hasHttpScheme || hasHttpMethod) {
+      return 'faro.tracing.fetch';
+    } else {
+      // Use the original span name prefixed with "span." for non-HTTP spans
+      return 'span.${name()}';
+    }
+  }
 }
