@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Span event naming**: Fixed incorrect event names for tracing spans
+  - HTTP spans now correctly use `faro.tracing.fetch` event name
+  - Non-HTTP spans use `span.{name}` format for better event categorization
+  - Added logic to detect HTTP spans based on `http.scheme` or `http.method` attributes
+  - Resolves issue #41: Incorrect span event names being sent to collector
+
 ## [0.3.6] - 2025-06-05
 
 ### Added

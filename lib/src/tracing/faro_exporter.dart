@@ -31,7 +31,7 @@ class FaroExporter implements otel_sdk.SpanExporter {
       final spanRecord = SpanRecord(otelReadOnlySpan: otelReadOnlySpan);
 
       faro.pushEvent(
-        'faro.tracing.${spanRecord.name()}',
+        spanRecord.getFaroEventName(),
         attributes: spanRecord.getFaroEventAttributes(),
         trace: spanRecord.getFaroSpanContext(),
       );
