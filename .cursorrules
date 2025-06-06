@@ -1,0 +1,189 @@
+# Grafana Faro Flutter SDK - Cursor Rules
+
+You are an expert Flutter/Dart developer working on the Grafana Faro Flutter SDK, a professional observability and monitoring SDK. Follow these guidelines strictly.
+
+## Project Context
+
+This is a Flutter SDK that implements the Grafana Faro protocol for mobile observability. The SDK:
+
+- Collects telemetry data (logs, exceptions, measurements, events, traces)
+- Integrates with Flutter's widget and HTTP lifecycle
+- Sends data to Grafana Cloud or Alloy endpoints
+- Supports both iOS and Android platforms
+- Uses OpenTelemetry for tracing
+
+## Architecture & Design Patterns
+
+### Project Structure
+
+- Follow the existing structure: `lib/src/` for implementation details
+- Keep public API in `lib/` root files (`faro.dart`, `faro_sdk.dart`, etc.)
+- Platform-specific code in `ios/` and `android/` directories
+- Tests mirror the lib structure in `test/`
+
+### Coding Standards
+
+- Use strict null safety (`!` only when absolutely necessary)
+- Prefer composition over inheritance
+- Use dependency injection patterns
+- Implement proper error handling with custom exceptions
+- Follow the existing naming conventions in the codebase
+
+### SDK Development Best Practices
+
+- **Public API Design**: Keep public interfaces minimal and stable
+- **Backwards Compatibility**: Consider breaking changes carefully
+- **Configuration**: Use configuration objects, not individual parameters
+- **Extensibility**: Design for plugin/integration patterns
+- **Performance**: Minimize impact on host applications
+- **Privacy**: Respect data collection policies and user consent
+
+## Flutter/Dart Guidelines
+
+### Code Style
+
+- Use `dart format` standards
+- Prefer `final` over `var` when type is obvious
+- Use meaningful variable and function names
+- Add documentation comments for public APIs
+- Use `@protected`, `@visibleForTesting` annotations appropriately
+
+### Widget Development
+
+- Use `const` constructors whenever possible
+- Implement proper `StatefulWidget` lifecycle methods
+
+### Async Programming
+
+- Use `async`/`await` over `.then()` chains
+- Handle errors with try-catch blocks
+- Use `Future<void>` for fire-and-forget operations
+- Implement proper cancellation for long-running operations
+
+### State Management
+
+- Follow the existing patterns in the SDK
+- Use provider pattern for dependency injection
+- Implement proper cleanup in `dispose()` methods
+- Use streams for real-time data flow
+
+## Platform-Specific Guidelines
+
+### iOS (Swift)
+
+- Follow Swift coding conventions
+- Use proper memory management
+- Implement crash reporting with PLCrashReporter
+- Handle app lifecycle events correctly
+
+### Android (Java/Kotlin)
+
+- Follow Android development best practices
+- Use proper exception handling
+- Implement ANR detection
+- Handle process lifecycle appropriately
+
+## Testing Guidelines
+
+### Unit Tests
+
+- Test all public APIs thoroughly
+- Mock external dependencies
+- Use `testWidgets` for widget testing
+- Test error conditions and edge cases
+
+## Documentation
+
+### Code Comments
+
+- Document all public classes and methods
+- Use `///` for public API documentation
+- Include usage examples in complex APIs
+- Document configuration options and their effects
+
+### README and Docs
+
+- Keep examples current and working
+- Document breaking changes clearly
+- Provide migration guides
+- Include troubleshooting information
+
+## Dependencies & Versioning
+
+### Dependency Management
+
+- Minimize external dependencies
+- Use stable package versions
+- Document why each dependency is needed
+- Consider bundle size impact
+
+### Version Management
+
+- Follow semantic versioning
+- Update version numbers in all necessary files
+- Maintain changelog with clear categorization
+- Test version bumps thoroughly
+
+## Common Patterns to Follow
+
+### Error Handling
+
+```dart
+try {
+  // Operation
+} on SpecificException catch (error) {
+  // Handle specific error
+} catch (error) {
+  // Handle general error
+  // Log appropriately based on data collection policy
+}
+```
+
+### Configuration
+
+```dart
+// Use configuration objects
+final config = FaroConfig(
+  appName: 'MyApp',
+  version: '1.0.0',
+  // ... other options
+);
+```
+
+### Async Operations
+
+```dart
+Future<void> collectData() async {
+  try {
+    final data = await dataProvider.getData();
+    await transport.send(data);
+  } catch (error) {
+    // Handle error appropriately
+  }
+}
+```
+
+## Performance Considerations
+
+- Minimize main thread blocking
+- Use appropriate batching for network requests
+- Implement proper caching strategies
+- Use background isolates for heavy processing when appropriate
+
+## Security & Privacy
+
+- Never log sensitive information
+- Respect user privacy settings
+- Implement proper data sanitization
+- Use secure transport (HTTPS)
+- Follow platform security guidelines
+
+## When in Doubt
+
+1. Check existing code patterns in the project
+2. Prioritize SDK user experience over internal convenience
+3. Consider the impact on app performance
+4. Follow Grafana Faro protocol specifications
+5. Maintain backwards compatibility unless absolutely necessary
+
+Remember: This SDK will be used by other developers, so prioritize clarity, reliability, and ease of use in all implementations.

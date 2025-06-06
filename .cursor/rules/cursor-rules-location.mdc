@@ -1,78 +1,93 @@
 ---
-description: Cursor Rules Location and Creation
-globs: 
-alwaysApply: false
+description: Cursor Rules organization and file structure standards
+globs: ["**/*.mdc", ".cursorrules"]
+alwaysApply: true
 ---
 
-# Cursor Rules Location
+# Cursor Rules Organization
 
-Rules for placing and organizing Cursor rule files in the repository.
+Modern standards for organizing Cursor AI rules and configuration files in the repository.
 
-<rule>
-name: cursor_rules_location
-description: Standards for placing Cursor rule files in the correct directory
-filters:
-  # Match any .mdc files
-  - type: file_extension
-    pattern: "\\.mdc$"
-  # Match files that look like Cursor rules
-  - type: content
-    pattern: "(?s)<rule>.*?</rule>"
-  # Match file creation events
-  - type: event
-    pattern: "file_create"
+## File Structure Standards
 
-actions:
-  - type: reject
-    conditions:
-      - pattern: "^(?!\\.\\/\\.cursor\\/rules\\/.*\\.mdc$)"
-        message: "Cursor rule files (.mdc) must be placed in the .cursor/rules directory"
+### Primary Configuration
+- **`.cursorrules`**: Main configuration file in project root
+  - Contains project-specific AI behavior guidelines
+  - Uses plain text format with markdown-style sections
+  - Single source of truth for general development patterns
 
-  - type: suggest
-    message: |
-      When creating Cursor rules:
+### Supplementary Rules (Optional)
+- **`.cursor/rules/*.mdc`**: Specialized rule files for specific contexts
+  - Use for complex, conditional, or domain-specific rules
+  - Organize by functional area (e.g., architecture, testing, protocols)
+  - Apply to specific file patterns or development scenarios
 
-      1. Always place rule files in PROJECT_ROOT/.cursor/rules/:
-         ```
-         .cursor/rules/
-         ├── your-rule-name.mdc
-         ├── another-rule.mdc
-         └── ...
-         ```
+## Current 2024/2025 Best Practices
 
-      2. Follow the naming convention:
-         - Use kebab-case for filenames
-         - Always use .mdc extension
-         - Make names descriptive of the rule's purpose
+### File Placement
+```
+PROJECT_ROOT/
+├── .cursorrules                    # Primary rules (REQUIRED)
+├── .cursor/
+│   └── rules/                      # Supplementary rules (OPTIONAL)
+│       ├── project-context.mdc     # Project-specific context
+│       ├── architecture-rules.mdc  # Architecture guidelines
+│       └── protocol-specs.mdc      # Domain-specific protocols
+└── ...
+```
 
-      3. Directory structure:
-         ```
-         PROJECT_ROOT/
-         ├── .cursor/
-         │   └── rules/
-         │       ├── your-rule-name.mdc
-         │       └── ...
-         └── ...
-         ```
+### Naming Conventions
+- **`.cursorrules`**: Always this exact filename in root
+- **`.mdc files`**: Use kebab-case, descriptive names
+- **Descriptive**: Names should indicate purpose (e.g., `faro-protocol.mdc`)
 
-      4. Never place rule files:
-         - In the project root
-         - In subdirectories outside .cursor/rules
-         - In any other location
+### Content Guidelines
 
-examples:
-  - input: |
-      # Bad: Rule file in wrong location
-      rules/my-rule.mdc
-      my-rule.mdc
-      .rules/my-rule.mdc
+#### For .cursorrules (Primary)
+- Focus on general development patterns
+- Include language/framework specific guidelines
+- Define code style and architecture preferences
+- Keep concise but comprehensive
 
-      # Good: Rule file in correct location
-      .cursor/rules/my-rule.mdc
-    output: "Correctly placed Cursor rule file"
+#### For .mdc files (Supplementary)
+- Use YAML frontmatter for metadata:
+  ```yaml
+  ---
+  description: Brief description of rule purpose
+  globs: ["**/*.dart", "**/*.swift"]  # File patterns to apply to
+  alwaysApply: true/false             # Whether to apply automatically
+  ---
+  ```
+- Include detailed context and examples
+- Focus on specific domains or complex scenarios
 
-metadata:
-  priority: high
-  version: 1.0
-</rule>
+## Integration Strategy
+
+### Migration from Legacy Patterns
+1. **Primary rules** → Move to `.cursorrules` in root
+2. **Complex rules** → Keep as `.mdc` files in `.cursor/rules/`
+3. **Update metadata** → Add proper YAML frontmatter
+4. **Consolidate overlaps** → Avoid duplication between files
+
+### Maintenance
+- Keep `.cursorrules` as the primary entry point
+- Use `.mdc` files for specialized contexts only
+- Regular review to ensure rules stay current
+- Update based on framework/language evolution
+
+## Quality Standards
+
+### Content Quality
+- **Specificity**: Rules should be specific to project needs
+- **Clarity**: Clear, actionable guidelines
+- **Currency**: Updated for latest framework versions
+- **Completeness**: Cover common development scenarios
+
+### Organization
+- **Hierarchy**: General rules in `.cursorrules`, specific in `.mdc`
+- **Modularity**: Each `.mdc` file should have a clear, focused purpose
+- **Documentation**: Include examples and rationale
+- **Consistency**: Follow established patterns across all rule files
+
+This structure balances simplicity (single `.cursorrules` file) with flexibility (specialized `.mdc` files) while following current Cursor AI best practices.
 
