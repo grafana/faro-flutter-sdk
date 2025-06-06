@@ -56,21 +56,36 @@ class SpanRecord {
   Map<String, String> getFaroEventAttributes() {
     final faroEventAttributes = <String, String>{};
     for (final key in _otelReadOnlySpan.attributes.keys) {
-      faroEventAttributes[key] =
-          _otelReadOnlySpan.attributes.get(key).toString();
+      final value = _otelReadOnlySpan.attributes.get(key).toString();
+      faroEventAttributes[key] = _sanitizeAttributeValue(value);
     }
 
     // Add span duration in nanoseconds
+    final durationString = _getSpanDurationString();
+    if (durationString != null) {
+      faroEventAttributes['duration_ns'] = durationString;
+    }
+
+    return faroEventAttributes;
+  }
+
+  String _sanitizeAttributeValue(String value) {
+    if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+      return value.substring(1, value.length - 1);
+    }
+    return value;
+  }
+
+  String? _getSpanDurationString() {
     final startTime = _otelReadOnlySpan.startTime;
     final endTime = _otelReadOnlySpan.endTime;
     if (startTime.toInt() > 0 &&
         endTime != null &&
         endTime.toInt() > 0 &&
         endTime >= startTime) {
-      faroEventAttributes['duration_ns'] = (endTime - startTime).toString();
+      return (endTime - startTime).toString();
     }
-
-    return faroEventAttributes;
+    return null;
   }
 
   String getFaroEventName() {

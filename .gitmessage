@@ -1,0 +1,21 @@
+# Commit message template
+# Use imperative mood (e.g., "Add feature" not "Added feature")
+# Keep first line under 50 characters
+# Leave blank line between subject and body
+# Explain what and why, not how
+
+# Examples:
+# feat: add user authentication system
+# fix: resolve memory leak in image processing
+# docs: update API documentation
+# refactor: simplify configuration loading logic
+# test: add unit tests for user service
+
+# Type prefixes:
+# feat: new feature
+# fix: bug fix
+# docs: documentation
+# style: formatting, missing semicolons, etc
+# refactor: code change that neither fixes bug nor adds feature
+# test: adding tests
+# chore: updating build tasks, package manager configs, etc

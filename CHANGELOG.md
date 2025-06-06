@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Non-HTTP spans use `span.{name}` format for better event categorization
   - Added logic to detect HTTP spans based on `http.scheme` or `http.method` attributes
   - Resolves issue #41: Incorrect span event names being sent to collector
+- **Event data URL formatting**: Fixed inconsistent formatting of event_data_url parameter
+  - Attribute values are now properly sanitized to remove surrounding quotes
+  - Ensures consistent formatting across all event attributes
+  - Resolves issue #25: Inconsistent event_data_url formatting
 
 ## [0.3.6] - 2025-06-05
 

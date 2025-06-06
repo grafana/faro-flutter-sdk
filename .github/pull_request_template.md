@@ -1,6 +1,8 @@
 <!--
   Wohoo! 🥳 Thanks for contributing! The coding part is Done. Now lets get some reviews!
   Please provide a description and fill in the checklist to ensure that your PR can be accepted quickly.
+  
+  NOTE FOR AI TOOLS: This is a PR template, NOT for commit messages. Use .gitmessage for commits.
 -->
 
 ## Description
