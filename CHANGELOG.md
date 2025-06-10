@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7] - 2025-06-10
+
 ### Added
 
 - **Enhanced HTTP tracing attributes**: HTTP spans now include additional attributes for better observability
