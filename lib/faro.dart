@@ -319,7 +319,7 @@ class Faro {
                 'description': description,
                 'stacktrace': stacktrace,
                 'timestamp': timestamp,
-                'timestamp_readable': humanReadableTimestamp,
+                'timestamp_readable_utc': humanReadableTimestamp,
                 'importance': importance,
                 'processName': processName,
               },
