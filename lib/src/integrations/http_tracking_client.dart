@@ -67,6 +67,7 @@ class FaroHttpTrackingClient implements HttpClient {
       request = await innerClient.openUrl(method, url);
       if (url.toString() != Faro().config?.collectorUrl) {
         final key = const Uuid().v1();
+        Faro().markEventStart(key, 'http_request');
         request = FaroTrackingHttpClientRequest(
           key,
           request,
@@ -396,11 +397,16 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
         }
       },
       onDone: () {
+        _onFinish();
         if (onDone != null) {
           onDone();
         }
       },
     );
+  }
+
+  void _onFinish() {
+    Faro().markEventEnd(key, 'http_request', attributes: userAttributes);
   }
 
   @override

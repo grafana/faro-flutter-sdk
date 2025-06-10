@@ -34,11 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Removed duplicate HTTP event tracking**: Fixed redundant event creation for HTTP requests
-  - Removed unnecessary `markEventStart()` and `markEventEnd()` calls in HTTP tracking client
-  - HTTP requests are now properly tracked only through OpenTelemetry spans
-  - Eliminates duplicate events that were creating noise in observability data
-  - Resolves issue with unnecessary HTTP events being sent to collector
 - **Span event naming**: Fixed incorrect event names for tracing spans
   - HTTP spans now correctly use `faro.tracing.fetch` event name
   - Non-HTTP spans use `span.{name}` format for better event categorization
