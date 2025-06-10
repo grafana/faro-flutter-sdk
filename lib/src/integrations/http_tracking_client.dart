@@ -67,7 +67,6 @@ class FaroHttpTrackingClient implements HttpClient {
       request = await innerClient.openUrl(method, url);
       if (url.toString() != Faro().config?.collectorUrl) {
         final key = const Uuid().v1();
-        Faro().markEventStart(key, 'http_request');
         request = FaroTrackingHttpClientRequest(
           key,
           request,
@@ -251,6 +250,9 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
 
       _httpSpan.setAttributes({
         'http.status_code': '${value.statusCode}',
+        'http.request_size': '${innerContext.contentLength}',
+        'http.response_size': '${value.headers.contentLength}',
+        'http.content_type': '${value.headers.contentType}',
       });
 
       _httpSpan.setStatus(SpanStatusCode.ok);
@@ -394,16 +396,11 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
         }
       },
       onDone: () {
-        _onFinish();
         if (onDone != null) {
           onDone();
         }
       },
     );
-  }
-
-  void _onFinish() {
-    Faro().markEventEnd(key, 'http_request', attributes: userAttributes);
   }
 
   @override
