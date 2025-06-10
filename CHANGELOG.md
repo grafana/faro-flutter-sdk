@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Enhanced HTTP tracing attributes**: HTTP spans now include additional attributes for better observability
+  - Added `http.request_size` attribute with request content length
+  - Added `http.response_size` attribute with response content length
+  - Added `http.content_type` attribute with response content type
+  - Provides more comprehensive HTTP request/response metadata for monitoring
+- **Session attributes in OpenTelemetry traces**: Tracer resources now automatically include session attributes
+  - Session metadata is propagated to all OpenTelemetry spans
+  - Enables correlation of traces with user sessions and custom session data
+  - Supports dynamic session attribute values (strings, numbers, booleans, objects)
+  - Added comprehensive test coverage for `DartOtelTracerResourcesFactory`
 - **Human-readable timestamps for Android crashes**: Added readable timestamp formatting for crash reports
   - Crash context now includes both original Unix epoch timestamp and human-readable ISO 8601 format
   - Added `timestamp_readable` field alongside existing `timestamp` field
@@ -24,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Removed duplicate HTTP event tracking**: Fixed redundant event creation for HTTP requests
+  - Removed unnecessary `markEventStart()` and `markEventEnd()` calls in HTTP tracking client
+  - HTTP requests are now properly tracked only through OpenTelemetry spans
+  - Eliminates duplicate events that were creating noise in observability data
+  - Resolves issue with unnecessary HTTP events being sent to collector
 - **Span event naming**: Fixed incorrect event names for tracing spans
   - HTTP spans now correctly use `faro.tracing.fetch` event name
   - Non-HTTP spans use `span.{name}` format for better event categorization
