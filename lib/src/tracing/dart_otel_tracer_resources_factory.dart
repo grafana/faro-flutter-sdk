@@ -44,7 +44,20 @@ class DartOtelTracerResourcesFactory {
           'telemetry.sdk.platform',
           'flutter',
         ),
+
+        // Session attributes
+        ..._buildSessionAttributes(faro.meta.session?.attributes),
       ],
     );
+  }
+
+  List<otel_api.Attribute> _buildSessionAttributes(
+      Map<String, dynamic>? sessionAttributes) {
+    if (sessionAttributes == null) return [];
+
+    return sessionAttributes.entries
+        .map((entry) => otel_api.Attribute.fromString(
+            entry.key, entry.value?.toString() ?? ''))
+        .toList();
   }
 }

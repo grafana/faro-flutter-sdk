@@ -251,6 +251,9 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
 
       _httpSpan.setAttributes({
         'http.status_code': '${value.statusCode}',
+        'http.request_size': '${innerContext.contentLength}',
+        'http.response_size': '${value.headers.contentLength}',
+        'http.content_type': '${value.headers.contentType}',
       });
 
       _httpSpan.setStatus(SpanStatusCode.ok);
