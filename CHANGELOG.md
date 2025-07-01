@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Enhanced Tracing and Span API**: Major improvements to distributed tracing capabilities
+
+  - New `startSpan<T>()` method for automatic span lifecycle management with callback-based execution
+  - New `startSpanManual()` method for manual span lifecycle management when precise control is needed
+  - New `getActiveSpan()` method to access the currently active span from anywhere in the execution context
+  - Zone-based span context management ensures proper parent-child relationships across async boundaries
+  - Automatic session ID injection - all spans now include both `session_id` and `session.id` attributes
+  - Improved error handling with automatic span status updates when exceptions occur
+  - Enhanced span status tracking with proper OpenTelemetry status code mapping
+  - Support for custom parent span specification to create explicit span hierarchies
+  - Comprehensive documentation with detailed examples for common tracing patterns
+
+- **Centralized Session Management**: New `SessionIdProvider` for consistent session handling across the SDK
+
+  - Dedicated session ID generation and management
+  - Better integration with tracing system for session context propagation
+  - Factory pattern for testable session management
+
+- **SDK Constants Management**: New centralized constants system
+  - Added `FaroConstants` class for SDK version and name management
+  - Better version tracking and consistency across the codebase
+
+### Changed
+
+- **Tracing Architecture Refactoring**: Complete redesign of the internal tracing system
+
+  - Replaced legacy `tracer.dart` and `tracer_provider.dart` with new `FaroTracer` implementation
+  - New `FaroZoneSpanManager` for robust zone-based span context management
+  - Improved `Span` class with cleaner API and better OpenTelemetry integration
+  - Enhanced span creation and management with proper resource attribution
+  - Better separation of concerns between tracing components
+  - Zone-based implementation ensures proper parent-child relationships across async boundaries
+  - Enhanced developer experience with multiple tracing approaches for different use cases
+  - Better integration between tracing and other SDK components
+
+- **Session Management**: Extracted session logic from distributed components
+  - Removed deprecated `generate_session.dart` utility
+  - Centralized session management in dedicated provider
+  - Improved testability and maintainability of session-related functionality
+
 ## [0.3.7] - 2025-06-10
 
 ### Added

@@ -125,6 +125,113 @@ Faro().pushLog(
 );
 ```
 
+## 🔗 Distributed Tracing
+
+Create detailed traces of operations across your app with automatic parent-child span relationships:
+
+### 🚀 Automatic Span Management
+
+Use `startSpan()` for most tracing needs - it automatically handles span lifecycle and error reporting:
+
+```dart
+// Trace a complete operation with initial attributes
+final result = await Faro().startSpan('api_request', (span) async {
+  // Add more attributes within the callback if needed
+  span.addEvent('Request started');
+
+  try {
+    final response = await http.get(Uri.parse('https://api.example.com/users'));
+    // Status automatically set to 'ok' on success - no need to set manually
+    return response.body;
+  } catch (e) {
+    // Status automatically set to 'error' on exception - no need to set manually
+    // But you can add custom error details if needed
+    span.addEvent('Request failed', attributes: {'error': e.toString()});
+    rethrow;
+  }
+}, attributes: {
+  'endpoint': '/api/users',
+  'method': 'GET',
+  'timeout': '30s',
+});
+
+// Nested spans are automatically linked
+await Faro().startSpan('parent_operation', (parentSpan) async {
+  parentSpan.setAttribute('operation_id', '123');
+
+  final data = await fetchData();
+
+  return await Faro().startSpan('child_operation', (childSpan) async {
+    childSpan.setAttribute('data_size', data.length.toString());
+    return await processData(data);
+    // Span status automatically handled based on success/failure
+  });
+});
+
+// Manual parent span - useful for custom span hierarchies
+final rootSpan = Faro().startSpanManual('batch_operation');
+
+// Process multiple items with the same explicit parent
+final futures = items.map((item) =>
+  Faro().startSpan('process_item', (span) async {
+    span.setAttribute('item_id', item.id);
+    return await processItem(item);
+    // No manual status setting needed - handled automatically
+  }, parentSpan: rootSpan) // Explicitly use rootSpan as parent
+);
+
+final results = await Future.wait(futures);
+rootSpan.end(); // Don't forget to end the manual span
+```
+
+### 🎛️ Manual Span Control
+
+Use `startSpanManual()` when you need precise control over span lifecycle:
+
+```dart
+// Manual span for event-driven or callback-based operations
+final span = Faro().startSpanManual('background_task',
+  attributes: {'task_id': '123'});
+
+try {
+  await performLongRunningTask();
+  span.setStatus(SpanStatusCode.ok);
+} catch (e) {
+  span.setStatus(SpanStatusCode.error, message: e.toString());
+  span.addEvent('Task failed', attributes: {'error': e.toString()});
+} finally {
+  span.end(); // Always remember to end manual spans
+}
+```
+
+### 📍 Active Span Access
+
+Access the currently active span from anywhere in your code:
+
+```dart
+void logImportantEvent(String message) {
+  final activeSpan = Faro().getActiveSpan();
+  if (activeSpan != null) {
+    activeSpan.addEvent('important_event',
+      attributes: {'message': message});
+  }
+}
+
+// Usage within a traced operation
+await Faro().startSpan('main_operation', (span) async {
+  await doSomeWork();
+  logImportantEvent('Work completed'); // Adds event to active span
+});
+```
+
+### 🔄 Span Features
+
+- **Automatic Session Tracking**: All spans include session IDs for correlation
+- **Zone-based Context**: Proper parent-child relationships across async boundaries
+- **Error Handling**: Automatic span status updates when exceptions occur
+- **Custom Attributes**: Add business context and metadata to spans
+- **Event Logging**: Record important events within span timelines
+
 ## 💾 Offline Support
 
 Never lose telemetry data, even when users are offline:
