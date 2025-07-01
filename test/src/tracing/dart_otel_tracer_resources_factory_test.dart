@@ -1,5 +1,7 @@
 // ignore_for_file: lines_longer_than_80_chars
 
+import 'dart:io';
+
 import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,20 @@ class MockMeta extends Mock implements Meta {}
 class MockApp extends Mock implements App {}
 
 class MockSession extends Mock implements Session {}
+
+/// Helper function to read the version from pubspec.yaml
+String _getPackageVersionFromPubspec() {
+  final pubspecFile = File('pubspec.yaml');
+  final pubspecContent = pubspecFile.readAsStringSync();
+  final versionMatch =
+      RegExp(r'^version:\s*(.+)$', multiLine: true).firstMatch(pubspecContent);
+
+  if (versionMatch == null) {
+    throw Exception('Could not find version in pubspec.yaml');
+  }
+
+  return versionMatch.group(1)!.trim();
+}
 
 void main() {
   group('DartOtelTracerResourcesFactory:', () {
@@ -154,7 +170,7 @@ void main() {
         expect(resource.attributes.get('telemetry.sdk.language').toString(),
             equals('dart'));
         expect(resource.attributes.get('telemetry.sdk.version').toString(),
-            equals('1.0.0'));
+            equals(_getPackageVersionFromPubspec()));
         expect(resource.attributes.get('telemetry.sdk.platform').toString(),
             equals('flutter'));
       });

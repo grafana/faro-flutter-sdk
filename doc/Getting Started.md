@@ -78,6 +78,7 @@ void main() {
 - **Configure monitoring features**: See [Configuration Options](./Configurations.md) to enable crash reporting, mobile vitals, and custom tracking
 - **Add navigation tracking**: Include `FaroNavigationObserver()` in your app's navigator observers
 - **Send custom telemetry**: Use `Faro().pushEvent()`, `Faro().pushLog()`, and other methods to track custom data
+- **Create distributed traces**: Use `Faro().startSpan()` to trace operations across your app - see [Configuration Options](./Configurations.md#distributed-tracing) for examples
 - **Explore the telemetry data**: Go to your Grafana Cloud instance and navigate to **Frontend Observability**. Or just start exploring the data in any Grafana dashboard using **Tempo** for the traces and **Loki** for everything else.
 
 ## Need Help?

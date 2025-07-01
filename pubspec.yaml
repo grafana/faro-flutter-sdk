@@ -16,7 +16,7 @@ dependencies:
     sdk: flutter
   http: ^1.2.2
   intl: ^0.20.0
-  opentelemetry: ^0.18.6
+  opentelemetry: ^0.18.10
   package_info_plus: ^8.0.1
   path_provider: ^2.1.5
   plugin_platform_interface: ^2.0.2

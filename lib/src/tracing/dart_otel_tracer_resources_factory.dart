@@ -1,4 +1,5 @@
 import 'package:faro/faro.dart';
+import 'package:faro/src/util/constants.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
@@ -30,7 +31,7 @@ class DartOtelTracerResourcesFactory {
         // Otel info
         otel_api.Attribute.fromString(
           'telemetry.sdk.name',
-          'faro-flutter-sdk',
+          FaroConstants.sdkName,
         ),
         otel_api.Attribute.fromString(
           'telemetry.sdk.language',
@@ -38,7 +39,7 @@ class DartOtelTracerResourcesFactory {
         ),
         otel_api.Attribute.fromString(
           'telemetry.sdk.version',
-          '1.0.0',
+          FaroConstants.sdkVersion,
         ),
         otel_api.Attribute.fromString(
           'telemetry.sdk.platform',
