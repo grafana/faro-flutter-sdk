@@ -127,7 +127,7 @@ void main() {
         verify(() => mockOtelSpan.setAttributes(
               any(that: predicate<List<otel_api.Attribute>>((attributes) {
                 final attributeMap = <String, String>{
-                  for (var attr in attributes) attr.key: attr.value.toString()
+                  for (final attr in attributes) attr.key: attr.value.toString()
                 };
                 return attributeMap['session_id'] == sessionId &&
                     attributeMap['session.id'] == sessionId;
@@ -170,7 +170,7 @@ void main() {
         verify(() => mockOtelSpan.setAttributes(
               any(that: predicate<List<otel_api.Attribute>>((attributes) {
                 final attributeMap = <String, String>{
-                  for (var attr in attributes) attr.key: attr.value.toString()
+                  for (final attr in attributes) attr.key: attr.value.toString()
                 };
                 return attributeMap['custom.key1'] == 'value1' &&
                     attributeMap['custom.key2'] == 'value2' &&
@@ -232,7 +232,7 @@ void main() {
         verify(() => mockOtelSpan.setAttributes(
               any(that: predicate<List<otel_api.Attribute>>((attributes) {
                 final attributeMap = <String, String>{
-                  for (var attr in attributes) attr.key: attr.value.toString()
+                  for (final attr in attributes) attr.key: attr.value.toString()
                 };
                 return attributeMap['manual.key'] == 'manual.value' &&
                     attributeMap['session_id'] == 'test-session-id' &&
@@ -292,7 +292,7 @@ void main() {
         verify(() => mockOtelSpan.setAttributes(
               any(that: predicate<List<otel_api.Attribute>>((attributes) {
                 final attributeMap = <String, String>{
-                  for (var attr in attributes) attr.key: attr.value.toString()
+                  for (final attr in attributes) attr.key: attr.value.toString()
                 };
                 return attributeMap['session_id'] == sessionId &&
                     attributeMap['session.id'] == sessionId;

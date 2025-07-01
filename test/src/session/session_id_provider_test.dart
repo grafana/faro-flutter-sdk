@@ -124,7 +124,7 @@ void main() {
       final ids = <String>{};
 
       // Generate 20 IDs and ensure they're all unique
-      for (int i = 0; i < 20; i++) {
+      for (var i = 0; i < 20; i++) {
         final provider = SessionIdProvider();
         ids.add(provider.sessionId);
       }
@@ -139,9 +139,9 @@ void main() {
       const sampleSize = 100;
 
       // Generate many session IDs and count character usage
-      for (int i = 0; i < sampleSize; i++) {
+      for (var i = 0; i < sampleSize; i++) {
         final provider = SessionIdProvider();
-        for (int j = 0; j < provider.sessionId.length; j++) {
+        for (var j = 0; j < provider.sessionId.length; j++) {
           final char = provider.sessionId[j];
           characterCounts[char] = (characterCounts[char] ?? 0) + 1;
         }

@@ -46,6 +46,9 @@ void main() {
       mockZoneRunner = MockZoneRunner();
       mockSpan = MockSpan();
 
+      // Stub the status getter to return a default value
+      when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
+
       faroZoneSpanManager = FaroZoneSpanManager(
         parentSpanLookup: mockParentSpanLookup.call,
         zoneRunner: mockZoneRunner.call,
