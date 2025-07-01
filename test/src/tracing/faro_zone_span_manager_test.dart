@@ -65,7 +65,7 @@ void main() {
 
         // Assert
         expect(result, equals(mockSpan));
-        verify(() => mockParentSpanLookup.call(const Symbol('parentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
             .called(1);
       });
 
@@ -78,7 +78,7 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('parentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
             .called(1);
       });
 
@@ -91,7 +91,7 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('parentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
             .called(1);
       });
 
@@ -104,7 +104,7 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('parentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
             .called(1);
       });
     });
@@ -141,7 +141,7 @@ void main() {
         verify(() => mockSpan.end()).called(1);
         verify(() => mockZoneRunner.call<String>(
               any(),
-              {const Symbol('parentSpan'): mockSpan},
+              {const Symbol('faroParentSpan'): mockSpan},
             )).called(1);
       });
 
@@ -288,7 +288,7 @@ void main() {
         // Assert
         verify(() => mockZoneRunner.call<String>(
               any(),
-              {const Symbol('parentSpan'): mockSpan},
+              {const Symbol('faroParentSpan'): mockSpan},
             )).called(1);
       });
     });

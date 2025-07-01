@@ -15,7 +15,7 @@ class FaroZoneSpanManager {
   })  : _parentSpanLookup = parentSpanLookup,
         _zoneRunner = zoneRunner;
 
-  static const _parentSpanKey = #parentSpan;
+  static const _parentSpanKey = #faroParentSpan;
 
   final ParentSpanLookup _parentSpanLookup;
   final ZoneRunner _zoneRunner;
