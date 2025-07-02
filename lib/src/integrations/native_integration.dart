@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:faro/faro.dart';
+import 'package:faro/src/models/log_level.dart';
 import 'package:flutter/services.dart';
 
 /// NativeIntegration provides access to native platform metrics and events
@@ -162,7 +163,7 @@ class NativeIntegration {
         switch (call.method) {
           case 'lastCrashReport':
             if (call.arguments != null) {
-              Faro().pushLog(call.arguments, level: 'error');
+              Faro().pushLog(call.arguments, level: LogLevel.error);
             }
             break;
 
