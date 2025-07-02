@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:faro/faro.dart';
+import 'package:faro/src/faro.dart';
 
 class OnErrorIntegration {
   ErrorCallback? _defaultOnError;

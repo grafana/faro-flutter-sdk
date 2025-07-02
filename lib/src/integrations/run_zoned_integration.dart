@@ -1,4 +1,4 @@
-import 'package:faro/faro.dart';
+import 'package:faro/src/faro.dart';
 
 class RunZonedIntegration {
   static void runZonedOnError(Object exception, StackTrace stackTrace) {

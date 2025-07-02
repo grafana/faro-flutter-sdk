@@ -1,4 +1,4 @@
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:opentelemetry/sdk.dart' as otel_sdk;

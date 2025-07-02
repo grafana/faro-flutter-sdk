@@ -5,8 +5,10 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/faro.dart';
+import 'package:faro/src/models/models.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
+import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/util/payload_extension.dart';
 import 'package:path_provider/path_provider.dart';
 

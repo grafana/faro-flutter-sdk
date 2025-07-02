@@ -1,4 +1,4 @@
-import 'package:faro/faro.dart';
+import 'package:faro/src/faro.dart';
 import 'package:faro/src/util/constants.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;

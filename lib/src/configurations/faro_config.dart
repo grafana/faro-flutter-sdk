@@ -1,4 +1,5 @@
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/configurations/batch_config.dart';
+import 'package:faro/src/transport/faro_transport.dart';
 
 class FaroConfig {
   FaroConfig({

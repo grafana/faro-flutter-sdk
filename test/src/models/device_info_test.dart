@@ -1,4 +1,4 @@
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

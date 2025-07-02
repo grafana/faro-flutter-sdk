@@ -1,5 +1,6 @@
-import 'package:faro/faro_native_methods.dart';
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/faro.dart';
+import 'package:faro/src/integrations/native_integration.dart';
+import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 

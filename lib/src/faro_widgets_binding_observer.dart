@@ -1,4 +1,5 @@
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/faro.dart';
+import 'package:faro/src/integrations/native_integration.dart';
 import 'package:flutter/cupertino.dart';
 
 class FaroWidgetsBindingObserver extends WidgetsBindingObserver {

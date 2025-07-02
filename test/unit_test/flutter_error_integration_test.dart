@@ -1,5 +1,8 @@
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/faro.dart';
+import 'package:faro/src/integrations/flutter_error_integration.dart';
+import 'package:faro/src/models/models.dart';
 import 'package:faro/src/transport/batch_transport.dart';
+import 'package:faro/src/transport/faro_transport.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
