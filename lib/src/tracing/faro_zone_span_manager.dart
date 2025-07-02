@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/tracing/span.dart';
 
 typedef ParentSpanLookup = dynamic Function(Symbol key);
 typedef ZoneRunner = Future<T> Function<T>(

@@ -1,4 +1,4 @@
-import 'package:faro/faro_sdk_platform_interface.dart';
+import 'package:faro/src/native_platform_interaction/faro_sdk_platform_interface.dart';
 
 class FaroNativeMethods {
   Future<double?> getMemoryUsage() {

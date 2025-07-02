@@ -1,8 +1,11 @@
 // ignore_for_file: use_setters_to_change_properties
 
 import 'dart:async';
-import 'package:faro/faro_sdk.dart';
+
+import 'package:faro/src/configurations/batch_config.dart';
+import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
+import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/util/payload_extension.dart';
 import 'package:flutter/foundation.dart';
 

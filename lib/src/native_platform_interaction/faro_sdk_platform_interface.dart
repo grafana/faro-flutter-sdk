@@ -1,4 +1,4 @@
-import 'package:faro/faro_sdk_method_channel.dart';
+import 'package:faro/src/native_platform_interaction/faro_sdk_method_channel.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 abstract class FaroSdkPlatform extends PlatformInterface {

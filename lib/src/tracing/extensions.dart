@@ -1,8 +1,8 @@
-import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/models/trace/trace_attribute.dart';
 import 'package:faro/src/models/trace/trace_span_event.dart';
 import 'package:faro/src/models/trace/trace_span_link.dart';
 import 'package:faro/src/models/trace/trace_span_status.dart';
+import 'package:faro/src/tracing/span.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:faro/faro.dart';
+import 'package:faro/src/faro.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/task_buffer.dart';
 import 'package:http/http.dart' as http;

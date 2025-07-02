@@ -1,4 +1,3 @@
-import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/models/models.dart';
 
 class Payload {

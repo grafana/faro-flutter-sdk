@@ -1,4 +1,4 @@
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/src/faro.dart';
 import 'package:flutter/widgets.dart';
 
 class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {

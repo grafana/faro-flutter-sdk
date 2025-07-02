@@ -1,4 +1,4 @@
-import 'package:faro/faro.dart';
+import 'package:faro/src/faro.dart';
 import 'package:flutter/foundation.dart';
 
 class FlutterErrorIntegration {

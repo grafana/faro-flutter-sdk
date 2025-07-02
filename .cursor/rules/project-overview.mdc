@@ -15,7 +15,7 @@ This is a **production-grade Flutter SDK** that implements the Grafana Faro prot
 ## Core Architecture
 
 ### SDK Structure
-- **Public API**: Located in `lib/` root (`faro.dart`, `faro_sdk.dart`)
+- **Public API**: Located in `lib/` root (main entry point: `faro.dart`)
 - **Internal Implementation**: All implementation details in `lib/src/`
 - **Platform Integration**: Native iOS (Swift) and Android (Java/Kotlin) code
 - **Transport Layer**: Batching, offline handling, and network optimization
@@ -65,9 +65,9 @@ This is a **production-grade Flutter SDK** that implements the Grafana Faro prot
 ### Code Organization
 ```
 lib/
-├── faro.dart                 # Main public API
-├── faro_sdk.dart            # SDK initialization
+├── faro.dart                 # Main public API (barrel exports)
 ├── src/
+│   ├── faro.dart            # Core SDK implementation
 │   ├── configurations/      # Config objects and policies
 │   ├── device_info/         # Device and session management
 │   ├── integrations/        # Framework integrations
