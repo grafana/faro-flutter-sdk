@@ -39,6 +39,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: Synchronous API for telemetry methods**: Refactored telemetry methods to remove unnecessary async patterns for improved performance and developer experience
+
+  - **Breaking Change**: The following methods changed from `Future<void>?` to `void`:
+    - `pushEvent()` - Send custom events
+    - `pushLog()` - Send custom logs
+    - `pushError()` - Send custom errors
+    - `pushMeasurement()` - Send custom measurements
+    - `markEventEnd()` - Mark event completion
+  - **Migration**: Remove `await` keywords from calls to these methods as they are now synchronous
+
+    ```dart
+    // Before
+    await Faro().pushEvent('event_name');
+    await Faro().pushLog('message', level: LogLevel.info);
+
+    // After
+    Faro().pushEvent('event_name');
+    Faro().pushLog('message', level: LogLevel.info);
+    ```
+
+  - **Benefits**:
+    - Improved performance by eliminating unnecessary async overhead
+    - Cleaner API that better reflects the synchronous nature of these operations
+    - Reduced complexity in application code
+  - **Internal Architecture**: Introduced `BatchTransportFactory` singleton pattern for better dependency management and testing
+
 - **BREAKING: pushLog API requires LogLevel enum**: Enhanced logging API for better type safety and consistency
 
   - **Breaking Change**: `pushLog()` now requires a `LogLevel` parameter instead of optional `String?`

@@ -53,7 +53,7 @@ void main() {
     final mockEvents = <Event>[];
     when(() => mockPayload.events).thenReturn(mockEvents);
 
-    await batchTransport.addEvent(event);
+    batchTransport.addEvent(event);
 
     expect(mockEvents.length, equals(1));
     expect(mockEvents[0].toJson(), event.toJson());
@@ -65,7 +65,7 @@ void main() {
     final mockMeasurements = <Measurement>[];
     when(() => mockPayload.measurements).thenReturn(mockMeasurements);
 
-    await batchTransport.addMeasurement(measurement);
+    batchTransport.addMeasurement(measurement);
 
     expect(mockMeasurements.length, equals(1));
     expect(mockMeasurements[0].toJson(), measurement.toJson());
@@ -76,7 +76,7 @@ void main() {
     final mockLogs = <FaroLog>[];
     when(() => mockPayload.logs).thenReturn(mockLogs);
 
-    await batchTransport.addLog(log);
+    batchTransport.addLog(log);
 
     expect(mockLogs.length, equals(1));
     expect(mockLogs[0].toJson(), log.toJson());
@@ -88,7 +88,7 @@ void main() {
     final mockExceptions = <FaroException>[];
     when(() => mockPayload.exceptions).thenReturn(mockExceptions);
 
-    await batchTransport.addExceptions(exception);
+    batchTransport.addExceptions(exception);
 
     expect(mockExceptions.length, equals(1));
     expect(mockExceptions[0].toJson(), exception.toJson());
@@ -143,8 +143,8 @@ void main() {
         batchConfig: BatchConfig(
             sendTimeout: const Duration(seconds: 5), payloadItemLimit: 1));
 
-    await batchTransport.addEvent(event);
-    await batchTransport.addEvent(event); // This should trigger flush
+    batchTransport.addEvent(event);
+    batchTransport.addEvent(event); // This should trigger flush
     verify(() => mockBaseTransport.send(any())).called(2);
   });
   test('dispose should cancel flush timer', () {
@@ -202,7 +202,7 @@ void main() {
     );
 
     final event = Event('test_event');
-    await batchTransportDisabled.addEvent(event);
+    batchTransportDisabled.addEvent(event);
     await Future<void>.delayed(const Duration(milliseconds: 500));
     verify(() => mockBaseTransport.send(any())).called(1);
   });
