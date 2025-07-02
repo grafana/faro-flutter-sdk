@@ -1,7 +1,10 @@
+// ignore_for_file: use_setters_to_change_properties
+
 import 'dart:async';
 import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/util/payload_extension.dart';
+import 'package:flutter/foundation.dart';
 
 class BatchTransport {
   BatchTransport(
@@ -23,27 +26,27 @@ class BatchTransport {
   List<BaseTransport> transports;
   Timer? flushTimer;
 
-  Future<void> addEvent(Event event) async {
+  void addEvent(Event event) {
     payload.events.add(event);
     checkPayloadItemLimit();
   }
 
-  Future<void> addMeasurement(Measurement measurement) async {
+  void addMeasurement(Measurement measurement) {
     payload.measurements.add(measurement);
     checkPayloadItemLimit();
   }
 
-  Future<void> addLog(FaroLog faroLog) async {
+  void addLog(FaroLog faroLog) {
     payload.logs.add(faroLog);
     checkPayloadItemLimit();
   }
 
-  Future<void> addSpan(SpanRecord spanRecord) async {
+  void addSpan(SpanRecord spanRecord) {
     payload.traces.addSpan(spanRecord);
     checkPayloadItemLimit();
   }
 
-  Future<void> addExceptions(FaroException exception) async {
+  void addExceptions(FaroException exception) {
     payload.exceptions.add(exception);
     checkPayloadItemLimit();
   }
@@ -100,5 +103,41 @@ class BatchTransport {
     payload.logs = [];
     payload.exceptions = [];
     payload.traces.resetSpans();
+  }
+}
+
+class BatchTransportFactory {
+  static BatchTransport? _instance;
+
+  BatchTransport? get instance => _instance;
+
+  BatchTransport create({
+    required Payload initialPayload,
+    required BatchConfig batchConfig,
+    required List<BaseTransport> transports,
+  }) {
+    if (_instance != null) {
+      return _instance!;
+    }
+
+    final instance = BatchTransport(
+        payload: initialPayload,
+        batchConfig: batchConfig,
+        transports: transports);
+
+    _instance = instance;
+    return instance;
+  }
+
+  /// Reset the singleton instance. This is primarily for testing purposes.
+  @visibleForTesting
+  void reset() {
+    _instance = null;
+  }
+
+  /// Set the singleton instance. This is primarily for testing purposes.
+  @visibleForTesting
+  void setInstance(BatchTransport instance) {
+    _instance = instance;
   }
 }

@@ -1,9 +1,16 @@
-import 'package:faro/faro.dart';
+import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/models/span_record.dart';
+import 'package:faro/src/transport/batch_transport.dart';
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 class FaroExporter implements otel_sdk.SpanExporter {
+  FaroExporter({
+    required BatchTransportFactory batchTransportFactory,
+  }) : _batchTransportFactory = batchTransportFactory;
+
   var _isShutdown = false;
+
+  final BatchTransportFactory _batchTransportFactory;
 
   @override
   void export(List<otel_sdk.ReadOnlySpan> spans) {
@@ -24,19 +31,25 @@ class FaroExporter implements otel_sdk.SpanExporter {
   }
 
   void _sendSpansToFaro(List<otel_sdk.ReadOnlySpan> spans) {
-    final faro = Faro();
-
     for (var i = 0; i < spans.length; i++) {
       final otelReadOnlySpan = spans[i];
       final spanRecord = SpanRecord(otelReadOnlySpan: otelReadOnlySpan);
 
-      faro.pushEvent(
+      _batchTransport?.addEvent(Event(
         spanRecord.getFaroEventName(),
         attributes: spanRecord.getFaroEventAttributes(),
         trace: spanRecord.getFaroSpanContext(),
-      );
+      ));
 
-      faro.pushSpan(spanRecord);
+      _batchTransport?.addSpan(spanRecord);
     }
+  }
+
+  BatchTransport? get _batchTransport => _batchTransportFactory.instance;
+}
+
+class FaroExporterFactory {
+  FaroExporter create() {
+    return FaroExporter(batchTransportFactory: BatchTransportFactory());
   }
 }

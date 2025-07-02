@@ -9,7 +9,6 @@ import 'package:faro/faro_native_methods.dart';
 import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
-import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/transport/batch_transport.dart';
@@ -96,11 +95,12 @@ class Faro {
 
     _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
-    _batchTransport = _batchTransport ??
-        BatchTransport(
-            payload: Payload(meta),
-            batchConfig: config?.batchConfig ?? BatchConfig(),
-            transports: _transports);
+
+    _batchTransport = BatchTransportFactory().create(
+      initialPayload: Payload(meta),
+      batchConfig: config?.batchConfig ?? BatchConfig(),
+      transports: _transports,
+    );
 
     if (config?.transports == null) {
       Faro()._transports.add(
@@ -140,7 +140,7 @@ class Faro {
           refreshrate: optionsConfiguration.refreshRateVitals,
           setSendUsageInterval: optionsConfiguration.fetchVitalsInterval);
     }
-    await _instance.pushEvent('session_start');
+    _instance.pushEvent('session_start');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NativeIntegration.instance.getAppStart();
     });
@@ -189,7 +189,7 @@ class Faro {
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
 
-  Future<void>? pushEvent(
+  void pushEvent(
     String name, {
     Map<String, dynamic>? attributes,
     Map<String, String>? trace,
@@ -199,10 +199,9 @@ class Faro {
       attributes: attributes,
       trace: trace,
     ));
-    return null;
   }
 
-  Future<void>? pushLog(
+  void pushLog(
     String message, {
     required LogLevel level,
     Map<String, dynamic>? context,
@@ -211,14 +210,9 @@ class Faro {
     _batchTransport?.addLog(
       FaroLog(message, level: level.value, context: context, trace: trace),
     );
-    return null;
   }
 
-  Future<void> pushSpan(SpanRecord spanRecord) async {
-    _batchTransport?.addSpan(spanRecord);
-  }
-
-  Future<void>? pushError({
+  void pushError({
     required String type,
     required String value,
     StackTrace? stacktrace,
@@ -231,12 +225,10 @@ class Faro {
     _batchTransport?.addExceptions(
       FaroException(type, value, parsedStackTrace, context: context),
     );
-    return null;
   }
 
-  Future<void>? pushMeasurement(Map<String, dynamic>? values, String type) {
+  void pushMeasurement(Map<String, dynamic>? values, String type) {
     _batchTransport?.addMeasurement(Measurement(values, type));
-    return null;
   }
 
   /// Starts an active span and executes the provided callback within its context.
@@ -485,17 +477,17 @@ class Faro {
     };
   }
 
-  Future<void>? markEventEnd(String key, String name,
+  void markEventEnd(String key, String name,
       {Map<String, dynamic> attributes = const {}}) {
     final eventEndTime = DateTime.now().millisecondsSinceEpoch;
     if (name == 'http_request' && ignoreUrls != null) {
       if (ignoreUrls!
           .any((element) => element.stringMatch(attributes['url']) != null)) {
-        return null;
+        return;
       }
     }
     if (!eventMark.containsKey(key)) {
-      return null;
+      return;
     }
     final duration = eventEndTime - eventMark[key]['eventStartTime'];
     pushEvent(name, attributes: {
@@ -505,7 +497,6 @@ class Faro {
       'eventEnd': eventEndTime.toString()
     });
     eventMark.remove(key);
-    return null;
   }
 
   Future<void>? enableCrashReporter({
@@ -549,7 +540,7 @@ class Faro {
             final processName =
                 stringifiedContext['processName'] ?? 'No processName';
 
-            await _instance.pushError(
+            _instance.pushError(
               type: 'crash',
               value: '$reason , status: $status',
               context: {

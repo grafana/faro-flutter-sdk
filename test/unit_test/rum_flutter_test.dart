@@ -29,7 +29,26 @@ void main() {
     late MockFaroNativeMethods mockFaroNativeMethods;
     late MockDataCollectionPolicy mockDataCollectionPolicy;
 
+    setUpAll(() {
+      registerFallbackValue(
+        FaroException(
+          'test',
+          'something',
+          {'frames': <Map<String, dynamic>>[]},
+        ),
+      );
+      registerFallbackValue(Event('test', attributes: {'test': 'test'}));
+      registerFallbackValue(FaroLog('This is a message'));
+      registerFallbackValue(Measurement({'test': 123}, 'test'));
+      registerFallbackValue(Payload(Meta()));
+      registerFallbackValue(BatchConfig());
+      registerFallbackValue(Meta());
+    });
+
     setUp(() {
+      // Reset the BatchTransportFactory singleton state
+      BatchTransportFactory().reset();
+
       // Mock SharedPreferences
       SharedPreferences.setMockInitialValues({});
       mockDataCollectionPolicy = MockDataCollectionPolicy();
@@ -45,23 +64,16 @@ void main() {
         buildSignature: 'buildSignature',
       );
 
-      registerFallbackValue(
-        FaroException(
-          'test',
-          'something',
-          {'frames': <Map<String, dynamic>>[]},
-        ),
-      );
-      registerFallbackValue(Event('test', attributes: {'test': 'test'}));
-      registerFallbackValue(FaroLog('This is a message'));
-      registerFallbackValue(Measurement({'test': 123}, 'test'));
-      registerFallbackValue(Payload(Meta()));
       mockFaroTransport = MockFaroTransport();
       mockBatchTransport = MockBatchTransport();
       mockFaroNativeMethods = MockFaroNativeMethods();
+
+      BatchTransportFactory().setInstance(mockBatchTransport);
+
       Faro().transports = [mockFaroTransport];
       Faro().nativeChannel = mockFaroNativeMethods;
       Faro().batchTransport = mockBatchTransport;
+
       when(() => mockFaroNativeMethods.enableCrashReporter(any()))
           .thenAnswer((_) async {});
       when(() => mockBatchTransport.addExceptions(any()))
@@ -70,10 +82,15 @@ void main() {
       when(() => mockBatchTransport.addEvent(any())).thenAnswer((_) async {});
       when(() => mockBatchTransport.addMeasurement(any()))
           .thenAnswer((_) async {});
+      when(() => mockBatchTransport.updatePayloadMeta(any()))
+          .thenAnswer((_) async {});
       when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
     });
 
-    tearDown(() {});
+    tearDown(() {
+      // Clean up the singleton state after each test
+      BatchTransportFactory().reset();
+    });
 
     test('init called with no error', () async {
       TestWidgetsFlutterBinding.ensureInitialized();

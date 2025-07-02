@@ -96,7 +96,7 @@ class FaroTracerFactory {
       return _faroTracer!;
     }
 
-    final exporter = FaroExporter();
+    final exporter = FaroExporterFactory().create();
     final resource = DartOtelTracerResourcesFactory().getTracerResource();
     final provider = otel_sdk.TracerProviderBase(
       resource: resource,
