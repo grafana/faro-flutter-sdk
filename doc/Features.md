@@ -119,8 +119,8 @@ Faro().pushMeasurement(
 
 // Custom logs with levels
 Faro().pushLog(
-  message: "User completed onboarding",
-  level: "info",
+  "User completed onboarding",
+  level: LogLevel.info,
   context: {"user_type": "premium", "onboarding_version": "v2"}
 );
 ```

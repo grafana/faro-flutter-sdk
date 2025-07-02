@@ -143,10 +143,19 @@ Add the Faro Asset Bundle to track asset load info
 ### Sending Custom Logs
 
 ```dart
-Faro().pushLog(String message, {String? level ,Map<String, dynamic>? context,Map<String, dynamic>? trace})
+Faro().pushLog(String message, {required LogLevel level, Map<String, dynamic>? context, Map<String, String>? trace})
 //example
-Faro().pushLog("log_message",level:"warn")
+Faro().pushLog("log_message", level: LogLevel.warn)
 ```
+
+**Available Log Levels:**
+
+- `LogLevel.trace` - Very detailed diagnostic information
+- `LogLevel.debug` - Debugging information
+- `LogLevel.info` - Informational messages
+- `LogLevel.log` - Generic log messages
+- `LogLevel.warn` - Warning messages
+- `LogLevel.error` - Error messages
 
 ### Sending Custom Measurements
 
