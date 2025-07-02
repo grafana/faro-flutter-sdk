@@ -1,22 +1,33 @@
+import 'package:faro/src/tracing/extensions.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
+import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 abstract class Span {
   String get traceId;
   String get spanId;
   bool get wasEnded;
+  SpanStatusCode get status;
 
   void setStatus(SpanStatusCode statusCode, {String? message});
   void addEvent(String message, {Map<String, String> attributes});
   void setAttributes(Map<String, String> attributes);
+  void setAttribute(String key, String value);
+  void recordException(dynamic exception, {StackTrace? stackTrace});
   void end();
 }
 
 class InternalSpan implements Span {
-  InternalSpan._({required otel_api.Span otelSpan}) : _otelSpan = otelSpan;
+  InternalSpan._({
+    required otel_api.Span otelSpan,
+    required otel_api.Context context,
+  })  : _otelSpan = otelSpan,
+        _context = context;
 
   final otel_api.Span _otelSpan;
+  final otel_api.Context _context;
 
   otel_api.Span get otelSpan => _otelSpan;
+  otel_api.Context get context => _context;
 
   @override
   String get traceId => _otelSpan.spanContext.traceId.toString();
@@ -29,6 +40,17 @@ class InternalSpan implements Span {
   @override
   bool get wasEnded => _wasEnded;
 
+  SpanStatusCode _statusCode = SpanStatusCode.unset;
+
+  @override
+  SpanStatusCode get status {
+    if (otelSpan is otel_sdk.ReadWriteSpan) {
+      final otelSdkSpan = otelSpan as otel_sdk.ReadWriteSpan;
+      return otelSdkSpan.status.toSpanStatusCode();
+    }
+    return _statusCode;
+  }
+
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) {
     if (message != null) {
@@ -36,6 +58,7 @@ class InternalSpan implements Span {
     } else {
       _otelSpan.setStatus(statusCode.toOtelStatusCode());
     }
+    _statusCode = statusCode;
   }
 
   @override
@@ -52,6 +75,17 @@ class InternalSpan implements Span {
       return otel_api.Attribute.fromString(entry.key, entry.value);
     }).toList();
     _otelSpan.setAttributes(listAttributes);
+  }
+
+  @override
+  void setAttribute(String key, String value) {
+    _otelSpan.setAttribute(otel_api.Attribute.fromString(key, value));
+  }
+
+  @override
+  void recordException(dynamic exception, {StackTrace? stackTrace}) {
+    _otelSpan.recordException(exception,
+        stackTrace: stackTrace ?? StackTrace.current);
   }
 
   @override
@@ -74,8 +108,8 @@ class InternalSpan implements Span {
 }
 
 class SpanProvider {
-  Span getSpan(otel_api.Span otelSpan) {
-    return InternalSpan._(otelSpan: otelSpan);
+  Span getSpan(otel_api.Span otelSpan, otel_api.Context context) {
+    return InternalSpan._(otelSpan: otelSpan, context: context);
   }
 }
 

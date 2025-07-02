@@ -126,6 +126,17 @@ $content''';
   }
 }
 
+/// Update version in constants file
+Future<void> updateConstants(String version) async {
+  final file = File('lib/src/util/constants.dart');
+  final content = await file.readAsString();
+  final updated = content.replaceFirst(
+    RegExp(r"static const String sdkVersion = '\d+\.\d+\.\d+';"),
+    "static const String sdkVersion = '$version';",
+  );
+  await file.writeAsString(updated);
+}
+
 /// Main entry point
 Future<void> main(List<String> args) async {
   if (args.isEmpty) {
@@ -176,6 +187,7 @@ Future<void> main(List<String> args) async {
     await updatePodspec(newVersion.toString());
     await updateBuildGradle(newVersion.toString());
     await updateChangelog(newVersion.toString());
+    await updateConstants(newVersion.toString());
 
     stdout.writeln('Successfully updated version to $newVersion');
   } catch (e) {

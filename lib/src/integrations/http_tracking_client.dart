@@ -213,7 +213,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     this.userAttributes, {
     String? userAgent,
   }) {
-    _httpSpan = Faro().getTracer().startSpan(
+    _httpSpan = Faro().startSpanManual(
       'HTTP ${innerContext.method}',
       attributes: {
         'http.method': innerContext.method,
@@ -271,6 +271,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
       });
     }, onError: (Object error, StackTrace? stackTrace) {
       _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
+      _httpSpan.recordException(error, stackTrace: stackTrace);
       _httpSpan.end();
       throw Exception('Error: $error, StackTrace: $stackTrace');
     });

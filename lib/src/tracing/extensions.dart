@@ -1,3 +1,4 @@
+import 'package:faro/faro_sdk.dart';
 import 'package:faro/src/models/trace/trace_attribute.dart';
 import 'package:faro/src/models/trace/trace_span_event.dart';
 import 'package:faro/src/models/trace/trace_span_link.dart';
@@ -62,6 +63,17 @@ extension SpanStatusX on otel_api.SpanStatus {
       code: code.toCode(),
       message: description.isNotEmpty ? description : null,
     );
+  }
+
+  SpanStatusCode toSpanStatusCode() {
+    switch (code) {
+      case otel_api.StatusCode.unset:
+        return SpanStatusCode.unset;
+      case otel_api.StatusCode.ok:
+        return SpanStatusCode.ok;
+      case otel_api.StatusCode.error:
+        return SpanStatusCode.error;
+    }
   }
 }
 

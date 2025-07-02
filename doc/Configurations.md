@@ -173,6 +173,153 @@ To capture the duration of an event you can use the following methods
     Faro().markEventEnd(String key,String name, {Map<String, String>? attributes})
 ```
 
+### Distributed Tracing
+
+Create detailed traces of operations with parent-child span relationships.
+
+#### Automatic Span Management (Recommended)
+
+Use `startSpan()` for most tracing scenarios. It automatically handles span lifecycle, error reporting, and cleanup:
+
+```dart
+// Basic span creation with attributes as parameters
+final result = await Faro().startSpan('user_action', (span) async {
+  // You can add more attributes within the callback
+  span.setAttribute('additional_info', 'value');
+
+  return await performUserAction();
+}, attributes: {
+  'user_id': '123',
+  'action_type': 'purchase',
+});
+
+// Or set all attributes within the callback
+final result = await Faro().startSpan('user_action', (span) async {
+  span.setAttributes({
+    'user_id': '123',
+    'action_type': 'purchase',
+  });
+
+  return await performUserAction();
+});
+
+// Nested spans - child spans automatically inherit parent context
+await Faro().startSpan('checkout_process', (parentSpan) async {
+  parentSpan.setAttribute('cart_size', '3');
+
+  await Faro().startSpan('validate_payment', (childSpan) async {
+    childSpan.setAttribute('payment_method', 'credit_card');
+    return await validatePayment();
+  });
+
+  return await Faro().startSpan('process_order', (childSpan) async {
+    childSpan.setAttribute('order_priority', 'high');
+    return await processOrder();
+  });
+});
+
+// Manual parent span - useful for custom span hierarchies
+final batchSpan = Faro().startSpanManual('user_batch_operation');
+
+// Process multiple operations with the same explicit parent
+await Faro().startSpan('operation_1', (span) async {
+  span.setAttribute('operation_type', 'data_sync');
+  return await syncUserData();
+}, parentSpan: batchSpan); // Explicitly use batchSpan as parent
+
+await Faro().startSpan('operation_2', (span) async {
+  span.setAttribute('operation_type', 'cache_refresh');
+  return await refreshCache();
+}, parentSpan: batchSpan); // Both operations share the same parent
+
+batchSpan.end(); // Don't forget to end the manual span
+
+// Error handling is automatic - no manual status setting needed
+await Faro().startSpan('risky_operation', (span) async {
+  try {
+    return await riskyOperation();
+    // Span automatically marked as successful - no need to set status manually
+  } catch (e) {
+    // Span automatically marked as error with exception details - no need to set status manually
+    // But you can add custom error context if needed
+    span.addEvent('Operation failed', attributes: {'retry_count': '3'});
+    rethrow;
+  }
+  // Span automatically ended
+}, attributes: {
+  'operation_id': 'op_123',
+  'timeout_seconds': '30',
+});
+```
+
+#### Manual Span Management
+
+Use `startSpanManual()` when you need explicit control over span lifecycle:
+
+```dart
+// Manual span creation - requires manual status management
+final span = Faro().startSpanManual('background_task',
+  attributes: {'task_id': 'bg_123'});
+
+try {
+  await performTask();
+  span.setStatus(SpanStatusCode.ok);  // Manual status setting required
+} catch (e) {
+  span.setStatus(SpanStatusCode.error, message: e.toString());  // Manual error handling required
+  span.addEvent('Task failed', attributes: {'error': e.toString()});
+} finally {
+  span.end(); // Must manually end the span
+}
+
+// Creating span hierarchies
+final parentSpan = Faro().startSpanManual('batch_process');
+final childSpan1 = Faro().startSpanManual('process_item_1', parentSpan: parentSpan);
+final childSpan2 = Faro().startSpanManual('process_item_2', parentSpan: parentSpan);
+
+// Process items...
+childSpan1.end();
+childSpan2.end();
+parentSpan.end();
+```
+
+#### Active Span Access
+
+Access the currently active span from anywhere in your code:
+
+```dart
+void addContextToCurrentSpan(String key, String value) {
+  final activeSpan = Faro().getActiveSpan();
+  if (activeSpan != null) {
+    activeSpan.setAttribute(key, value);
+  }
+}
+
+// Usage
+await Faro().startSpan('main_operation', (span) async {
+  await doSomeWork();
+  addContextToCurrentSpan('work_completed', 'true'); // Adds to active span
+});
+```
+
+#### Span Operations
+
+```dart
+// Add attributes
+span.setAttribute('key', 'value');
+span.setAttributes({'key1': 'value1', 'key2': 'value2'});
+
+// Add events (like logs within the span)
+span.addEvent('Processing started');
+span.addEvent('Checkpoint reached', attributes: {'progress': '50%'});
+
+// Set span status (optional - startSpan() handles this automatically)
+span.setStatus(SpanStatusCode.ok);  // Usually not needed
+span.setStatus(SpanStatusCode.error, message: 'Something went wrong');  // Optional for custom error messages
+
+// Record exceptions
+span.recordException(exception, stackTrace: stackTrace);
+```
+
 ### Adding User Meta
 
 ```dart

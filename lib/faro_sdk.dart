@@ -14,7 +14,6 @@ export './src/integrations/run_zoned_integration.dart';
 export './src/models/models.dart';
 export './src/offline_transport/offline_transport.dart';
 export './src/tracing/span.dart';
-export './src/tracing/tracer.dart';
 export './src/transport/faro_base_transport.dart';
 export './src/transport/faro_transport.dart';
 export 'faro.dart';
