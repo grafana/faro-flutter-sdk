@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: Package structure refactoring to follow Flutter plugin conventions**: Reorganized the package to align with Flutter/Dart ecosystem standards and best practices
+
+  - **Breaking Change**: Main entry point changed from `faro_sdk.dart` to `faro.dart`
+
+    - The package now follows the standard `lib/<package_name>.dart` convention
+    - Removed `lib/faro_sdk.dart` file entirely
+    - `lib/faro.dart` is now the single main entry point with selective barrel exports
+
+  - **Migration**: Update your imports to use the new main entry point
+
+    ```dart
+    // Before
+    import 'package:faro/faro_sdk.dart';
+
+    // After
+    import 'package:faro/faro.dart';
+    ```
+
+  - **Architecture Improvements**:
+
+    - Moved core `Faro` class implementation from `lib/faro.dart` to `lib/src/faro.dart`
+    - `lib/faro.dart` now serves as a clean barrel export file exposing only public APIs
+    - All implementation details properly organized under `lib/src/` directory
+    - Clear separation between public API surface and private implementation
+    - Follows established Flutter ecosystem conventions used by popular packages like Provider, BLoC, and Dio
+
+  - **Benefits**:
+
+    - **Cleaner API boundaries**: Clear distinction between public and private APIs
+    - **Better maintainability**: Implementation details can evolve without affecting public interface
+    - **Consistent developer experience**: Matches patterns developers expect from other Flutter packages
+    - **Future-proof**: Enables easier API evolution and versioning
+    - **Community alignment**: Follows official Flutter/Dart documentation recommendations
+
+  - **No functionality changes**: All existing public APIs remain the same, only import paths have changed
+
 ### Added
 
 - **Type-Safe Log Level API**: New `LogLevel` enum for improved logging reliability and developer experience
@@ -34,10 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Factory pattern for testable session management
 
 - **SDK Constants Management**: New centralized constants system
+
   - Added `FaroConstants` class for SDK version and name management
   - Better version tracking and consistency across the codebase
-
-### Changed
 
 - **BREAKING: Synchronous API for telemetry methods**: Refactored telemetry methods to remove unnecessary async patterns for improved performance and developer experience
 
