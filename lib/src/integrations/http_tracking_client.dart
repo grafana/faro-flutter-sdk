@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:faro/faro.dart';
+import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:uuid/uuid.dart';
 
@@ -392,7 +393,7 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
           Faro().pushLog(
             // ignore: lines_longer_than_80_chars
             "network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}",
-            level: 'error',
+            level: LogLevel.error,
           );
         }
       },

@@ -187,7 +187,35 @@ class _FeaturesPageState extends State<FeaturesPage> {
               ElevatedButton(
                 child: const Text('Custom Warn Log'),
                 onPressed: () {
-                  Faro().pushLog("Custom Log", level: "warn");
+                  Faro().pushLog("Custom Warning Log", level: LogLevel.warn);
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Custom Info Log'),
+                onPressed: () {
+                  Faro()
+                      .pushLog("This is an info message", level: LogLevel.info);
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Custom Error Log'),
+                onPressed: () {
+                  Faro().pushLog("This is an error message",
+                      level: LogLevel.error);
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Custom Debug Log'),
+                onPressed: () {
+                  Faro().pushLog("This is a debug message",
+                      level: LogLevel.debug);
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Custom Trace Log'),
+                onPressed: () {
+                  Faro().pushLog("This is a trace message",
+                      level: LogLevel.trace);
                 },
               ),
               ElevatedButton(

@@ -133,11 +133,10 @@ void main() {
 
     test('send custom log', () {
       const logMessage = 'Log Message';
-      const logLevel = 'info';
       const logContext = {'testkey': 'testvalue'};
       const trace = {'traceId': 'testtraceid', 'spanId': 'testspanid'};
       Faro().pushLog(logMessage,
-          level: logLevel, context: logContext, trace: trace);
+          level: LogLevel.info, context: logContext, trace: trace);
       verify(() => mockBatchTransport.addLog(any())).called(1);
     });
 

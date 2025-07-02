@@ -6,6 +6,7 @@ export './event.dart';
 export './exception.dart';
 export './integrations.dart';
 export './log.dart';
+export './log_level.dart';
 export './measurement.dart';
 export './meta.dart';
 export './page.dart';

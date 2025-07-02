@@ -201,12 +201,12 @@ class Faro {
 
   Future<void>? pushLog(
     String message, {
-    String? level,
+    required LogLevel level,
     Map<String, dynamic>? context,
     Map<String, String>? trace,
   }) {
     _batchTransport?.addLog(
-      FaroLog(message, level: level, context: context, trace: trace),
+      FaroLog(message, level: level.value, context: context, trace: trace),
     );
     return null;
   }
