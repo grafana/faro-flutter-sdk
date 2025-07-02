@@ -17,7 +17,7 @@ This is a Flutter SDK that implements the Grafana Faro protocol for mobile obser
 ### Project Structure
 
 - Follow the existing structure: `lib/src/` for implementation details
-- Keep public API in `lib/` root files (`faro.dart`, `faro_sdk.dart`, etc.)
+- Keep public API in `lib/` root files (main entry point: `faro.dart`)
 - Platform-specific code in `ios/` and `android/` directories
 - Tests mirror the lib structure in `test/`
 

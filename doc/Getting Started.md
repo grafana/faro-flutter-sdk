@@ -42,7 +42,7 @@ Add this code to your Flutter app's main function:
 
 ```dart
 import 'dart:io';
-import 'package:faro/faro_sdk.dart';
+import 'package:faro/faro.dart';
 
 void main() {
   // Enable HTTP request tracking
