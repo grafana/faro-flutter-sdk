@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Type-Safe Log Level API**: New `LogLevel` enum for improved logging reliability and developer experience
+
+  - Introduced `LogLevel` enum with values: `trace`, `debug`, `info`, `log`, `warn`, `error`
+  - Aligns with Grafana Faro Web SDK for cross-platform consistency
+  - Includes `fromString()` method for backward compatibility, supporting both `'warn'` and `'warning'` variants
+
 - **Enhanced Tracing and Span API**: Major improvements to distributed tracing capabilities
 
   - New `startSpan<T>()` method for automatic span lifecycle management with callback-based execution
@@ -32,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better version tracking and consistency across the codebase
 
 ### Changed
+
+- **BREAKING: pushLog API requires LogLevel enum**: Enhanced logging API for better type safety and consistency
+
+  - **Breaking Change**: `pushLog()` now requires a `LogLevel` parameter instead of optional `String?`
+  - **Migration**: Replace `level: "warn"` with `level: LogLevel.warn` in your pushLog calls
+  - **Benefit**: Eliminates typos in log levels and provides better IDE support
+  - **Compatibility**: Existing string-based log levels in internal code updated to use LogLevel enum
+  - **Documentation**: All examples and documentation updated to reflect the new API
 
 - **Tracing Architecture Refactoring**: Complete redesign of the internal tracing system
 
