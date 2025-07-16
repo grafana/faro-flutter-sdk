@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-07-16
+
 ### Fixed
+
+- **SDK name consistency across telemetry types**: Updated SDK identification to use consistent naming
+
+  - Changed hardcoded 'rum-flutter' SDK name to use `FaroConstants.sdkName` for consistency with OpenTelemetry traces
+  - Maintains backend-compatible version '1.3.5' for proper web SDK version validation
+  - Added actual Faro Flutter SDK version to session attributes as 'faro_sdk_version' for tracking real SDK version
 
 - **FaroZoneSpanManager span status preservation**: Fixed issue where manually set span statuses were overridden by automatic status setting
   - Added `statusHasBeenSet` property to `Span` interface to track when status has been manually set

@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'faro'
-  s.version          = '0.4.0'
+  s.version          = '0.4.1'
   s.summary          = 'A new Flutter plugin project.'
   s.description      = <<-DESC
 A new Flutter plugin project.

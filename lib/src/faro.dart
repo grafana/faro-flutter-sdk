@@ -21,6 +21,7 @@ import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
+import 'package:faro/src/util/constants.dart';
 import 'package:faro/src/util/timestamp_extension.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -65,7 +66,7 @@ class Faro {
         SessionIdProviderFactory().create().sessionId,
         attributes: {},
       ),
-      sdk: Sdk('rum-flutter', '1.3.5', []),
+      sdk: Sdk(FaroConstants.sdkName, '1.3.5', []),
       app: App(name: '', environment: '', version: ''),
       view: ViewMeta('default'));
 
