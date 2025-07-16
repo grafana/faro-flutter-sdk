@@ -35,11 +35,12 @@ class FaroZoneSpanManager {
     return _zoneRunner(() async {
       try {
         final result = await body(span);
-        span.setStatus(SpanStatusCode.ok);
+        if (!span.statusHasBeenSet) {
+          span.setStatus(SpanStatusCode.ok);
+        }
         return result;
       } catch (error, stackTrace) {
-        // If no error was set yet, then the sdk will set it to error.
-        if (span.status != SpanStatusCode.error) {
+        if (!span.statusHasBeenSet) {
           span.setStatus(
             SpanStatusCode.error,
             message: error.toString(),

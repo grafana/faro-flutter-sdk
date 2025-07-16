@@ -7,6 +7,7 @@ abstract class Span {
   String get spanId;
   bool get wasEnded;
   SpanStatusCode get status;
+  bool get statusHasBeenSet;
 
   void setStatus(SpanStatusCode statusCode, {String? message});
   void addEvent(String message, {Map<String, String> attributes});
@@ -51,6 +52,11 @@ class InternalSpan implements Span {
     return _statusCode;
   }
 
+  bool _statusHasBeenSet = false;
+
+  @override
+  bool get statusHasBeenSet => _statusHasBeenSet;
+
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) {
     if (message != null) {
@@ -59,6 +65,7 @@ class InternalSpan implements Span {
       _otelSpan.setStatus(statusCode.toOtelStatusCode());
     }
     _statusCode = statusCode;
+    _statusHasBeenSet = true;
   }
 
   @override
