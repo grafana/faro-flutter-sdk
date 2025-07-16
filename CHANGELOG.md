@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **FaroZoneSpanManager span status preservation**: Fixed issue where manually set span statuses were overridden by automatic status setting
+  - Added `statusHasBeenSet` property to `Span` interface to track when status has been manually set
+  - Updated `FaroZoneSpanManager.executeWithSpan()` to respect manually set span statuses for both success and error cases
+  - Prevents overriding of custom span statuses (e.g., business logic errors) when code executes without throwing exceptions
+  - Maintains existing behavior for spans that haven't had their status manually set
+  - Resolves issue #86: FaroZoneSpanManager overrides manually set span statuses on success
+
 ## [0.4.0] - 2025-07-02 ⚠️ BREAKING CHANGES
 
 ### Changed

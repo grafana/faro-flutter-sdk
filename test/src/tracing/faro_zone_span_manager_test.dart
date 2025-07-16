@@ -48,6 +48,7 @@ void main() {
 
       // Stub the status getter to return a default value
       when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
+      when(() => mockSpan.statusHasBeenSet).thenReturn(false);
 
       faroZoneSpanManager = FaroZoneSpanManager(
         parentSpanLookup: mockParentSpanLookup.call,
@@ -291,6 +292,175 @@ void main() {
               {const Symbol('faroParentSpan'): mockSpan},
             )).called(1);
       });
+
+      test('should set status to OK when statusHasBeenSet is false on success',
+          () async {
+        // Arrange
+        when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act
+        await faroZoneSpanManager.executeWithSpan<String>(
+          mockSpan,
+          (span) => 'result',
+        );
+
+        // Assert
+        verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
+      });
+
+      test(
+          'should NOT set status to OK when statusHasBeenSet is true on success',
+          () async {
+        // Arrange
+        when(() => mockSpan.statusHasBeenSet).thenReturn(true);
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act
+        await faroZoneSpanManager.executeWithSpan<String>(
+          mockSpan,
+          (span) => 'result',
+        );
+
+        // Assert
+        verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
+      });
+
+      test('should set status to ERROR when statusHasBeenSet is false on error',
+          () async {
+        // Arrange
+        final testException = Exception('test-exception');
+        when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act & Assert
+        expect(
+          () async => faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => throw testException,
+          ),
+          throwsA(equals(testException)),
+        );
+
+        // Verify span error handling
+        verify(() => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: testException.toString(),
+            )).called(1);
+      });
+
+      test(
+          'should NOT set status to ERROR when statusHasBeenSet is true on error',
+          () async {
+        // Arrange
+        final testException = Exception('test-exception');
+        when(() => mockSpan.statusHasBeenSet).thenReturn(true);
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act & Assert
+        expect(
+          () async => faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => throw testException,
+          ),
+          throwsA(equals(testException)),
+        );
+
+        // Verify span error handling is NOT called
+        verifyNever(() => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: testException.toString(),
+            ));
+        // But exception is still recorded
+        verify(() => mockSpan.recordException(
+              testException,
+              stackTrace: any(named: 'stackTrace'),
+            )).called(1);
+      });
+
+      test('should respect manually set status during success flow', () async {
+        // Arrange
+        var statusHasBeenSet = false;
+        when(() => mockSpan.statusHasBeenSet)
+            .thenAnswer((_) => statusHasBeenSet);
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act
+        await faroZoneSpanManager.executeWithSpan<String>(
+          mockSpan,
+          (span) {
+            // Simulate manually setting status during execution
+            statusHasBeenSet = true;
+            return 'result';
+          },
+        );
+
+        // Assert - should NOT have been called since statusHasBeenSet was true when checked
+        verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
+      });
+
+      test('should respect manually set status during error flow', () async {
+        // Arrange
+        final testException = Exception('test-exception');
+        var statusHasBeenSet = false;
+        when(() => mockSpan.statusHasBeenSet)
+            .thenAnswer((_) => statusHasBeenSet);
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act & Assert
+        expect(
+          () async => faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) {
+              // Simulate manually setting status during execution
+              statusHasBeenSet = true;
+              throw testException;
+            },
+          ),
+          throwsA(equals(testException)),
+        );
+
+        // Assert - should NOT have been called since statusHasBeenSet was true when checked
+        verifyNever(() => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: testException.toString(),
+            ));
+        // But exception should still be recorded
+        verify(() => mockSpan.recordException(
+              testException,
+              stackTrace: any(named: 'stackTrace'),
+            )).called(1);
+      });
     });
   });
 
@@ -315,6 +485,9 @@ void main() {
       final spanManager = factory.create();
       final mockSpan = MockSpan();
       var callbackExecuted = false;
+
+      // Setup required stubs for the mock span
+      when(() => mockSpan.statusHasBeenSet).thenReturn(false);
 
       // Act
       final result = await spanManager.executeWithSpan<String>(
