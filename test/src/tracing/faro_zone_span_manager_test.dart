@@ -314,7 +314,8 @@ void main() {
         verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
       });
 
-      test('should NOT set status to OK when statusHasBeenSet is true on success',
+      test(
+          'should NOT set status to OK when statusHasBeenSet is true on success',
           () async {
         // Arrange
         when(() => mockSpan.statusHasBeenSet).thenReturn(true);
@@ -363,7 +364,8 @@ void main() {
             )).called(1);
       });
 
-      test('should NOT set status to ERROR when statusHasBeenSet is true on error',
+      test(
+          'should NOT set status to ERROR when statusHasBeenSet is true on error',
           () async {
         // Arrange
         final testException = Exception('test-exception');
@@ -399,7 +401,8 @@ void main() {
       test('should respect manually set status during success flow', () async {
         // Arrange
         var statusHasBeenSet = false;
-        when(() => mockSpan.statusHasBeenSet).thenAnswer((_) => statusHasBeenSet);
+        when(() => mockSpan.statusHasBeenSet)
+            .thenAnswer((_) => statusHasBeenSet);
         when(() => mockZoneRunner.call<String>(any(), any()))
             .thenAnswer((invocation) async {
           final callback =
@@ -425,7 +428,8 @@ void main() {
         // Arrange
         final testException = Exception('test-exception');
         var statusHasBeenSet = false;
-        when(() => mockSpan.statusHasBeenSet).thenAnswer((_) => statusHasBeenSet);
+        when(() => mockSpan.statusHasBeenSet)
+            .thenAnswer((_) => statusHasBeenSet);
         when(() => mockZoneRunner.call<String>(any(), any()))
             .thenAnswer((invocation) async {
           final callback =
