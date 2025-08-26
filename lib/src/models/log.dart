@@ -1,5 +1,3 @@
-import 'package:intl/intl.dart';
-
 class FaroLog {
   FaroLog(this.message, {this.level, this.context, this.trace});
 
@@ -14,8 +12,7 @@ class FaroLog {
   String? level = '';
   Map<String, dynamic>? context = {};
   Map<String, dynamic>? trace = {};
-  String timestamp =
-      DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(DateTime.now().toUtc());
+  String timestamp = DateTime.now().toUtc().toIso8601String();
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
