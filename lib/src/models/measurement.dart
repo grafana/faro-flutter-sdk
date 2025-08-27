@@ -3,8 +3,6 @@
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:intl/intl.dart';
-
 class Measurement {
   Measurement(Map<String, dynamic>? inputValues, this.type) {
     values = _sanitizeValues(inputValues);
@@ -69,8 +67,7 @@ class Measurement {
 
   Map<String, dynamic>? values;
   String type = '';
-  String timestamp =
-      DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(DateTime.now().toUtc());
+  String timestamp = DateTime.now().toUtc().toIso8601String();
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

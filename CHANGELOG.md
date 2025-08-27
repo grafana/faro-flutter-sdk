@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-fix(deps): relax intl to >=0.19.0 to support Dart 3.0–3.2 and avoid conflicts with flutter_localizations on Flutter 3.0+.
+
+### Changed
+
+- **Removed intl dependency**: Replaced custom date formatting with built-in `DateTime.toIso8601String()` method
+  - Removed `intl` package dependency to reduce package footprint
+  - Updated timestamp generation in Event, FaroLog, FaroException, and Measurement models
+  - Uses standard ISO 8601 format via Dart's native `DateTime.toIso8601String()` method
+  - Maintains compatibility while eliminating external dependency
 
 ## [0.4.1] - 2025-07-16
 
