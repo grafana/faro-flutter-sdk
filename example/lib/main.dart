@@ -28,6 +28,10 @@ void main() async {
         memoryUsageVitals: true,
         refreshRateVitals: true,
         fetchVitalsInterval: const Duration(seconds: 30),
+        sessionAttributes: {
+          'team': 'mobile',
+          'department': 'engineering',
+        },
       ),
       appRunner: () async {
         runApp(DefaultAssetBundle(

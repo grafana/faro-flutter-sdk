@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Custom session attributes**: New optional `sessionAttributes` parameter in `FaroConfig` for adding custom labels to all telemetry
+  - Allows setting custom key-value pairs that are included in all telemetry data (logs, events, exceptions, traces, measurements)
+  - Useful for access control labels, team/department segmentation, and environment-specific metadata
+  - Custom attributes are merged with default attributes (SDK version, device info, etc.)
+  - Default attributes take precedence if naming conflicts occur
+  - Equivalent to `sessionTracking.session.attributes` in Faro Web SDK
+
 ## [0.4.2] - 2025-08-28
 
 ### Changed

@@ -3,7 +3,7 @@ PODS:
     - Flutter
   - device_info_plus (0.0.1):
     - Flutter
-  - faro (0.4.1):
+  - faro (0.4.2):
     - Flutter
     - PLCrashReporter
   - Flutter (1.0.0)
@@ -49,13 +49,13 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
-  faro: 522df8eb9ef087e14b5c5ccde1d8afe5575db159
-  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  faro: 8d659061ae26bbb2e6da548ab4f90573ff7a37d1
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   PLCrashReporter: db59ef96fa3d25f3650040d02ec2798cffee75f2
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
 
-PODFILE CHECKSUM: 1ea9f49c4f5a0cb4ea986a31044ceb0f7668e46a
+PODFILE CHECKSUM: d3d44dd8f85904f876a474551ba2cd729dcc2c08
 
 COCOAPODS: 1.16.2
