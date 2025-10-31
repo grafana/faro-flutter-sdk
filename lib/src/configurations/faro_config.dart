@@ -20,6 +20,7 @@ class FaroConfig {
     this.ignoreUrls,
     this.maxBufferLimit = 30,
     this.collectorHeaders,
+    this.sessionAttributes,
   })  : assert(appName.isNotEmpty, 'appName cannot be empty'),
         assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
         assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
@@ -42,6 +43,7 @@ class FaroConfig {
   final int maxBufferLimit;
   final Duration? fetchVitalsInterval;
   final List<RegExp>? ignoreUrls;
+  final Map<String, String>? sessionAttributes;
 
 // Other methods or properties of FaroConfig can be added here
 }

@@ -337,6 +337,36 @@ span.recordException(exception, stackTrace: stackTrace);
     Faro().addUserMeta(userId:"123",userName:"user",userEmail:"jhondoes@something.com")
 ```
 
+### Custom Session Attributes
+
+Add custom attributes to all session data. These attributes are merged with the automatically collected default attributes (SDK version, Dart version, device info, etc.) and are useful for:
+
+- **Access Control**: Label-based permissions
+- **Data Segmentation**: Team, department, or environment labels
+- **Custom Metadata**: Any custom information about the session
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+    sessionAttributes: {
+      'team': 'mobile',
+      'department': 'engineering',
+      'environment': 'production',
+      'cost_center': '1234',
+    },
+    // ...
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+**Important Notes:**
+
+- Custom attributes are merged with default attributes (like `faro_sdk_version`, `device_os`, `device_model`, etc.)
+- Default attributes take precedence if there are naming conflicts
+- Session attributes are included in all telemetry data (logs, events, exceptions, traces)
+
 ### Data Collection Control
 
 Faro provides the ability to enable or disable data collection at runtime. This setting is automatically persisted across app restarts, so you don't need to set it every time your app starts.

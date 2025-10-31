@@ -101,7 +101,11 @@ class Faro {
 
     final attributesProvider =
         await SessionAttributesProviderFactory().create();
-    meta.session?.attributes = await attributesProvider.getAttributes();
+    final customAttributes = optionsConfiguration.sessionAttributes ?? {};
+    final defaultAttributes = await attributesProvider.getAttributes();
+    // Merge custom attributes first, then default attributes
+    // Default attributes take precedence if there are conflicts
+    meta.session?.attributes = {...customAttributes, ...defaultAttributes};
 
     _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
