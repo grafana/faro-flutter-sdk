@@ -92,6 +92,24 @@ appRunner:
 
 ```
 
+### Enable Flutter error reporting
+
+enable reporting of Flutter and Plugin errors
+
+```dart
+  Faro().runApp(
+optionsConfiguration: FaroConfig(
+// ...
+enableFlutterErrorReporting: true
+// ...
+),
+appRunner:
+//...
+
+)
+
+```
+
 Faro Navigator Observer can be added to the list of observers to get view info and also send `view_changed` events when the route changes
 
 ```dart
