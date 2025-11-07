@@ -164,8 +164,10 @@ class Faro {
   Future<void> runApp(
       {required FaroConfig optionsConfiguration,
       required AppRunner? appRunner}) async {
-    OnErrorIntegration().call();
-    FlutterErrorIntegration().call();
+    if (optionsConfiguration.enableFlutterErrorReporting) {
+      OnErrorIntegration().call();
+      FlutterErrorIntegration().call();
+    }
     await init(optionsConfiguration: optionsConfiguration);
     await appRunner!();
   }

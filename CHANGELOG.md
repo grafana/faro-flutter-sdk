@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **control Flutter error reporting**: new `enableFlutterErrorReporting` in `FaroConfig` to control Flutter error reporting (default = true)
+
 ## [0.5.0] - 2025-10-31
 
 ### Added
