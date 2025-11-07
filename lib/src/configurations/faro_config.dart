@@ -10,7 +10,7 @@ class FaroConfig {
     this.appVersion,
     this.namespace,
     this.transports,
-    this.enableFlutterErrorReporting = false,
+    this.enableFlutterErrorReporting = true,
     this.enableCrashReporting = false,
     this.memoryUsageVitals = true,
     this.cpuUsageVitals = true,

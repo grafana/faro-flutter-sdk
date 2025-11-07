@@ -92,15 +92,15 @@ appRunner:
 
 ```
 
-### Enable Flutter error reporting
+### Enable/Disable Flutter error reporting
 
-enable reporting of Flutter and Plugin errors
+enable or disable reporting of Flutter and Plugin errors (default: enabled)
 
 ```dart
   Faro().runApp(
 optionsConfiguration: FaroConfig(
 // ...
-enableFlutterErrorReporting: true
+enableFlutterErrorReporting: false
 // ...
 ),
 appRunner:
