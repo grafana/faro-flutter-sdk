@@ -80,14 +80,30 @@ enable capturing of app crashes
 
 ```dart
   Faro().runApp(
-optionsConfiguration: FaroConfig(
-// ...
-enableCrashReporting: false
-// ...
-),
-appRunner:
-//...
+    optionsConfiguration: FaroConfig(
+    // ...
+    enableCrashReporting: false
+    // ...
+    ),
+    appRunner:
+    //...
+)
 
+```
+
+### Enable/Disable Flutter error reporting
+
+enable or disable reporting of Flutter and Plugin errors (default: enabled)
+
+```dart
+  Faro().runApp(
+    optionsConfiguration: FaroConfig(
+    // ...
+    enableFlutterErrorReporting: false
+    // ...
+    ),
+    appRunner:
+    //...
 )
 
 ```

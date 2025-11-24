@@ -10,6 +10,7 @@ class FaroConfig {
     this.appVersion,
     this.namespace,
     this.transports,
+    this.enableFlutterErrorReporting = true,
     this.enableCrashReporting = false,
     this.memoryUsageVitals = true,
     this.cpuUsageVitals = true,
@@ -38,6 +39,7 @@ class FaroConfig {
   final bool cpuUsageVitals;
   final bool anrTracking;
   final bool enableCrashReporting;
+  final bool enableFlutterErrorReporting;
   final bool refreshRateVitals;
   final BatchConfig batchConfig;
   final int maxBufferLimit;
