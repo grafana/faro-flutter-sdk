@@ -161,12 +161,12 @@ class PreReleaseChecker {
     if (_checksPassed == _checksTotal) {
       // ignore: avoid_print
       print('${Colors.green}✅ All $_checksTotal post-checks passed! '
-          'Ready for commit.${Colors.reset}');
+          'Ready to push and create PR.${Colors.reset}');
       return true;
     } else {
       // ignore: avoid_print
       print('${Colors.red}❌ $_checksPassed/$_checksTotal post-checks '
-          'passed. Please fix issues before commit.${Colors.reset}');
+          'passed. Please fix issues and amend the commit.${Colors.reset}');
       return false;
     }
   }
@@ -183,7 +183,7 @@ Future<void> main(List<String> args) async {
       exit(1);
     }
     // ignore: avoid_print
-    print('\n${Colors.green}🚀 Ready to commit and create PR!'
+    print('\n${Colors.green}🚀 Ready to push and create PR!'
         '${Colors.reset}');
   } else {
     // Pre-version-bump checks
