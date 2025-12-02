@@ -23,21 +23,21 @@ Every event captured by Faro includes rich metadata to give you complete context
 
 Every telemetry event automatically includes these session attributes:
 
-| Attribute | Description | iOS Example | Android Example |
-|-----------|-------------|-------------|-----------------|
-| `faro_sdk_version` | SDK version | `0.6.0` | `0.6.0` |
-| `dart_version` | Dart runtime version | `3.10.1 (stable)...` | `3.10.1 (stable)...` |
-| `device_os` | Operating system | `iOS` | `Android` |
-| `device_os_version` | OS version | `17.0` | `15` |
-| `device_os_detail` | Detailed OS info | `iOS 17.0` | `Android 15 (SDK 35)` |
-| `device_manufacturer` | Manufacturer | `apple` | `samsung` |
-| `device_model` | Raw model identifier | `iPhone16,1` | `SM-A155F` |
-| `device_model_name` | Human-readable model | `iPhone 15 Pro` | `SM-A155F`* |
-| `device_brand` | Device brand | `iPhone` | `samsung` |
-| `device_is_physical` | Physical or emulator | `true` | `true` |
-| `device_id` | Unique device ID | `uuid` | `uuid` |
+| Attribute             | Description          | iOS Example          | Android Example       |
+| --------------------- | -------------------- | -------------------- | --------------------- |
+| `faro_sdk_version`    | SDK version          | `0.6.0`              | `0.6.0`               |
+| `dart_version`        | Dart runtime version | `3.10.1 (stable)...` | `3.10.1 (stable)...`  |
+| `device_os`           | Operating system     | `iOS`                | `Android`             |
+| `device_os_version`   | OS version           | `17.0`               | `15`                  |
+| `device_os_detail`    | Detailed OS info     | `iOS 17.0`           | `Android 15 (SDK 35)` |
+| `device_manufacturer` | Manufacturer         | `apple`              | `samsung`             |
+| `device_model`        | Raw model identifier | `iPhone16,1`         | `SM-A155F`            |
+| `device_model_name`   | Human-readable model | `iPhone 15 Pro`      | `SM-A155F`\*          |
+| `device_brand`        | Device brand         | `iPhone`             | `samsung`             |
+| `device_is_physical`  | Physical or emulator | `true`               | `true`                |
+| `device_id`           | Unique device ID     | `uuid`               | `uuid`                |
 
-> *Android does not provide a mapping from model codes to marketing names, so `device_model_name` equals `device_model`.
+> \*Android does not provide a mapping from model codes to marketing names, so `device_model_name` equals `device_model`.
 
 ## ⚡ Performance Monitoring
 
