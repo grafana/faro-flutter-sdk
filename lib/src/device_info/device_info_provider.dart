@@ -25,6 +25,7 @@ class DeviceInfoProvider {
     var deviceOsDetail = 'unknown';
     var deviceManufacturer = 'unknown';
     var deviceModel = 'unknown';
+    var deviceModelName = 'unknown';
     var deviceBrand = 'unknown';
     var deviceIsPhysical = true;
 
@@ -38,6 +39,9 @@ class DeviceInfoProvider {
       deviceOsDetail = 'Android $release (SDK $sdkInt)';
       deviceManufacturer = androidInfo.manufacturer;
       deviceModel = androidInfo.model;
+      // Android does not provide a mapping from model codes to marketing names,
+      // so deviceModelName is the same as deviceModel (e.g., "SM-A155F").
+      deviceModelName = androidInfo.model;
       deviceBrand = androidInfo.brand;
       deviceIsPhysical = androidInfo.isPhysicalDevice;
     }
@@ -48,7 +52,10 @@ class DeviceInfoProvider {
       deviceOsVersion = iosInfo.systemVersion;
       deviceOsDetail = '$deviceOs $deviceOsVersion';
       deviceManufacturer = 'apple';
+      // Raw identifier like "iPhone16,1"
       deviceModel = iosInfo.utsname.machine;
+      // Human-readable name like "iPhone 15 Pro"
+      deviceModelName = iosInfo.modelName;
       deviceBrand = iosInfo.model;
       deviceIsPhysical = iosInfo.isPhysicalDevice;
     }
@@ -60,6 +67,7 @@ class DeviceInfoProvider {
       deviceOsDetail: deviceOsDetail,
       deviceManufacturer: deviceManufacturer,
       deviceModel: deviceModel,
+      deviceModelName: deviceModelName,
       deviceBrand: deviceBrand,
       deviceIsPhysical: deviceIsPhysical,
     );

@@ -36,6 +36,7 @@ void main() {
                 deviceOsDetail: 'Some-OS-detail',
                 deviceManufacturer: 'Some-manufacturer',
                 deviceModel: 'Some-model',
+                deviceModelName: 'Some-model-name',
                 deviceBrand: 'Some-brand',
                 deviceIsPhysical: true,
               ));
@@ -52,6 +53,7 @@ void main() {
         'device_os_detail': 'Some-OS-detail',
         'device_manufacturer': 'Some-manufacturer',
         'device_model': 'Some-model',
+        'device_model_name': 'Some-model-name',
         'device_brand': 'Some-brand',
         'device_is_physical': 'true',
         'device_id': 'device-id',
