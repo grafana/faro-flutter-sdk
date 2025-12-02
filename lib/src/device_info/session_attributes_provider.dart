@@ -24,6 +24,7 @@ class SessionAttributesProvider {
       'device_os_detail': deviceInfo.deviceOsDetail,
       'device_manufacturer': deviceInfo.deviceManufacturer,
       'device_model': deviceInfo.deviceModel,
+      'device_model_name': deviceInfo.deviceModelName,
       'device_brand': deviceInfo.deviceBrand,
       'device_is_physical': '${deviceInfo.deviceIsPhysical}',
       'device_id': '$deviceId',

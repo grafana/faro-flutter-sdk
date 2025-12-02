@@ -73,6 +73,7 @@ void main() {
       expect(deviceInfo.deviceOsDetail, 'Android 11 (SDK 30)');
       expect(deviceInfo.deviceManufacturer, 'Google');
       expect(deviceInfo.deviceModel, 'Pixel 4');
+      expect(deviceInfo.deviceModelName, 'Pixel 4');
       expect(deviceInfo.deviceBrand, 'Google');
       expect(deviceInfo.deviceIsPhysical, true);
     });
@@ -89,6 +90,7 @@ void main() {
 
       when(() => mockIosDeviceInfo.utsname).thenReturn(mockIosUtsname);
       when(() => mockIosDeviceInfo.model).thenReturn('iPhone');
+      when(() => mockIosDeviceInfo.modelName).thenReturn('iPhone 11');
       when(() => mockIosDeviceInfo.isPhysicalDevice).thenReturn(true);
 
       final deviceInfo = await sut.getDeviceInfo();
@@ -99,6 +101,7 @@ void main() {
       expect(deviceInfo.deviceOsDetail, 'iOS 14.4');
       expect(deviceInfo.deviceManufacturer, 'apple');
       expect(deviceInfo.deviceModel, 'iPhone12,1');
+      expect(deviceInfo.deviceModelName, 'iPhone 11');
       expect(deviceInfo.deviceBrand, 'iPhone');
       expect(deviceInfo.deviceIsPhysical, true);
     });
@@ -116,6 +119,7 @@ void main() {
       expect(deviceInfo.deviceOsDetail, 'unknown');
       expect(deviceInfo.deviceManufacturer, 'unknown');
       expect(deviceInfo.deviceModel, 'unknown');
+      expect(deviceInfo.deviceModelName, 'unknown');
       expect(deviceInfo.deviceBrand, 'unknown');
       expect(deviceInfo.deviceIsPhysical, true);
     });

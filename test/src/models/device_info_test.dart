@@ -10,6 +10,7 @@ void main() {
       const expectedDeviceOsDetail = 'Super detailed OS info';
       const expectedDeviceManufacturer = 'Acme Corp';
       const expectedDeviceModel = 'Model X';
+      const expectedDeviceModelName = 'Model X Pro';
       const expectedDeviceBrand = 'Brand Y';
       const expectedDeviceIsPhysical = true;
 
@@ -20,6 +21,7 @@ void main() {
         deviceOsDetail: expectedDeviceOsDetail,
         deviceManufacturer: expectedDeviceManufacturer,
         deviceModel: expectedDeviceModel,
+        deviceModelName: expectedDeviceModelName,
         deviceBrand: expectedDeviceBrand,
         deviceIsPhysical: expectedDeviceIsPhysical,
       );
@@ -30,6 +32,7 @@ void main() {
       expect(deviceInfo.deviceOsDetail, expectedDeviceOsDetail);
       expect(deviceInfo.deviceManufacturer, expectedDeviceManufacturer);
       expect(deviceInfo.deviceModel, expectedDeviceModel);
+      expect(deviceInfo.deviceModelName, expectedDeviceModelName);
       expect(deviceInfo.deviceBrand, expectedDeviceBrand);
       expect(deviceInfo.deviceIsPhysical, expectedDeviceIsPhysical);
     });

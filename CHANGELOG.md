@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> ⚠️ **Note: This release updates Android build requirements.**
+>
+> Due to the `device_info_plus` v12 upgrade, your Android project now requires:
+>
+> - Android Gradle Plugin ≥8.7.0
+> - Gradle wrapper ≥8.10
+> - Kotlin ≥2.2.0
+> - Java 17
+
+### Added
+
+- **Human-readable device model name**: Added new `deviceModelName` field to `DeviceInfo` and `device_model_name` session attribute
+  - iOS: Returns marketing name (e.g., "iPhone 15 Pro") instead of internal identifier ("iPhone16,1")
+  - Android: Same as `deviceModel` - Android does not provide a mapping from model codes to marketing names
+
+### Changed
+
+- **Upgraded `device_info_plus`** from v11.4.0 to v12.3.0
+  - Enables access to new `modelName` property on iOS for human-readable device names
+  - Includes latest device identifier mappings (iPhone 16/17 series, iPad Pro M5, etc.)
+
 ## [0.6.0] - 2025-11-25
 
 ### Added
