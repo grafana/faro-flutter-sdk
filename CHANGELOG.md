@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-12-02
+
 > ⚠️ **Note: This release updates Android build requirements.**
 >
 > Due to the `device_info_plus` v12 upgrade, your Android project now requires:
