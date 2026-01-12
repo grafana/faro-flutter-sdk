@@ -254,24 +254,28 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
               ),
             ),
             const SizedBox(height: 4),
-            ...InitialUserSetting.values.map((setting) {
-              return RadioListTile<InitialUserSetting>(
-                title: Text(setting.displayName),
-                subtitle: Text(
-                  setting.subtitle,
-                  style: const TextStyle(fontSize: 11),
-                ),
-                value: setting,
-                groupValue: _initialUserSetting,
-                onChanged: (value) {
-                  if (value != null) {
-                    _setInitialUserSetting(value);
-                  }
-                },
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              );
-            }),
+            RadioGroup<InitialUserSetting>(
+              groupValue: _initialUserSetting,
+              onChanged: (value) {
+                if (value != null) {
+                  _setInitialUserSetting(value);
+                }
+              },
+              child: Column(
+                children: InitialUserSetting.values.map((setting) {
+                  return RadioListTile<InitialUserSetting>(
+                    title: Text(setting.displayName),
+                    subtitle: Text(
+                      setting.subtitle,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    value: setting,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  );
+                }).toList(),
+              ),
+            ),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(12),
