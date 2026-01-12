@@ -11,6 +11,7 @@ environment:
 dependencies:
   connectivity_plus: ^6.1.2
   device_info_plus: ^12.3.0
+  equatable: ^2.0.8
   fixnum: ^1.1.1
   flutter:
     sdk: flutter
