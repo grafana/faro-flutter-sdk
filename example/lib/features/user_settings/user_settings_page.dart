@@ -2,6 +2,7 @@ import 'package:faro/faro.dart';
 import 'package:flutter/material.dart';
 
 import 'initial_user_setting.dart';
+import 'test_users.dart';
 import 'user_settings_service.dart';
 
 /// Page for managing user settings in the example app.
@@ -172,21 +173,13 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
               children: [
                 ElevatedButton.icon(
                   icon: const Icon(Icons.person_add, size: 18),
-                  label: const Text('john.doe'),
-                  onPressed: () => _setUser(const FaroUser(
-                    id: 'user-123',
-                    username: 'john.doe',
-                    email: 'john.doe@example.com',
-                  )),
+                  label: Text(TestUsers.johnDoe.username!),
+                  onPressed: () => _setUser(TestUsers.johnDoe),
                 ),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.person_add, size: 18),
-                  label: const Text('jane.smith'),
-                  onPressed: () => _setUser(const FaroUser(
-                    id: 'user-456',
-                    username: 'jane.smith',
-                    email: 'jane.smith@example.com',
-                  )),
+                  label: Text(TestUsers.janeSmith.username!),
+                  onPressed: () => _setUser(TestUsers.janeSmith),
                 ),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.person_remove, size: 18),

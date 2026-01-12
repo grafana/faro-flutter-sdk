@@ -1,5 +1,7 @@
 import 'package:faro/faro.dart';
 
+import 'test_users.dart';
+
 /// Enum representing the initial user options for FaroConfig.
 enum InitialUserSetting {
   /// No initial user specified (uses persisted user if available).
@@ -26,17 +28,9 @@ enum InitialUserSetting {
       case InitialUserSetting.cleared:
         return const FaroUser.cleared();
       case InitialUserSetting.johnDoe:
-        return const FaroUser(
-          id: 'user-123',
-          username: 'john.doe',
-          email: 'john.doe@example.com',
-        );
+        return TestUsers.johnDoe;
       case InitialUserSetting.janeSmith:
-        return const FaroUser(
-          id: 'user-456',
-          username: 'jane.smith',
-          email: 'jane.smith@example.com',
-        );
+        return TestUsers.janeSmith;
     }
   }
 

@@ -200,6 +200,129 @@ void main() {
 
         expect(user.toString(), 'FaroUser.cleared()');
       });
+
+      test('should include attributes in toString when present', () {
+        const user = FaroUser(
+          id: 'user-123',
+          attributes: {'role': 'admin'},
+        );
+
+        expect(
+          user.toString(),
+          contains('attributes: {role: admin}'),
+        );
+      });
+    });
+
+    group('attributes:', () {
+      test('should create user with attributes', () {
+        const user = FaroUser(
+          id: 'user-123',
+          attributes: {'role': 'admin', 'org': 'acme'},
+        );
+
+        expect(user.attributes, {'role': 'admin', 'org': 'acme'});
+        expect(user.hasData, isTrue);
+      });
+
+      test('should have hasData true with only attributes', () {
+        const user = FaroUser(
+          attributes: {'role': 'admin'},
+        );
+
+        expect(user.id, isNull);
+        expect(user.username, isNull);
+        expect(user.email, isNull);
+        expect(user.attributes, {'role': 'admin'});
+        expect(user.hasData, isTrue);
+      });
+
+      test('should have hasData false with empty attributes', () {
+        const user = FaroUser(
+          attributes: {},
+        );
+
+        expect(user.hasData, isFalse);
+      });
+
+      test('should serialize attributes to JSON', () {
+        const user = FaroUser(
+          id: 'user-123',
+          attributes: {'role': 'admin', 'org': 'acme'},
+        );
+
+        final json = user.toJson();
+
+        expect(json['attributes'], {'role': 'admin', 'org': 'acme'});
+      });
+
+      test('should not include attributes key in JSON when null', () {
+        const user = FaroUser(id: 'user-123');
+
+        final json = user.toJson();
+
+        expect(json.containsKey('attributes'), isFalse);
+      });
+
+      test('should deserialize attributes from JSON', () {
+        final json = {
+          'id': 'user-123',
+          'attributes': {'role': 'admin', 'org': 'acme'},
+        };
+
+        final user = FaroUser.fromJson(json);
+
+        expect(user.attributes, {'role': 'admin', 'org': 'acme'});
+      });
+
+      test('should handle missing attributes in JSON (backward compat)', () {
+        final json = {
+          'id': 'user-123',
+          'username': 'john.doe',
+        };
+
+        final user = FaroUser.fromJson(json);
+
+        expect(user.id, 'user-123');
+        expect(user.username, 'john.doe');
+        expect(user.attributes, isNull);
+      });
+
+      test('should round-trip attributes through JSON', () {
+        const original = FaroUser(
+          id: 'user-123',
+          attributes: {'role': 'admin', 'tier': 'premium'},
+        );
+
+        final json = original.toJson();
+        final restored = FaroUser.fromJson(json);
+
+        expect(restored.attributes, original.attributes);
+      });
+
+      test('should compare attributes in equality', () {
+        const user1 = FaroUser(
+          id: 'user-123',
+          attributes: {'role': 'admin'},
+        );
+        const user2 = FaroUser(
+          id: 'user-123',
+          attributes: {'role': 'admin'},
+        );
+        const user3 = FaroUser(
+          id: 'user-123',
+          attributes: {'role': 'user'},
+        );
+
+        expect(user1, equals(user2));
+        expect(user1, isNot(equals(user3)));
+      });
+
+      test('cleared user should have null attributes', () {
+        const user = FaroUser.cleared();
+
+        expect(user.attributes, isNull);
+      });
     });
   });
 }
