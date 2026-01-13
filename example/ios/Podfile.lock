@@ -3,7 +3,7 @@ PODS:
     - Flutter
   - device_info_plus (0.0.1):
     - Flutter
-  - faro (0.6.0):
+  - faro (0.8.0):
     - Flutter
     - PLCrashReporter
   - Flutter (1.0.0)
@@ -49,7 +49,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
-  faro: 5faa5d5d04e9f0e94f603302f1b35a1aa1bb8126
+  faro: dc43a20a72e68371b54319555e5905457c809782
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
