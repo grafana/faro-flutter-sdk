@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Deprecated setUserMeta()**: Use `setUser(FaroUser(...))` instead
   - Legacy method still works but will be removed in a future version
   - Migration: Replace `setUserMeta(userId: 'x', userName: 'y', userEmail: 'z')` with `setUser(FaroUser(id: 'x', username: 'y', email: 'z'))`
+  - **Breaking**: Now requires SDK initialization (`init()` or `runApp()`) before calling. Previously, `setUserMeta()` could be called before initialization. Calls made before initialization will now be silently ignored.
 
 ## [0.7.0] - 2025-12-02
 
