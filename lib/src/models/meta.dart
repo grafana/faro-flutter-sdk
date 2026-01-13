@@ -1,9 +1,9 @@
 import 'package:faro/src/models/app.dart';
 import 'package:faro/src/models/browser.dart';
+import 'package:faro/src/models/faro_user.dart';
 import 'package:faro/src/models/page.dart';
 import 'package:faro/src/models/sdk.dart';
 import 'package:faro/src/models/session.dart';
-import 'package:faro/src/models/user.dart';
 import 'package:faro/src/models/view_meta.dart';
 
 class Meta {
@@ -26,7 +26,7 @@ class Meta {
     browser =
         json['browser'] != null ? Browser.fromJson(json['browser']) : null;
     page = json['page'] != null ? Page.fromJson(json['page']) : null;
-    user = json['user'] != null ? User.fromJson(json['user']) : null;
+    user = json['user'] != null ? FaroUser.fromJson(json['user']) : null;
   }
   Session? session;
   Sdk? sdk;
@@ -34,7 +34,7 @@ class Meta {
   ViewMeta? view;
   Browser? browser;
   Page? page;
-  User? user;
+  FaroUser? user;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

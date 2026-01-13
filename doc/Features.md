@@ -17,7 +17,8 @@ Every event captured by Faro includes rich metadata to give you complete context
 
 - **Operating System**: iOS/Android version and device model
 - **Device Specifications**: Memory, CPU architecture, and hardware details
-- **User Information**: Optional user ID and custom attributes
+- **User Information**: Optional user ID, username, email, and custom attributes
+- **User Persistence**: Automatically restore user identity across app restarts for consistent session tracking
 
 ### 📋 Default Session Attributes
 
@@ -70,6 +71,31 @@ Faro().pushError(
   stackTrace: stackTrace,
 );
 ```
+
+## 👤 User Identity & Session Tracking
+
+Associate telemetry with specific users for better debugging and analytics:
+
+### 🔑 User Identification
+
+- **User Attributes**: Track user ID, username, and email across all telemetry
+- **Automatic Persistence**: User identity is saved and restored across app restarts
+- **Early Event Attribution**: Even startup events like `appStart` include user data
+- **Logout Support**: Clear user identity when users log out
+
+```dart
+// Set user after authentication
+Faro().setUser(FaroUser(
+  id: 'user-123',
+  username: 'john.doe',
+  email: 'john@example.com',
+));
+
+// Clear on logout
+Faro().setUser(FaroUser.cleared());
+```
+
+> 💡 **Pro Tip**: User persistence means you don't need to wait for authentication to complete before telemetry starts capturing user context on subsequent app launches.
 
 ## 📈 User Interaction & Events
 

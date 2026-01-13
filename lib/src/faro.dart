@@ -21,6 +21,7 @@ import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
+import 'package:faro/src/user/user_manager.dart';
 import 'package:faro/src/util/constants.dart';
 import 'package:faro/src/util/timestamp_extension.dart';
 import 'package:flutter/cupertino.dart';
@@ -60,6 +61,7 @@ class Faro {
   BatchTransport? _batchTransport;
   List<BaseTransport> get transports => _transports;
   DataCollectionPolicy? _dataCollectionPolicy;
+  UserManager? _userManager;
 
   Meta meta = Meta(
       session: Session(
@@ -96,6 +98,11 @@ class Faro {
     _dataCollectionPolicy = policy;
   }
 
+  @visibleForTesting
+  set userManager(UserManager? manager) {
+    _userManager = manager;
+  }
+
   Future<void> init({required FaroConfig optionsConfiguration}) async {
     _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
 
@@ -109,6 +116,18 @@ class Faro {
 
     _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
+
+    // Initialize user manager (always with persistence to handle stale data cleanup)
+    final userManager = await UserManagerFactory().create(
+      onUserMetaApplied: _applyUserMeta,
+      onPushEvent: pushEvent,
+    );
+    _userManager = userManager;
+
+    await userManager.initialize(
+      initialUser: optionsConfiguration.initialUser,
+      persistUser: optionsConfiguration.persistUser,
+    );
 
     _batchTransport = BatchTransportFactory().create(
       initialPayload: Payload(meta),
@@ -189,13 +208,59 @@ class Faro {
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
 
-  void setUserMeta({String? userId, String? userName, String? userEmail}) {
-    final userMeta = User(id: userId, username: userName, email: userEmail);
-    _instance.meta =
-        Meta.fromJson({..._instance.meta.toJson(), 'user': userMeta.toJson()});
-    _instance._batchTransport?.updatePayloadMeta(_instance.meta);
+  /// Sets the user for all subsequent telemetry.
+  ///
+  /// The user information will be attached to all logs, events, exceptions,
+  /// and traces sent to the Faro collector.
+  ///
+  /// If [persistUser] is enabled in [FaroConfig] (default: true), the user
+  /// will be persisted and automatically restored on the next app start.
+  ///
+  /// To clear the user, pass [FaroUser.cleared].
+  ///
+  /// Returns a [Future] that completes when persistence is done. Callers can
+  /// await this if they need to ensure persistence order, or ignore it for
+  /// fire-and-forget behavior.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Set user
+  /// Faro().setUser(FaroUser(
+  ///   id: 'user-123',
+  ///   username: 'john.doe',
+  ///   email: 'john@example.com',
+  /// ));
+  ///
+  /// // Clear user
+  /// Faro().setUser(FaroUser.cleared());
+  /// ```
+  Future<void> setUser(FaroUser user) async {
+    await _userManager?.setUser(user, persistUser: config?.persistUser ?? true);
+  }
 
-    pushEvent('faro_internal_user_updated');
+  /// Sets the user metadata for all subsequent telemetry.
+  ///
+  /// This is a convenience method that creates a [FaroUser] internally.
+  /// For more control, use [setUser] directly.
+  ///
+  /// If [persistUser] is enabled in [FaroConfig] (default: true), the user
+  /// will be persisted and automatically restored on the next app start.
+  ///
+  /// If all parameters are null, the user will be cleared.
+  @Deprecated('Use setUser(FaroUser(...)) instead. '
+      'To clear, use setUser(FaroUser.cleared()).')
+  void setUserMeta({String? userId, String? userName, String? userEmail}) {
+    final user = (userId == null && userName == null && userEmail == null)
+        ? const FaroUser.cleared()
+        : FaroUser(id: userId, username: userName, email: userEmail);
+    setUser(user);
+  }
+
+  /// Applies user JSON to meta.
+  void _applyUserMeta(Map<String, dynamic> userJson) {
+    _instance.meta =
+        Meta.fromJson({..._instance.meta.toJson(), 'user': userJson});
+    _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
 
   void setViewMeta({String? name}) {

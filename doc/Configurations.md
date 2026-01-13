@@ -345,12 +345,84 @@ span.setStatus(SpanStatusCode.error, message: 'Something went wrong');  // Optio
 span.recordException(exception, stackTrace: stackTrace);
 ```
 
-### Adding User Meta
+### User Management
+
+Set user information to associate telemetry data with specific users. User data is attached to all logs, events, exceptions, and traces.
 
 ```dart
-    Faro().setUserMeta({String? userId, String? userName, String? userEmail});
-    // example
-    Faro().addUserMeta(userId:"123",userName:"user",userEmail:"jhondoes@something.com")
+// Set user
+Faro().setUser(FaroUser(
+  id: '123',
+  username: 'johndoe',
+  email: 'johndoe@example.com',
+));
+
+// Clear user (e.g., on logout)
+Faro().setUser(FaroUser.cleared());
+```
+
+#### User Persistence
+
+By default, user data is persisted between app sessions. This ensures early telemetry events (like `appStart`) include user identification, even before your authentication flow completes.
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+    persistUser: true, // default: true - persists user across app restarts
+    // ...
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+| Scenario                                             | Result                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| First app run, no login                              | No user (nothing persisted)                             |
+| User logs in → `setUser(user)` called                | User persisted                                          |
+| Next app start                                       | Persisted user auto-restored; early events include user |
+| User logs out → `setUser(FaroUser.cleared())` called | Persisted user cleared                                  |
+
+#### Initial User in Config
+
+For apps that know the user at startup (e.g., from cached credentials), you can set the user directly in the config:
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+    initialUser: FaroUser(
+      id: 'known-user-id',
+      username: 'cachedUser',
+    ),
+    // ...
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+**Precedence rules:**
+
+1. If `initialUser` is provided → use it (and persist if persistence enabled)
+2. Else if persisted user exists → restore it
+3. Else → no user
+
+To explicitly clear any persisted user on app start, use the sentinel value:
+
+```dart
+initialUser: FaroUser.cleared(), // Start with no user, ignore persisted data
+```
+
+#### Deprecated API
+
+The `setUserMeta()` method is deprecated. Migrate to `setUser()`:
+
+```dart
+// Old (deprecated)
+Faro().setUserMeta(userId: '123', userName: 'user', userEmail: 'user@example.com');
+
+// New
+Faro().setUser(FaroUser(id: '123', username: 'user', email: 'user@example.com'));
 ```
 
 ### Custom Session Attributes

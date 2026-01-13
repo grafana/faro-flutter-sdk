@@ -131,13 +131,26 @@ void main() {
     });
 
     test('set user meta data ', () {
+      // ignore: deprecated_member_use_from_same_package
       Faro().setUserMeta(
-          userId: 'testuserid',
-          userName: 'testusername',
-          userEmail: 'testusermail@example.com');
+        userId: 'testuserid',
+        userName: 'testusername',
+        userEmail: 'testusermail@example.com',
+      );
       expect(Faro().meta.user?.id, 'testuserid');
       expect(Faro().meta.user?.username, 'testusername');
       expect(Faro().meta.user?.email, 'testusermail@example.com');
+    });
+
+    test('set user with setUser', () {
+      Faro().setUser(const FaroUser(
+        id: 'testuserid2',
+        username: 'testusername2',
+        email: 'testusermail2@example.com',
+      ));
+      expect(Faro().meta.user?.id, 'testuserid2');
+      expect(Faro().meta.user?.username, 'testusername2');
+      expect(Faro().meta.user?.email, 'testusermail2@example.com');
     });
 
     test('set view meta data ', () {

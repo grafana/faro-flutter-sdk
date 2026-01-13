@@ -4,9 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:faro/faro.dart';
 import 'package:http/http.dart' as http;
 
+import 'features/user_settings/user_settings_page.dart';
+import 'features/user_settings/user_settings_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+
+  // Load user settings
+  final userSettingsService = UserSettingsService.instance;
+  await userSettingsService.init();
 
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
   final faroApiKey = faroCollectorUrl.split('/').last;
@@ -14,30 +21,35 @@ void main() async {
   Faro().transports.add(OfflineTransport(
         maxCacheDuration: const Duration(days: 3),
       ));
+
   await Faro().runApp(
-      optionsConfiguration: FaroConfig(
-        appName: "example_app",
-        appVersion: "2.0.1",
-        appEnv: "Test",
-        apiKey: faroApiKey,
-        namespace: 'flutter_app',
-        anrTracking: true,
-        cpuUsageVitals: true,
-        collectorUrl: faroCollectorUrl,
-        enableCrashReporting: true,
-        memoryUsageVitals: true,
-        refreshRateVitals: true,
-        fetchVitalsInterval: const Duration(seconds: 30),
-        sessionAttributes: {
-          'team': 'mobile',
-          'department': 'engineering',
-        },
-      ),
-      appRunner: () async {
-        runApp(DefaultAssetBundle(
-            bundle: FaroAssetBundle(),
-            child: const FaroUserInteractionWidget(child: MyApp())));
-      });
+    optionsConfiguration: FaroConfig(
+      appName: 'example_app',
+      appVersion: '2.0.1',
+      appEnv: 'Test',
+      apiKey: faroApiKey,
+      namespace: 'flutter_app',
+      anrTracking: true,
+      cpuUsageVitals: true,
+      collectorUrl: faroCollectorUrl,
+      enableCrashReporting: true,
+      memoryUsageVitals: true,
+      refreshRateVitals: true,
+      fetchVitalsInterval: const Duration(seconds: 30),
+      sessionAttributes: {
+        'team': 'mobile',
+        'department': 'engineering',
+      },
+      initialUser: userSettingsService.initialUser,
+      persistUser: userSettingsService.persistUser,
+    ),
+    appRunner: () async {
+      runApp(DefaultAssetBundle(
+        bundle: FaroAssetBundle(),
+        child: const FaroUserInteractionWidget(child: MyApp()),
+      ));
+    },
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -72,17 +84,20 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        navigatorObservers: [FaroNavigationObserver()],
-        initialRoute: '/',
-        routes: {
-          '/home': (context) => const HomePage(),
-          '/features': (context) => const FeaturesPage()
-        },
-        home: Scaffold(
-            appBar: AppBar(
-              title: const Text('Faro Test App'),
-            ),
-            body: const HomePage()));
+      navigatorObservers: [FaroNavigationObserver()],
+      initialRoute: '/',
+      routes: {
+        '/home': (context) => const HomePage(),
+        '/features': (context) => const FeaturesPage(),
+        '/user-settings': (context) => const UserSettingsPage(),
+      },
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text('Faro Test App'),
+        ),
+        body: const HomePage(),
+      ),
+    );
   }
 }
 
@@ -102,16 +117,19 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Center(
-        child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // Center vertically
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
           ElevatedButton(
-              child: const Text("Change Route"),
-              onPressed: () {
-                Navigator.pushNamed(context, '/features');
-              }),
-        ]));
+            child: const Text('Change Route'),
+            onPressed: () {
+              Navigator.pushNamed(context, '/features');
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -123,10 +141,20 @@ class FeaturesPage extends StatefulWidget {
 }
 
 class _FeaturesPageState extends State<FeaturesPage> {
+  final _userSettingsService = UserSettingsService.instance;
+  String _currentUserDisplay = 'Not set';
+
   @override
   void initState() {
     super.initState();
-    Faro().markEventEnd("home_event_start", "home_page_load");
+    Faro().markEventEnd('home_event_start', 'home_page_load');
+    _updateCurrentUser();
+  }
+
+  void _updateCurrentUser() {
+    setState(() {
+      _currentUserDisplay = _userSettingsService.getCurrentUserDisplay();
+    });
   }
 
   void simulateANR({int seconds = 10}) {
@@ -154,13 +182,29 @@ class _FeaturesPageState extends State<FeaturesPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // User Settings Card
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.person),
+                  title: const Text('User Settings'),
+                  subtitle: Text('Current: $_currentUserDisplay'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await Navigator.pushNamed(context, '/user-settings');
+                    _updateCurrentUser();
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
               ElevatedButton(
                 child: const Text('HTTP POST Request - success'),
                 onPressed: () async {
                   await http.post(
                     Uri.parse('https://httpbin.io/post'),
                     body: jsonEncode(<String, String>{
-                      'title': "This is a title",
+                      'title': 'This is a title',
                     }),
                   );
                 },
@@ -171,7 +215,7 @@ class _FeaturesPageState extends State<FeaturesPage> {
                   await http.post(
                     Uri.parse('https://httpbin.io/unstable'),
                     body: jsonEncode(<String, String>{
-                      'title': "This is a title",
+                      'title': 'This is a title',
                     }),
                   );
                 },
@@ -191,34 +235,34 @@ class _FeaturesPageState extends State<FeaturesPage> {
               ElevatedButton(
                 child: const Text('Custom Warn Log'),
                 onPressed: () {
-                  Faro().pushLog("Custom Warning Log", level: LogLevel.warn);
+                  Faro().pushLog('Custom Warning Log', level: LogLevel.warn);
                 },
               ),
               ElevatedButton(
                 child: const Text('Custom Info Log'),
                 onPressed: () {
                   Faro()
-                      .pushLog("This is an info message", level: LogLevel.info);
+                      .pushLog('This is an info message', level: LogLevel.info);
                 },
               ),
               ElevatedButton(
                 child: const Text('Custom Error Log'),
                 onPressed: () {
-                  Faro().pushLog("This is an error message",
+                  Faro().pushLog('This is an error message',
                       level: LogLevel.error);
                 },
               ),
               ElevatedButton(
                 child: const Text('Custom Debug Log'),
                 onPressed: () {
-                  Faro().pushLog("This is a debug message",
+                  Faro().pushLog('This is a debug message',
                       level: LogLevel.debug);
                 },
               ),
               ElevatedButton(
                 child: const Text('Custom Trace Log'),
                 onPressed: () {
-                  Faro().pushLog("This is a trace message",
+                  Faro().pushLog('This is a trace message',
                       level: LogLevel.trace);
                 },
               ),
@@ -226,13 +270,13 @@ class _FeaturesPageState extends State<FeaturesPage> {
                 child: const Text('Custom Measurement'),
                 onPressed: () {
                   Faro().pushMeasurement(
-                      {'custom_value': 1}, "custom_measurement");
+                      {'custom_value': 1}, 'custom_measurement');
                 },
               ),
               ElevatedButton(
                 child: const Text('Custom Event'),
                 onPressed: () {
-                  Faro().pushEvent("custom_event");
+                  Faro().pushEvent('custom_event');
                 },
               ),
               ElevatedButton(
@@ -248,20 +292,20 @@ class _FeaturesPageState extends State<FeaturesPage> {
                 onPressed: () {
                   setState(() {
                     double _ = 0 / 0;
-                    throw Exception("This is an Exception!");
+                    throw Exception('This is an Exception!');
                   });
                 },
               ),
               ElevatedButton(
                 child: const Text('Mark Event Start'),
                 onPressed: () async {
-                  Faro().markEventStart("event1", "event1_duration");
+                  Faro().markEventStart('event1', 'event1_duration');
                 },
               ),
               ElevatedButton(
                 child: const Text('Mark Event End'),
                 onPressed: () async {
-                  Faro().markEventEnd("event1", "event1_duration");
+                  Faro().markEventEnd('event1', 'event1_duration');
                 },
               ),
               ElevatedButton(

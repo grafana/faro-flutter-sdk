@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **User management with FaroUser model**: New `FaroUser` class for comprehensive user identification
+
+  - Replaces the legacy `User` model with a more feature-rich implementation
+  - Supports `id`, `username`, `email`, and custom `attributes` fields
+  - Custom attributes align with [Faro Web SDK MetaUser](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/architecture/metas/#how-to-use-the-user-meta) for cross-platform consistency
+  - Includes `FaroUser.cleared()` constructor to explicitly clear user data
+
+- **User persistence**: New `persistUser` option in `FaroConfig` (default: `true`)
+
+  - Automatically saves user identity to device storage
+  - Restores user on subsequent app launches for consistent session tracking
+  - Early events like `appStart` include user data when persistence is enabled
+  - Fires `user_set` event on restore and `user_updated` event on changes
+
+- **Initial user configuration**: New `initialUser` option in `FaroConfig`
+
+  - Set a user immediately on SDK initialization
+  - Use `FaroUser.cleared()` to explicitly clear any persisted user on start
+  - Useful for apps that know the user at startup or need to force logout state
+
+- **New setUser() API**: Streamlined method for setting user identity
+  - `Faro().setUser(FaroUser(...))` to set user
+  - `Faro().setUser(FaroUser.cleared())` to clear user
+  - Returns `Future<void>` for awaiting persistence completion
+
+### Changed
+
+- **Deprecated setUserMeta()**: Use `setUser(FaroUser(...))` instead
+  - Legacy method still works but will be removed in a future version
+  - Migration: Replace `setUserMeta(userId: 'x', userName: 'y', userEmail: 'z')` with `setUser(FaroUser(id: 'x', username: 'y', email: 'z'))`
+  - **Breaking**: Now requires SDK initialization (`init()` or `runApp()`) before calling. Previously, `setUserMeta()` could be called before initialization. Calls made before initialization will now be silently ignored.
+
 ## [0.7.0] - 2025-12-02
 
 > ⚠️ **Note: This release updates Android build requirements.**
