@@ -5,20 +5,16 @@ import 'test_users.dart';
 /// Enum representing the initial user options for FaroConfig.
 enum InitialUserSetting {
   /// No initial user specified (uses persisted user if available).
-  none('None (use persisted)'),
+  none,
 
   /// Explicitly clear any persisted user on start.
-  cleared('Cleared (force no user)'),
+  cleared,
 
   /// Start with john.doe user.
-  johnDoe('john.doe'),
+  johnDoe,
 
   /// Start with jane.smith user.
-  janeSmith('jane.smith');
-
-  const InitialUserSetting(this.displayName);
-
-  final String displayName;
+  janeSmith;
 
   /// Get the FaroUser for this setting, or null if none.
   FaroUser? get faroUser {
@@ -34,6 +30,20 @@ enum InitialUserSetting {
     }
   }
 
+  /// Returns the display name for this setting.
+  String get displayName {
+    switch (this) {
+      case InitialUserSetting.none:
+        return 'None (use persisted)';
+      case InitialUserSetting.cleared:
+        return 'Cleared (force no user)';
+      case InitialUserSetting.johnDoe:
+        return TestUsers.johnDoe.username!;
+      case InitialUserSetting.janeSmith:
+        return TestUsers.janeSmith.username!;
+    }
+  }
+
   /// Returns a subtitle description for this setting.
   String get subtitle {
     switch (this) {
@@ -42,9 +52,9 @@ enum InitialUserSetting {
       case InitialUserSetting.cleared:
         return 'Clears any persisted user on start';
       case InitialUserSetting.johnDoe:
-        return 'user-123 / john.doe@example.com';
+        return '${TestUsers.johnDoe.id} / ${TestUsers.johnDoe.email}';
       case InitialUserSetting.janeSmith:
-        return 'user-456 / jane.smith@example.com';
+        return '${TestUsers.janeSmith.id} / ${TestUsers.janeSmith.email}';
     }
   }
 }
