@@ -31,9 +31,7 @@ class FaroTransport extends BaseTransport {
     }
 
     try {
-      // Try to encode the payload to check for any JSON encoding issues
       final encodedPayload = jsonEncode(payloadJson);
-
       final sessionId = this.sessionId;
 
       final headers = {
@@ -42,6 +40,7 @@ class FaroTransport extends BaseTransport {
         if (sessionId != null) 'x-faro-session-id': sessionId,
         ...?this.headers,
       };
+
       final response = await _taskBuffer?.add(() {
         return http.post(
           Uri.parse(collectorUrl),
@@ -49,10 +48,11 @@ class FaroTransport extends BaseTransport {
           body: encodedPayload,
         );
       });
-      if (response != null && response?.statusCode ~/ 100 != 2) {
+
+      if (response != null && response.statusCode ~/ 100 != 2) {
         log(
-          // ignore: lines_longer_than_80_chars
-          'Error sending payload: ${response?.statusCode}, body: ${response?.body} payload:$encodedPayload',
+          'Error sending payload: ${response.statusCode}, '
+          'body: ${response.body} payload:$encodedPayload',
         );
       }
     } catch (error) {

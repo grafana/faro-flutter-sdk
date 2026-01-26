@@ -1,15 +1,27 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:faro/faro.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'features/tracing/presentation/tracing_page.dart';
 import 'features/user_settings/user_settings_page.dart';
 import 'features/user_settings/user_settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // IMPORTANT: Set HttpOverrides BEFORE creating any http.Client instances!
+  // The http package uses IOClient on mobile, which creates an HttpClient
+  // at construction time. If HttpOverrides is set after the client is created,
+  // Faro won't intercept those HTTP requests.
   HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+
+  // Create ProviderContainer first - this is Riverpod's root
+  // and allows us to access providers before runApp()
+  final container = ProviderContainer();
 
   // Load user settings
   final userSettingsService = UserSettingsService.instance;
@@ -44,10 +56,17 @@ void main() async {
       persistUser: userSettingsService.persistUser,
     ),
     appRunner: () async {
-      runApp(DefaultAssetBundle(
-        bundle: FaroAssetBundle(),
-        child: const FaroUserInteractionWidget(child: MyApp()),
-      ));
+      runApp(
+        // Use UncontrolledProviderScope to pass the pre-created container
+        // This allows providers to be accessed before runApp() if needed
+        UncontrolledProviderScope(
+          container: container,
+          child: DefaultAssetBundle(
+            bundle: FaroAssetBundle(),
+            child: const FaroUserInteractionWidget(child: MyApp()),
+          ),
+        ),
+      );
     },
   );
 }
@@ -90,6 +109,7 @@ class _MyAppState extends State<MyApp> {
         '/home': (context) => const HomePage(),
         '/features': (context) => const FeaturesPage(),
         '/user-settings': (context) => const UserSettingsPage(),
+        '/tracing': (context) => const TracingPage(),
       },
       home: Scaffold(
         appBar: AppBar(
@@ -192,6 +212,19 @@ class _FeaturesPageState extends State<FeaturesPage> {
                   onTap: () async {
                     await Navigator.pushNamed(context, '/user-settings');
                     _updateCurrentUser();
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Tracing Card
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.timeline),
+                  title: const Text('Tracing / Spans'),
+                  subtitle: const Text('Test spans and traces'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/tracing');
                   },
                 ),
               ),

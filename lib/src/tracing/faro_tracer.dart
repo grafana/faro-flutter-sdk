@@ -21,10 +21,15 @@ class FaroTracer {
   final FaroZoneSpanManager _faroZoneSpanManager;
   final SessionIdProvider _sessionIdProvider;
 
+  /// Starts an active span and executes the provided callback within its
+  /// context.
+  ///
+  /// [attributes] can contain typed values (String, int, double, bool).
+  /// Other types will be converted to strings.
   FutureOr<T> startSpan<T>(
     String name,
     FutureOr<T> Function(Span) body, {
-    Map<String, String> attributes = const {},
+    Map<String, Object> attributes = const {},
     Span? parentSpan,
   }) async {
     final span = _createAndStartSpan(
@@ -35,9 +40,14 @@ class FaroTracer {
     return _faroZoneSpanManager.executeWithSpan(span, body);
   }
 
+  /// Starts a span without executing a callback, giving manual control over
+  /// when the span ends.
+  ///
+  /// [attributes] can contain typed values (String, int, double, bool).
+  /// Other types will be converted to strings.
   Span startSpanManual(
     String name, {
-    Map<String, String> attributes = const {},
+    Map<String, Object> attributes = const {},
     Span? parentSpan,
   }) {
     return _createAndStartSpan(
@@ -53,7 +63,7 @@ class FaroTracer {
 
   Span _createAndStartSpan({
     required String name,
-    required Map<String, String> attributes,
+    required Map<String, Object> attributes,
     Span? parentSpan,
   }) {
     final theParentSpan = parentSpan ?? getActiveSpan();
@@ -72,7 +82,7 @@ class FaroTracer {
     );
 
     final sessionId = _sessionIdProvider.sessionId;
-    final allAttributes = <String, String>{
+    final allAttributes = <String, Object>{
       ...attributes,
       'session_id': sessionId,
       'session.id': sessionId,
@@ -80,11 +90,27 @@ class FaroTracer {
 
     otelSpan.setAttributes(
       allAttributes.entries.map((entry) {
-        return otel_api.Attribute.fromString(entry.key, entry.value);
+        return _createOtelAttribute(entry.key, entry.value);
       }).toList(),
     );
 
     return SpanProvider().getSpan(otelSpan, context);
+  }
+
+  /// Creates an OpenTelemetry Attribute from a typed value.
+  otel_api.Attribute _createOtelAttribute(String key, Object value) {
+    if (value is String) {
+      return otel_api.Attribute.fromString(key, value);
+    } else if (value is int) {
+      return otel_api.Attribute.fromInt(key, value);
+    } else if (value is double) {
+      return otel_api.Attribute.fromDouble(key, value);
+    } else if (value is bool) {
+      return otel_api.Attribute.fromBoolean(key, value);
+    } else {
+      // Fallback: convert to string for unsupported types
+      return otel_api.Attribute.fromString(key, value.toString());
+    }
   }
 }
 

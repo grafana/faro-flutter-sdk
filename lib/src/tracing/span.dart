@@ -2,6 +2,10 @@ import 'package:faro/src/tracing/extensions.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
+/// Represents a span in a distributed trace.
+///
+/// Spans are used to track operations and can contain attributes, events,
+/// and status information.
 abstract class Span {
   String get traceId;
   String get spanId;
@@ -10,9 +14,25 @@ abstract class Span {
   bool get statusHasBeenSet;
 
   void setStatus(SpanStatusCode statusCode, {String? message});
-  void addEvent(String message, {Map<String, String> attributes});
-  void setAttributes(Map<String, String> attributes);
-  void setAttribute(String key, String value);
+
+  /// Adds an event to the span with optional typed attributes.
+  ///
+  /// Attributes can be of type String, int, double, or bool.
+  /// Other types will be converted to strings.
+  void addEvent(String message, {Map<String, Object> attributes});
+
+  /// Sets multiple attributes on the span with typed values.
+  ///
+  /// Attributes can be of type String, int, double, or bool.
+  /// Other types will be converted to strings.
+  void setAttributes(Map<String, Object> attributes);
+
+  /// Sets a single attribute on the span with a typed value.
+  ///
+  /// Supported types: String, int, double, bool.
+  /// Other types will be converted to strings.
+  void setAttribute(String key, Object value);
+
   void recordException(dynamic exception, {StackTrace? stackTrace});
   void end();
 }
@@ -69,24 +89,20 @@ class InternalSpan implements Span {
   }
 
   @override
-  void addEvent(String message, {Map<String, String> attributes = const {}}) {
-    final listAttributes = attributes.entries.map((entry) {
-      return otel_api.Attribute.fromString(entry.key, entry.value);
-    }).toList();
+  void addEvent(String message, {Map<String, Object> attributes = const {}}) {
+    final listAttributes = _convertToOtelAttributes(attributes);
     _otelSpan.addEvent(message, attributes: listAttributes);
   }
 
   @override
-  void setAttributes(Map<String, String> attributes) {
-    final listAttributes = attributes.entries.map((entry) {
-      return otel_api.Attribute.fromString(entry.key, entry.value);
-    }).toList();
+  void setAttributes(Map<String, Object> attributes) {
+    final listAttributes = _convertToOtelAttributes(attributes);
     _otelSpan.setAttributes(listAttributes);
   }
 
   @override
-  void setAttribute(String key, String value) {
-    _otelSpan.setAttribute(otel_api.Attribute.fromString(key, value));
+  void setAttribute(String key, Object value) {
+    _otelSpan.setAttribute(_createOtelAttribute(key, value));
   }
 
   @override
@@ -111,6 +127,30 @@ class InternalSpan implements Span {
     final traceparent =
         '$version$delimiter$traceId$delimiter$spanId$delimiter$endString';
     return traceparent;
+  }
+
+  /// Converts a map of typed attributes to OpenTelemetry Attributes.
+  List<otel_api.Attribute> _convertToOtelAttributes(
+      Map<String, Object> attributes) {
+    return attributes.entries.map((entry) {
+      return _createOtelAttribute(entry.key, entry.value);
+    }).toList();
+  }
+
+  /// Creates an OpenTelemetry Attribute from a typed value.
+  otel_api.Attribute _createOtelAttribute(String key, Object value) {
+    if (value is String) {
+      return otel_api.Attribute.fromString(key, value);
+    } else if (value is int) {
+      return otel_api.Attribute.fromInt(key, value);
+    } else if (value is double) {
+      return otel_api.Attribute.fromDouble(key, value);
+    } else if (value is bool) {
+      return otel_api.Attribute.fromBoolean(key, value);
+    } else {
+      // Fallback: convert to string for unsupported types
+      return otel_api.Attribute.fromString(key, value.toString());
+    }
   }
 }
 
