@@ -10,7 +10,13 @@ This example demonstrates how to integrate and use the Grafana Faro SDK in a Flu
 
    ### Option 1: Using api-config.json (Recommended)
 
-   a. Create an `api-config.json` file in the example directory manually with:
+   a. Copy the example config file and add your collector URL:
+
+   ```bash
+   cp api-config.example.json api-config.json
+   ```
+
+   Then edit `api-config.json` with your actual collector URL:
 
    ```json
    {

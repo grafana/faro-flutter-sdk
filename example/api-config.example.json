@@ -1,0 +1,4 @@
+{
+  "_comment": "Grafana Cloud: Get URL from Frontend Observability > Your App > Web SDK Config. Self-hosted: Use your Grafana Alloy faro.receiver endpoint.",
+  "FARO_COLLECTOR_URL": "https://faro-collector-prod-us-central-0.grafana.net/collect/YOUR_API_KEY"
+}

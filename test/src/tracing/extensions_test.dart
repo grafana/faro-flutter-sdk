@@ -100,6 +100,7 @@ void main() {
       test('should handle zero values', () {
         final attributes = [
           otel_api.Attribute.fromInt('zero_int', 0),
+          // ignore: prefer_int_literals
           otel_api.Attribute.fromDouble('zero_double', 0.0),
         ];
 

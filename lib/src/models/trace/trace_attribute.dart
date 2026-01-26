@@ -73,6 +73,7 @@ class TraceAttributeValue {
         _boolValue = null;
 
   /// Creates a TraceAttributeValue with a boolean value.
+  // ignore: avoid_positional_boolean_parameters
   TraceAttributeValue.bool(bool value)
       : _stringValue = null,
         _intValue = null,
