@@ -2,6 +2,36 @@
 
 This example demonstrates how to integrate and use the Grafana Faro SDK in a Flutter application.
 
+## Architecture
+
+This example app follows a **feature-based architecture** with clear separation of concerns. When adding new features, follow the patterns established in the `tracing` feature.
+
+### Feature Structure
+
+Each feature should be organized as follows:
+
+```
+lib/features/<feature_name>/
+├── domain/           # Business logic and services
+│   └── <feature>_service.dart
+├── models/           # Data models (DTOs, entities)
+│   └── <model>.dart
+└── presentation/     # UI layer
+    ├── <feature>_page.dart
+    └── <feature>_page_view_model.dart
+```
+
+### State Management (Riverpod)
+
+We use **Riverpod** with a ViewModel pattern that separates UI state from actions:
+
+- **UiState class**: Immutable data class (with Equatable) containing all UI state
+- **Actions interface**: Defines all user actions the page can perform
+- **ViewModel**: Implements actions and manages state, delegates to services
+- **Two providers**: `uiStateProvider` for reactive state, `actionsProvider` for user interactions
+
+See `lib/features/tracing/` for the reference implementation.
+
 ## Setup
 
 1. Get your Grafana Cloud Faro collector URL
