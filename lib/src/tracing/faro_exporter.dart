@@ -31,17 +31,21 @@ class FaroExporter implements otel_sdk.SpanExporter {
   }
 
   void _sendSpansToFaro(List<otel_sdk.ReadOnlySpan> spans) {
-    for (var i = 0; i < spans.length; i++) {
-      final otelReadOnlySpan = spans[i];
+    final batchTransport = _batchTransport;
+    if (batchTransport == null) {
+      return;
+    }
+
+    for (final otelReadOnlySpan in spans) {
       final spanRecord = SpanRecord(otelReadOnlySpan: otelReadOnlySpan);
 
-      _batchTransport?.addEvent(Event(
+      batchTransport.addEvent(Event(
         spanRecord.getFaroEventName(),
         attributes: spanRecord.getFaroEventAttributes(),
         trace: spanRecord.getFaroSpanContext(),
       ));
 
-      _batchTransport?.addSpan(spanRecord);
+      batchTransport.addSpan(spanRecord);
     }
   }
 

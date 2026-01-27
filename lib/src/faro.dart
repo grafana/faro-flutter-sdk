@@ -426,7 +426,7 @@ class Faro {
   FutureOr<T> startSpan<T>(
     String name,
     FutureOr<T> Function(Span) body, {
-    Map<String, String> attributes = const {},
+    Map<String, Object> attributes = const {},
     Span? parentSpan,
   }) async {
     return _tracer.startSpan(
@@ -503,7 +503,7 @@ class Faro {
   /// - [Span] for available span operations
   Span startSpanManual(
     String name, {
-    Map<String, String> attributes = const {},
+    Map<String, Object> attributes = const {},
     Span? parentSpan,
   }) {
     return _tracer.startSpanManual(
