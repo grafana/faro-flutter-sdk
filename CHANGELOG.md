@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **OTLP trace attributes now preserve types**: Span attributes and event attributes now correctly preserve their original types (int, double, bool, String) when sent via OTLP
+  - Previously, all attribute values were converted to strings, making numeric querying and bucketing difficult in Grafana/Tempo
+  - Now attributes like `user.account_count: 42` are sent as integers, enabling queries like `account_count > 10` and proper histogram bucketing
+  - Updated `TraceAttributeValue` to support `stringValue`, `intValue`, `doubleValue`, and `boolValue` fields per OTLP specification
+  - Updated `Span.setAttributes()` and `Span.addEvent()` to accept `Map<String, Object>` for typed values
+  - Updated `Span.setAttribute(String key, Object value)` to accept any supported type (previously only String)
+  - Backward compatible: `Span.setAttribute(String key, String value)` still works for string-only use cases
+  - Resolves issue #126: OTLP trace attributes forced to string type
+
 ## [0.8.0] - 2026-01-13
 
 ### Added

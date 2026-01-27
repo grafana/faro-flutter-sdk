@@ -152,9 +152,11 @@ Add the Faro Asset Bundle to track asset load info
     // example
     Faro().pushEvent("event_name")
     Faro().pushEvent("event_name", attributes:{
-        attr1:"value"
+        'attr1': 'value'
     })
 ```
+
+> **Note**: Faro events use string attributes (consistent with the Faro protocol). For typed attributes (int, double, bool), use distributed tracing spans instead - see [Distributed Tracing](#distributed-tracing).
 
 ### Sending Custom Logs
 
@@ -207,22 +209,25 @@ Create detailed traces of operations with parent-child span relationships.
 Use `startSpan()` for most tracing scenarios. It automatically handles span lifecycle, error reporting, and cleanup:
 
 ```dart
-// Basic span creation with attributes as parameters
+// Basic span creation with typed attributes
 final result = await Faro().startSpan('user_action', (span) async {
-  // You can add more attributes within the callback
-  span.setAttribute('additional_info', 'value');
+  // You can add more typed attributes within the callback
+  span.setAttribute('item_count', 3);  // int
 
   return await performUserAction();
 }, attributes: {
-  'user_id': '123',
-  'action_type': 'purchase',
+  'user_id': 123,              // int - preserved for numeric queries
+  'action_type': 'purchase',   // String
+  'is_premium': true,          // bool
 });
 
-// Or set all attributes within the callback
+// Or set all typed attributes within the callback
 final result = await Faro().startSpan('user_action', (span) async {
   span.setAttributes({
-    'user_id': '123',
-    'action_type': 'purchase',
+    'user_id': 123,            // int
+    'cart_total': 99.99,       // double
+    'has_coupon': true,        // bool
+    'action_type': 'purchase', // String
   });
 
   return await performUserAction();
@@ -230,15 +235,24 @@ final result = await Faro().startSpan('user_action', (span) async {
 
 // Nested spans - child spans automatically inherit parent context
 await Faro().startSpan('checkout_process', (parentSpan) async {
-  parentSpan.setAttribute('cart_size', '3');
+  parentSpan.setAttributes({
+    'cart_size': 3,            // int
+    'cart_total': 149.99,      // double
+  });
 
   await Faro().startSpan('validate_payment', (childSpan) async {
-    childSpan.setAttribute('payment_method', 'credit_card');
+    childSpan.setAttributes({
+      'payment_method': 'credit_card',
+      'amount': 149.99,        // double - enables price range queries
+    });
     return await validatePayment();
   });
 
   return await Faro().startSpan('process_order', (childSpan) async {
-    childSpan.setAttribute('order_priority', 'high');
+    childSpan.setAttributes({
+      'order_priority': 1,     // int
+      'is_express': true,      // bool
+    });
     return await processOrder();
   });
 });
@@ -267,13 +281,16 @@ await Faro().startSpan('risky_operation', (span) async {
   } catch (e) {
     // Span automatically marked as error with exception details - no need to set status manually
     // But you can add custom error context if needed
-    span.addEvent('Operation failed', attributes: {'retry_count': '3'});
+    span.addEvent('Operation failed', attributes: {
+      'retry_count': 3,        // int
+      'should_retry': true,    // bool
+    });
     rethrow;
   }
   // Span automatically ended
 }, attributes: {
-  'operation_id': 'op_123',
-  'timeout_seconds': '30',
+  'operation_id': 123,         // int
+  'timeout_seconds': 30,       // int - not a string!
 });
 ```
 
@@ -284,14 +301,20 @@ Use `startSpanManual()` when you need explicit control over span lifecycle:
 ```dart
 // Manual span creation - requires manual status management
 final span = Faro().startSpanManual('background_task',
-  attributes: {'task_id': 'bg_123'});
+  attributes: {
+    'task_id': 123,            // int
+    'priority': 'high',        // String
+  });
 
 try {
   await performTask();
   span.setStatus(SpanStatusCode.ok);  // Manual status setting required
 } catch (e) {
   span.setStatus(SpanStatusCode.error, message: e.toString());  // Manual error handling required
-  span.addEvent('Task failed', attributes: {'error': e.toString()});
+  span.addEvent('Task failed', attributes: {
+    'error': e.toString(),
+    'attempt': 1,              // int
+  });
 } finally {
   span.end(); // Must manually end the span
 }
@@ -312,30 +335,45 @@ parentSpan.end();
 Access the currently active span from anywhere in your code:
 
 ```dart
-void addContextToCurrentSpan(String key, String value) {
+void addContextToCurrentSpan(String key, Object value) {
   final activeSpan = Faro().getActiveSpan();
   if (activeSpan != null) {
-    activeSpan.setAttribute(key, value);
+    activeSpan.setAttribute(key, value);  // Preserves type
   }
 }
 
 // Usage
 await Faro().startSpan('main_operation', (span) async {
   await doSomeWork();
-  addContextToCurrentSpan('work_completed', 'true'); // Adds to active span
+  addContextToCurrentSpan('items_processed', 42);  // int attribute
+  addContextToCurrentSpan('success_rate', 0.98);   // double attribute
 });
 ```
 
 #### Span Operations
 
 ```dart
-// Add attributes
-span.setAttribute('key', 'value');
-span.setAttributes({'key1': 'value1', 'key2': 'value2'});
+// Add typed attributes - supports String, int, double, and bool
+span.setAttribute('key', 'string value');
+span.setAttribute('count', 42);                    // int
+span.setAttribute('price', 19.99);                // double
+span.setAttribute('is_active', true);             // bool
 
-// Add events (like logs within the span)
+// Set multiple typed attributes at once
+span.setAttributes({
+  'user_id': 'user-123',           // String
+  'account_count': 5,              // int
+  'balance': 1234.56,              // double
+  'is_premium': true,              // bool
+});
+
+// Add events with typed attributes
 span.addEvent('Processing started');
-span.addEvent('Checkpoint reached', attributes: {'progress': '50%'});
+span.addEvent('Checkpoint reached', attributes: {
+  'progress': 50,                  // int (not string!)
+  'completion_rate': 0.5,          // double
+  'on_track': true,                // bool
+});
 
 // Set span status (optional - startSpan() handles this automatically)
 span.setStatus(SpanStatusCode.ok);  // Usually not needed
@@ -344,6 +382,8 @@ span.setStatus(SpanStatusCode.error, message: 'Something went wrong');  // Optio
 // Record exceptions
 span.recordException(exception, stackTrace: stackTrace);
 ```
+
+> **Typed Attributes**: Span attributes preserve their original types (int, double, bool, String) when sent via OTLP. This enables proper numeric querying and bucketing in Grafana/Tempo - for example, you can filter traces where `account_count > 10` or create histograms of `balance` values.
 
 ### User Management
 

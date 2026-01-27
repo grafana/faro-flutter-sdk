@@ -109,15 +109,25 @@ Understand how users interact with your app:
 - **Custom Events**: Track business-specific events and user actions
 
 ```dart
-// Track custom user events
+// Track custom user events (string attributes)
 Faro().pushEvent(
   name: "purchase_completed",
   attributes: {
-    "product_id": "123",
-    "price": 29.99,
-    "category": "premium"
+    'product_id': '123',
+    'price': '29.99',
+    'category': 'premium',
   }
 );
+
+// For typed attributes (int, double, bool), use tracing spans instead:
+await Faro().startSpan('purchase_completed', (span) async {
+  span.setAttributes({
+    'product_id': 123,        // int
+    'price': 29.99,           // double
+    'is_premium': true,       // bool
+  });
+  // ... your code
+});
 ```
 
 ## 🌐 Network & Resource Monitoring
@@ -180,7 +190,7 @@ Create detailed traces of operations across your app with automatic parent-child
 Use `startSpan()` for most tracing needs - it automatically handles span lifecycle and error reporting:
 
 ```dart
-// Trace a complete operation with initial attributes
+// Trace a complete operation with typed attributes
 final result = await Faro().startSpan('api_request', (span) async {
   // Add more attributes within the callback if needed
   span.addEvent('Request started');
@@ -196,19 +206,25 @@ final result = await Faro().startSpan('api_request', (span) async {
     rethrow;
   }
 }, attributes: {
-  'endpoint': '/api/users',
-  'method': 'GET',
-  'timeout': '30s',
+  'endpoint': '/api/users',       // String
+  'timeout_seconds': 30,          // int - enables numeric queries!
+  'retry_enabled': true,          // bool
 });
 
 // Nested spans are automatically linked
 await Faro().startSpan('parent_operation', (parentSpan) async {
-  parentSpan.setAttribute('operation_id', '123');
+  parentSpan.setAttributes({
+    'operation_id': 123,          // int
+    'priority': 'high',           // String
+  });
 
   final data = await fetchData();
 
   return await Faro().startSpan('child_operation', (childSpan) async {
-    childSpan.setAttribute('data_size', data.length.toString());
+    childSpan.setAttributes({
+      'data_size': data.length,   // int - preserves type for querying
+      'processing_rate': 0.95,    // double
+    });
     return await processData(data);
     // Span status automatically handled based on success/failure
   });
@@ -275,8 +291,8 @@ await Faro().startSpan('main_operation', (span) async {
 - **Automatic Session Tracking**: All spans include session IDs for correlation
 - **Zone-based Context**: Proper parent-child relationships across async boundaries
 - **Error Handling**: Automatic span status updates when exceptions occur
-- **Custom Attributes**: Add business context and metadata to spans
-- **Event Logging**: Record important events within span timelines
+- **Typed Attributes**: Add business context with preserved types (int, double, bool, String) - enables numeric querying and bucketing in Grafana
+- **Event Logging**: Record important events within span timelines with typed attributes
 
 ## 💾 Offline Support
 

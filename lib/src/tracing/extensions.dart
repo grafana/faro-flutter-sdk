@@ -13,9 +13,7 @@ extension TraceAttributesX on otel_sdk.Attributes {
       attributes.add(
         TraceAttribute(
           key: key,
-          value: TraceAttributeValue(
-            stringValue: get(key).toString(),
-          ),
+          value: TraceAttributeValue.fromDynamic(get(key)),
         ),
       );
     }
@@ -30,9 +28,7 @@ extension IterableTraceAttributeX on Iterable<otel_api.Attribute> {
       traceAttributes.add(
         TraceAttribute(
           key: attribute.key,
-          value: TraceAttributeValue(
-            stringValue: attribute.value.toString(),
-          ),
+          value: TraceAttributeValue.fromDynamic(attribute.value),
         ),
       );
     }
