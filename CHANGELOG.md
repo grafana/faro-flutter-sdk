@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-01-28
+
 ### Fixed
 
 - **OTLP trace attributes now preserve types**: Span attributes and event attributes now correctly preserve their original types (int, double, bool, String) when sent via OTLP
