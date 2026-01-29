@@ -495,7 +495,9 @@ Faro().runApp(
 - Custom attributes are merged with default attributes (like `faro_sdk_version`, `device_os`, `device_model`, etc.)
 - Default attributes take precedence if there are naming conflicts
 - Session attributes are included in all telemetry data (logs, events, exceptions, traces)
-- **Typed values supported**: Session attributes support typed values (String, int, double, bool) which are preserved in OTLP traces for proper querying in Grafana/Tempo
+- **Type handling**: Session attributes support typed values (String, int, double, bool):
+  - **Faro session** (`meta.session.attributes`): Values are stringified per Faro protocol requirements
+  - **Span resources** (`resource.attributes`): Types are preserved (int, double, bool, String), enabling numeric queries and filtering in trace backends
 
 ### Data Collection Control
 
