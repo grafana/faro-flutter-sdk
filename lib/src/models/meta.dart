@@ -61,4 +61,32 @@ class Meta {
     }
     return map;
   }
+
+  /// Creates a JSON representation for Faro protocol.
+  /// Session attributes are stringified as required by Faro.
+  Map<String, dynamic> toFaroJson() {
+    final map = <String, dynamic>{};
+    if (session != null) {
+      map['session'] = session!.toFaroJson();
+    }
+    if (sdk != null) {
+      map['sdk'] = sdk!.toJson();
+    }
+    if (app != null) {
+      map['app'] = app!.toJson();
+    }
+    if (view != null) {
+      map['view'] = view!.toJson();
+    }
+    if (browser != null) {
+      map['browser'] = browser!.toJson();
+    }
+    if (page != null) {
+      map['page'] = page!.toJson();
+    }
+    if (user != null) {
+      map['user'] = user!.toJson();
+    }
+    return map;
+  }
 }

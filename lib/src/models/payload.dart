@@ -72,7 +72,8 @@ class Payload {
     }
 
     if (meta != null) {
-      map['meta'] = meta!.toJson();
+      // Use toFaroJson() to stringify session attributes for Faro protocol
+      map['meta'] = meta!.toFaroJson();
     }
     return map;
   }

@@ -51,6 +51,9 @@ void main() async {
       sessionAttributes: {
         'team': 'mobile',
         'department': 'engineering',
+        'test_int': 42,
+        'test_bool': true,
+        'test_double': 3.14,
       },
       initialUser: userSettingsService.initialUser,
       persistUser: userSettingsService.persistUser,
