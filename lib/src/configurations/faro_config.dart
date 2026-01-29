@@ -48,7 +48,7 @@ class FaroConfig {
   final int maxBufferLimit;
   final Duration? fetchVitalsInterval;
   final List<RegExp>? ignoreUrls;
-  final Map<String, String>? sessionAttributes;
+  final Map<String, Object>? sessionAttributes;
 
   /// User to set immediately on initialization.
   ///
