@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_redundant_argument_values
+
 import 'package:faro/src/models/session.dart';
 import 'package:flutter_test/flutter_test.dart';
 

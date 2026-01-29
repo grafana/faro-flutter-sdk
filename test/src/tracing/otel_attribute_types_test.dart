@@ -24,12 +24,6 @@ void main() {
       final doubleVal = resource.attributes.get('double_attr');
       final boolVal = resource.attributes.get('bool_attr');
 
-      // Print for debugging
-      print('string_attr: value=$stringVal, type=${stringVal.runtimeType}');
-      print('int_attr: value=$intVal, type=${intVal.runtimeType}');
-      print('double_attr: value=$doubleVal, type=${doubleVal.runtimeType}');
-      print('bool_attr: value=$boolVal, type=${boolVal.runtimeType}');
-
       // Verify types
       expect(stringVal, isA<String>());
       expect(intVal, isA<int>());
@@ -57,12 +51,6 @@ void main() {
 
       // Convert to TraceAttributes using our extension
       final traceAttributes = resource.attributes.toTraceAttributes();
-
-      // Print for debugging
-      for (final attr in traceAttributes) {
-        final json = attr.toJson();
-        print('${json['key']}: ${json['value']}');
-      }
 
       // Find each attribute and verify
       final stringAttr = traceAttributes.firstWhere(
@@ -97,15 +85,13 @@ void main() {
       // Create Resource with attributes
       final resource = otel_sdk.Resource(attributes);
 
-      // Convert to TraceResource (simulating what SpanRecord.getResource() does)
+      // Convert to TraceResource, simulating what SpanRecord.getResource() does
       final traceResource = TraceResource(
         attributes: resource.attributes.toTraceAttributes(),
       );
 
       // Get the full JSON
       final json = traceResource.toJson();
-      print('Full TraceResource JSON:');
-      print(json);
 
       // Verify the structure matches OTLP spec
       final attrList = json['attributes'] as List;
