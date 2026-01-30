@@ -212,13 +212,15 @@ void main() {
         expect(resource.attributes.keys, isNotEmpty);
       });
 
-      test('should handle session attributes with dynamic values', () {
+      test('should preserve typed session attributes', () {
         // Arrange
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(mockSession);
         when(() => mockSession.attributes).thenReturn({
-          'number': 42,
-          'boolean': true,
+          'string_value': 'hello',
+          'int_value': 42,
+          'double_value': 3.14,
+          'bool_value': true,
           'null_value': null,
           'object': {'nested': 'value'},
         });
@@ -226,9 +228,24 @@ void main() {
         // Act
         final resource = factory.getTracerResource();
 
-        // Assert
-        expect(resource.attributes.get('number').toString(), equals('42'));
-        expect(resource.attributes.get('boolean').toString(), equals('true'));
+        // Assert - typed values are preserved, not stringified
+        final stringAttr = resource.attributes.get('string_value');
+        expect(stringAttr, isNotNull);
+        expect(stringAttr.toString(), equals('hello'));
+
+        final intAttr = resource.attributes.get('int_value');
+        expect(intAttr, isNotNull);
+        expect(intAttr.toString(), equals('42'));
+
+        final doubleAttr = resource.attributes.get('double_value');
+        expect(doubleAttr, isNotNull);
+        expect(doubleAttr.toString(), equals('3.14'));
+
+        final boolAttr = resource.attributes.get('bool_value');
+        expect(boolAttr, isNotNull);
+        expect(boolAttr.toString(), equals('true'));
+
+        // Null and object values fall back to string representation
         expect(resource.attributes.get('null_value').toString(), equals(''));
         expect(resource.attributes.get('object').toString(),
             equals('{nested: value}'));

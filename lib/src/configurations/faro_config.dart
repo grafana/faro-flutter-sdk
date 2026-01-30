@@ -48,7 +48,18 @@ class FaroConfig {
   final int maxBufferLimit;
   final Duration? fetchVitalsInterval;
   final List<RegExp>? ignoreUrls;
-  final Map<String, String>? sessionAttributes;
+
+  /// Custom attributes to include in all session data.
+  ///
+  /// These attributes are applied to:
+  /// - **Faro session** (`meta.session.attributes`): Values are converted to
+  ///   strings as required by the Faro protocol
+  /// - **Span resources** (`resource.attributes`): Types are preserved
+  ///   (String, int, double, bool), enabling numeric queries and filtering
+  ///
+  /// Attributes are merged with default device attributes and included
+  /// in all telemetry data.
+  final Map<String, Object>? sessionAttributes;
 
   /// User to set immediately on initialization.
   ///

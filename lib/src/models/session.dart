@@ -14,4 +14,17 @@ class Session {
     map['attributes'] = attributes;
     return map;
   }
+
+  /// Creates a JSON representation with all attribute
+  /// values converted to strings. Use this for Faro protocol
+  /// which requires string values for session attributes.
+  Map<String, dynamic> toFaroJson() {
+    final map = <String, dynamic>{};
+    map['id'] = id;
+    // Faro protocol requires string values for session attributes
+    map['attributes'] = attributes?.map(
+      (key, value) => MapEntry(key, value?.toString() ?? ''),
+    );
+    return map;
+  }
 }
