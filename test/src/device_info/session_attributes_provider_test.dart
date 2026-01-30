@@ -2,7 +2,6 @@ import 'package:faro/src/device_info/device_id_provider.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/models/models.dart';
-import 'package:faro/src/util/constants.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -46,7 +45,6 @@ void main() {
       final attributes = await sut.getAttributes();
 
       expect(attributes, {
-        'faro_sdk_version': FaroConstants.sdkVersion,
         'dart_version': 'Some-dart-version',
         'device_os': 'Some-OS',
         'device_os_version': 'Some-OS-version',
