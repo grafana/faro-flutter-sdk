@@ -167,7 +167,7 @@ void main() {
 
         // Assert
         expect(resource.attributes.get('telemetry.sdk.name').toString(),
-            equals('faro-flutter-sdk'));
+            equals('faro-mobile-flutter'));
         expect(resource.attributes.get('telemetry.sdk.language').toString(),
             equals('dart'));
         expect(resource.attributes.get('telemetry.sdk.version').toString(),

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **SDK metadata improvements**: Updated SDK identification to align with Faro Web SDK patterns and improve backend analytics
+  - Changed SDK name from `'faro-flutter-sdk'` to `'faro-mobile-flutter'` to match naming convention discussed with Faro team
+  - Removed hardcoded version `'1.3.5'` workaround and now sends actual SDK version (`0.9.0`) in `meta.sdk.version`
+  - Removed `integrations` field from SDK metadata (following Faro Web SDK pattern - this field provided no actionable insights)
+  - Removed unused `Integration` model class and its export from models barrel file
+  - Backend endpoint service now properly handles Flutter SDK payloads with correct version checking
+  - Enables better SDK version analytics and distribution tracking across different Faro implementations
+
 ## [0.9.0] - 2026-01-28
 
 ### Fixed

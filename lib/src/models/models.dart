@@ -5,7 +5,6 @@ export './device_info.dart';
 export './event.dart';
 export './exception.dart';
 export './faro_user.dart';
-export './integrations.dart';
 export './log.dart';
 export './log_level.dart';
 export './measurement.dart';
