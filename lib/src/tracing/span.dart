@@ -7,6 +7,27 @@ import 'package:opentelemetry/sdk.dart' as otel_sdk;
 /// Spans are used to track operations and can contain attributes, events,
 /// and status information.
 abstract class Span {
+  /// Sentinel value to explicitly start a span with no parent.
+  ///
+  /// Use this when you want to start a new root trace, ignoring any active
+  /// span in the current zone context. This is useful in scenarios like:
+  /// - Timer callbacks where the original parent span has ended
+  /// - Starting independent traces from within an existing span's context
+  /// - Event-driven architectures where span context shouldn't propagate
+  ///
+  /// Example:
+  /// ```dart
+  /// // Inside a timer callback where parent span may have ended
+  /// Timer.periodic(Duration(seconds: 1), (_) {
+  ///   Faro().startSpan('timer-operation', parentSpan: Span.noParent, (span) {
+  ///     // This span starts a new trace, not inheriting from context
+  ///   });
+  /// });
+  /// ```
+  ///
+  /// Note: This is a sentinel value only. Do not call any methods on it.
+  static const Span noParent = _NoParentSpan();
+
   String get traceId;
   String get spanId;
   bool get wasEnded;
@@ -183,4 +204,55 @@ extension StatusCodeX on SpanStatusCode {
         return otel_api.StatusCode.ok;
     }
   }
+}
+
+/// Private sentinel class for [Span.noParent].
+///
+/// This class exists only as a marker/sentinel value. All methods throw
+/// [UnsupportedError] because this object should never be used as an actual
+/// span - it's only meant to be passed to the `parentSpan` parameter.
+class _NoParentSpan implements Span {
+  const _NoParentSpan();
+
+  static const _errorMessage =
+      'Span.noParent is a sentinel value for the parentSpan parameter only. '
+      'It cannot be used as an actual span.';
+
+  @override
+  String get traceId => throw UnsupportedError(_errorMessage);
+
+  @override
+  String get spanId => throw UnsupportedError(_errorMessage);
+
+  @override
+  bool get wasEnded => throw UnsupportedError(_errorMessage);
+
+  @override
+  SpanStatusCode get status => throw UnsupportedError(_errorMessage);
+
+  @override
+  bool get statusHasBeenSet => throw UnsupportedError(_errorMessage);
+
+  @override
+  void setStatus(SpanStatusCode statusCode, {String? message}) =>
+      throw UnsupportedError(_errorMessage);
+
+  @override
+  void addEvent(String message, {Map<String, Object> attributes = const {}}) =>
+      throw UnsupportedError(_errorMessage);
+
+  @override
+  void setAttributes(Map<String, Object> attributes) =>
+      throw UnsupportedError(_errorMessage);
+
+  @override
+  void setAttribute(String key, Object value) =>
+      throw UnsupportedError(_errorMessage);
+
+  @override
+  void recordException(dynamic exception, {StackTrace? stackTrace}) =>
+      throw UnsupportedError(_errorMessage);
+
+  @override
+  void end() => throw UnsupportedError(_errorMessage);
 }

@@ -66,12 +66,13 @@ class FaroTracer {
     required Map<String, Object> attributes,
     Span? parentSpan,
   }) {
-    final theParentSpan = parentSpan ?? getActiveSpan();
+    final resolvedParentSpan = _resolveParentSpan(parentSpan);
+
     var context = otel_api.Context.current;
-    if (theParentSpan != null && theParentSpan is InternalSpan) {
+    if (resolvedParentSpan != null && resolvedParentSpan is InternalSpan) {
       context = otel_api.contextWithSpan(
-        theParentSpan.context,
-        theParentSpan.otelSpan,
+        resolvedParentSpan.context,
+        resolvedParentSpan.otelSpan,
       );
     }
 
@@ -95,6 +96,17 @@ class FaroTracer {
     );
 
     return SpanProvider().getSpan(otelSpan, context);
+  }
+
+  /// Resolves the effective parent span based on three-state logic:
+  /// - [Span.noParent]: explicitly no parent (starts a new root trace)
+  /// - `null`: use active span from zone context (default behavior)
+  /// - Specific [Span]: use that span as the parent
+  Span? _resolveParentSpan(Span? parentSpan) {
+    if (parentSpan == Span.noParent) {
+      return null;
+    }
+    return parentSpan ?? getActiveSpan();
   }
 
   /// Creates an OpenTelemetry Attribute from a typed value.

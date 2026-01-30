@@ -217,6 +217,61 @@ class TracingService {
       log('Unexpected error: $error', isError: true);
     }
   }
+
+  /// Demonstrates Span.noParent for independent traces.
+  ///
+  /// Shows how to start a new trace that ignores the active span in context.
+  /// Useful for timer callbacks or when you want independent traces.
+  Future<void> runSpanWithNoParent(LogCallback log) async {
+    log('Starting Span.noParent demo...');
+    log('This shows how to start independent traces.');
+
+    try {
+      await Faro().startSpan<void>(
+        'outer-context-span',
+        (outerSpan) async {
+          outerSpan.setAttributes({'type': 'outer-context'});
+          log('Outer span started (traceId: ${outerSpan.traceId.substring(0, 8)}...)');
+
+          // Simulate a "timer callback" scenario
+          // In real code, this might be Timer.periodic or a stream listener
+          log('Simulating timer callback scenario...');
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          // WITHOUT Span.noParent - would inherit outer span as parent
+          await Faro().startSpan<void>(
+            'child-with-parent',
+            (childSpan) async {
+              log('  Child WITH parent (traceId: ${childSpan.traceId.substring(0, 8)}...)');
+              log('  ^ Same traceId = same trace');
+              await Future.delayed(const Duration(milliseconds: 200));
+            },
+          );
+
+          // WITH Span.noParent - starts a completely new trace
+          await Faro().startSpan<void>(
+            'independent-trace',
+            (independentSpan) async {
+              independentSpan.setAttributes({
+                'type': 'independent',
+                'reason': 'timer-callback',
+              });
+              log('  Independent span (traceId: ${independentSpan.traceId.substring(0, 8)}...)');
+              log('  ^ Different traceId = new trace!');
+              await Future.delayed(const Duration(milliseconds: 200));
+            },
+            parentSpan: Span.noParent,
+          );
+
+          log('Outer span completing');
+        },
+      );
+      log('Span.noParent demo completed!');
+      log('Check backend: you should see 2 separate traces.');
+    } catch (error) {
+      log('Error: $error', isError: true);
+    }
+  }
 }
 
 // =============================================================================

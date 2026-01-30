@@ -16,6 +16,112 @@ void main() {
     registerFallbackValue(otel_api.Attribute.fromString('key', 'value'));
   });
 
+  group('Span.noParent sentinel:', () {
+    test('should be a const singleton', () {
+      // Act
+      const a = Span.noParent;
+      const b = Span.noParent;
+
+      // Assert - both references should be identical (same object)
+      expect(identical(a, b), isTrue);
+      expect(a == b, isTrue);
+    });
+
+    test('should throw UnsupportedError when traceId is accessed', () {
+      expect(
+        () => Span.noParent.traceId,
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when spanId is accessed', () {
+      expect(
+        () => Span.noParent.spanId,
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when wasEnded is accessed', () {
+      expect(
+        () => Span.noParent.wasEnded,
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when status is accessed', () {
+      expect(
+        () => Span.noParent.status,
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when statusHasBeenSet is accessed', () {
+      expect(
+        () => Span.noParent.statusHasBeenSet,
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when setStatus is called', () {
+      expect(
+        () => Span.noParent.setStatus(SpanStatusCode.ok),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when addEvent is called', () {
+      expect(
+        () => Span.noParent.addEvent('test'),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when setAttributes is called', () {
+      expect(
+        () => Span.noParent.setAttributes({'key': 'value'}),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when setAttribute is called', () {
+      expect(
+        () => Span.noParent.setAttribute('key', 'value'),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when recordException is called', () {
+      expect(
+        () => Span.noParent.recordException(Exception('test')),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should throw UnsupportedError when end is called', () {
+      expect(
+        () => Span.noParent.end(),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('should have descriptive error message', () {
+      expect(
+        () => Span.noParent.traceId,
+        throwsA(
+          isA<UnsupportedError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('Span.noParent'),
+              contains('sentinel'),
+              contains('parentSpan'),
+            ),
+          ),
+        ),
+      );
+    });
+  });
+
   group('InternalSpan:', () {
     late MockOtelSpan mockOtelSpan;
     late FakeOtelContext fakeContext;
