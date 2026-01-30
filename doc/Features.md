@@ -286,6 +286,31 @@ await Faro().startSpan('main_operation', (span) async {
 });
 ```
 
+### 🔓 Starting Independent Traces
+
+In some scenarios (like timer callbacks or event-driven architectures), you may want to start a new trace without inheriting from the active span in the zone context. Use `Span.noParent` for this:
+
+```dart
+// Inside a callback where the original parent span may have ended
+await Faro().startSpan('parent-operation', (parentSpan) async {
+  // Set up a periodic timer
+  Timer.periodic(Duration(seconds: 30), (_) {
+    // Without Span.noParent, this would inherit the (possibly ended) parent span
+    // Use Span.noParent to start a fresh, independent trace
+    Faro().startSpan('periodic-check', parentSpan: Span.noParent, (span) async {
+      await performHealthCheck();
+    });
+  });
+
+  await doMainWork();
+});
+```
+
+The `parentSpan` parameter supports three states:
+- **Not provided / null**: Uses the active span from zone context (default behavior)
+- **`Span.noParent`**: Explicitly starts a new root trace with no parent
+- **Specific `Span` instance**: Uses that span as the parent
+
 ### 🔄 Span Features
 
 - **Automatic Session Tracking**: All spans include session IDs for correlation

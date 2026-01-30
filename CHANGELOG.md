@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Span.noParent sentinel**: New `Span.noParent` static constant allows explicitly starting a span with no parent, ignoring the active span in zone context. Useful for timer callbacks or event-driven scenarios where the original parent span may have ended but remains in zone context. (Resolves #105)
+
 ### Fixed
 
 - **SDK-internal span attributes now use typed values**: HTTP span attributes (`http.status_code`, `http.request_size`, `http.response_size`) are now sent as integers instead of strings, enabling proper numeric queries in Tempo (e.g., `status_code > 400`)
