@@ -118,6 +118,18 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
 **Important**: Always show a draft of the commit message for approval before creating the actual commit. Never commit without explicit approval.
 
+## Pull Requests
+
+Use the PR template at `.github/pull_request_template.md`. The template includes:
+
+- **Description**: Explain the "what" and "why" — keep it concise but complete
+- **Related Issue(s)**: Link to issues being fixed or related
+- **Type of Change**: Check the appropriate box(es)
+- **Checklist**: Confirm docs, tests, and changelog are updated
+- **Additional Notes**: Optional context for reviewers
+
+**Important**: Always show a draft of the PR title and body for approval before creating the PR. Never create a PR without explicit approval.
+
 ---
 
 ## Example App Development
@@ -142,6 +154,7 @@ example/lib/features/<feature_name>/
 Each feature's presentation layer uses this pattern:
 
 **1. UiState Class** - Immutable state with Equatable:
+
 ```dart
 class FeaturePageUiState extends Equatable {
   const FeaturePageUiState({required this.data, required this.isLoading});
@@ -154,6 +167,7 @@ class FeaturePageUiState extends Equatable {
 ```
 
 **2. Actions Interface** - Defines user actions:
+
 ```dart
 abstract interface class FeaturePageActions {
   void clearData();
@@ -162,6 +176,7 @@ abstract interface class FeaturePageActions {
 ```
 
 **3. ViewModel** - Private Notifier implementing Actions:
+
 ```dart
 class _FeaturePageViewModel extends Notifier<FeaturePageUiState>
     implements FeaturePageActions {
@@ -176,6 +191,7 @@ class _FeaturePageViewModel extends Notifier<FeaturePageUiState>
 ```
 
 **4. Two Public Providers**:
+
 ```dart
 final _viewModelProvider = NotifierProvider<_FeaturePageViewModel, FeaturePageUiState>(...);
 
@@ -191,6 +207,7 @@ final featurePageActionsProvider = Provider<FeaturePageActions>((ref) {
 ```
 
 **5. Page Widget** - ConsumerWidget using both providers:
+
 ```dart
 class FeaturePage extends ConsumerWidget {
   @override

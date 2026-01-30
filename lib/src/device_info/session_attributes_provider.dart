@@ -12,11 +12,11 @@ class SessionAttributesProvider {
   final DeviceIdProvider _deviceIdProvider;
   final DeviceInfoProvider _deviceInfoProvider;
 
-  Future<Map<String, String>> getAttributes() async {
+  Future<Map<String, Object>> getAttributes() async {
     final deviceId = await _deviceIdProvider.getDeviceId();
     final deviceInfo = await _deviceInfoProvider.getDeviceInfo();
 
-    final attributes = <String, String>{
+    final attributes = <String, Object>{
       'faro_sdk_version': FaroConstants.sdkVersion,
       'dart_version': deviceInfo.dartVersion,
       'device_os': deviceInfo.deviceOs,
@@ -26,7 +26,7 @@ class SessionAttributesProvider {
       'device_model': deviceInfo.deviceModel,
       'device_model_name': deviceInfo.deviceModelName,
       'device_brand': deviceInfo.deviceBrand,
-      'device_is_physical': '${deviceInfo.deviceIsPhysical}',
+      'device_is_physical': deviceInfo.deviceIsPhysical,
       'device_id': '$deviceId',
     };
 
