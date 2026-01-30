@@ -55,8 +55,7 @@ void main() {
       );
     });
 
-    test('should throw UnsupportedError when statusHasBeenSet is accessed',
-        () {
+    test('should throw UnsupportedError when statusHasBeenSet is accessed', () {
       expect(
         () => Span.noParent.statusHasBeenSet,
         throwsA(isA<UnsupportedError>()),
