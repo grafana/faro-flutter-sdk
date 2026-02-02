@@ -341,9 +341,14 @@ class Faro {
   ///   attributes, or set the span status.
   /// - [attributes]: Optional key-value pairs to attach to the span. These are
   ///   useful for adding contextual information like user IDs, request IDs, etc.
-  /// - [parentSpan]: Optional parent span to use instead of the currently active
-  ///   span. When provided, this span will become the parent regardless of what
-  ///   span is currently active. Useful for manual span hierarchy management.
+  /// - [parentSpan]: Controls the parent span relationship with three states:
+  ///   - **Not provided / null**: Uses the active span from zone context
+  ///     (default behavior for automatic hierarchy).
+  ///   - **[Span.noParent]**: Explicitly starts a new root trace with no parent,
+  ///     ignoring any active span in the context. Useful for timer callbacks
+  ///     or when you want to start an independent trace.
+  ///   - **Specific [Span] instance**: Uses that span as the parent regardless
+  ///     of what's currently active.
   ///
   /// **Returns:**
   /// The result of the callback function. If the callback is synchronous, returns
@@ -413,6 +418,23 @@ class Faro {
   /// rootSpan.end(); // Don't forget to end the manual span
   /// ```
   ///
+  /// **Example - Starting a new trace with Span.noParent:**
+  /// ```dart
+  /// // In a timer callback, the original parent span may have ended.
+  /// // Use Span.noParent to start a fresh trace instead of inheriting
+  /// // the ended span from the zone context.
+  /// await Faro.startSpan('parent-operation', (parentSpan) async {
+  ///   Timer.periodic(Duration(seconds: 30), (_) {
+  ///     // Without Span.noParent, this would inherit the ended parent span
+  ///     Faro.startSpan('timer-operation', parentSpan: Span.noParent,
+  ///         (span) async {
+  ///       await performPeriodicTask();
+  ///     });
+  ///   });
+  ///   await doMainWork();
+  /// });
+  /// ```
+  ///
   /// **Note:** For most use cases, relying on automatic span hierarchy management
   /// (without specifying [parentSpan]) is recommended as it properly handles the
   /// execution context. Use the [parentSpan] parameter only when you need explicit
@@ -452,9 +474,12 @@ class Faro {
   /// **Parameters:**
   /// - [name]: The name of the span. Should be descriptive of the operation.
   /// - [attributes]: Optional key-value pairs to attach to the span.
-  /// - [parentSpan]: Optional parent span to use instead of the currently active
-  ///   span. When provided, this span will become the parent regardless of what
-  ///   span is currently active. Useful for creating custom span hierarchies.
+  /// - [parentSpan]: Controls the parent span relationship with three states:
+  ///   - **Not provided / null**: Uses the active span from zone context
+  ///     (default behavior).
+  ///   - **[Span.noParent]**: Explicitly starts a new root trace with no parent,
+  ///     ignoring any active span in the context.
+  ///   - **Specific [Span] instance**: Uses that span as the parent.
   ///
   /// **Returns:**
   /// A [Span] object that you must manually manage. Remember to call [Span.end]
