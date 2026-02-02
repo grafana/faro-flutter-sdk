@@ -256,3 +256,48 @@ class _NoParentSpan implements Span {
   @override
   void end() => throw UnsupportedError(_errorMessage);
 }
+
+/// Controls how long the span remains active in context for automatic parent
+/// assignment.
+///
+/// When using [FaroTracer.startSpan], this determines whether the span should
+/// be deactivated from the zone context when the callback completes.
+enum ContextScope {
+  /// Span is removed from context when the callback completes.
+  ///
+  /// Async operations scheduled within the callback (e.g., timers, streams)
+  /// that execute after the callback completes will NOT see this span as their
+  /// parent. This is the default behavior and is correct for most use cases.
+  ///
+  /// Example:
+  /// ```dart
+  /// await Faro().startSpan('parent', (span) async {
+  ///   Timer.periodic(Duration(seconds: 1), (timer) {
+  ///     // This timer callback runs AFTER the parent callback completes,
+  ///     // so spans created here won't have 'parent' as their parent.
+  ///     Faro().startSpan('timer-work', (s) async { ... });
+  ///   });
+  /// });
+  /// ```
+  callback,
+
+  /// Span remains active in context for all async operations in the zone.
+  ///
+  /// Use this when you intentionally want async operations scheduled within
+  /// the callback (like timers or streams) to inherit this span as their
+  /// parent, even after the callback completes.
+  ///
+  /// Example:
+  /// ```dart
+  /// await Faro().startSpan('background-monitor',
+  ///   contextScope: ContextScope.zone,
+  ///   (span) async {
+  ///     Timer.periodic(Duration(minutes: 1), (timer) {
+  ///       // These timer spans WILL have 'background-monitor' as parent
+  ///       Faro().startSpan('health-check', (s) async { ... });
+  ///     });
+  ///   },
+  /// );
+  /// ```
+  zone,
+}
