@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:faro/faro.dart';
@@ -268,6 +269,106 @@ class TracingService {
       );
       log('Span.noParent demo completed!');
       log('Check backend: you should see 2 separate traces.');
+    } catch (error) {
+      log('Error: $error', isError: true);
+    }
+  }
+
+  /// Demonstrates ContextScope for controlling span context lifetime.
+  ///
+  /// Shows the difference between ContextScope.callback (default) and
+  /// ContextScope.zone for timer/async operations.
+  Future<void> runContextScopeDemo(LogCallback log) async {
+    log('Starting ContextScope demo...');
+    log('');
+    log('ContextScope controls whether timer callbacks inherit the parent span.');
+    log('');
+
+    try {
+      // Demo 1: Default behavior (ContextScope.callback)
+      log('--- Demo 1: ContextScope.callback (default) ---');
+      log('Timer callbacks will NOT inherit the parent span.');
+
+      String? parentTraceId1;
+      String? timerSpanTraceId1;
+      final completer1 = Completer<void>();
+
+      await Faro().startSpan<void>(
+        'parent-callback-scope',
+        (parentSpan) async {
+          parentTraceId1 = parentSpan.traceId;
+          log('Parent span started (traceId: ${parentSpan.traceId.substring(0, 8)}...)');
+
+          // Schedule a timer that fires after parent callback ends
+          Timer(const Duration(milliseconds: 100), () async {
+            await Faro().startSpan<void>(
+              'timer-child-callback',
+              (timerSpan) async {
+                timerSpanTraceId1 = timerSpan.traceId;
+                log('  Timer span (traceId: ${timerSpan.traceId.substring(0, 8)}...)');
+              },
+            );
+            completer1.complete();
+          });
+
+          await Future.delayed(const Duration(milliseconds: 50));
+          log('Parent callback ending...');
+        },
+        // contextScope: ContextScope.callback, // This is the default
+      );
+
+      await completer1.future;
+      if (timerSpanTraceId1 != parentTraceId1) {
+        log('Result: Timer span has DIFFERENT traceId = new trace');
+      } else {
+        log('Result: Timer span has SAME traceId (unexpected)');
+      }
+      log('');
+
+      // Demo 2: Zone scope (ContextScope.zone)
+      log('--- Demo 2: ContextScope.zone ---');
+      log('Timer callbacks WILL inherit the parent span.');
+
+      String? parentTraceId;
+      String? timerSpanTraceId2;
+      final completer2 = Completer<void>();
+
+      await Faro().startSpan<void>(
+        'parent-zone-scope',
+        (parentSpan) async {
+          parentTraceId = parentSpan.traceId;
+          log('Parent span started (traceId: ${parentSpan.traceId.substring(0, 8)}...)');
+
+          // Schedule a timer that fires after parent callback ends
+          Timer(const Duration(milliseconds: 100), () async {
+            await Faro().startSpan<void>(
+              'timer-child-zone',
+              (timerSpan) async {
+                timerSpanTraceId2 = timerSpan.traceId;
+                log('  Timer span (traceId: ${timerSpan.traceId.substring(0, 8)}...)');
+              },
+            );
+            completer2.complete();
+          });
+
+          await Future.delayed(const Duration(milliseconds: 50));
+          log('Parent callback ending...');
+        },
+        contextScope: ContextScope.zone, // Keep span active for timer
+      );
+
+      await completer2.future;
+
+      if (timerSpanTraceId2 == parentTraceId) {
+        log('Result: Timer span has SAME traceId = child of parent!');
+      } else {
+        log('Result: Timer span traceId differs (unexpected)');
+      }
+
+      log('');
+      log('ContextScope demo completed!');
+      log('Use ContextScope.zone when you want timer/stream callbacks');
+      log('to be children of the parent span.');
     } catch (error) {
       log('Error: $error', isError: true);
     }

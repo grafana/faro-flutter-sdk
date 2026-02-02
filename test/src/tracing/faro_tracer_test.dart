@@ -28,6 +28,7 @@ void main() {
     registerFallbackValue(FakeOtelContext());
     registerFallbackValue(otel_api.SpanKind.client);
     registerFallbackValue(FakeSpan());
+    registerFallbackValue(ContextScope.callback);
   });
   group('FaroTracer:', () {
     late FaroTracer faroTracer;
@@ -70,6 +71,7 @@ void main() {
         when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
               any(),
               any(),
+              contextScope: any(named: 'contextScope'),
             )).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
           final span = invocation.positionalArguments[0] as Span;
@@ -96,6 +98,7 @@ void main() {
         verify(() => mockFaroZoneSpanManager.executeWithSpan<String>(
               any(),
               any(),
+              contextScope: any(named: 'contextScope'),
             )).called(1);
       });
 
@@ -114,6 +117,7 @@ void main() {
         when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
               any(),
               any(),
+              contextScope: any(named: 'contextScope'),
             )).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
           final span = invocation.positionalArguments[0] as Span;
@@ -153,6 +157,7 @@ void main() {
         when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
               any(),
               any(),
+              contextScope: any(named: 'contextScope'),
             )).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
           final span = invocation.positionalArguments[0] as Span;
@@ -298,6 +303,76 @@ void main() {
                     attributeMap['session.id'] == sessionId;
               })),
             )).called(1);
+      });
+    });
+
+    group('contextScope:', () {
+      test('should pass ContextScope.callback by default', () async {
+        // Arrange
+        const spanName = 'scoped-span';
+        ContextScope? capturedScope;
+
+        when(() => mockSessionIdProvider.sessionId)
+            .thenReturn('test-session-id');
+        when(() => mockOtelTracer.startSpan(
+              any(),
+              context: any(named: 'context'),
+              kind: any(named: 'kind'),
+            )).thenReturn(mockOtelSpan);
+        when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
+        when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
+              any(),
+              any(),
+              contextScope: any(named: 'contextScope'),
+            )).thenAnswer((invocation) async {
+          capturedScope =
+              invocation.namedArguments[#contextScope] as ContextScope?;
+          final body = invocation.positionalArguments[1] as Function;
+          final span = invocation.positionalArguments[0] as Span;
+          return await body(span);
+        });
+
+        // Act
+        await faroTracer.startSpan<String>(spanName, (span) => 'result');
+
+        // Assert
+        expect(capturedScope, equals(ContextScope.callback));
+      });
+
+      test('should pass ContextScope.zone when specified', () async {
+        // Arrange
+        const spanName = 'zone-scoped-span';
+        ContextScope? capturedScope;
+
+        when(() => mockSessionIdProvider.sessionId)
+            .thenReturn('test-session-id');
+        when(() => mockOtelTracer.startSpan(
+              any(),
+              context: any(named: 'context'),
+              kind: any(named: 'kind'),
+            )).thenReturn(mockOtelSpan);
+        when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
+        when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
+              any(),
+              any(),
+              contextScope: any(named: 'contextScope'),
+            )).thenAnswer((invocation) async {
+          capturedScope =
+              invocation.namedArguments[#contextScope] as ContextScope?;
+          final body = invocation.positionalArguments[1] as Function;
+          final span = invocation.positionalArguments[0] as Span;
+          return await body(span);
+        });
+
+        // Act
+        await faroTracer.startSpan<String>(
+          spanName,
+          (span) => 'result',
+          contextScope: ContextScope.zone,
+        );
+
+        // Assert
+        expect(capturedScope, equals(ContextScope.zone));
       });
     });
 
