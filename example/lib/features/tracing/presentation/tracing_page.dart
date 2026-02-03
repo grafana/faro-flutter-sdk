@@ -117,6 +117,12 @@ class _ButtonsSection extends StatelessWidget {
                 onPressed: actions.runSpanWithNoParent,
                 isRunning: uiState.isRunning,
               ),
+              _SpanButton(
+                label: 'Context Scope',
+                icon: Icons.timer,
+                onPressed: actions.runContextScopeDemo,
+                isRunning: uiState.isRunning,
+              ),
             ],
           ),
         ],
