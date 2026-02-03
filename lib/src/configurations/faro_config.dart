@@ -25,10 +25,15 @@ class FaroConfig {
     this.sessionAttributes,
     this.initialUser,
     this.persistUser = true,
+    this.samplingRate = 1.0,
   })  : assert(appName.isNotEmpty, 'appName cannot be empty'),
         assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
         assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
         assert(maxBufferLimit > 0, 'maxBufferLimit must be greater than 0'),
+        assert(
+          samplingRate >= 0.0 && samplingRate <= 1.0,
+          'samplingRate must be between 0.0 and 1.0',
+        ),
         batchConfig = batchConfig ?? BatchConfig();
   final String appName;
   final String appEnv;
@@ -76,4 +81,18 @@ class FaroConfig {
   ///
   /// Set to `false` to disable user persistence.
   final bool persistUser;
+
+  /// Session sampling rate (0.0 to 1.0, default: 1.0 = 100%).
+  ///
+  /// Controls the probability that a session will be sampled. When a session
+  /// is not sampled, no telemetry (events, logs, exceptions, measurements,
+  /// traces) is sent for that session.
+  ///
+  /// Examples:
+  /// - `1.0` (default): 100% of sessions are sampled (all telemetry sent)
+  /// - `0.5`: 50% of sessions are sampled
+  /// - `0.0`: 0% of sessions are sampled (no telemetry sent)
+  ///
+  /// The sampling decision is made once per session at initialization time.
+  final double samplingRate;
 }

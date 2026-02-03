@@ -499,6 +499,42 @@ Faro().runApp(
   - **Faro session** (`meta.session.attributes`): Values are stringified per Faro protocol requirements
   - **Span resources** (`resource.attributes`): Types are preserved (int, double, bool, String), enabling numeric queries and filtering in trace backends
 
+### Session Sampling
+
+Control what percentage of sessions send telemetry data. This is useful for managing costs and reducing traffic for high-volume applications.
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+    samplingRate: 0.5, // Sample 50% of sessions (default: 1.0 = 100%)
+    // ...
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+**How it works:**
+
+- The `samplingRate` value ranges from `0.0` (no sessions sampled) to `1.0` (all sessions sampled)
+- The sampling decision is made once per session at initialization time
+- When a session is not sampled, all telemetry (events, logs, exceptions, measurements, traces) is silently dropped
+- A debug log is emitted when a session is not sampled, for transparency during development
+
+**Example values:**
+
+| samplingRate | Behavior                                       |
+| ------------ | ---------------------------------------------- |
+| `1.0`        | All sessions sampled (default - send all data) |
+| `0.5`        | 50% of sessions sampled                        |
+| `0.1`        | 10% of sessions sampled                        |
+| `0.0`        | No sessions sampled (no data sent)             |
+
+**Notes:**
+
+- Sampling is head-based: the decision is made at SDK initialization and remains consistent for the entire session
+- This aligns with [Faro Web SDK sampling behavior](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/)
+
 ### Data Collection Control
 
 Faro provides the ability to enable or disable data collection at runtime. This setting is automatically persisted across app restarts, so you don't need to set it every time your app starts.
