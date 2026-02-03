@@ -26,18 +26,30 @@ class FaroTracer {
   ///
   /// [attributes] can contain typed values (String, int, double, bool).
   /// Other types will be converted to strings.
+  ///
+  /// [contextScope] controls how long the span remains active in context:
+  /// - [ContextScope.callback] (default): Span is deactivated when callback
+  ///   completes. Async operations scheduled within the callback (like timers)
+  ///   won't see this span as parent after the callback ends.
+  /// - [ContextScope.zone]: Span remains active for all async operations in
+  ///   the zone, including timers and streams created within the callback.
   FutureOr<T> startSpan<T>(
     String name,
     FutureOr<T> Function(Span) body, {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
+    ContextScope contextScope = ContextScope.callback,
   }) async {
     final span = _createAndStartSpan(
       name: name,
       attributes: attributes,
       parentSpan: parentSpan,
     );
-    return _faroZoneSpanManager.executeWithSpan(span, body);
+    return _faroZoneSpanManager.executeWithSpan(
+      span,
+      body,
+      contextScope: contextScope,
+    );
   }
 
   /// Starts a span without executing a callback, giving manual control over

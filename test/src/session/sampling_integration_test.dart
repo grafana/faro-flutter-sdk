@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_redundant_argument_values, prefer_int_literals
+// ignore_for_file: avoid_redundant_argument_values, prefer_int_literals, lines_longer_than_80_chars
 
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/faro.dart';
@@ -151,7 +151,7 @@ void main() {
     });
 
     test(
-        'sampling decision is consistent with injected random value - not sampled',
+        'sampling decision is consistent with injected random value, - not sampled',
         () async {
       TestWidgetsFlutterBinding.ensureInitialized();
 

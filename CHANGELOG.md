@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A debug log is emitted when a session is not sampled (visible in debug builds only)
   - Aligns with [Faro Web SDK sampling behavior](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/)
 
-- **Span.noParent sentinel**: New `Span.noParent` static constant allows explicitly starting a span with no parent, ignoring the active span in zone context. Useful for timer callbacks or event-driven scenarios where the original parent span may have ended but remains in zone context. (Resolves #105)
+- **ContextScope for span context lifetime control**: New `contextScope` parameter on `startSpan()` controls how long a span remains active in zone context for auto-assignment. `ContextScope.callback` (default) deactivates the span when the callback completes, preventing timer/stream callbacks from inheriting it. `ContextScope.zone` keeps the span active for the entire zone lifetime, useful when you want timer callbacks to be children of the parent span. (Resolves #105)
+
+- **Span.noParent sentinel**: New `Span.noParent` static constant allows explicitly starting a span with no parent, ignoring the active span in zone context. Useful for timer callbacks or event-driven scenarios where you want to start a fresh, independent trace. (Resolves #105)
 
 ### Fixed
 
