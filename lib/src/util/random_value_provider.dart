@@ -23,7 +23,6 @@ class DefaultRandomValueProvider implements RandomValueProvider {
 }
 
 /// Factory for creating RandomValueProvider instances.
-/// Uses singleton pattern to ensure consistent random values within a session.
 class RandomValueProviderFactory {
   static RandomValueProvider? _instance;
 
