@@ -16,6 +16,7 @@ import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_id_provider.dart';
+import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
@@ -129,10 +130,23 @@ class Faro {
       persistUser: optionsConfiguration.persistUser,
     );
 
+    // Make sampling decision (once per session)
+    final isSampled = SessionSamplingProviderFactory()
+        .create(samplingRate: optionsConfiguration.samplingRate)
+        .isSampled;
+
+    if (!isSampled) {
+      log(
+        'Faro: Session not sampled (samplingRate: '
+        '${optionsConfiguration.samplingRate}). Telemetry will be dropped.',
+      );
+    }
+
     _batchTransport = BatchTransportFactory().create(
       initialPayload: Payload(meta),
       batchConfig: config?.batchConfig ?? BatchConfig(),
       transports: _transports,
+      isSampled: isSampled,
     );
 
     if (config?.transports == null) {

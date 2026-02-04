@@ -1,211 +1,345 @@
+// ignore_for_file: avoid_redundant_argument_values
+
 import 'package:fake_async/fake_async.dart';
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/models/models.dart';
+import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
+import 'package:faro/src/transport/no_op_batch_transport.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-
-class MockPayload extends Mock implements Payload {}
-
-class MockBatchConfig extends Mock implements BatchConfig {}
 
 class MockBaseTransport extends Mock implements BaseTransport {}
 
 void main() {
-  late MockPayload mockPayload;
-  late MockBatchConfig mockBatchConfig;
   late MockBaseTransport mockBaseTransport;
-  late BatchTransport batchTransport;
 
   setUp(() {
-    mockPayload = MockPayload();
-    mockBatchConfig = MockBatchConfig();
     mockBaseTransport = MockBaseTransport();
-
-    when(() => mockBatchConfig.enabled).thenReturn(true);
-    when(() => mockBatchConfig.sendTimeout)
-        .thenReturn(const Duration(milliseconds: 300));
-    when(() => mockBatchConfig.payloadItemLimit).thenReturn(2);
-    when(() => mockPayload.events).thenReturn([]);
-    when(() => mockPayload.measurements).thenReturn([]);
-    when(() => mockPayload.logs).thenReturn([]);
-    when(() => mockPayload.exceptions).thenReturn([]);
-    when(() => mockPayload.traces).thenReturn(Traces());
-    when(() => mockPayload.toJson()).thenReturn({});
     when(() => mockBaseTransport.send(any())).thenAnswer((_) async {});
-
-    batchTransport = BatchTransport(
-      payload: mockPayload,
-      transports: [mockBaseTransport],
-      batchConfig: mockBatchConfig,
-    );
   });
 
   setUpAll(() {
     registerFallbackValue(Payload(Meta()));
   });
 
-  tearDown(() {
-    batchTransport.dispose();
-  });
-
-  test('addEvent should add event and check payload item limit', () async {
-    final event = Event('test_event');
-    final mockEvents = <Event>[];
-    when(() => mockPayload.events).thenReturn(mockEvents);
-
-    batchTransport.addEvent(event);
-
-    expect(mockEvents.length, equals(1));
-    expect(mockEvents[0].toJson(), event.toJson());
-  });
-
-  test('addMeasurement should add measurement and check payload item limit',
-      () async {
-    final measurement = Measurement({'test_value': 12}, 'test');
-    final mockMeasurements = <Measurement>[];
-    when(() => mockPayload.measurements).thenReturn(mockMeasurements);
-
-    batchTransport.addMeasurement(measurement);
-
-    expect(mockMeasurements.length, equals(1));
-    expect(mockMeasurements[0].toJson(), measurement.toJson());
-  });
-
-  test('addLog should add log and check payload item limit', () async {
-    final log = FaroLog('Test log');
-    final mockLogs = <FaroLog>[];
-    when(() => mockPayload.logs).thenReturn(mockLogs);
-
-    batchTransport.addLog(log);
-
-    expect(mockLogs.length, equals(1));
-    expect(mockLogs[0].toJson(), log.toJson());
-  });
-
-  test('addExceptions should add exception and check payload item limit',
-      () async {
-    final exception = FaroException('TestException', 'Test', {});
-    final mockExceptions = <FaroException>[];
-    when(() => mockPayload.exceptions).thenReturn(mockExceptions);
-
-    batchTransport.addExceptions(exception);
-
-    expect(mockExceptions.length, equals(1));
-    expect(mockExceptions[0].toJson(), exception.toJson());
-  });
-
-  test('should flush and send payload and reset it after sendTimeout', () {
-    fakeAsync((async) {
-      final mockBatchConfig = MockBatchConfig();
-      final mockBaseTransport = MockBaseTransport();
-
-      when(() => mockBatchConfig.enabled).thenReturn(true);
-      when(() => mockBatchConfig.sendTimeout)
-          .thenReturn(const Duration(milliseconds: 300));
-      when(() => mockBatchConfig.payloadItemLimit).thenReturn(5);
-      when(() => mockBaseTransport.send(any())).thenAnswer((_) async {});
-
+  group('BatchTransport:', () {
+    test('addEvent should add event to payload', () {
       final payload = Payload(Meta(view: ViewMeta('')));
 
       final batchTransport = BatchTransport(
         payload: payload,
         transports: [mockBaseTransport],
-        batchConfig: mockBatchConfig,
+        batchConfig: BatchConfig(
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 100,
+        ),
       );
 
-      batchTransport.addLog(FaroLog('Test log'));
       batchTransport.addEvent(Event('test_event'));
-      batchTransport.addMeasurement(Measurement({'test_value': 12}, 'test'));
-      batchTransport.addExceptions(FaroException('TestException', 'Test', {}));
 
-      expect(payload.events.length, equals(1));
-      expect(payload.measurements.length, equals(1));
-      expect(payload.logs.length, equals(1));
-      expect(payload.exceptions.length, equals(1));
-
-      async.elapse(const Duration(milliseconds: 400));
-
-      expect(payload.events.length, equals(0));
-      expect(payload.measurements.length, equals(0));
-      expect(payload.logs.length, equals(0));
-      expect(payload.exceptions.length, equals(0));
+      expect(batchTransport.payloadSize(), equals(1));
+      batchTransport.dispose();
     });
-  });
 
-  test('checkPayloadItemLimit should flush when item limit is reached',
-      () async {
-    final payload = Payload(Meta(view: ViewMeta('')));
-    final event = Event('test_event');
+    test('addMeasurement should add measurement to payload', () {
+      final payload = Payload(Meta(view: ViewMeta('')));
 
-    batchTransport = BatchTransport(
+      final batchTransport = BatchTransport(
         payload: payload,
         transports: [mockBaseTransport],
         batchConfig: BatchConfig(
-            sendTimeout: const Duration(seconds: 5), payloadItemLimit: 1));
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 100,
+        ),
+      );
 
-    batchTransport.addEvent(event);
-    batchTransport.addEvent(event); // This should trigger flush
-    verify(() => mockBaseTransport.send(any())).called(2);
+      batchTransport.addMeasurement(Measurement({'test_value': 12}, 'test'));
+
+      expect(batchTransport.payloadSize(), equals(1));
+      batchTransport.dispose();
+    });
+
+    test('addLog should add log to payload', () {
+      final payload = Payload(Meta(view: ViewMeta('')));
+
+      final batchTransport = BatchTransport(
+        payload: payload,
+        transports: [mockBaseTransport],
+        batchConfig: BatchConfig(
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 100,
+        ),
+      );
+
+      batchTransport.addLog(FaroLog('Test log'));
+
+      expect(batchTransport.payloadSize(), equals(1));
+      batchTransport.dispose();
+    });
+
+    test('addExceptions should add exception to payload', () {
+      final payload = Payload(Meta(view: ViewMeta('')));
+
+      final batchTransport = BatchTransport(
+        payload: payload,
+        transports: [mockBaseTransport],
+        batchConfig: BatchConfig(
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 100,
+        ),
+      );
+
+      batchTransport.addExceptions(FaroException('TestException', 'Test', {}));
+
+      expect(batchTransport.payloadSize(), equals(1));
+      batchTransport.dispose();
+    });
+
+    test('should flush and send payload after sendTimeout', () {
+      fakeAsync((async) {
+        final payload = Payload(Meta(view: ViewMeta('')));
+
+        final batchTransport = BatchTransport(
+          payload: payload,
+          transports: [mockBaseTransport],
+          batchConfig: BatchConfig(
+            enabled: true,
+            sendTimeout: const Duration(milliseconds: 300),
+            payloadItemLimit: 100,
+          ),
+        );
+
+        batchTransport.addLog(FaroLog('Test log'));
+        batchTransport.addEvent(Event('test_event'));
+
+        // Before timeout, payload should have items
+        expect(batchTransport.payloadSize(), equals(2));
+
+        // After timeout, payload should be flushed and reset
+        async.elapse(const Duration(milliseconds: 400));
+
+        expect(batchTransport.payloadSize(), equals(0));
+
+        // Verify send was called with the correct payload content
+        final captured =
+            verify(() => mockBaseTransport.send(captureAny())).captured;
+        expect(captured, hasLength(1));
+
+        final sentPayload = captured.single as Map<String, dynamic>;
+        expect(sentPayload['logs'], isNotEmpty);
+        expect(sentPayload['events'], isNotEmpty);
+      });
+    });
+
+    test('should flush when payload item limit is reached', () async {
+      final payload = Payload(Meta(view: ViewMeta('')));
+
+      final batchTransport = BatchTransport(
+        payload: payload,
+        transports: [mockBaseTransport],
+        batchConfig: BatchConfig(
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 1,
+        ),
+      );
+
+      batchTransport.addEvent(Event('event1'));
+      batchTransport.addEvent(Event('event2'));
+
+      // Each event triggers a flush because limit is 1
+      verify(() => mockBaseTransport.send(any())).called(2);
+      batchTransport.dispose();
+    });
+
+    test('dispose should prevent further flushes from timer', () {
+      fakeAsync((async) {
+        final payload = Payload(Meta(view: ViewMeta('')));
+
+        final batchTransport = BatchTransport(
+          payload: payload,
+          transports: [mockBaseTransport],
+          batchConfig: BatchConfig(
+            enabled: true,
+            sendTimeout: const Duration(milliseconds: 300),
+            payloadItemLimit: 100,
+          ),
+        );
+
+        batchTransport.addLog(FaroLog('Test log'));
+
+        // Dispose before timeout
+        batchTransport.dispose();
+
+        // Elapse past the timeout
+        async.elapse(const Duration(milliseconds: 400));
+
+        // Transport should NOT have been called (timer was cancelled)
+        verifyNever(() => mockBaseTransport.send(any()));
+      });
+    });
+
+    test('isPayloadEmpty should return true when payload is empty', () {
+      final payload = Payload(Meta(view: ViewMeta('')));
+
+      final batchTransport = BatchTransport(
+        payload: payload,
+        transports: [mockBaseTransport],
+        batchConfig: BatchConfig(
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 100,
+        ),
+      );
+
+      expect(batchTransport.isPayloadEmpty(), isTrue);
+      batchTransport.dispose();
+    });
+
+    test('isPayloadEmpty should return false when payload has items', () {
+      final payload = Payload(Meta(view: ViewMeta('')));
+
+      final batchTransport = BatchTransport(
+        payload: payload,
+        transports: [mockBaseTransport],
+        batchConfig: BatchConfig(
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 100,
+        ),
+      );
+
+      batchTransport.addEvent(Event('test_event'));
+
+      expect(batchTransport.isPayloadEmpty(), isFalse);
+      batchTransport.dispose();
+    });
+
+    test('resetPayload should clear all items', () {
+      final payload = Payload(Meta(view: ViewMeta('')));
+
+      final batchTransport = BatchTransport(
+        payload: payload,
+        transports: [mockBaseTransport],
+        batchConfig: BatchConfig(
+          enabled: true,
+          sendTimeout: const Duration(seconds: 10),
+          payloadItemLimit: 100,
+        ),
+      );
+
+      batchTransport.addEvent(Event('test_event'));
+      batchTransport.addLog(FaroLog('test log'));
+
+      expect(batchTransport.payloadSize(), equals(2));
+
+      batchTransport.resetPayload();
+
+      expect(batchTransport.payloadSize(), equals(0));
+      batchTransport.dispose();
+    });
+
+    test('when batching disabled should flush immediately on each add', () {
+      final payload = Payload(Meta(view: ViewMeta('')));
+
+      final batchTransport = BatchTransport(
+        payload: payload,
+        transports: [mockBaseTransport],
+        batchConfig: BatchConfig(
+          enabled: false,
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      batchTransport.addEvent(Event('event1'));
+
+      // Should flush immediately (not wait for timeout)
+      verify(() => mockBaseTransport.send(any())).called(1);
+    });
   });
-  test('dispose should cancel flush timer', () {
-    batchTransport.dispose();
-    expect(batchTransport.flushTimer, isNull);
+
+  group('NoOpBatchTransport:', () {
+    test('should drop events silently', () {
+      final transport = NoOpBatchTransport();
+
+      transport.addEvent(Event('test_event'));
+
+      expect(transport.payloadSize(), equals(0));
+      expect(transport.isPayloadEmpty(), isTrue);
+    });
+
+    test('should drop logs silently', () {
+      final transport = NoOpBatchTransport();
+
+      transport.addLog(FaroLog('Test log'));
+
+      expect(transport.payloadSize(), equals(0));
+    });
+
+    test('should drop measurements silently', () {
+      final transport = NoOpBatchTransport();
+
+      transport.addMeasurement(Measurement({'test_value': 12}, 'test'));
+
+      expect(transport.payloadSize(), equals(0));
+    });
+
+    test('should drop exceptions silently', () {
+      final transport = NoOpBatchTransport();
+
+      transport.addExceptions(FaroException('TestException', 'Test', {}));
+
+      expect(transport.payloadSize(), equals(0));
+    });
+
+    test('should drop spans silently', () {
+      final transport = NoOpBatchTransport();
+
+      final mockSpanRecord = MockSpanRecord();
+      transport.addSpan(mockSpanRecord);
+
+      expect(transport.payloadSize(), equals(0));
+    });
   });
-  test('isPayloadEmpty should return true if payload is empty', () {
-    when(() => mockPayload.events).thenReturn([]);
-    when(() => mockPayload.measurements).thenReturn([]);
-    when(() => mockPayload.logs).thenReturn([]);
-    when(() => mockPayload.exceptions).thenReturn([]);
 
-    expect(batchTransport.isPayloadEmpty(), isTrue);
-  });
-  test('isPayloadEmpty should return false if payload is not empty', () {
-    when(() => mockPayload.events).thenReturn([Event('test_event')]);
-    when(() => mockPayload.measurements).thenReturn([]);
-    when(() => mockPayload.logs).thenReturn([]);
-    when(() => mockPayload.exceptions).thenReturn([]);
+  group('BatchTransportFactory:', () {
+    test('should return BatchTransport when sampled', () {
+      final factory = BatchTransportFactory();
+      factory.reset();
 
-    expect(batchTransport.isPayloadEmpty(), isFalse);
-  });
+      final transport = factory.create(
+        initialPayload: Payload(Meta()),
+        batchConfig: BatchConfig(),
+        transports: [],
+        isSampled: true,
+      );
 
-  test('resetPayload should clear all payloads', () {
-    batchTransport.resetPayload();
-    verify(() => mockPayload.events = []).called(1);
-    verify(() => mockPayload.measurements = []).called(1);
-    verify(() => mockPayload.logs = []).called(1);
-    verify(() => mockPayload.exceptions = []).called(1);
-  });
+      expect(transport, isA<BatchTransport>());
+      expect(transport, isNot(isA<NoOpBatchTransport>()));
+      factory.reset();
+    });
 
-  test('constructor with batchConfig disabled should set payloadItemLimit to 1',
-      () {
-    final batchTransportDisabled = BatchTransport(
-      payload: mockPayload,
-      batchConfig: BatchConfig(enabled: false),
-      transports: [mockBaseTransport],
-    );
-    expect(batchTransportDisabled.batchConfig.payloadItemLimit, equals(1));
-  });
+    test('should return NoOpBatchTransport when not sampled', () {
+      final factory = BatchTransportFactory();
+      factory.reset();
 
-  test(
-      // ignore: lines_longer_than_80_chars
-      'addEvent should flush immediately if batchConfig is disabled and not wait for timeout',
-      () async {
-    final payload = Payload(Meta(view: ViewMeta('')));
+      final transport = factory.create(
+        initialPayload: Payload(Meta()),
+        batchConfig: BatchConfig(),
+        transports: [],
+        isSampled: false,
+      );
 
-    final batchTransportDisabled = BatchTransport(
-      payload: payload,
-      batchConfig: BatchConfig(
-        enabled: false,
-        sendTimeout: const Duration(seconds: 10),
-      ),
-      transports: [mockBaseTransport],
-    );
-
-    final event = Event('test_event');
-    batchTransportDisabled.addEvent(event);
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    verify(() => mockBaseTransport.send(any())).called(1);
+      expect(transport, isA<NoOpBatchTransport>());
+      factory.reset();
+    });
   });
 }
+
+class MockSpanRecord extends Mock implements SpanRecord {}
