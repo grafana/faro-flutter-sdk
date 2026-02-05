@@ -503,12 +503,54 @@ Faro().runApp(
 
 Control what percentage of sessions send telemetry data. This is useful for managing costs and reducing traffic for high-volume applications.
 
+#### Fixed Sampling Rate
+
+Use `SamplingRate` for a constant sampling probability:
+
 ```dart
 Faro().runApp(
   optionsConfiguration: FaroConfig(
     // ...
-    samplingRate: 0.5, // Sample 50% of sessions (default: 1.0 = 100%)
+    sampling: SamplingRate(0.5), // Sample 50% of sessions
     // ...
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+**Example values:**
+
+| Sampling            | Behavior                                       |
+| ------------------- | ---------------------------------------------- |
+| Not provided        | All sessions sampled (default - send all data) |
+| `SamplingRate(1.0)` | All sessions sampled (100%)                    |
+| `SamplingRate(0.5)` | 50% of sessions sampled                        |
+| `SamplingRate(0.1)` | 10% of sessions sampled                        |
+| `SamplingRate(0.0)` | No sessions sampled (no data sent)             |
+
+#### Dynamic Sampling
+
+Use `SamplingFunction` for dynamic sampling decisions based on session context such as user attributes, app environment, or session metadata:
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    appName: 'MyApp',
+    appEnv: 'production',
+    apiKey: 'xxx',
+    collectorUrl: 'https://...',
+    sampling: SamplingFunction((context) {
+      // Sample all beta users
+      if (context.meta.user?.attributes?['role'] == 'beta') {
+        return 1.0;
+      }
+      // Sample 10% of production sessions
+      if (context.meta.app?.environment == 'production') {
+        return 0.1;
+      }
+      // Sample all in development
+      return 1.0;
+    }),
   ),
   appRunner: () => runApp(const MyApp()),
 );
@@ -516,24 +558,35 @@ Faro().runApp(
 
 **How it works:**
 
-- The `samplingRate` value ranges from `0.0` (no sessions sampled) to `1.0` (all sessions sampled)
 - The sampling decision is made once per session at initialization time
 - When a session is not sampled, all telemetry (events, logs, exceptions, measurements, traces) is silently dropped
 - A debug log is emitted when a session is not sampled, for transparency during development
+- Invalid return values (< 0.0 or > 1.0) are clamped to the valid range
 
-**Example values:**
+**Available context:**
 
-| samplingRate | Behavior                                       |
-| ------------ | ---------------------------------------------- |
-| `1.0`        | All sessions sampled (default - send all data) |
-| `0.5`        | 50% of sessions sampled                        |
-| `0.1`        | 10% of sessions sampled                        |
-| `0.0`        | No sessions sampled (no data sent)             |
+| Property           | Access Pattern                     | Description                              |
+| ------------------ | ---------------------------------- | ---------------------------------------- |
+| Session ID         | `context.meta.session?.id`         | Unique session identifier                |
+| Session attributes | `context.meta.session?.attributes` | Custom sessionAttributes from config     |
+| User ID            | `context.meta.user?.id`            | User ID (from initialUser or persisted)  |
+| User attributes    | `context.meta.user?.attributes`    | Custom user attributes                   |
+| App name           | `context.meta.app?.name`           | App name from config                     |
+| App environment    | `context.meta.app?.environment`    | App environment from config              |
+| App version        | `context.meta.app?.version`        | App version (from config or PackageInfo) |
+| SDK version        | `context.meta.sdk?.version`        | Faro SDK version                         |
 
 **Notes:**
 
 - Sampling is head-based: the decision is made at SDK initialization and remains consistent for the entire session
 - This aligns with [Faro Web SDK sampling behavior](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/)
+
+**Use cases:**
+
+- Sample all beta testers while sampling only 10% of regular users
+- Different sampling rates per environment (100% in dev, 10% in production)
+- A/B testing with different sampling for different user segments
+- Sampling based on custom session attributes (team, feature flags, etc.)
 
 ### Data Collection Control
 

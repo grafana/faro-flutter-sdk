@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Session sampling support**: New `samplingRate` configuration option allows controlling what percentage of sessions send telemetry data. This enables cost management and traffic reduction for high-volume applications. (Resolves #89)
-
-  - `samplingRate` accepts a value from `0.0` (no sessions sampled) to `1.0` (all sessions sampled, default)
+- **Session sampling support**: New `sampling` configuration option allows controlling what percentage of sessions send telemetry data. This enables cost management and traffic reduction for high-volume applications. (Resolves #89)
+  - Use `SamplingRate(0.5)` for fixed 50% sampling
+  - Use `SamplingFunction((context) => ...)` for dynamic sampling based on session context (user attributes, app environment, etc.)
+  - If not provided, all sessions are sampled (100%)
   - Sampling decision is made once per session at initialization and applies to all telemetry types (events, logs, exceptions, measurements, traces)
-  - A debug log is emitted when a session is not sampled (visible in debug builds only)
+  - Example: `sampling: SamplingFunction((context) => context.meta.user?.attributes?['role'] == 'beta' ? 1.0 : 0.1)`
   - Aligns with [Faro Web SDK sampling behavior](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/)
 
 - **ContextScope for span context lifetime control**: New `contextScope` parameter on `startSpan()` controls how long a span remains active in zone context for auto-assignment. `ContextScope.callback` (default) deactivates the span when the callback completes, preventing timer/stream callbacks from inheriting it. `ContextScope.zone` keeps the span active for the entire zone lifetime, useful when you want timer callbacks to be children of the parent span. (Resolves #105)
@@ -43,21 +44,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **User management with FaroUser model**: New `FaroUser` class for comprehensive user identification
-
   - Replaces the legacy `User` model with a more feature-rich implementation
   - Supports `id`, `username`, `email`, and custom `attributes` fields
   - Custom attributes align with [Faro Web SDK MetaUser](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/architecture/metas/#how-to-use-the-user-meta) for cross-platform consistency
   - Includes `FaroUser.cleared()` constructor to explicitly clear user data
 
 - **User persistence**: New `persistUser` option in `FaroConfig` (default: `true`)
-
   - Automatically saves user identity to device storage
   - Restores user on subsequent app launches for consistent session tracking
   - Early events like `appStart` include user data when persistence is enabled
   - Fires `user_set` event on restore and `user_updated` event on changes
 
 - **Initial user configuration**: New `initialUser` option in `FaroConfig`
-
   - Set a user immediately on SDK initialization
   - Use `FaroUser.cleared()` to explicitly clear any persisted user on start
   - Useful for apps that know the user at startup or need to force logout state
@@ -129,7 +127,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **SDK name consistency across telemetry types**: Updated SDK identification to use consistent naming
-
   - Changed hardcoded 'rum-flutter' SDK name to use `FaroConstants.sdkName` for consistency with OpenTelemetry traces
   - Maintains backend-compatible version '1.3.5' for proper web SDK version validation
   - Added actual Faro Flutter SDK version to session attributes as 'faro_sdk_version' for tracking real SDK version
@@ -146,9 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **BREAKING: Package structure refactoring to follow Flutter plugin conventions**: Reorganized the package to align with Flutter/Dart ecosystem standards and best practices
-
   - **Breaking Change**: Main entry point changed from `faro_sdk.dart` to `faro.dart`
-
     - The package now follows the standard `lib/<package_name>.dart` convention
     - Removed `lib/faro_sdk.dart` file entirely
     - `lib/faro.dart` is now the single main entry point with selective barrel exports
@@ -164,7 +159,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ```
 
   - **Architecture Improvements**:
-
     - Moved core `Faro` class implementation from `lib/faro.dart` to `lib/src/faro.dart`
     - `lib/faro.dart` now serves as a clean barrel export file exposing only public APIs
     - All implementation details properly organized under `lib/src/` directory
@@ -172,7 +166,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Follows established Flutter ecosystem conventions used by popular packages like Provider, BLoC, and Dio
 
   - **Benefits**:
-
     - **Cleaner API boundaries**: Clear distinction between public and private APIs
     - **Better maintainability**: Implementation details can evolve without affecting public interface
     - **Consistent developer experience**: Matches patterns developers expect from other Flutter packages
@@ -184,13 +177,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Type-Safe Log Level API**: New `LogLevel` enum for improved logging reliability and developer experience
-
   - Introduced `LogLevel` enum with values: `trace`, `debug`, `info`, `log`, `warn`, `error`
   - Aligns with Grafana Faro Web SDK for cross-platform consistency
   - Includes `fromString()` method for backward compatibility, supporting both `'warn'` and `'warning'` variants
 
 - **Enhanced Tracing and Span API**: Major improvements to distributed tracing capabilities
-
   - New `startSpan<T>()` method for automatic span lifecycle management with callback-based execution
   - New `startSpanManual()` method for manual span lifecycle management when precise control is needed
   - New `getActiveSpan()` method to access the currently active span from anywhere in the execution context
@@ -202,18 +193,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive documentation with detailed examples for common tracing patterns
 
 - **Centralized Session Management**: New `SessionIdProvider` for consistent session handling across the SDK
-
   - Dedicated session ID generation and management
   - Better integration with tracing system for session context propagation
   - Factory pattern for testable session management
 
 - **SDK Constants Management**: New centralized constants system
-
   - Added `FaroConstants` class for SDK version and name management
   - Better version tracking and consistency across the codebase
 
 - **BREAKING: Synchronous API for telemetry methods**: Refactored telemetry methods to remove unnecessary async patterns for improved performance and developer experience
-
   - **Breaking Change**: The following methods changed from `Future<void>?` to `void`:
     - `pushEvent()` - Send custom events
     - `pushLog()` - Send custom logs
@@ -239,7 +227,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Internal Architecture**: Introduced `BatchTransportFactory` singleton pattern for better dependency management and testing
 
 - **BREAKING: pushLog API requires LogLevel enum**: Enhanced logging API for better type safety and consistency
-
   - **Breaking Change**: `pushLog()` now requires a `LogLevel` parameter instead of optional `String?`
   - **Migration**: Replace `level: "warn"` with `level: LogLevel.warn` in your pushLog calls
   - **Benefit**: Eliminates typos in log levels and provides better IDE support
@@ -247,7 +234,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Documentation**: All examples and documentation updated to reflect the new API
 
 - **Tracing Architecture Refactoring**: Complete redesign of the internal tracing system
-
   - Replaced legacy `tracer.dart` and `tracer_provider.dart` with new `FaroTracer` implementation
   - New `FaroZoneSpanManager` for robust zone-based span context management
   - Improved `Span` class with cleaner API and better OpenTelemetry integration
