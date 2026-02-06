@@ -511,7 +511,7 @@ Use `SamplingRate` for a constant sampling probability:
 Faro().runApp(
   optionsConfiguration: FaroConfig(
     // ...
-    sampling: SamplingRate(0.5), // Sample 50% of sessions
+    sampling: SamplingRate(0.5), // Sample 50% of sessions (default: 100% if omitted)
     // ...
   ),
   appRunner: () => runApp(const MyApp()),
