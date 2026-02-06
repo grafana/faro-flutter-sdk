@@ -41,6 +41,7 @@ void main() async {
       appEnv: 'Test',
       apiKey: faroApiKey,
       namespace: 'flutter_app',
+      samplingRate: 1.0,
       anrTracking: true,
       cpuUsageVitals: true,
       collectorUrl: faroCollectorUrl,

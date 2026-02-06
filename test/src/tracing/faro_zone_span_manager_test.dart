@@ -26,6 +26,8 @@ class FakeCallback<T> extends Fake {
 
 class FakeSymbol extends Fake implements Symbol {}
 
+class MockSpanContextHolder extends Mock implements SpanContextHolder {}
+
 void main() {
   setUpAll(() {
     // Register fallback values for mocktail
@@ -59,14 +61,18 @@ void main() {
     group('getActiveSpan:', () {
       test('should return active span when one exists in the zone', () {
         // Arrange
-        when(() => mockParentSpanLookup.call(any())).thenReturn(mockSpan);
+        final holder = SpanContextHolder(
+          span: mockSpan,
+          contextScope: ContextScope.callback,
+        );
+        when(() => mockParentSpanLookup.call(any())).thenReturn(holder);
 
         // Act
         final result = faroZoneSpanManager.getActiveSpan();
 
         // Assert
         expect(result, equals(mockSpan));
-        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
             .called(1);
       });
 
@@ -79,7 +85,7 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
             .called(1);
       });
 
@@ -92,7 +98,7 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
             .called(1);
       });
 
@@ -105,7 +111,7 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('faroParentSpan')))
+        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
             .called(1);
       });
     });
@@ -142,7 +148,10 @@ void main() {
         verify(() => mockSpan.end()).called(1);
         verify(() => mockZoneRunner.call<String>(
               any(),
-              {const Symbol('faroParentSpan'): mockSpan},
+              any(that: predicate<Map<Object?, Object?>>((zoneValues) {
+                final holder = zoneValues[const Symbol('faroSpanContext')];
+                return holder is SpanContextHolder && holder.span == mockSpan;
+              })),
             )).called(1);
       });
 
@@ -289,7 +298,10 @@ void main() {
         // Assert
         verify(() => mockZoneRunner.call<String>(
               any(),
-              {const Symbol('faroParentSpan'): mockSpan},
+              any(that: predicate<Map<Object?, Object?>>((zoneValues) {
+                final holder = zoneValues[const Symbol('faroSpanContext')];
+                return holder is SpanContextHolder && holder.span == mockSpan;
+              })),
             )).called(1);
       });
 
@@ -516,6 +528,435 @@ void main() {
 
       // Assert
       expect(result, isNull);
+    });
+  });
+
+  group('ContextScope behavior:', () {
+    group('getActiveSpan with SpanContextHolder:', () {
+      late FaroZoneSpanManager faroZoneSpanManager;
+      late MockParentSpanLookup mockParentSpanLookup;
+      late MockZoneRunner mockZoneRunner;
+      late MockSpan mockSpan;
+
+      setUp(() {
+        mockParentSpanLookup = MockParentSpanLookup();
+        mockZoneRunner = MockZoneRunner();
+        mockSpan = MockSpan();
+
+        when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
+        when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+
+        faroZoneSpanManager = FaroZoneSpanManager(
+          parentSpanLookup: mockParentSpanLookup.call,
+          zoneRunner: mockZoneRunner.call,
+        );
+      });
+
+      test('should return span when SpanContextHolder is active', () {
+        // Arrange
+        final holder = SpanContextHolder(
+          span: mockSpan,
+          contextScope: ContextScope.callback,
+        );
+        when(() => mockParentSpanLookup.call(any())).thenReturn(holder);
+
+        // Act
+        final result = faroZoneSpanManager.getActiveSpan();
+
+        // Assert
+        expect(result, equals(mockSpan));
+      });
+
+      test('should return null when SpanContextHolder is deactivated', () {
+        // Arrange
+        final holder = SpanContextHolder(
+          span: mockSpan,
+          contextScope: ContextScope.callback,
+        );
+        holder.deactivate();
+        when(() => mockParentSpanLookup.call(any())).thenReturn(holder);
+
+        // Act
+        final result = faroZoneSpanManager.getActiveSpan();
+
+        // Assert
+        expect(result, isNull);
+      });
+
+      test(
+          'should still return span when holder uses ContextScope.zone and is active',
+          () {
+        // Arrange
+        final holder = SpanContextHolder(
+          span: mockSpan,
+          contextScope: ContextScope.zone,
+        );
+        when(() => mockParentSpanLookup.call(any())).thenReturn(holder);
+
+        // Act
+        final result = faroZoneSpanManager.getActiveSpan();
+
+        // Assert
+        expect(result, equals(mockSpan));
+      });
+    });
+
+    group('executeWithSpan with ContextScope:', () {
+      late FaroZoneSpanManager faroZoneSpanManager;
+      late MockParentSpanLookup mockParentSpanLookup;
+      late MockZoneRunner mockZoneRunner;
+      late MockSpan mockSpan;
+
+      setUp(() {
+        mockParentSpanLookup = MockParentSpanLookup();
+        mockZoneRunner = MockZoneRunner();
+        mockSpan = MockSpan();
+
+        when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
+        when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+
+        faroZoneSpanManager = FaroZoneSpanManager(
+          parentSpanLookup: mockParentSpanLookup.call,
+          zoneRunner: mockZoneRunner.call,
+        );
+      });
+
+      test(
+          'should pass SpanContextHolder to zone values instead of span directly',
+          () async {
+        // Arrange
+        SpanContextHolder? capturedHolder;
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final zoneValues =
+              invocation.positionalArguments[1] as Map<Object?, Object?>;
+          capturedHolder =
+              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act
+        await faroZoneSpanManager.executeWithSpan<String>(
+          mockSpan,
+          (span) => 'result',
+        );
+
+        // Assert
+        expect(capturedHolder, isNotNull);
+        expect(capturedHolder!.span, equals(mockSpan));
+      });
+
+      test(
+          'should deactivate holder after callback completes with ContextScope.callback (default)',
+          () async {
+        // Arrange
+        SpanContextHolder? capturedHolder;
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final zoneValues =
+              invocation.positionalArguments[1] as Map<Object?, Object?>;
+          capturedHolder =
+              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act
+        await faroZoneSpanManager.executeWithSpan<String>(
+          mockSpan,
+          (span) => 'result',
+        );
+
+        // Assert - holder should be deactivated after callback completes
+        expect(capturedHolder, isNotNull);
+        expect(capturedHolder!.isActive, isFalse);
+      });
+
+      test('should deactivate holder AFTER span.end() is called', () async {
+        // Arrange
+        SpanContextHolder? capturedHolder;
+        bool? holderWasActiveWhenEndCalled;
+
+        when(() => mockSpan.end()).thenAnswer((_) {
+          holderWasActiveWhenEndCalled = capturedHolder?.isActive;
+        });
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final zoneValues =
+              invocation.positionalArguments[1] as Map<Object?, Object?>;
+          capturedHolder =
+              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act
+        await faroZoneSpanManager.executeWithSpan<String>(
+          mockSpan,
+          (span) => 'result',
+        );
+
+        // Assert - holder should still be active when span.end() is called,
+        // then deactivated after as the last thing in the callback scope
+        expect(holderWasActiveWhenEndCalled, isTrue);
+      });
+
+      test('should NOT deactivate holder with ContextScope.zone', () async {
+        // Arrange
+        SpanContextHolder? capturedHolder;
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final zoneValues =
+              invocation.positionalArguments[1] as Map<Object?, Object?>;
+          capturedHolder =
+              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act
+        await faroZoneSpanManager.executeWithSpan<String>(
+          mockSpan,
+          (span) => 'result',
+          contextScope: ContextScope.zone,
+        );
+
+        // Assert - holder should still be active with ContextScope.zone
+        expect(capturedHolder, isNotNull);
+        expect(capturedHolder!.isActive, isTrue);
+      });
+
+      test('should deactivate holder even when exception occurs', () async {
+        // Arrange
+        final testException = Exception('test-exception');
+        SpanContextHolder? capturedHolder;
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final zoneValues =
+              invocation.positionalArguments[1] as Map<Object?, Object?>;
+          capturedHolder =
+              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act & Assert
+        expect(
+          () async => faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => throw testException,
+          ),
+          throwsA(equals(testException)),
+        );
+
+        // Assert - holder should still be deactivated
+        expect(capturedHolder, isNotNull);
+        expect(capturedHolder!.isActive, isFalse);
+      });
+
+      test('should NOT deactivate holder on exception with ContextScope.zone',
+          () async {
+        // Arrange
+        final testException = Exception('test-exception');
+        SpanContextHolder? capturedHolder;
+        when(() => mockZoneRunner.call<String>(any(), any()))
+            .thenAnswer((invocation) async {
+          final zoneValues =
+              invocation.positionalArguments[1] as Map<Object?, Object?>;
+          capturedHolder =
+              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act & Assert
+        expect(
+          () async => faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => throw testException,
+            contextScope: ContextScope.zone,
+          ),
+          throwsA(equals(testException)),
+        );
+
+        // Assert - holder should still be active with ContextScope.zone
+        expect(capturedHolder, isNotNull);
+        expect(capturedHolder!.isActive, isTrue);
+      });
+    });
+  });
+
+  group('SpanContextHolder:', () {
+    late MockSpan mockSpan;
+
+    setUp(() {
+      mockSpan = MockSpan();
+    });
+
+    test('should be active by default', () {
+      // Arrange & Act
+      final holder = SpanContextHolder(
+        span: mockSpan,
+        contextScope: ContextScope.callback,
+      );
+
+      // Assert
+      expect(holder.isActive, isTrue);
+    });
+
+    test('should be inactive after deactivate() is called', () {
+      // Arrange
+      final holder = SpanContextHolder(
+        span: mockSpan,
+        contextScope: ContextScope.callback,
+      );
+
+      // Act
+      holder.deactivate();
+
+      // Assert
+      expect(holder.isActive, isFalse);
+    });
+
+    test('should store the span correctly', () {
+      // Arrange & Act
+      final holder = SpanContextHolder(
+        span: mockSpan,
+        contextScope: ContextScope.callback,
+      );
+
+      // Assert
+      expect(holder.span, equals(mockSpan));
+    });
+
+    test('should store the contextScope correctly', () {
+      // Arrange & Act
+      final holder = SpanContextHolder(
+        span: mockSpan,
+        contextScope: ContextScope.zone,
+      );
+
+      // Assert
+      expect(holder.contextScope, equals(ContextScope.zone));
+    });
+  });
+
+  group('Integration: Real Zone behavior with timers:', () {
+    late FaroZoneSpanManager spanManager;
+    late MockSpan mockSpan;
+
+    setUp(() {
+      spanManager = FaroZoneSpanManagerFactory().create();
+      mockSpan = MockSpan();
+      when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+    });
+
+    test(
+        'ContextScope.callback: getActiveSpan returns null after callback completes',
+        () async {
+      // Arrange
+      Span? activeSpanDuringCallback;
+      Span? activeSpanAfterCallback;
+      final completer = Completer<void>();
+
+      // Act
+      await spanManager.executeWithSpan<void>(
+        mockSpan,
+        (span) async {
+          activeSpanDuringCallback = spanManager.getActiveSpan();
+
+          // Schedule a timer that will fire after the callback completes
+          Timer(Duration.zero, () {
+            activeSpanAfterCallback = spanManager.getActiveSpan();
+            completer.complete();
+          });
+        },
+        // Using default ContextScope.callback
+      );
+
+      // Wait for the timer to fire
+      await completer.future;
+
+      // Assert
+      expect(activeSpanDuringCallback, equals(mockSpan),
+          reason: 'Span should be active during callback');
+      expect(activeSpanAfterCallback, isNull,
+          reason: 'Span should be deactivated after callback completes');
+    });
+
+    test(
+        'ContextScope.zone: getActiveSpan returns span even after callback completes',
+        () async {
+      // Arrange
+      Span? activeSpanDuringCallback;
+      Span? activeSpanAfterCallback;
+      final completer = Completer<void>();
+
+      // Act
+      await spanManager.executeWithSpan<void>(
+        mockSpan,
+        (span) async {
+          activeSpanDuringCallback = spanManager.getActiveSpan();
+
+          // Schedule a timer that will fire after the callback completes
+          Timer(Duration.zero, () {
+            activeSpanAfterCallback = spanManager.getActiveSpan();
+            completer.complete();
+          });
+        },
+        contextScope: ContextScope.zone,
+      );
+
+      // Wait for the timer to fire
+      await completer.future;
+
+      // Assert
+      expect(activeSpanDuringCallback, equals(mockSpan),
+          reason: 'Span should be active during callback');
+      expect(activeSpanAfterCallback, equals(mockSpan),
+          reason: 'Span should remain active with ContextScope.zone');
+    });
+
+    test('nested spans work correctly with ContextScope.callback', () async {
+      // Arrange
+      final parentSpan = MockSpan();
+      final childSpan = MockSpan();
+      when(() => parentSpan.statusHasBeenSet).thenReturn(false);
+      when(() => childSpan.statusHasBeenSet).thenReturn(false);
+
+      Span? activeSpanInParent;
+      Span? activeSpanInChild;
+      Span? activeSpanAfterChild;
+
+      // Act
+      await spanManager.executeWithSpan<void>(
+        parentSpan,
+        (parent) async {
+          activeSpanInParent = spanManager.getActiveSpan();
+
+          await spanManager.executeWithSpan<void>(
+            childSpan,
+            (child) async {
+              activeSpanInChild = spanManager.getActiveSpan();
+            },
+          );
+
+          activeSpanAfterChild = spanManager.getActiveSpan();
+        },
+      );
+
+      // Assert
+      expect(activeSpanInParent, equals(parentSpan));
+      expect(activeSpanInChild, equals(childSpan));
+      expect(activeSpanAfterChild, equals(parentSpan),
+          reason: 'After child completes, parent should be active again');
     });
   });
 }

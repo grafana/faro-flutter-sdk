@@ -16,6 +16,7 @@ import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_id_provider.dart';
+import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
@@ -129,10 +130,23 @@ class Faro {
       persistUser: optionsConfiguration.persistUser,
     );
 
+    // Make sampling decision (once per session)
+    final isSampled = SessionSamplingProviderFactory()
+        .create(samplingRate: optionsConfiguration.samplingRate)
+        .isSampled;
+
+    if (!isSampled) {
+      log(
+        'Faro: Session not sampled (samplingRate: '
+        '${optionsConfiguration.samplingRate}). Telemetry will be dropped.',
+      );
+    }
+
     _batchTransport = BatchTransportFactory().create(
       initialPayload: Payload(meta),
       batchConfig: config?.batchConfig ?? BatchConfig(),
       transports: _transports,
+      isSampled: isSampled,
     );
 
     if (config?.transports == null) {
@@ -314,126 +328,72 @@ class Faro {
 
   /// Starts an active span and executes the provided callback within its context.
   ///
-  /// Active spans automatically manage their lifecycle - they start when the method
-  /// is called and end when the callback completes (or throws an exception).
-  /// This is the recommended way to create spans as it ensures proper cleanup.
-  ///
-  /// **Parent-Child Relationships:**
-  /// If there's a currently active span when a new span is started, the new span
-  /// will automatically become a child of the currently active span. However, if
-  /// a [parentSpan] is explicitly provided, it will be used instead of the active
-  /// span. This creates a hierarchical relationship where:
-  /// - The outer span (or explicitly provided parent) becomes the parent
-  /// - Any spans created inside the callback become children of this span
-  /// - Errors are automatically associated with the appropriate span
-  ///
-  /// **Details:**
-  /// Spans are collected with automatic parent-child relationships based on
-  /// the execution context. This uses a zone-based implementation which ensures
-  /// that spans created within the callback are properly associated with the
-  /// correct parent span, even with asynchronous operations.
+  /// Active spans automatically manage their lifecycle - they start when called
+  /// and end when the callback completes. This is the recommended way to create
+  /// spans. Nested spans automatically become children of the currently active
+  /// span, creating a hierarchical trace structure.
   ///
   /// **Parameters:**
-  /// - [name]: The name of the span. This should be descriptive of the operation
-  ///   being performed (e.g., "api_call", "database_query", "image_processing").
-  /// - [body]: The callback function to execute within the span context. The
-  ///   callback receives a [Span] object that can be used to add events,
-  ///   attributes, or set the span status.
-  /// - [attributes]: Optional key-value pairs to attach to the span. These are
-  ///   useful for adding contextual information like user IDs, request IDs, etc.
-  /// - [parentSpan]: Optional parent span to use instead of the currently active
-  ///   span. When provided, this span will become the parent regardless of what
-  ///   span is currently active. Useful for manual span hierarchy management.
+  /// - [name]: Descriptive name for the operation (e.g., "api_call", "db_query").
+  /// - [body]: Callback to execute. Receives a [Span] for adding events/attributes.
+  /// - [attributes]: Optional key-value pairs to attach to the span.
+  /// - [parentSpan]: Controls parent relationship:
+  ///   - `null` (default): Uses active span from context.
+  ///   - [Span.noParent]: Starts a new root trace with no parent.
+  ///   - Specific [Span]: Uses that span as parent.
+  /// - [contextScope]: Controls how long the span stays active as a parent:
+  ///   - [ContextScope.callback] (default): Deactivated when callback completes.
+  ///   - [ContextScope.zone]: Stays active for timers/streams in the zone.
+  ///   See [ContextScope] for detailed examples.
   ///
-  /// **Returns:**
-  /// The result of the callback function. If the callback is synchronous, returns
-  /// the value directly. If asynchronous, returns a Future that completes with
-  /// the callback's result.
-  ///
-  /// **Error Handling:**
-  /// If the callback throws an exception or returns a rejected Future, the span
-  /// will be automatically marked as failed and the exception will be propagated.
-  ///
-  /// **Example - Synchronous operation:**
+  /// **Example - Basic usage:**
   /// ```dart
-  /// final result = await Faro.startSpan('expensive_calculation', (span) {
-  ///   span.setAttribute('input_size', '1000');
-  ///   return performCalculation();
-  /// });
-  /// ```
-  ///
-  /// **Example - Asynchronous operation:**
-  /// ```dart
-  /// final data = await Faro.startSpan('api_request', (span) async {
-  ///   span.setAttributes({
-  ///     'url': 'https://api.example.com/users',
-  ///     'method': 'GET',
-  ///   });
-  ///
-  ///   try {
-  ///     final response = await http.get(Uri.parse('https://api.example.com/users'));
-  ///     span.setStatus(SpanStatusCode.ok);
-  ///     return response.body;
-  ///   } catch (e) {
-  ///     span.setStatus(SpanStatusCode.error, message: e.toString());
-  ///     span.addEvent('Request failed', attributes: {'error': e.toString()});
-  ///     rethrow;
-  ///   }
+  /// final data = await Faro().startSpan('api_request', (span) async {
+  ///   span.setAttribute('url', 'https://api.example.com/users');
+  ///   final response = await http.get(Uri.parse('https://api.example.com/users'));
+  ///   return response.body;
   /// });
   /// ```
   ///
   /// **Example - Nested spans:**
   /// ```dart
-  /// final result = await Faro.startSpan('parent_operation', (parentSpan) async {
-  ///   parentSpan.setAttribute('operation_id', '123');
-  ///
+  /// await Faro().startSpan('parent_operation', (parent) async {
   ///   final data = await fetchData();
-  ///
-  ///   return await Faro.startSpan('child_operation', (childSpan) async {
-  ///     childSpan.setAttribute('data_size', data.length.toString());
+  ///   return await Faro().startSpan('child_operation', (child) async {
   ///     return processData(data);
   ///   });
   /// });
   /// ```
   ///
-  /// **Example - Manual parent span:**
+  /// **Example - Explicit parent with batch processing:**
   /// ```dart
-  /// // Create a span manually to use as parent
-  /// final rootSpan = Faro.startSpanManual('batch_operation');
-  ///
-  /// // Process multiple items with the same parent
+  /// final rootSpan = Faro().startSpanManual('batch_operation');
   /// final futures = items.map((item) =>
-  ///   Faro.startSpan('process_item', (span) async {
-  ///     span.setAttribute('item_id', item.id);
+  ///   Faro().startSpan('process_item', parentSpan: rootSpan, (span) async {
   ///     return await processItem(item);
-  ///   }, parentSpan: rootSpan)
+  ///   })
   /// );
-  ///
-  /// final results = await Future.wait(futures);
-  /// rootSpan.end(); // Don't forget to end the manual span
+  /// await Future.wait(futures);
+  /// rootSpan.end();
   /// ```
-  ///
-  /// **Note:** For most use cases, relying on automatic span hierarchy management
-  /// (without specifying [parentSpan]) is recommended as it properly handles the
-  /// execution context. Use the [parentSpan] parameter only when you need explicit
-  /// control over span relationships. For scenarios requiring manual span lifecycle
-  /// management, use [startSpanManual] instead, but remember to call [Span.end].
   ///
   /// See also:
   /// - [startSpanManual] for manual span lifecycle management
-  /// - [Span] for available span operations
-  /// - [SpanStatusCode] for available status codes
+  /// - [ContextScope] for timer/stream context behavior
+  /// - [Span.noParent] for starting independent traces
   FutureOr<T> startSpan<T>(
     String name,
     FutureOr<T> Function(Span) body, {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
+    ContextScope contextScope = ContextScope.callback,
   }) async {
     return _tracer.startSpan(
       name,
       body,
       attributes: attributes,
       parentSpan: parentSpan,
+      contextScope: contextScope,
     );
   }
 
@@ -452,9 +412,12 @@ class Faro {
   /// **Parameters:**
   /// - [name]: The name of the span. Should be descriptive of the operation.
   /// - [attributes]: Optional key-value pairs to attach to the span.
-  /// - [parentSpan]: Optional parent span to use instead of the currently active
-  ///   span. When provided, this span will become the parent regardless of what
-  ///   span is currently active. Useful for creating custom span hierarchies.
+  /// - [parentSpan]: Controls the parent span relationship with three states:
+  ///   - **Not provided / null**: Uses the active span from zone context
+  ///     (default behavior).
+  ///   - **[Span.noParent]**: Explicitly starts a new root trace with no parent,
+  ///     ignoring any active span in the context.
+  ///   - **Specific [Span] instance**: Uses that span as the parent.
   ///
   /// **Returns:**
   /// A [Span] object that you must manually manage. Remember to call [Span.end]

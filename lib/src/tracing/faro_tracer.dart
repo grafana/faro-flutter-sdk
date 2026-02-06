@@ -26,18 +26,30 @@ class FaroTracer {
   ///
   /// [attributes] can contain typed values (String, int, double, bool).
   /// Other types will be converted to strings.
+  ///
+  /// [contextScope] controls how long the span remains active in context:
+  /// - [ContextScope.callback] (default): Span is deactivated when callback
+  ///   completes. Async operations scheduled within the callback (like timers)
+  ///   won't see this span as parent after the callback ends.
+  /// - [ContextScope.zone]: Span remains active for all async operations in
+  ///   the zone, including timers and streams created within the callback.
   FutureOr<T> startSpan<T>(
     String name,
     FutureOr<T> Function(Span) body, {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
+    ContextScope contextScope = ContextScope.callback,
   }) async {
     final span = _createAndStartSpan(
       name: name,
       attributes: attributes,
       parentSpan: parentSpan,
     );
-    return _faroZoneSpanManager.executeWithSpan(span, body);
+    return _faroZoneSpanManager.executeWithSpan(
+      span,
+      body,
+      contextScope: contextScope,
+    );
   }
 
   /// Starts a span without executing a callback, giving manual control over
@@ -66,12 +78,13 @@ class FaroTracer {
     required Map<String, Object> attributes,
     Span? parentSpan,
   }) {
-    final theParentSpan = parentSpan ?? getActiveSpan();
+    final resolvedParentSpan = _resolveParentSpan(parentSpan);
+
     var context = otel_api.Context.current;
-    if (theParentSpan != null && theParentSpan is InternalSpan) {
+    if (resolvedParentSpan != null && resolvedParentSpan is InternalSpan) {
       context = otel_api.contextWithSpan(
-        theParentSpan.context,
-        theParentSpan.otelSpan,
+        resolvedParentSpan.context,
+        resolvedParentSpan.otelSpan,
       );
     }
 
@@ -95,6 +108,17 @@ class FaroTracer {
     );
 
     return SpanProvider().getSpan(otelSpan, context);
+  }
+
+  /// Resolves the effective parent span based on three-state logic:
+  /// - [Span.noParent]: explicitly no parent (starts a new root trace)
+  /// - `null`: use active span from zone context (default behavior)
+  /// - Specific [Span]: use that span as the parent
+  Span? _resolveParentSpan(Span? parentSpan) {
+    if (parentSpan == Span.noParent) {
+      return null;
+    }
+    return parentSpan ?? getActiveSpan();
   }
 
   /// Creates an OpenTelemetry Attribute from a typed value.

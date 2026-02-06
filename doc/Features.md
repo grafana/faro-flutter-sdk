@@ -286,6 +286,70 @@ await Faro().startSpan('main_operation', (span) async {
 });
 ```
 
+### 🕐 Timer & Async Callback Behavior
+
+When using `startSpan()`, you have control over how timer and stream callbacks relate to the parent span. The `contextScope` parameter determines this behavior.
+
+#### Default: Timer Callbacks Start New Traces
+
+By default (`ContextScope.callback`), spans are deactivated from context when the callback completes. Timer or stream callbacks that fire _after_ the callback has completed will start their own independent traces:
+
+```dart
+await Faro().startSpan('parent-operation', (parentSpan) async {
+  // This timer fires after the callback completes (30s > doMainWork duration)
+  Timer.periodic(Duration(seconds: 30), (_) {
+    // Starts a NEW trace because parent was deactivated when callback ended
+    Faro().startSpan('periodic-check', (span) async {
+      await performHealthCheck();
+    });
+  });
+
+  await doMainWork(); // Takes less than 30 seconds
+}); // Parent span deactivated here
+```
+
+#### Keeping Span Active for Timer Callbacks
+
+If you want timer callbacks to inherit the parent span (same trace), use `ContextScope.zone`:
+
+```dart
+await Faro().startSpan('long-running-operation', (parentSpan) async {
+  // Timer callbacks WILL be children of this span
+  Timer.periodic(Duration(seconds: 5), (_) {
+    Faro().startSpan('progress-update', (span) async {
+      await reportProgress(); // Same traceId as parent
+    });
+  });
+
+  await doWork();
+}, contextScope: ContextScope.zone); // Span stays active for zone lifetime
+```
+
+#### Explicit New Trace with Span.noParent
+
+For explicit control, use `Span.noParent` to start a fresh trace regardless of context:
+
+```dart
+// Useful inside zone-scoped spans or manual spans
+Faro().startSpan('independent-operation', (span) async {
+  await doSomething();
+}, parentSpan: Span.noParent); // Always starts new trace
+```
+
+#### Summary
+
+| Scenario                          | Result                            |
+| --------------------------------- | --------------------------------- |
+| Default (`ContextScope.callback`) | Timer callbacks → new trace       |
+| `ContextScope.zone`               | Timer callbacks → child of parent |
+| `parentSpan: Span.noParent`       | Always new trace (explicit)       |
+
+The `parentSpan` parameter supports three values:
+
+- **Not provided / null**: Uses active span from zone context
+- **`Span.noParent`**: Explicitly starts a new root trace
+- **Specific `Span` instance**: Uses that span as parent
+
 ### 🔄 Span Features
 
 - **Automatic Session Tracking**: All spans include session IDs for correlation

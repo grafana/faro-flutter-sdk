@@ -67,6 +67,12 @@ abstract interface class TracingPageActions {
 
   /// Runs a span that records an error.
   Future<void> runSpanWithError();
+
+  /// Demonstrates Span.noParent for independent traces.
+  Future<void> runSpanWithNoParent();
+
+  /// Demonstrates ContextScope for controlling span context lifetime.
+  Future<void> runContextScopeDemo();
 }
 
 // =============================================================================
@@ -174,6 +180,16 @@ class _TracingPageViewModel extends Notifier<TracingPageUiState>
   @override
   Future<void> runSpanWithError() async {
     await _runSpanOperation(_tracingService.runSpanWithError);
+  }
+
+  @override
+  Future<void> runSpanWithNoParent() async {
+    await _runSpanOperation(_tracingService.runSpanWithNoParent);
+  }
+
+  @override
+  Future<void> runContextScopeDemo() async {
+    await _runSpanOperation(_tracingService.runContextScopeDemo);
   }
 }
 
