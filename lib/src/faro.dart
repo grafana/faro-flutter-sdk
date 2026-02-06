@@ -63,6 +63,13 @@ class Faro {
   List<BaseTransport> get transports => _transports;
   DataCollectionPolicy? _dataCollectionPolicy;
   UserManager? _userManager;
+  bool _isSampled = true;
+
+  /// Whether the current session is sampled.
+  ///
+  /// When `true`, telemetry data is being collected for this session.
+  /// When `false`, telemetry data is being dropped.
+  bool get isSampled => _isSampled;
 
   Meta meta = Meta(
       session: Session(
@@ -130,15 +137,27 @@ class Faro {
       persistUser: optionsConfiguration.persistUser,
     );
 
+    // Set app meta before sampling so sampler has access to full context
+    final appVersion =
+        await _resolveAppVersion(optionsConfiguration.appVersion);
+    setAppMeta(
+      appName: optionsConfiguration.appName,
+      appEnv: optionsConfiguration.appEnv,
+      appVersion: appVersion,
+      namespace: optionsConfiguration.namespace ?? '',
+    );
+
     // Make sampling decision (once per session)
-    final isSampled = SessionSamplingProviderFactory()
-        .create(samplingRate: optionsConfiguration.samplingRate)
+    _isSampled = SessionSamplingProviderFactory()
+        .create(
+          sampling: optionsConfiguration.sampling,
+          meta: meta,
+        )
         .isSampled;
 
-    if (!isSampled) {
+    if (!_isSampled) {
       log(
-        'Faro: Session not sampled (samplingRate: '
-        '${optionsConfiguration.samplingRate}). Telemetry will be dropped.',
+        'Faro: Session not sampled. Telemetry will be dropped.',
       );
     }
 
@@ -146,7 +165,7 @@ class Faro {
       initialPayload: Payload(meta),
       batchConfig: config?.batchConfig ?? BatchConfig(),
       transports: _transports,
-      isSampled: isSampled,
+      isSampled: _isSampled,
     );
 
     if (config?.transports == null) {
@@ -163,15 +182,6 @@ class Faro {
       Faro()._transports.addAll(config?.transports ?? []);
     }
     _instance.ignoreUrls = optionsConfiguration.ignoreUrls ?? [];
-    final packageInfo = await PackageInfo.fromPlatform();
-    _instance.setAppMeta(
-      appName: optionsConfiguration.appName,
-      appEnv: optionsConfiguration.appEnv,
-      appVersion: optionsConfiguration.appVersion == null
-          ? packageInfo.version
-          : optionsConfiguration.appVersion!,
-      namespace: optionsConfiguration.namespace ?? '',
-    );
     if (config?.enableCrashReporting == true) {
       _instance.enableCrashReporter(
         app: _instance.meta.app!,
@@ -268,6 +278,23 @@ class Faro {
         ? const FaroUser.cleared()
         : FaroUser(id: userId, username: userName, email: userEmail);
     setUser(user);
+  }
+
+  /// Resolves the app version from config or platform.
+  ///
+  /// Uses the provided [configuredVersion] if available, otherwise fetches
+  /// from [PackageInfo]. Falls back to 'unknown' if PackageInfo fails
+  /// (e.g., in background isolates or before runApp()).
+  Future<String> _resolveAppVersion(String? configuredVersion) async {
+    if (configuredVersion != null) {
+      return configuredVersion;
+    }
+    try {
+      return (await PackageInfo.fromPlatform()).version;
+    } catch (e) {
+      log('Faro: Failed to get app version from PackageInfo: $e');
+      return 'unknown';
+    }
   }
 
   /// Applies user JSON to meta.

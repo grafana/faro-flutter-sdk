@@ -1,5 +1,10 @@
 // ignore_for_file: prefer_int_literals
 
+import 'package:faro/src/configurations/sampling.dart';
+import 'package:faro/src/models/app.dart';
+import 'package:faro/src/models/meta.dart';
+import 'package:faro/src/models/session.dart';
+import 'package:faro/src/session/sampling_context.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/util/random_value_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,55 +13,73 @@ import '../../helpers/fake_random_value_provider.dart';
 
 void main() {
   group('SessionSamplingProvider:', () {
-    test('should return isSampled=true when random < samplingRate', () {
+    late Meta testMeta;
+
+    setUp(() {
+      testMeta = Meta(
+        session: Session('test-session'),
+        app: App(
+          name: 'TestApp',
+          environment: 'production',
+          version: '1.0.0',
+        ),
+      );
+    });
+
+    test('should return isSampled=true when random < rate', () {
       final fakeRandom = FakeRandomValueProvider(0.3);
 
       final sut = SessionSamplingProvider(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
       expect(sut.isSampled, isTrue);
     });
 
-    test('should return isSampled=false when random >= samplingRate', () {
+    test('should return isSampled=false when random >= rate', () {
       final fakeRandom = FakeRandomValueProvider(0.7);
 
       final sut = SessionSamplingProvider(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
       expect(sut.isSampled, isFalse);
     });
 
-    test('should return isSampled=false when random equals samplingRate', () {
+    test('should return isSampled=false when random equals rate', () {
       final fakeRandom = FakeRandomValueProvider(0.5);
 
       final sut = SessionSamplingProvider(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
       expect(sut.isSampled, isFalse);
     });
 
-    test('samplingRate 0.0 never samples (even with random 0.0)', () {
+    test('SamplingRate(0.0) never samples (even with random 0.0)', () {
       final fakeRandom = FakeRandomValueProvider(0.0);
 
       final sut = SessionSamplingProvider(
-        samplingRate: 0.0,
+        sampling: const SamplingRate(0.0),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
       expect(sut.isSampled, isFalse);
     });
 
-    test('samplingRate 1.0 always samples (even with random 0.999)', () {
+    test('SamplingRate(1.0) always samples (even with random 0.999)', () {
       final fakeRandom = FakeRandomValueProvider(0.999);
 
       final sut = SessionSamplingProvider(
-        samplingRate: 1.0,
+        sampling: const SamplingRate(1.0),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
@@ -67,7 +90,8 @@ void main() {
       final fakeRandom = FakeRandomValueProvider(0.3);
 
       final sut = SessionSamplingProvider(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
@@ -78,52 +102,75 @@ void main() {
       expect(sut.isSampled, isTrue);
     });
 
-    group('clamping invalid values:', () {
-      test('samplingRate > 1.0 is clamped to 1.0 (always samples)', () {
-        final fakeRandom = FakeRandomValueProvider(0.999);
+    test('null sampling defaults to 100% sampled', () {
+      final fakeRandom = FakeRandomValueProvider(0.999);
 
-        final sut = SessionSamplingProvider(
-          samplingRate: 2.0, // Invalid: > 1.0
+      final sut = SessionSamplingProvider(
+        meta: testMeta,
+        randomValueProvider: fakeRandom,
+      );
+
+      expect(sut.isSampled, isTrue);
+    });
+
+    group('SamplingFunction:', () {
+      test('function is called with SamplingContext', () {
+        final fakeRandom = FakeRandomValueProvider(0.5);
+        SamplingContext? capturedContext;
+
+        SessionSamplingProvider(
+          sampling: SamplingFunction((context) {
+            capturedContext = context;
+            return 1.0;
+          }),
+          meta: testMeta,
           randomValueProvider: fakeRandom,
         );
 
-        // Should behave like samplingRate 1.0: 0.999 < 1.0 is true
-        expect(sut.isSampled, isTrue);
+        expect(capturedContext, isNotNull);
+        expect(capturedContext!.meta, equals(testMeta));
+        expect(capturedContext!.meta.app?.name, equals('TestApp'));
       });
 
-      test('samplingRate < 0.0 is clamped to 0.0 (never samples)', () {
-        final fakeRandom = FakeRandomValueProvider(0.0);
-
-        final sut = SessionSamplingProvider(
-          samplingRate: -0.5, // Invalid: < 0.0
-          randomValueProvider: fakeRandom,
-        );
-
-        // Should behave like samplingRate 0.0: 0.0 < 0.0 is false
-        expect(sut.isSampled, isFalse);
-      });
-
-      test('large positive samplingRate is clamped to 1.0', () {
+      test('can make decision based on environment', () {
         final fakeRandom = FakeRandomValueProvider(0.5);
 
         final sut = SessionSamplingProvider(
-          samplingRate: 100.0, // Invalid: way > 1.0
+          sampling: SamplingFunction((context) {
+            if (context.meta.app?.environment == 'production') {
+              return 0.1; // Low sampling in production
+            }
+            return 1.0;
+          }),
+          meta: testMeta, // production environment
           randomValueProvider: fakeRandom,
         );
 
-        // Should behave like samplingRate 1.0
+        // 0.5 >= 0.1, so not sampled
+        expect(sut.isSampled, isFalse);
+      });
+
+      test('return value above 1.0 is clamped', () {
+        final fakeRandom = FakeRandomValueProvider(0.99);
+
+        final sut = SessionSamplingProvider(
+          sampling: SamplingFunction((context) => 5.0),
+          meta: testMeta,
+          randomValueProvider: fakeRandom,
+        );
+
         expect(sut.isSampled, isTrue);
       });
 
-      test('large negative samplingRate is clamped to 0.0', () {
-        final fakeRandom = FakeRandomValueProvider(0.001);
+      test('return value below 0.0 is clamped', () {
+        final fakeRandom = FakeRandomValueProvider(0.0);
 
         final sut = SessionSamplingProvider(
-          samplingRate: -100.0, // Invalid: way < 0.0
+          sampling: SamplingFunction((context) => -1.0),
+          meta: testMeta,
           randomValueProvider: fakeRandom,
         );
 
-        // Should behave like samplingRate 0.0
         expect(sut.isSampled, isFalse);
       });
     });
@@ -131,11 +178,20 @@ void main() {
 
   group('SessionSamplingProviderFactory:', () {
     late SessionSamplingProviderFactory sut;
+    late Meta testMeta;
 
     setUp(() {
       sut = SessionSamplingProviderFactory();
       sut.reset();
       RandomValueProviderFactory().reset();
+      testMeta = Meta(
+        session: Session('test-session'),
+        app: App(
+          name: 'TestApp',
+          environment: 'production',
+          version: '1.0.0',
+        ),
+      );
     });
 
     tearDown(() {
@@ -147,7 +203,8 @@ void main() {
       final fakeRandom = FakeRandomValueProvider(0.5);
 
       final provider = sut.create(
-        samplingRate: 1.0,
+        sampling: const SamplingRate(1.0),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
@@ -158,11 +215,13 @@ void main() {
       final fakeRandom = FakeRandomValueProvider(0.5);
 
       final provider1 = sut.create(
-        samplingRate: 1.0,
+        sampling: const SamplingRate(1.0),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
       final provider2 = sut.create(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
@@ -173,25 +232,28 @@ void main() {
       final fakeRandom = FakeRandomValueProvider(0.3);
 
       final provider = sut.create(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom,
       );
 
       expect(provider.isSampled, isTrue);
     });
 
-    test('should work when RandomValueProvider is not provided', () {
-      // Verifies the code path works without an injected provider
-      final provider = sut.create(samplingRate: 1.0);
+    test('should work when sampling is not provided (defaults to 100%)', () {
+      final provider = sut.create(
+        meta: testMeta,
+      );
 
-      // With samplingRate 1.0, should always be sampled regardless of random
+      // With default sampling (1.0), should always be sampled
       expect(provider.isSampled, isTrue);
     });
 
     test('should reset the singleton instance', () {
       final fakeRandom1 = FakeRandomValueProvider(0.3);
       final provider1 = sut.create(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom1,
       );
 
@@ -199,7 +261,8 @@ void main() {
 
       final fakeRandom2 = FakeRandomValueProvider(0.7);
       final provider2 = sut.create(
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
         randomValueProvider: fakeRandom2,
       );
 

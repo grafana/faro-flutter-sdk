@@ -1,21 +1,27 @@
+import 'package:faro/src/configurations/sampling.dart';
+import 'package:faro/src/models/meta.dart';
+import 'package:faro/src/session/sampling_context.dart';
 import 'package:faro/src/util/random_value_provider.dart';
 import 'package:flutter/foundation.dart';
+
+/// Default sampling configuration (100% of sessions).
+const Sampling _defaultSampling = SamplingRate(1);
 
 /// Determines if a session should be sampled.
 ///
 /// The sampling decision is made once at construction time and is immutable.
 /// This ensures consistent behavior throughout the session lifecycle.
 class SessionSamplingProvider {
-  /// Creates a sampling provider with the given [samplingRate].
+  /// Creates a sampling provider.
   ///
-  /// The [samplingRate] is clamped to the valid range [0.0, 1.0] to ensure
-  /// safe behavior even if an invalid value is provided in production builds
-  /// (where assert statements are not checked).
+  /// The [sampling] configuration determines the sampling rate. If not
+  /// provided, defaults to [SamplingRate(1.0)] (all sessions sampled).
   SessionSamplingProvider({
-    required double samplingRate,
+    Sampling? sampling,
+    required Meta meta,
     required RandomValueProvider randomValueProvider,
-  }) : isSampled =
-            randomValueProvider.nextDouble() < samplingRate.clamp(0.0, 1.0);
+  }) : isSampled = randomValueProvider.nextDouble() <
+            (sampling ?? _defaultSampling).resolve(SamplingContext(meta: meta));
 
   /// Whether this session is sampled.
   ///
@@ -33,18 +39,21 @@ class SessionSamplingProviderFactory {
 
   /// Creates or returns the singleton [SessionSamplingProvider] instance.
   ///
-  /// The [samplingRate] is only used when creating the first instance.
-  /// Subsequent calls return the cached instance regardless of the provided
-  /// [samplingRate].
+  /// The [sampling] configuration determines the sampling rate. If not
+  /// provided, defaults to [SamplingRate(1.0)] (all sessions sampled).
+  ///
+  /// Subsequent calls return the cached instance regardless of parameters.
   ///
   /// If [randomValueProvider] is not provided, uses the default from
   /// [RandomValueProviderFactory].
   SessionSamplingProvider create({
-    required double samplingRate,
+    Sampling? sampling,
+    required Meta meta,
     RandomValueProvider? randomValueProvider,
   }) {
     _instance ??= SessionSamplingProvider(
-      samplingRate: samplingRate,
+      sampling: sampling,
+      meta: meta,
       randomValueProvider:
           randomValueProvider ?? RandomValueProviderFactory().create(),
     );

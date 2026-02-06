@@ -5,7 +5,10 @@ import 'package:faro/faro.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'features/sampling_settings/domain/sampling_settings_service.dart';
+import 'features/sampling_settings/presentation/sampling_settings_page.dart';
 import 'features/tracing/presentation/tracing_page.dart';
 import 'features/user_settings/user_settings_page.dart';
 import 'features/user_settings/user_settings_service.dart';
@@ -19,13 +22,24 @@ void main() async {
   // Faro won't intercept those HTTP requests.
   HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
-  // Create ProviderContainer first - this is Riverpod's root
-  // and allows us to access providers before runApp()
-  final container = ProviderContainer();
+  // Initialize SharedPreferences
+  final sharedPreferences = await SharedPreferences.getInstance();
 
-  // Load user settings
+  // Create ProviderContainer with SharedPreferences override
+  // This is Riverpod's root and allows us to access providers before runApp()
+  final container = ProviderContainer(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+    ],
+  );
+
+  // Load user settings service (still using singleton pattern)
   final userSettingsService = UserSettingsService.instance;
   await userSettingsService.init();
+
+  // Get sampling settings from Riverpod
+  final samplingSettingsService =
+      container.read(samplingSettingsServiceProvider);
 
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
   final faroApiKey = faroCollectorUrl.split('/').last;
@@ -41,7 +55,8 @@ void main() async {
       appEnv: 'Test',
       apiKey: faroApiKey,
       namespace: 'flutter_app',
-      samplingRate: 1.0,
+      // Sampling is configured via SamplingSettingsService
+      sampling: samplingSettingsService.sampling,
       anrTracking: true,
       cpuUsageVitals: true,
       collectorUrl: faroCollectorUrl,
@@ -113,6 +128,7 @@ class _MyAppState extends State<MyApp> {
         '/home': (context) => const HomePage(),
         '/features': (context) => const FeaturesPage(),
         '/user-settings': (context) => const UserSettingsPage(),
+        '/sampling-settings': (context) => const SamplingSettingsPage(),
         '/tracing': (context) => const TracingPage(),
       },
       home: Scaffold(
@@ -168,6 +184,10 @@ class _FeaturesPageState extends State<FeaturesPage> {
   final _userSettingsService = UserSettingsService.instance;
   String _currentUserDisplay = 'Not set';
 
+  bool get _isSessionSampled => Faro().isSampled;
+  String get _samplingStatusDisplay =>
+      _isSessionSampled ? 'Sampled' : 'Not sampled';
+
   @override
   void initState() {
     super.initState();
@@ -216,6 +236,29 @@ class _FeaturesPageState extends State<FeaturesPage> {
                   onTap: () async {
                     await Navigator.pushNamed(context, '/user-settings');
                     _updateCurrentUser();
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Sampling Settings Card
+              Card(
+                child: ListTile(
+                  leading: Icon(
+                    Icons.analytics,
+                    color: _isSessionSampled ? Colors.green : Colors.grey,
+                  ),
+                  title: const Text('Sampling Settings'),
+                  subtitle: Text(
+                    'Session: $_samplingStatusDisplay',
+                    style: TextStyle(
+                      color: _isSessionSampled ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await Navigator.pushNamed(context, '/sampling-settings');
+                    // Trigger rebuild (sampling status is a getter)
+                    setState(() {});
                   },
                 ),
               ),
