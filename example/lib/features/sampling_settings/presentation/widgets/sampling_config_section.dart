@@ -67,9 +67,7 @@ class SamplingConfigSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...SamplingSetting.values
-                      .where((s) => !s.isFunction)
-                      .map(
+                  ...SamplingSetting.values.where((s) => !s.isFunction).map(
                         (setting) => SamplingRadioTile(setting: setting),
                       ),
 
@@ -91,9 +89,7 @@ class SamplingConfigSection extends StatelessWidget {
                     style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                   const SizedBox(height: 8),
-                  ...SamplingSetting.values
-                      .where((s) => s.isFunction)
-                      .map(
+                  ...SamplingSetting.values.where((s) => s.isFunction).map(
                         (setting) => SamplingRadioTile(setting: setting),
                       ),
                 ],
