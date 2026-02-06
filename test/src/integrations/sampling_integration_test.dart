@@ -1,9 +1,11 @@
 // ignore_for_file: avoid_redundant_argument_values, prefer_int_literals, lines_longer_than_80_chars
 
 import 'package:faro/src/configurations/faro_config.dart';
+import 'package:faro/src/configurations/sampling.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/session/sampling_context.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
@@ -79,7 +81,8 @@ void main() {
       RandomValueProviderFactory().reset();
     });
 
-    test('samplingRate 1.0 should sample session and send telemetry', () async {
+    test('SamplingRate(1.0) should sample session and send telemetry',
+        () async {
       TestWidgetsFlutterBinding.ensureInitialized();
 
       final config = FaroConfig(
@@ -88,7 +91,7 @@ void main() {
         appEnv: appEnv,
         apiKey: apiKey,
         collectorUrl: 'https://some-url.com',
-        samplingRate: 1.0,
+        sampling: const SamplingRate(1.0),
         cpuUsageVitals: false,
         memoryUsageVitals: false,
       );
@@ -103,7 +106,7 @@ void main() {
       Faro().pushEvent('test_event');
     });
 
-    test('samplingRate 0.0 should not sample session and drop telemetry',
+    test('SamplingRate(0.0) should not sample session and drop telemetry',
         () async {
       TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -113,7 +116,7 @@ void main() {
         appEnv: appEnv,
         apiKey: apiKey,
         collectorUrl: 'https://some-url.com',
-        samplingRate: 0.0,
+        sampling: const SamplingRate(0.0),
         cpuUsageVitals: false,
         memoryUsageVitals: false,
       );
@@ -130,7 +133,7 @@ void main() {
       TestWidgetsFlutterBinding.ensureInitialized();
 
       // Inject a fake random provider that returns 0.3
-      // With samplingRate 0.5, random 0.3 < 0.5, so should be sampled
+      // With rate 0.5, random 0.3 < 0.5, so should be sampled
       RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.3));
 
       final config = FaroConfig(
@@ -139,7 +142,7 @@ void main() {
         appEnv: appEnv,
         apiKey: apiKey,
         collectorUrl: 'https://some-url.com',
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
         cpuUsageVitals: false,
         memoryUsageVitals: false,
       );
@@ -156,7 +159,7 @@ void main() {
       TestWidgetsFlutterBinding.ensureInitialized();
 
       // Inject a fake random provider that returns 0.7
-      // With samplingRate 0.5, random 0.7 >= 0.5, so should NOT be sampled
+      // With rate 0.5, random 0.7 >= 0.5, so should NOT be sampled
       RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.7));
 
       final config = FaroConfig(
@@ -165,7 +168,7 @@ void main() {
         appEnv: appEnv,
         apiKey: apiKey,
         collectorUrl: 'https://some-url.com',
-        samplingRate: 0.5,
+        sampling: const SamplingRate(0.5),
         cpuUsageVitals: false,
         memoryUsageVitals: false,
       );
@@ -175,10 +178,10 @@ void main() {
       expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
     });
 
-    test('default samplingRate is 1.0 (all sessions sampled)', () async {
+    test('default sampling is 100% (all sessions sampled)', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
 
-      // Use default samplingRate (should be 1.0)
+      // Use default sampling (should be 100%)
       final config = FaroConfig(
         appName: appName,
         appVersion: appVersion,
@@ -187,12 +190,12 @@ void main() {
         collectorUrl: 'https://some-url.com',
         cpuUsageVitals: false,
         memoryUsageVitals: false,
-        // samplingRate not specified, should default to 1.0
+        // sampling not specified, should default to 100%
       );
 
       await Faro().init(optionsConfiguration: config);
 
-      // With default 1.0, should always be sampled (not NoOpBatchTransport)
+      // With default 100%, should always be sampled (not NoOpBatchTransport)
       expect(
           BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
     });
@@ -206,7 +209,7 @@ void main() {
         appEnv: appEnv,
         apiKey: apiKey,
         collectorUrl: 'https://some-url.com',
-        samplingRate: 0.0,
+        sampling: const SamplingRate(0.0),
         cpuUsageVitals: false,
         memoryUsageVitals: false,
       );
@@ -236,7 +239,7 @@ void main() {
         appEnv: appEnv,
         apiKey: apiKey,
         collectorUrl: 'https://some-url.com',
-        samplingRate: 0.0,
+        sampling: const SamplingRate(0.0),
         cpuUsageVitals: false,
         memoryUsageVitals: false,
       );
@@ -265,7 +268,7 @@ void main() {
         appEnv: appEnv,
         apiKey: apiKey,
         collectorUrl: 'https://some-url.com',
-        samplingRate: 0.0,
+        sampling: const SamplingRate(0.0),
         cpuUsageVitals: false,
         memoryUsageVitals: false,
       );
@@ -282,6 +285,252 @@ void main() {
 
       // Still empty
       expect(batchTransport.payloadSize(), equals(0));
+    });
+
+    group('SamplingFunction:', () {
+      test('function is called with SamplingContext', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        SamplingContext? capturedContext;
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) {
+            capturedContext = context;
+            return 1.0;
+          }),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(capturedContext, isNotNull);
+        expect(capturedContext!.meta, isNotNull);
+      });
+
+      test('context contains app metadata', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        SamplingContext? capturedContext;
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) {
+            capturedContext = context;
+            return 1.0;
+          }),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(capturedContext!.meta.app?.name, equals(appName));
+        expect(capturedContext!.meta.app?.environment, equals(appEnv));
+        expect(capturedContext!.meta.app?.version, equals(appVersion));
+      });
+
+      test('context contains session metadata', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        SamplingContext? capturedContext;
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sessionAttributes: {'team': 'mobile', 'feature_flag': 'beta'},
+          sampling: SamplingFunction((context) {
+            capturedContext = context;
+            return 1.0;
+          }),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(capturedContext!.meta.session, isNotNull);
+        expect(capturedContext!.meta.session?.id, isNotNull);
+        // Session attributes should include custom attributes
+        expect(capturedContext!.meta.session?.attributes?['team'],
+            equals('mobile'));
+        expect(capturedContext!.meta.session?.attributes?['feature_flag'],
+            equals('beta'));
+      });
+
+      test('returning 1.0 should sample session', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) => 1.0),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(
+            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+      });
+
+      test('returning 0.0 should not sample session', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) => 0.0),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
+      });
+
+      test('return value is used with random decision', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        // Inject a fake random provider that returns 0.3
+        // Function returns 0.5, so random 0.3 < 0.5, should be sampled
+        RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.3));
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) => 0.5),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(
+            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+      });
+
+      test('return value above 1.0 is clamped to 1.0', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        // Function returns 2.0, which should be clamped to 1.0
+        // With rate 1.0, should always sample
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) => 2.0),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(
+            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+      });
+
+      test('return value below 0.0 is clamped to 0.0', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        // Function returns -1.0, which should be clamped to 0.0
+        // With rate 0.0, should never sample
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) => -1.0),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
+      });
+
+      test('can make decision based on app environment', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        // Inject random value that would sample at 0.5 rate
+        RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.3));
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: 'production',
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sampling: SamplingFunction((context) {
+            // Sample 10% of production, 100% of everything else
+            if (context.meta.app?.environment == 'production') {
+              return 0.1;
+            }
+            return 1.0;
+          }),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        // With random 0.3 and rate 0.1, 0.3 >= 0.1, should NOT be sampled
+        expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
+      });
+
+      test('can make decision based on session attributes', () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+          sessionAttributes: {'team': 'beta-testers'},
+          sampling: SamplingFunction((context) {
+            // Sample all beta testers
+            if (context.meta.session?.attributes?['team'] == 'beta-testers') {
+              return 1.0;
+            }
+            return 0.0;
+          }),
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(
+            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+      });
     });
   });
 }
