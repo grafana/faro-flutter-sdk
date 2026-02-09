@@ -450,12 +450,31 @@ Future<void> main(List<String> args) async {
   // Create GitHub release
   stdout.write('Creating GitHub release... ');
   final releaseTitle = 'v$version';
-  if (!await createGitHubRelease(tag, releaseTitle, releaseNotes)) {
+  try {
+    if (!await createGitHubRelease(tag, releaseTitle, releaseNotes)) {
+      stderr.writeln('');
+      stderr.writeln('${Colors.yellow}Tag was pushed but GitHub '
+          'release creation failed.${Colors.reset}');
+      stderr.writeln('You can create the release manually at:');
+      if (repoUrl != null) {
+        stderr.writeln('  $repoUrl/releases/new?tag=$tag');
+      } else {
+        stderr.writeln('  https://github.com/<owner>/<repo>/releases/new?tag=$tag');
+      }
+      exit(1);
+    }
+  } on ProcessException catch (e) {
     stderr.writeln('');
     stderr.writeln('${Colors.yellow}Tag was pushed but GitHub '
         'release creation failed.${Colors.reset}');
+    stderr.writeln('${Colors.red}Error: ${e.message}${Colors.reset}');
+    stderr.writeln('Make sure the gh CLI is installed and in your PATH.');
     stderr.writeln('You can create the release manually at:');
-    stderr.writeln('  $repoUrl/releases/new?tag=$tag');
+    if (repoUrl != null) {
+      stderr.writeln('  $repoUrl/releases/new?tag=$tag');
+    } else {
+      stderr.writeln('  https://github.com/<owner>/<repo>/releases/new?tag=$tag');
+    }
     exit(1);
   }
   stdout.writeln('${Colors.green}✓${Colors.reset}');
