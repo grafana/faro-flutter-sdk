@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-02-09
+
 ### Added
 
 - **Session sampling support**: New `sampling` configuration option allows controlling what percentage of sessions send telemetry data. This enables cost management and traffic reduction for high-volume applications. (Resolves #89)
