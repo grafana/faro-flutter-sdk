@@ -1,6 +1,6 @@
 name: faro
 description: Grafana Faro SDK for Flutter applications - Monitor your Flutter app with ease.
-version: 0.9.0
+version: 0.10.0
 homepage: https://grafana.com/oss/faro/
 repository: https://github.com/grafana/faro-flutter-sdk
 
