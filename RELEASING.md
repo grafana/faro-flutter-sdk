@@ -85,22 +85,32 @@ As you develop new features or fix bugs, add entries to the `CHANGELOG.md` under
    - Title: `chore: bump version to v0.3.4`
    - Description: Review changelog and version updates
 
-7. **Merge and Tag**
+7. **Create Release**
 
-   After PR review and merge:
+   After PR review and merge, use the release script:
 
    ```bash
    git checkout main
    git pull origin main
-   git tag v0.3.4
-   git push origin v0.3.4
+   dart tool/create_release.dart
    ```
+
+   > **Tip:** Use `dart tool/create_release.dart --dry-run` to preview without creating anything.
+
+   > **Tip:** Use `dart tool/create_release.dart --enrich` to use AI to generate polished release notes from the changelog (requires `OPENAI_API_KEY` environment variable).
+
+   This will:
+
+   - Read the version from `pubspec.yaml`
+   - Extract release notes from `CHANGELOG.md`
+   - Show a preview and ask for confirmation
+   - Create and push the git tag
+   - Create a GitHub release with changelog content and compare link
 
 8. **Automated Publishing**
 
    - GitHub Actions automatically publishes to pub.dev when you push a version tag
    - Uses the `pub.dev` GitHub environment for security
-   - Creates a GitHub release automatically
    - No manual `flutter pub publish` needed!
 
 9. **Post-Release**
