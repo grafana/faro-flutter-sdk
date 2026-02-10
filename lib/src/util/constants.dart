@@ -4,5 +4,5 @@ class FaroConstants {
   static const String sdkVersion = '0.10.0';
 
   /// The name of the Faro Flutter SDK
-  static const String sdkName = 'faro-flutter-sdk';
+  static const String sdkName = 'faro-mobile-flutter';
 }

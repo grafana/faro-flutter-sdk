@@ -76,7 +76,7 @@ class Faro {
         SessionIdProviderFactory().create().sessionId,
         attributes: {},
       ),
-      sdk: Sdk(FaroConstants.sdkName, '1.3.5', []),
+      sdk: Sdk(FaroConstants.sdkName, FaroConstants.sdkVersion),
       app: App(name: '', environment: '', version: ''),
       view: ViewMeta('default'));
 

@@ -1,6 +1,5 @@
 import 'package:faro/src/device_info/device_id_provider.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
-import 'package:faro/src/util/constants.dart';
 
 class SessionAttributesProvider {
   SessionAttributesProvider({
@@ -17,7 +16,6 @@ class SessionAttributesProvider {
     final deviceInfo = await _deviceInfoProvider.getDeviceInfo();
 
     final attributes = <String, Object>{
-      'faro_sdk_version': FaroConstants.sdkVersion,
       'dart_version': deviceInfo.dartVersion,
       'device_os': deviceInfo.deviceOs,
       'device_os_version': deviceInfo.deviceOsVersion,
