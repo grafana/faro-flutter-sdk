@@ -242,59 +242,12 @@ All standard commands are documented in the **Build/Test Commands** section abov
 - The example app requires `example/api-config.json`. Generate it via `FARO_COLLECTOR_URL="<url>" bash tool/create-api-config-file.sh`. A placeholder URL is sufficient for building.
 - Example app APK build: `cd example && flutter build apk --dart-define-from-file api-config.json`.
 
-### Visual testing on real devices (BrowserStack)
+### Visual testing on real devices
 
-The Cloud VM has no Android emulator. Instead, use **BrowserStack App Automate** (Appium) to run the example app on real devices entirely via CLI — no browser login required.
-
-**Required secrets**: `BROWSERSTACK_USERNAME`, `BROWSERSTACK_ACCESS_KEY` (service account credentials for API access).
-
-**Workflow**:
-
-1. **Build APK**:
-   ```bash
-   FARO_COLLECTOR_URL="<url>" bash tool/create-api-config-file.sh
-   cd example && flutter build apk --debug --dart-define-from-file api-config.json
-   ```
-
-2. **Upload to BrowserStack App Automate**:
-   ```bash
-   curl -s -u "${BROWSERSTACK_USERNAME}:${BROWSERSTACK_ACCESS_KEY}" \
-     -X POST "https://api-cloud.browserstack.com/app-automate/upload" \
-     -F "file=@build/app/outputs/flutter-apk/app-debug.apk" \
-     -F "custom_id=faro-example-app"
-   ```
-
-3. **Start Appium session on a real device**:
-   ```bash
-   curl -s -X POST \
-     "https://${BROWSERSTACK_USERNAME}:${BROWSERSTACK_ACCESS_KEY}@hub-cloud.browserstack.com/wd/hub/session" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "desiredCapabilities": {
-         "platformName": "android",
-         "deviceName": "Google Pixel 8",
-         "os_version": "14.0",
-         "app": "faro-example-app",
-         "project": "Faro Flutter SDK",
-         "build": "Dev Test",
-         "name": "Session Name",
-         "autoGrantPermissions": true
-       }
-     }'
-   ```
-   Response contains `sessionId` for subsequent commands.
-
-4. **Interact via Appium REST API** (all use `BS_HUB` and `BS_SESSION_ID`):
-   - **Screenshot**: `GET /session/{id}/screenshot` (returns base64 PNG)
-   - **UI tree**: `GET /session/{id}/source` (returns XML hierarchy)
-   - **Find element**: `POST /session/{id}/element` with `{"using": "accessibility id", "value": "Button Text"}`
-   - **Click**: `POST /session/{id}/element/{elementId}/click`
-   - **Scroll**: `POST /session/{id}/touch/scroll` with x/y offsets
-
-5. **End session**: `DELETE /session/{id}`
+No Android emulator is available in the Cloud VM. For visual verification of the example app on real devices, use BrowserStack App Automate (Appium REST API) — see [`doc/Remote Device Testing.md`](../doc/Remote%20Device%20Testing.md) for the full workflow. Requires `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` env vars.
 
 ### Notes
 
 - The example app uses `RadioGroup` which requires Flutter >= 3.32. Run `flutter upgrade` if analysis fails with `RadioGroup` errors.
-- SDK correctness is primarily validated through `flutter test` (408+ unit tests). BrowserStack is for visual verification of the example app.
-- A placeholder `FARO_COLLECTOR_URL` is sufficient for building/running; telemetry will fail to send but the app runs fine.
+- SDK correctness is primarily validated through `flutter test` (408+ unit tests). BrowserStack is for visual verification of the example app only.
+- A placeholder `FARO_COLLECTOR_URL` is sufficient for building/running; telemetry won't reach a real backend but the app runs fine.
