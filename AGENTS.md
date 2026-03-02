@@ -222,3 +222,27 @@ class FeaturePage extends ConsumerWidget {
 ### Reference Implementation
 
 See `example/lib/features/tracing/` for the complete pattern.
+
+---
+
+## Cursor Cloud specific instructions
+
+### Environment
+
+- **Flutter SDK** is installed at `/opt/flutter` and added to `PATH` via `~/.bashrc`.
+- **Android SDK** is at `/opt/android-sdk` with `ANDROID_HOME` set. Java 21 is pre-installed.
+- No `.fvmrc` or pinned Flutter version — the repo uses the latest stable channel.
+
+### Key commands
+
+All standard commands are documented in the **Build/Test Commands** section above. Additionally:
+
+- `flutter analyze lib/ test/` — run analysis on SDK code only (excludes example app).
+- `dart format --set-exit-if-changed .` — check formatting without modifying files (used in CI).
+- The example app requires `example/api-config.json`. Generate it via `FARO_COLLECTOR_URL="<url>" bash tool/create-api-config-file.sh`. A placeholder URL is sufficient for building.
+- Example app APK build: `cd example && flutter build apk --dart-define-from-file api-config.json`.
+
+### Known issues
+
+- The `example/` app has pre-existing compilation errors (`RadioGroup` method not defined, `flutter_riverpod` API incompatibility with Flutter 3.29.x). Running `flutter analyze` on the full workspace will show 6 errors — all in `example/` code, not in the SDK itself. The SDK library (`lib/` and `test/`) passes analysis cleanly.
+- There is no GUI-runnable application in the Cloud VM (no emulator/device). The SDK is a library — its correctness is validated through `flutter test` (408 tests).
