@@ -1,3 +1,5 @@
+import 'package:faro/src/models/user_action_context.dart';
+
 class Event {
   Event(this.name, {this.attributes, this.trace});
 
@@ -7,11 +9,15 @@ class Event {
     attributes = json['attributes'];
     timestamp = json['timestamp'];
     trace = json['trace'];
+    if (json['action'] != null) {
+      action = UserActionContext.fromJson(json['action']);
+    }
   }
   String name = '';
   String domain = 'flutter';
   Map<String, dynamic>? attributes = {};
   Map<String, dynamic>? trace = {};
+  UserActionContext? action;
   String timestamp = DateTime.now().toUtc().toIso8601String();
 
   Map<String, dynamic> toJson() {
@@ -24,6 +30,10 @@ class Event {
 
     if (trace != null) {
       map['trace'] = trace;
+    }
+
+    if (action != null) {
+      map['action'] = action!.toJson();
     }
 
     return map;

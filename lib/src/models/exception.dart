@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'dart:core';
 import 'dart:developer';
 
+import 'package:faro/src/models/user_action_context.dart';
+
 class StackFrames {
   StackFrames(this.filename, this.function, this.lineno, this.colno);
   StackFrames.fromJson(dynamic json) {
@@ -59,6 +61,10 @@ class FaroException {
     } else {
       context = null;
     }
+
+    if (json['action'] != null) {
+      action = UserActionContext.fromJson(json['action']);
+    }
   }
 
   /// Creates a FaroException from JSON, but returns null if required fields are missing
@@ -93,6 +99,7 @@ class FaroException {
   Map<String, dynamic>? stacktrace;
   String trace = '';
   Map<String, String>? context;
+  UserActionContext? action;
   String timestamp = DateTime.now().toUtc().toIso8601String();
 
   Map<String, dynamic> toJson() {
@@ -106,6 +113,9 @@ class FaroException {
     }
     if (context != null) {
       map['context'] = context;
+    }
+    if (action != null) {
+      map['action'] = action!.toJson();
     }
     return map;
   }

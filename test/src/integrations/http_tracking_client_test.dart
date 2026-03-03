@@ -1,9 +1,10 @@
-// ignore_for_file: close_sinks
-
-import 'dart:async';
 import 'dart:io';
 
 import 'package:faro/src/integrations/http_tracking_client.dart';
+import 'package:faro/src/integrations/http_tracking_filter.dart';
+import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
+import 'package:faro/src/user_actions/user_action_signal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -13,85 +14,208 @@ class MockHttpClientRequest extends Mock implements HttpClientRequest {}
 
 class MockHttpClientResponse extends Mock implements HttpClientResponse {}
 
-class MockStreamSubscription<T> extends Mock implements StreamSubscription<T> {}
-
 class MockHttpHeaders extends Mock implements HttpHeaders {}
 
+class MockSpan extends Mock implements Span {}
+
 void main() {
-  group('FaroHttpTrackingClient', () {
+  group('FaroHttpTrackingClient:', () {
     late MockHttpClient mockHttpClient;
-    late FaroHttpTrackingClient faroHttpTrackingClient;
+    late HttpTrackingFilter trackingFilter;
+    late UserActionLifecycleSignalChannel signalChannel;
+    late FaroHttpTrackingClient client;
     late MockHttpClientRequest mockHttpClientRequest;
-    late MockHttpHeaders mockHttpHeaders;
+    late MockHttpHeaders mockRequestHeaders;
 
     setUp(() {
       mockHttpClient = MockHttpClient();
+      trackingFilter = HttpTrackingFilter();
+      signalChannel = UserActionLifecycleSignalChannel();
       mockHttpClientRequest = MockHttpClientRequest();
-      mockHttpHeaders = MockHttpHeaders();
+      mockRequestHeaders = MockHttpHeaders();
 
       when(() => mockHttpClientRequest.method).thenReturn('GET');
-      when(() => mockHttpClientRequest.headers).thenReturn(mockHttpHeaders);
+      when(() => mockHttpClientRequest.headers).thenReturn(mockRequestHeaders);
       when(() => mockHttpClientRequest.uri)
           .thenReturn(Uri.parse('http://example.com/path'));
+      when(() => mockRequestHeaders.add(any(), any())).thenReturn(null);
 
-      faroHttpTrackingClient = FaroHttpTrackingClient(mockHttpClient);
+      client = FaroHttpTrackingClient(
+        mockHttpClient,
+        trackingFilter: trackingFilter,
+        lifecycleSignalChannel: signalChannel,
+      );
     });
 
-    test('openUrl should call innerClient.openUrl', () async {
-      final url = Uri.parse('http://example.com/path');
+    tearDown(() {
+      signalChannel.dispose();
+    });
 
+    test('should bypass tracking when filter rejects URL', () async {
+      trackingFilter.configure(
+        collectorUrl: 'http://example.com/path',
+        ignoreUrls: null,
+      );
+
+      final emittedSignals = <UserActionSignal>[];
+      final subscription = signalChannel.stream.listen(emittedSignals.add);
+
+      final url = Uri.parse('http://example.com/path');
       when(() => mockHttpClient.openUrl('GET', url))
           .thenAnswer((_) async => mockHttpClientRequest);
 
-      final requestFuture = faroHttpTrackingClient.openUrl('GET', url);
+      final request = await client.openUrl('GET', url);
 
+      expect(request, same(mockHttpClientRequest));
+      expect(emittedSignals, isEmpty);
       verify(() => mockHttpClient.openUrl('GET', url)).called(1);
 
-      expect(await requestFuture, isA<HttpClientRequest>());
+      await subscription.cancel();
+    });
+
+    test('should emit pendingStart and wrap request when tracked', () async {
+      trackingFilter.configure(collectorUrl: null, ignoreUrls: null);
+
+      final emittedSignals = <UserActionSignal>[];
+      final subscription = signalChannel.stream.listen(emittedSignals.add);
+
+      final url = Uri.parse('http://example.com/path');
+      when(() => mockHttpClient.openUrl('GET', url))
+          .thenAnswer((_) async => mockHttpClientRequest);
+
+      final request = await client.openUrl('GET', url);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(request, isA<FaroTrackingHttpClientRequest>());
+      expect(emittedSignals.length, equals(1));
+      expect(emittedSignals.single.type, UserActionSignalType.pendingStart);
+      expect(emittedSignals.single.source, equals('http'));
+      expect(emittedSignals.single.operationId, isNotNull);
+
+      await subscription.cancel();
+    });
+
+    test('should emit pendingEnd when opening tracked request throws',
+        () async {
+      trackingFilter.configure(collectorUrl: null, ignoreUrls: null);
+
+      final emittedSignals = <UserActionSignal>[];
+      final subscription = signalChannel.stream.listen(emittedSignals.add);
+
+      final url = Uri.parse('http://example.com/path');
+      when(() => mockHttpClient.openUrl('GET', url))
+          .thenThrow(const SocketException('boom'));
+
+      await expectLater(
+        () => client.openUrl('GET', url),
+        throwsA(isA<SocketException>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        emittedSignals.map((signal) => signal.type),
+        equals([
+          UserActionSignalType.pendingStart,
+          UserActionSignalType.pendingEnd,
+        ]),
+      );
+      expect(
+        emittedSignals[0].operationId,
+        equals(emittedSignals[1].operationId),
+      );
+
+      await subscription.cancel();
     });
   });
 
-  group('FaroTrackingHttpClientRequest', () {
+  group('FaroTrackingHttpClientRequest:', () {
     late MockHttpClientRequest mockHttpClientRequest;
-    late FaroTrackingHttpClientRequest faroTrackingHttpClientRequest;
-    late Map<String, Object?> userAttributes;
-    late MockHttpHeaders mockHttpHeaders;
+    late MockHttpClientResponse mockHttpClientResponse;
+    late MockHttpHeaders mockRequestHeaders;
+    late MockHttpHeaders mockResponseHeaders;
+    late UserActionLifecycleSignalChannel signalChannel;
+    late FaroTrackingHttpClientRequest trackedRequest;
+    late MockSpan mockSpan;
 
     setUp(() {
       mockHttpClientRequest = MockHttpClientRequest();
-      mockHttpHeaders = MockHttpHeaders();
+      mockHttpClientResponse = MockHttpClientResponse();
+      mockRequestHeaders = MockHttpHeaders();
+      mockResponseHeaders = MockHttpHeaders();
+      signalChannel = UserActionLifecycleSignalChannel();
+      mockSpan = MockSpan();
 
-      when(() => mockHttpHeaders.contentLength).thenReturn(100);
-      when(() => mockHttpHeaders.contentType).thenReturn(null);
+      when(() => mockSpan.traceId).thenReturn('trace-id');
+      when(() => mockSpan.spanId).thenReturn('span-id');
       when(() => mockHttpClientRequest.method).thenReturn('GET');
-      when(() => mockHttpClientRequest.headers).thenReturn(mockHttpHeaders);
       when(() => mockHttpClientRequest.uri)
           .thenReturn(Uri.parse('http://example.com/path'));
+      when(() => mockHttpClientRequest.contentLength).thenReturn(42);
+      when(() => mockHttpClientRequest.headers).thenReturn(mockRequestHeaders);
 
-      userAttributes = {
-        'method': 'GET',
-        'url': 'http://example.com/path',
-      };
-      faroTrackingHttpClientRequest = FaroTrackingHttpClientRequest(
-          'key', mockHttpClientRequest, userAttributes);
+      trackedRequest = FaroTrackingHttpClientRequest(
+        'mark-key',
+        mockHttpClientRequest,
+        httpSpan: mockSpan,
+        requestId: 'req-123',
+        lifecycleSignalChannel: signalChannel,
+      );
     });
 
-    test('close should call innerContext.close ', () async {
-      final mockHttpClientResponse = MockHttpClientResponse();
+    tearDown(() {
+      signalChannel.dispose();
+    });
+
+    test('close should end span and emit pendingEnd on success', () async {
+      final emittedSignals = <UserActionSignal>[];
+      final subscription = signalChannel.stream.listen(emittedSignals.add);
 
       when(() => mockHttpClientRequest.close())
           .thenAnswer((_) async => mockHttpClientResponse);
-      when(() => mockHttpClientRequest.method).thenReturn('GET');
-      when(() => mockHttpClientRequest.contentLength).thenReturn(0);
-      when(() => mockHttpClientRequest.uri).thenReturn(Uri.http('some.uri'));
-      when(() => mockHttpClientResponse.headers).thenReturn(mockHttpHeaders);
       when(() => mockHttpClientResponse.statusCode).thenReturn(200);
+      when(() => mockHttpClientResponse.headers)
+          .thenReturn(mockResponseHeaders);
+      when(() => mockResponseHeaders.contentLength).thenReturn(128);
+      when(() => mockResponseHeaders.contentType).thenReturn(null);
 
-      final responseFuture = faroTrackingHttpClientRequest.close();
+      final response = await trackedRequest.close();
+      await Future<void>.delayed(Duration.zero);
 
-      verify(() => mockHttpClientRequest.close()).called(1);
+      expect(response, isA<HttpClientResponse>());
+      verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
+      verify(() => mockSpan.end()).called(1);
+      expect(emittedSignals.length, equals(1));
+      expect(emittedSignals.single.type, UserActionSignalType.pendingEnd);
+      expect(emittedSignals.single.operationId, equals('req-123'));
 
-      expect(await responseFuture, isA<HttpClientResponse>());
+      await subscription.cancel();
+    });
+
+    test('close should end span and emit pendingEnd on error', () async {
+      final emittedSignals = <UserActionSignal>[];
+      final subscription = signalChannel.stream.listen(emittedSignals.add);
+
+      when(() => mockHttpClientRequest.close())
+          .thenThrow(const SocketException('close failed'));
+
+      await expectLater(
+        trackedRequest.close,
+        throwsA(isA<Exception>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
+      verify(() => mockSpan.end()).called(1);
+      expect(emittedSignals.length, equals(1));
+      expect(emittedSignals.single.type, UserActionSignalType.pendingEnd);
+      expect(emittedSignals.single.operationId, equals('req-123'));
+
+      await subscription.cancel();
     });
   });
 }

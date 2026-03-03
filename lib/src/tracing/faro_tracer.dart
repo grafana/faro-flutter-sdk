@@ -1,8 +1,9 @@
 import 'dart:async';
 
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
-import 'package:faro/src/tracing/faro_exporter.dart';
+import 'package:faro/src/tracing/faro_user_action_span_processor.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
@@ -146,11 +147,11 @@ class FaroTracerFactory {
       return _faroTracer!;
     }
 
-    final exporter = FaroExporterFactory().create();
     final resource = DartOtelTracerResourcesFactory().getTracerResource();
+    final faroSpanProcessor = pod.resolve(faroSpanProcessorProvider);
     final provider = otel_sdk.TracerProviderBase(
       resource: resource,
-      processors: [otel_sdk.SimpleSpanProcessor(exporter)],
+      processors: [faroSpanProcessor],
     );
     otel_api.registerGlobalTracerProvider(provider);
     final otelTracer = provider.getTracer(

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'features/sampling_settings/domain/sampling_settings_service.dart';
 import 'features/sampling_settings/presentation/sampling_settings_page.dart';
 import 'features/tracing/presentation/tracing_page.dart';
+import 'features/user_actions/presentation/user_actions_page.dart';
 import 'features/user_settings/user_settings_page.dart';
 import 'features/user_settings/user_settings_service.dart';
 
@@ -130,6 +131,7 @@ class _MyAppState extends State<MyApp> {
         '/user-settings': (context) => const UserSettingsPage(),
         '/sampling-settings': (context) => const SamplingSettingsPage(),
         '/tracing': (context) => const TracingPage(),
+        '/user-actions': (context) => const UserActionsPage(),
       },
       home: Scaffold(
         appBar: AppBar(
@@ -272,6 +274,19 @@ class _FeaturesPageState extends State<FeaturesPage> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pushNamed(context, '/tracing');
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              // User Actions Card
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.touch_app),
+                  title: const Text('User Actions'),
+                  subtitle: const Text('Test action lifecycle scenarios'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/user-actions');
                   },
                 ),
               ),

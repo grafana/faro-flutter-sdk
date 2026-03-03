@@ -13,3 +13,7 @@ export './src/offline_transport/offline_transport.dart';
 export './src/session/sampling_context.dart';
 export './src/tracing/span.dart';
 export './src/transport/faro_transport.dart';
+export './src/user_actions/constants.dart';
+export './src/user_actions/start_user_action_options.dart';
+export './src/user_actions/user_action_handle.dart';
+export './src/user_actions/user_action_state.dart';
