@@ -96,6 +96,7 @@ class UserActionsService {
   void _releaseActiveAction() {
     _activeController?.dispose();
     _stateSubscription?.cancel();
+    _activeUserAction?.dispose();
     _activeUserAction = null;
     _activeController = null;
     _stateSubscription = null;
