@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **User Actions**: Group related telemetry (logs, events, exceptions, traces) under a single action context to track end-to-end user interactions. (Resolves #131)
+  - `Faro().startUserAction('name')` starts a new action that buffers and enriches telemetry with action context
+  - `Faro().getActiveUserAction()` returns the currently active action handle
+  - Automatic lifecycle management with follow-up timeout (100ms) and halt timeout (10s)
+  - HTTP requests and navigation events automatically extend action lifetime via signal channels
+  - Telemetry items captured during an action include `action.name` and `action.id` for correlation in Grafana
+  - Only one action can be active at a time; overlapping calls return `null`
+  - Spans created during an action automatically receive `faro.action.user.name` and `faro.action.user.parentId` attributes via `FaroUserActionSpanProcessor`
+
+- **HTTP Tracking Filter**: New `HttpTrackingFilter` for controlling which URLs are instrumented
+  - Automatically excludes Faro collector URL from tracking
+  - Supports `ignoreUrls` patterns from `FaroConfig` to skip custom URL patterns
+
+- **New dependency**: Added `dartypod` (^0.2.0) for lightweight dependency injection
+
+### Changed
+
+- **Documentation consolidation**: Replaced separate `Getting Started.md`, `Features.md`, and `Configurations.md` with a single comprehensive `Reference.md`
+
 ## [0.10.0] - 2026-02-09
 
 ### Added

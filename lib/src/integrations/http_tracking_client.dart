@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
+import 'package:faro/src/util/short_id.dart';
 import 'package:uuid/uuid.dart';
 
 class FaroHttpOverrides extends HttpOverrides {
@@ -15,15 +19,25 @@ class FaroHttpOverrides extends HttpOverrides {
   HttpClient createHttpClient(SecurityContext? context) {
     final innerClient = existingOverrides?.createHttpClient(context) ??
         super.createHttpClient(context);
-    return FaroHttpTrackingClient(innerClient);
+    return FaroHttpTrackingClient(
+      innerClient,
+      trackingFilter: pod.resolve(httpTrackingFilterProvider),
+      lifecycleSignalChannel:
+          pod.resolve(userActionLifecycleSignalChannelProvider),
+    );
   }
 }
 
 class FaroHttpTrackingClient implements HttpClient {
   FaroHttpTrackingClient(
-    this.innerClient,
-  );
+    this.innerClient, {
+    required HttpTrackingFilter trackingFilter,
+    required UserActionLifecycleSignalChannel lifecycleSignalChannel,
+  })  : _trackingFilter = trackingFilter,
+        _lifecycleSignalChannel = lifecycleSignalChannel;
   final HttpClient innerClient;
+  final HttpTrackingFilter _trackingFilter;
+  final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
 
   @override
   Future<HttpClientRequest> open(
@@ -62,24 +76,53 @@ class FaroHttpTrackingClient implements HttpClient {
   }
 
   Future<HttpClientRequest> _openUrl(String method, Uri url) async {
-    HttpClientRequest request;
-    final userAttributes = <String, Object?>{};
+    if (!_trackingFilter.shouldTrack(url)) {
+      return innerClient.openUrl(method, url);
+    }
+
+    final requestId = generateShortId();
+
+    _lifecycleSignalChannel.emitPendingStart(
+      source: 'http',
+      operationId: requestId,
+    );
+
+    final httpSpan = Faro().startSpanManual(
+      'HTTP $method',
+      attributes: {
+        'http.method': method,
+        'http.scheme': url.scheme,
+        'http.url': url.toString(),
+        'http.host': url.host,
+        'http.user_agent': innerClient.userAgent ?? '',
+      },
+    );
+
     try {
-      request = await innerClient.openUrl(method, url);
-      if (url.toString() != Faro().config?.collectorUrl) {
-        final key = const Uuid().v1();
-        Faro().markEventStart(key, 'http_request');
-        request = FaroTrackingHttpClientRequest(
-          key,
-          request,
-          userAttributes,
-          userAgent: innerClient.userAgent,
-        );
-      }
-    } catch (e) {
+      // ignore: close_sinks
+      final request = await innerClient.openUrl(method, url);
+      final key = const Uuid().v1();
+      Faro().markEventStart(key, 'http_request');
+      return FaroTrackingHttpClientRequest(
+        key,
+        request,
+        httpSpan: httpSpan,
+        requestId: requestId,
+        lifecycleSignalChannel: _lifecycleSignalChannel,
+      );
+    } catch (error, stackTrace) {
+      httpSpan.setStatus(
+        SpanStatusCode.error,
+        message: error.toString(),
+      );
+      httpSpan.recordException(error, stackTrace: stackTrace);
+      httpSpan.end();
+      _lifecycleSignalChannel.emitPendingEnd(
+        source: 'http',
+        operationId: requestId,
+      );
       rethrow;
     }
-    return request;
   }
 
   @override
@@ -156,9 +199,8 @@ class FaroHttpTrackingClient implements HttpClient {
   }
 
   @override
-  Future<HttpClientRequest> delete(String host, int port, String path) {
-    return innerClient.delete(host, port, path);
-  }
+  Future<HttpClientRequest> delete(String host, int port, String path) =>
+      open('delete', host, port, path);
 
   @override
   Future<HttpClientRequest> deleteUrl(Uri url) => _openUrl('delete', url);
@@ -200,7 +242,7 @@ class FaroHttpTrackingClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> put(String host, int port, String path) =>
-      open('post', host, port, path);
+      open('put', host, port, path);
 
   @override
   Future<HttpClientRequest> putUrl(Uri url) => _openUrl('put', url);
@@ -209,20 +251,13 @@ class FaroHttpTrackingClient implements HttpClient {
 class FaroTrackingHttpClientRequest implements HttpClientRequest {
   FaroTrackingHttpClientRequest(
     this.key,
-    this.innerContext,
-    this.userAttributes, {
-    String? userAgent,
-  }) {
-    _httpSpan = Faro().startSpanManual(
-      'HTTP ${innerContext.method}',
-      attributes: {
-        'http.method': innerContext.method,
-        'http.scheme': innerContext.uri.scheme,
-        'http.url': innerContext.uri.toString(),
-        'http.host': innerContext.uri.host,
-        'http.user_agent': userAgent ?? '',
-      },
-    );
+    this.innerContext, {
+    required Span httpSpan,
+    required String requestId,
+    required UserActionLifecycleSignalChannel lifecycleSignalChannel,
+  })  : _httpSpan = httpSpan,
+        _requestId = requestId,
+        _lifecycleSignalChannel = lifecycleSignalChannel {
     if (_httpSpan is InternalSpan) {
       innerContext.headers
           .add('traceparent', (_httpSpan as InternalSpan).toHttpTraceparent());
@@ -230,9 +265,10 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   }
 
   final HttpClientRequest innerContext;
-  final Map<String, Object?> userAttributes;
   String key;
-  late final Span _httpSpan;
+  final Span _httpSpan;
+  final String _requestId;
+  final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
 
   @override
   Future<HttpClientResponse> get done {
@@ -245,10 +281,9 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   }
 
   @override
-  Future<HttpClientResponse> close() {
-    return innerContext.close().then((value) {
-      final traceId = _httpSpan.traceId;
-      final spanId = _httpSpan.spanId;
+  Future<HttpClientResponse> close() async {
+    try {
+      final value = await innerContext.close();
 
       _httpSpan.setAttributes({
         'http.status_code': value.statusCode,
@@ -256,9 +291,8 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         'http.response_size': value.headers.contentLength,
         'http.content_type': '${value.headers.contentType}',
       });
-
       _httpSpan.setStatus(SpanStatusCode.ok);
-      _httpSpan.end();
+
       return FaroTrackingHttpResponse(key, value, {
         'response_size': '${value.headers.contentLength}',
         'content_type': '${value.headers.contentType}',
@@ -266,15 +300,23 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         'method': innerContext.method,
         'request_size': '${innerContext.contentLength}',
         'url': innerContext.uri.toString(),
-        'trace_id': traceId,
-        'span_id': spanId,
+        'trace_id': _httpSpan.traceId,
+        'span_id': _httpSpan.spanId,
       });
-    }, onError: (Object error, StackTrace? stackTrace) {
-      _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
+    } catch (error, stackTrace) {
+      _httpSpan.setStatus(
+        SpanStatusCode.error,
+        message: error.toString(),
+      );
       _httpSpan.recordException(error, stackTrace: stackTrace);
-      _httpSpan.end();
       throw Exception('Error: $error, StackTrace: $stackTrace');
-    });
+    } finally {
+      _httpSpan.end();
+      _lifecycleSignalChannel.emitPendingEnd(
+        source: 'http',
+        operationId: _requestId,
+      );
+    }
   }
 
   @override

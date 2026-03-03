@@ -7,10 +7,12 @@ import 'dart:io';
 
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/integrations/flutter_error_integration.dart';
+import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
@@ -23,6 +25,11 @@ import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 import 'package:faro/src/user/user_manager.dart';
+import 'package:faro/src/user_actions/start_user_action_options.dart';
+import 'package:faro/src/user_actions/telemetry_router.dart';
+import 'package:faro/src/user_actions/user_action_handle.dart';
+import 'package:faro/src/user_actions/user_action_types.dart';
+import 'package:faro/src/user_actions/user_actions_service.dart';
 import 'package:faro/src/util/constants.dart';
 import 'package:faro/src/util/timestamp_extension.dart';
 import 'package:flutter/cupertino.dart';
@@ -80,11 +87,19 @@ class Faro {
       app: App(name: '', environment: '', version: ''),
       view: ViewMeta('default'));
 
-  List<RegExp>? ignoreUrls = [];
+  HttpTrackingFilter get _httpTrackingFilter =>
+      pod.resolve(httpTrackingFilterProvider);
   Map<String, dynamic> eventMark = {};
   FaroNativeMethods? _nativeChannel;
 
   FaroNativeMethods? get nativeChannel => _nativeChannel;
+
+  TelemetryRouter get _telemetryRouter => pod.resolve(telemetryRouterProvider);
+
+  UserActionsService get _userActionsService =>
+      pod.resolve(userActionsServiceProvider);
+
+  FaroTracer get _tracer => FaroTracerFactory().create();
 
   @visibleForTesting
   set nativeChannel(FaroNativeMethods? nativeChannel) {
@@ -99,6 +114,7 @@ class Faro {
   @visibleForTesting
   set batchTransport(BatchTransport? batchTransport) {
     _batchTransport = batchTransport;
+    pod.overrideProvider(batchTransportProvider, (_) => batchTransport);
   }
 
   @visibleForTesting
@@ -161,12 +177,14 @@ class Faro {
       );
     }
 
-    _batchTransport = BatchTransportFactory().create(
+    final batchTransport = BatchTransportFactory().create(
       initialPayload: Payload(meta),
       batchConfig: config?.batchConfig ?? BatchConfig(),
       transports: _transports,
       isSampled: _isSampled,
     );
+    _batchTransport = batchTransport;
+    pod.overrideProvider(batchTransportProvider, (_) => batchTransport);
 
     if (config?.transports == null) {
       Faro()._transports.add(
@@ -181,7 +199,10 @@ class Faro {
     } else {
       Faro()._transports.addAll(config?.transports ?? []);
     }
-    _instance.ignoreUrls = optionsConfiguration.ignoreUrls ?? [];
+    _httpTrackingFilter.configure(
+      collectorUrl: optionsConfiguration.collectorUrl,
+      ignoreUrls: optionsConfiguration.ignoreUrls,
+    );
     if (config?.enableCrashReporting == true) {
       _instance.enableCrashReporter(
         app: _instance.meta.app!,
@@ -316,11 +337,12 @@ class Faro {
     Map<String, dynamic>? attributes,
     Map<String, String>? trace,
   }) {
-    _batchTransport?.addEvent(Event(
+    final event = Event(
       name,
       attributes: attributes,
       trace: trace,
-    ));
+    );
+    _telemetryRouter.ingest(TelemetryItem.fromEvent(event));
   }
 
   void pushLog(
@@ -329,9 +351,9 @@ class Faro {
     Map<String, dynamic>? context,
     Map<String, String>? trace,
   }) {
-    _batchTransport?.addLog(
-      FaroLog(message, level: level.value, context: context, trace: trace),
-    );
+    final faroLog =
+        FaroLog(message, level: level.value, context: context, trace: trace);
+    _telemetryRouter.ingest(TelemetryItem.fromLog(faroLog));
   }
 
   void pushError({
@@ -344,13 +366,18 @@ class Faro {
     if (stacktrace != null) {
       parsedStackTrace = {'frames': FaroException.stackTraceParse(stacktrace)};
     }
-    _batchTransport?.addExceptions(
-      FaroException(type, value, parsedStackTrace, context: context),
+
+    final faroException =
+        FaroException(type, value, parsedStackTrace, context: context);
+    _telemetryRouter.ingest(
+      TelemetryItem.fromException(faroException),
     );
   }
 
   void pushMeasurement(Map<String, dynamic>? values, String type) {
-    _batchTransport?.addMeasurement(Measurement(values, type));
+    _telemetryRouter.ingest(
+      TelemetryItem.fromMeasurement(Measurement(values, type)),
+    );
   }
 
   /// Starts an active span and executes the provided callback within its context.
@@ -540,6 +567,74 @@ class Faro {
     return _tracer.getActiveSpan();
   }
 
+  /// Starts a new user action to track user interactions.
+  ///
+  /// User actions automatically capture and correlate all telemetry (logs, events,
+  /// exceptions) that occurs during the action's lifetime. When the action ends,
+  /// all captured telemetry is enriched with action context.
+  ///
+  /// Only one user action can be active at a time. If a user action is already
+  /// running, this method returns `null`.
+  ///
+  /// **Parameters:**
+  /// - [name]: Human-readable name for the action (e.g., "checkout-button", "login-flow")
+  /// - [attributes]: Optional custom attributes to attach to the action
+  /// - [options]: Optional start options, such as [StartUserActionOptions.triggerName]
+  ///   and [StartUserActionOptions.importance]
+  ///
+  /// **Returns:**
+  /// A [UserActionHandle] if started successfully, or `null` if another action
+  /// is already active or Faro has not been initialized.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final action = Faro().startUserAction(
+  ///   'checkout-flow',
+  ///   attributes: {'product': 'premium', 'price': '99.99'},
+  ///   options: StartUserActionOptions(
+  ///     importance: 'critical',
+  ///   ),
+  /// );
+  ///
+  /// if (action != null) {
+  ///   // Perform operations - all telemetry automatically associated
+  ///   await processCheckout();
+  ///   // Action ends automatically via controller
+  /// }
+  /// ```
+  ///
+  /// **Note:** The action lifecycle is managed automatically by internal
+  /// user-action services.
+  UserActionHandle? startUserAction(
+    String name, {
+    Map<String, String>? attributes,
+    StartUserActionOptions? options,
+  }) {
+    return _userActionsService.startUserAction(
+      name,
+      attributes: attributes,
+      options: options,
+    );
+  }
+
+  /// Returns the currently active user action, if any.
+  ///
+  /// This can be used to check if a user action is running or to access
+  /// the action's properties (name, ID, state, etc.).
+  ///
+  /// **Returns:**
+  /// The active [UserActionHandle], or `null` if no action is currently running.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final action = Faro().getActiveUserAction();
+  /// if (action != null) {
+  ///   print('Active action: ${action.name} (${action.getState()})');
+  /// }
+  /// ```
+  UserActionHandle? getActiveUserAction() =>
+      _userActionsService.getActiveUserAction();
+
   void markEventStart(String key, String name) {
     final eventStartTime = DateTime.now().millisecondsSinceEpoch;
     eventMark[key] = {
@@ -551,9 +646,9 @@ class Faro {
   void markEventEnd(String key, String name,
       {Map<String, dynamic> attributes = const {}}) {
     final eventEndTime = DateTime.now().millisecondsSinceEpoch;
-    if (name == 'http_request' && ignoreUrls != null) {
-      if (ignoreUrls!
-          .any((element) => element.stringMatch(attributes['url']) != null)) {
+    if (name == 'http_request') {
+      final url = attributes['url'];
+      if (url is String && !_httpTrackingFilter.shouldTrack(Uri.parse(url))) {
         return;
       }
     }
@@ -633,6 +728,4 @@ class Faro {
       );
     }
   }
-
-  FaroTracer get _tracer => FaroTracerFactory().create();
 }

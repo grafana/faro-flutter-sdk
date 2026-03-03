@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
@@ -9,6 +10,17 @@ import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/no_op_batch_transport.dart';
 import 'package:faro/src/util/payload_extension.dart';
 import 'package:flutter/foundation.dart';
+
+typedef BatchTransportResolver = BatchTransport? Function();
+
+/// Runtime transport provider, overridden during [Faro.init].
+final batchTransportProvider = Provider<BatchTransport?>((pod) => null);
+
+final batchTransportResolverProvider = Provider<BatchTransportResolver>((pod) {
+  return () {
+    return pod.resolve(batchTransportProvider);
+  };
+});
 
 /// Transport that batches telemetry data and sends it periodically.
 class BatchTransport {
