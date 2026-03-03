@@ -199,9 +199,8 @@ class FaroHttpTrackingClient implements HttpClient {
   }
 
   @override
-  Future<HttpClientRequest> delete(String host, int port, String path) {
-    return innerClient.delete(host, port, path);
-  }
+  Future<HttpClientRequest> delete(String host, int port, String path) =>
+      open('delete', host, port, path);
 
   @override
   Future<HttpClientRequest> deleteUrl(Uri url) => _openUrl('delete', url);
@@ -243,7 +242,7 @@ class FaroHttpTrackingClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> put(String host, int port, String path) =>
-      open('post', host, port, path);
+      open('put', host, port, path);
 
   @override
   Future<HttpClientRequest> putUrl(Uri url) => _openUrl('put', url);
