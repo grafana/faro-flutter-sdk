@@ -29,7 +29,7 @@ void main() {
   group('FaroUserActionSpanProcessor:', () {
     group('onStart:', () {
       test(
-        'should set action attributes on CLIENT span '
+        'should set action attributes on span '
         'when action is in started state',
         () {
           final action = UserAction(name: 'checkout');
@@ -37,8 +37,6 @@ void main() {
             delegate: mockDelegate,
             activeUserActionResolver: () => action,
           );
-
-          when(() => mockSpan.kind).thenReturn(otel_api.SpanKind.client);
 
           processor.onStart(mockSpan, mockContext);
 
@@ -67,8 +65,6 @@ void main() {
             activeUserActionResolver: () => null,
           );
 
-          when(() => mockSpan.kind).thenReturn(otel_api.SpanKind.client);
-
           processor.onStart(mockSpan, mockContext);
 
           verifyNever(() => mockSpan.setAttribute(any()));
@@ -85,8 +81,6 @@ void main() {
             delegate: mockDelegate,
             activeUserActionResolver: () => action,
           );
-
-          when(() => mockSpan.kind).thenReturn(otel_api.SpanKind.client);
 
           processor.onStart(mockSpan, mockContext);
 
@@ -107,8 +101,6 @@ void main() {
             activeUserActionResolver: () => action,
           );
 
-          when(() => mockSpan.kind).thenReturn(otel_api.SpanKind.client);
-
           processor.onStart(mockSpan, mockContext);
 
           verifyNever(() => mockSpan.setAttribute(any()));
@@ -128,8 +120,6 @@ void main() {
             activeUserActionResolver: () => action,
           );
 
-          when(() => mockSpan.kind).thenReturn(otel_api.SpanKind.client);
-
           processor.onStart(mockSpan, mockContext);
 
           verifyNever(() => mockSpan.setAttribute(any()));
@@ -139,7 +129,7 @@ void main() {
       );
 
       test(
-        'should NOT set attributes on non-CLIENT span kinds',
+        'should set action attributes on all span kinds',
         () {
           final action = UserAction(name: 'checkout');
           final processor = FaroUserActionSpanProcessor(
@@ -147,17 +137,13 @@ void main() {
             activeUserActionResolver: () => action,
           );
 
-          for (final kind in [
-            otel_api.SpanKind.server,
-            otel_api.SpanKind.producer,
-            otel_api.SpanKind.consumer,
-            otel_api.SpanKind.internal,
-          ]) {
+          for (final kind in otel_api.SpanKind.values) {
+            reset(mockSpan);
             when(() => mockSpan.kind).thenReturn(kind);
             processor.onStart(mockSpan, mockContext);
-          }
 
-          verifyNever(() => mockSpan.setAttribute(any()));
+            verify(() => mockSpan.setAttribute(any())).called(2);
+          }
 
           action.dispose();
         },
@@ -170,8 +156,6 @@ void main() {
             delegate: mockDelegate,
             activeUserActionResolver: () => null,
           );
-
-          when(() => mockSpan.kind).thenReturn(otel_api.SpanKind.client);
 
           processor.onStart(mockSpan, mockContext);
 

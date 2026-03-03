@@ -10,7 +10,7 @@ import 'package:opentelemetry/sdk.dart' as otel_sdk;
 /// Resolves the currently active user action, if any.
 typedef ActiveUserActionResolver = UserActionHandle? Function();
 
-/// Span processor that enriches CLIENT spans with user action context.
+/// Span processor that enriches spans with user action context.
 ///
 /// Wraps a delegate [otel_sdk.SpanProcessor] and, in [onStart], checks
 /// whether a user action is active and in [UserActionState.started] state.
@@ -33,8 +33,7 @@ class FaroUserActionSpanProcessor implements otel_sdk.SpanProcessor {
     final activeAction = _activeUserActionResolver();
 
     if (activeAction != null &&
-        activeAction.getState() == UserActionState.started &&
-        span.kind == otel_api.SpanKind.client) {
+        activeAction.getState() == UserActionState.started) {
       span.setAttribute(
         otel_api.Attribute.fromString(
           UserActionConstants.actionNameKey,
