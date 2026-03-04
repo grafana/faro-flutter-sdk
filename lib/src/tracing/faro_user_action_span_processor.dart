@@ -2,6 +2,7 @@ import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
 import 'package:faro/src/user_actions/constants.dart';
 import 'package:faro/src/user_actions/user_action_handle.dart';
+import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
 import 'package:faro/src/user_actions/user_action_state.dart';
 import 'package:faro/src/user_actions/user_actions_service.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
@@ -17,19 +18,38 @@ typedef ActiveUserActionResolver = UserActionHandle? Function();
 /// If so, sets `faro.action.user.name` and `faro.action.user.parentId`
 /// on the span.
 ///
-/// All other calls are forwarded to the delegate unchanged.
+/// It also emits pending operation lifecycle signals for spans that have
+/// [UserActionConstants.pendingOperationKey] set to `true`, using span ID as
+/// operation ID.
 class FaroUserActionSpanProcessor implements otel_sdk.SpanProcessor {
   FaroUserActionSpanProcessor({
     required otel_sdk.SpanProcessor delegate,
     required ActiveUserActionResolver activeUserActionResolver,
+    required UserActionLifecycleSignalChannel lifecycleSignalChannel,
   })  : _delegate = delegate,
-        _activeUserActionResolver = activeUserActionResolver;
+        _activeUserActionResolver = activeUserActionResolver,
+        _lifecycleSignalChannel = lifecycleSignalChannel;
 
   final otel_sdk.SpanProcessor _delegate;
   final ActiveUserActionResolver _activeUserActionResolver;
+  final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
+  final Set<String> _pendingOperationSpanIds = <String>{};
+
+  bool _isPendingOperationMarkerEnabled(dynamic value) => value == true;
 
   @override
   void onStart(otel_sdk.ReadWriteSpan span, otel_api.Context parentContext) {
+    final pendingMarkerValue =
+        span.attributes.get(UserActionConstants.pendingOperationKey);
+    if (_isPendingOperationMarkerEnabled(pendingMarkerValue)) {
+      final operationId = span.spanContext.spanId.toString();
+      _pendingOperationSpanIds.add(operationId);
+      _lifecycleSignalChannel.emitPendingStart(
+        source: 'span',
+        operationId: operationId,
+      );
+    }
+
     final activeAction = _activeUserActionResolver();
 
     if (activeAction != null &&
@@ -52,10 +72,25 @@ class FaroUserActionSpanProcessor implements otel_sdk.SpanProcessor {
   }
 
   @override
-  void onEnd(otel_sdk.ReadOnlySpan span) => _delegate.onEnd(span);
+  void onEnd(otel_sdk.ReadOnlySpan span) {
+    final operationId = span.spanContext.spanId.toString();
+    if (_pendingOperationSpanIds.remove(operationId)) {
+      _lifecycleSignalChannel.emitPendingEnd(
+        source: 'span',
+        operationId: operationId,
+      );
+    }
+    _delegate.onEnd(span);
+  }
 
   @override
-  void shutdown() => _delegate.shutdown();
+  void shutdown() {
+    try {
+      _delegate.shutdown();
+    } finally {
+      _pendingOperationSpanIds.clear();
+    }
+  }
 
   @override
   void forceFlush() => _delegate.forceFlush();
@@ -66,8 +101,11 @@ class FaroUserActionSpanProcessor implements otel_sdk.SpanProcessor {
 final faroSpanProcessorProvider = Provider<otel_sdk.SpanProcessor>((pod) {
   final exporter = FaroExporterFactory().create();
   final userActionsService = pod.resolve(userActionsServiceProvider);
+  final lifecycleSignalChannel =
+      pod.resolve(userActionLifecycleSignalChannelProvider);
   return FaroUserActionSpanProcessor(
     delegate: otel_sdk.SimpleSpanProcessor(exporter),
     activeUserActionResolver: userActionsService.getActiveUserAction,
+    lifecycleSignalChannel: lifecycleSignalChannel,
   );
 });

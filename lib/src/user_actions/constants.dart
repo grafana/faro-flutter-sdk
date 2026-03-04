@@ -27,4 +27,10 @@ class UserActionConstants {
 
   /// Span attribute key for the user action parent ID.
   static const String actionParentIdKey = 'faro.action.user.parentId';
+
+  /// Span attribute key that marks a span as a pending user-action operation.
+  ///
+  /// When `true`, span lifecycle events are mirrored to user-action pending
+  /// signals using the span ID as operation ID.
+  static const String pendingOperationKey = 'faro.action.user.pending';
 }

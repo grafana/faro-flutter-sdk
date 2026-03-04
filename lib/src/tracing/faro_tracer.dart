@@ -89,23 +89,21 @@ class FaroTracer {
       );
     }
 
-    final otelSpan = _otelTracer.startSpan(
-      name,
-      context: context,
-      kind: otel_api.SpanKind.client,
-    );
-
     final sessionId = _sessionIdProvider.sessionId;
     final allAttributes = <String, Object>{
       ...attributes,
       'session_id': sessionId,
       'session.id': sessionId,
     };
+    final otelAttributes = allAttributes.entries.map((entry) {
+      return _createOtelAttribute(entry.key, entry.value);
+    }).toList();
 
-    otelSpan.setAttributes(
-      allAttributes.entries.map((entry) {
-        return _createOtelAttribute(entry.key, entry.value);
-      }).toList(),
+    final otelSpan = _otelTracer.startSpan(
+      name,
+      context: context,
+      kind: otel_api.SpanKind.client,
+      attributes: otelAttributes,
     );
 
     return SpanProvider().getSpan(otelSpan, context);

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+
+- `markEventStart()` and `markEventEnd()` are now deprecated. Use
+  `startSpan()` for duration tracking. Use `startUserAction()` when you need
+  interaction-level correlation across logs, events, exceptions, and spans.
+  Use `startSpanManual()` for manual span lifecycle control.
+
+### Changed
+
+- HTTP tracking no longer emits the legacy `http_request` custom event from
+  `HttpTrackingClient`.
+- HTTP request telemetry continues to be available through span-derived
+  `faro.tracing.fetch` events and OTLP spans.
+- Pending operation lifecycle signals are now span-driven via
+  `UserActionConstants.pendingOperationKey`:
+  - HTTP spans set this marker automatically.
+  - Custom spans can opt in by setting this attribute to `true`.
+  - Marker-based pending operations use span ID as operation ID.
+  - The marker attribute is exported with the span/event attributes.
+
 ## [0.11.0] - 2026-03-03
 
 ### Added
