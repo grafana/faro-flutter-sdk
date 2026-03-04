@@ -397,7 +397,13 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
     required void Function() onFinish,
     required void Function(Object error, StackTrace stackTrace) onStreamError,
   })  : _onFinish = onFinish,
-        _onStreamError = onStreamError;
+        _onStreamError = onStreamError {
+    _finalizer.attach(this, onFinish, detach: this);
+  }
+
+  static final _finalizer =
+      Finalizer<void Function()>((finish) => finish());
+
   final HttpClientResponse innerResponse;
   final Map<String, Object?> userAttributes;
   final void Function() _onFinish;
@@ -410,6 +416,7 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
       return;
     }
     _finished = true;
+    _finalizer.detach(this);
     _onFinish();
   }
 
@@ -563,8 +570,9 @@ class _FaroResponseSubscription implements StreamSubscription<List<int>> {
       completer.complete(futureValue as E);
     });
     onError((Object error, StackTrace stackTrace) {
-      cancel();
-      completer.completeError(error, stackTrace);
+      cancel().whenComplete(() {
+        completer.completeError(error, stackTrace);
+      });
     });
     return completer.future;
   }
