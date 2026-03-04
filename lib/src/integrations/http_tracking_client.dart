@@ -446,6 +446,7 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
         },
       ),
       onCancel: _finishOnce,
+      onStreamError: _onStreamError,
     );
   }
 
@@ -499,10 +500,13 @@ class _FaroResponseSubscription implements StreamSubscription<List<int>> {
   _FaroResponseSubscription(
     this._inner, {
     required void Function() onCancel,
-  }) : _onCancel = onCancel;
+    required void Function(Object error, StackTrace stackTrace) onStreamError,
+  })  : _onCancel = onCancel,
+        _onStreamError = onStreamError;
 
   final StreamSubscription<List<int>> _inner;
   final void Function() _onCancel;
+  final void Function(Object error, StackTrace stackTrace) _onStreamError;
 
   @override
   Future<void> cancel() async {
@@ -517,12 +521,26 @@ class _FaroResponseSubscription implements StreamSubscription<List<int>> {
 
   @override
   void onDone(void Function()? handleDone) {
-    _inner.onDone(handleDone);
+    _inner.onDone(() {
+      _onCancel();
+      handleDone?.call();
+    });
   }
 
   @override
   void onError(Function? handleError) {
-    _inner.onError(handleError);
+    _inner.onError((Object error, StackTrace stackTrace) {
+      _onStreamError(error, stackTrace);
+      _onCancel();
+      if (handleError == null) {
+        return;
+      }
+      if (handleError is void Function(Object, StackTrace)) {
+        handleError(error, stackTrace);
+      } else if (handleError is void Function(Object)) {
+        handleError(error);
+      }
+    });
   }
 
   @override
