@@ -385,22 +385,53 @@ if (action != null) {
 User actions follow an automatic lifecycle managed by the SDK:
 
 1. **Started** — The action is created and begins buffering telemetry. A 100ms follow-up timer starts.
-2. **Activity resets the timer** — Each qualifying signal (navigation event, HTTP request start) resets the 100ms timer, keeping the action alive longer.
-3. **Halted** — If there are still pending HTTP requests when the 100ms timer expires, the action enters a halted state and waits up to 10 seconds for them to complete.
+2. **Activity resets the timer** — Each qualifying activity signal (navigation event, pending operation start) resets the 100ms timer, keeping the action alive longer.
+3. **Halted** — If there are still pending operations (for example, HTTP requests tracked out of the box via `FaroHttpOverrides`, or custom spans marked with `UserActionConstants.pendingOperationKey`) when the 100ms timer expires, the action enters a halted state and waits up to 10 seconds for them to complete.
 4. **Ended** — The action completed successfully. All buffered telemetry is flushed with action context enrichment.
 5. **Cancelled** — No qualifying activity occurred within 100ms, or a halted action timed out. Buffered telemetry is flushed _without_ action context.
 
 ### What Keeps an Action Alive
 
-The following signals reset the 100ms follow-up timer and mark the action as valid:
+The following lifecycle signals are consumed by the controller:
 
-| Signal                      | Source                                     | Requirement                           |
-| --------------------------- | ------------------------------------------ | ------------------------------------- |
-| Navigation push/pop/replace | `FaroNavigationObserver`                   | Must be added to `navigatorObservers` |
-| HTTP request start          | `HttpTrackingClient` / `FaroHttpOverrides` | Must be enabled                       |
-| HTTP request end            | `HttpTrackingClient` / `FaroHttpOverrides` | Must be enabled                       |
+| Signal                             | Source                                     | Effect / Requirement                              |
+| ---------------------------------- | ------------------------------------------ | ------------------------------------------------- |
+| Navigation push/pop/replace        | `FaroNavigationObserver`                   | Activity signal. Must be added to `navigatorObservers` |
+| HTTP pending operation start       | `HttpTrackingClient` / `FaroHttpOverrides` | Activity signal. Must be enabled                  |
+| HTTP pending operation end         | `HttpTrackingClient` / `FaroHttpOverrides` | Closes a pending operation; can finish halted action |
+| Marker-based pending start (span)  | Any span with `UserActionConstants.pendingOperationKey: true` | Activity signal for custom spans                  |
+| Marker-based pending end (span)    | Same marker-based span                     | Closes a pending operation; can finish halted action |
 
-> **Important:** Both signal sources are opt-in. If your app uses `startUserAction()` without `FaroNavigationObserver` and `FaroHttpOverrides`, no signals will be emitted and actions will be cancelled after 100ms. For user actions to work effectively, ensure you have at least one of these integrations enabled.
+> **Important:** Signal sources are opt-in. If your app uses `startUserAction()` without `FaroNavigationObserver`, without `FaroHttpOverrides`, and without marker-based pending spans, no signals will be emitted and actions will be cancelled after 100ms. For user actions to work effectively, ensure you have at least one of these integrations enabled.
+
+### Extending a User Action with Custom Pending Spans
+
+If you have custom async work that should keep a user action alive, mark the
+span with `UserActionConstants.pendingOperationKey: true`.
+
+```dart
+final span = Faro().startSpanManual(
+  'db.sync',
+  attributes: {
+    UserActionConstants.pendingOperationKey: true,
+    'sync.type': 'background',
+  },
+);
+
+try {
+  await syncDatabase();
+  span.setStatus(SpanStatusCode.ok);
+} catch (error, stackTrace) {
+  span.setStatus(SpanStatusCode.error, message: error.toString());
+  span.recordException(error, stackTrace: stackTrace);
+} finally {
+  span.end();
+}
+```
+
+This does not reopen buffering in halted state. Instead, if a marked span
+starts while the action is still in `started`, the action can enter `halted`
+and wait (up to 10s) for that operation to finish before finalizing.
 
 ### Parameters
 
@@ -422,7 +453,7 @@ The following signals reset the 100ms follow-up timer and mark the action as val
 | State       | Description                                                        |
 | ----------- | ------------------------------------------------------------------ |
 | `started`   | Action is active, buffering telemetry                              |
-| `halted`    | Waiting for pending HTTP requests to complete (up to 10s)          |
+| `halted`    | Waiting for pending operations to complete (up to 10s)              |
 | `ended`     | Completed successfully — telemetry enriched with action context    |
 | `cancelled` | No valid activity detected — telemetry sent without action context |
 
@@ -506,15 +537,21 @@ Faro().pushMeasurement(
 
 ### Capturing Event Duration
 
-To capture the duration of an event:
+Use distributed tracing spans to capture operation duration:
 
 ```dart
-Faro().markEventStart('checkout_key', 'checkout_duration');
-// ... your code ...
-Faro().markEventEnd('checkout_key', 'checkout_duration', attributes: {
-  'result': 'success',
+await Faro().startSpan('checkout_duration', (span) async {
+  span.setAttribute('result', 'success');
+  await completeCheckout();
 });
 ```
+
+> **Deprecated**: `markEventStart()` / `markEventEnd()` are legacy APIs and
+> will be removed in a future major version. Use `startSpan()` (or
+> `startSpanManual()` when you need manual lifecycle control) instead.
+>
+> If your goal is to correlate all telemetry for a user interaction, use
+> `startUserAction()` as an alternative.
 
 ---
 

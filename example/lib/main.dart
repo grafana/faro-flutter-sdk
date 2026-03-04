@@ -193,7 +193,6 @@ class _FeaturesPageState extends State<FeaturesPage> {
   @override
   void initState() {
     super.initState();
-    Faro().markEventEnd('home_event_start', 'home_page_load');
     _updateCurrentUser();
   }
 
@@ -392,15 +391,12 @@ class _FeaturesPageState extends State<FeaturesPage> {
                 },
               ),
               ElevatedButton(
-                child: const Text('Mark Event Start'),
+                child: const Text('Duration Span (1s)'),
                 onPressed: () async {
-                  Faro().markEventStart('event1', 'event1_duration');
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Mark Event End'),
-                onPressed: () async {
-                  Faro().markEventEnd('event1', 'event1_duration');
+                  await Faro().startSpan('event1_duration', (span) async {
+                    span.setAttribute('result', 'success');
+                    await Future<void>.delayed(const Duration(seconds: 1));
+                  });
                 },
               ),
               ElevatedButton(

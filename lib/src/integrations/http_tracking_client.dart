@@ -7,9 +7,7 @@ import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/span.dart';
-import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
-import 'package:faro/src/util/short_id.dart';
-import 'package:uuid/uuid.dart';
+import 'package:faro/src/user_actions/constants.dart';
 
 class FaroHttpOverrides extends HttpOverrides {
   FaroHttpOverrides(this.existingOverrides);
@@ -22,8 +20,6 @@ class FaroHttpOverrides extends HttpOverrides {
     return FaroHttpTrackingClient(
       innerClient,
       trackingFilter: pod.resolve(httpTrackingFilterProvider),
-      lifecycleSignalChannel:
-          pod.resolve(userActionLifecycleSignalChannelProvider),
     );
   }
 }
@@ -32,12 +28,9 @@ class FaroHttpTrackingClient implements HttpClient {
   FaroHttpTrackingClient(
     this.innerClient, {
     required HttpTrackingFilter trackingFilter,
-    required UserActionLifecycleSignalChannel lifecycleSignalChannel,
-  })  : _trackingFilter = trackingFilter,
-        _lifecycleSignalChannel = lifecycleSignalChannel;
+  }) : _trackingFilter = trackingFilter;
   final HttpClient innerClient;
   final HttpTrackingFilter _trackingFilter;
-  final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
 
   @override
   Future<HttpClientRequest> open(
@@ -80,13 +73,6 @@ class FaroHttpTrackingClient implements HttpClient {
       return innerClient.openUrl(method, url);
     }
 
-    final requestId = generateShortId();
-
-    _lifecycleSignalChannel.emitPendingStart(
-      source: 'http',
-      operationId: requestId,
-    );
-
     final httpSpan = Faro().startSpanManual(
       'HTTP $method',
       attributes: {
@@ -95,20 +81,16 @@ class FaroHttpTrackingClient implements HttpClient {
         'http.url': url.toString(),
         'http.host': url.host,
         'http.user_agent': innerClient.userAgent ?? '',
+        UserActionConstants.pendingOperationKey: true,
       },
     );
 
     try {
       // ignore: close_sinks
       final request = await innerClient.openUrl(method, url);
-      final key = const Uuid().v1();
-      Faro().markEventStart(key, 'http_request');
       return FaroTrackingHttpClientRequest(
-        key,
         request,
         httpSpan: httpSpan,
-        requestId: requestId,
-        lifecycleSignalChannel: _lifecycleSignalChannel,
       );
     } catch (error, stackTrace) {
       httpSpan.setStatus(
@@ -117,10 +99,6 @@ class FaroHttpTrackingClient implements HttpClient {
       );
       httpSpan.recordException(error, stackTrace: stackTrace);
       httpSpan.end();
-      _lifecycleSignalChannel.emitPendingEnd(
-        source: 'http',
-        operationId: requestId,
-      );
       rethrow;
     }
   }
@@ -250,14 +228,9 @@ class FaroHttpTrackingClient implements HttpClient {
 
 class FaroTrackingHttpClientRequest implements HttpClientRequest {
   FaroTrackingHttpClientRequest(
-    this.key,
     this.innerContext, {
     required Span httpSpan,
-    required String requestId,
-    required UserActionLifecycleSignalChannel lifecycleSignalChannel,
-  })  : _httpSpan = httpSpan,
-        _requestId = requestId,
-        _lifecycleSignalChannel = lifecycleSignalChannel {
+  }) : _httpSpan = httpSpan {
     if (_httpSpan is InternalSpan) {
       innerContext.headers
           .add('traceparent', (_httpSpan as InternalSpan).toHttpTraceparent());
@@ -265,10 +238,16 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   }
 
   final HttpClientRequest innerContext;
-  String key;
   final Span _httpSpan;
-  final String _requestId;
-  final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
+  var _operationFinished = false;
+
+  void _finishOperation() {
+    if (_operationFinished) {
+      return;
+    }
+    _operationFinished = true;
+    _httpSpan.end();
+  }
 
   @override
   Future<HttpClientResponse> get done {
@@ -293,15 +272,24 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
       });
       _httpSpan.setStatus(SpanStatusCode.ok);
 
-      return FaroTrackingHttpResponse(key, value, {
-        'response_size': '${value.headers.contentLength}',
-        'content_type': '${value.headers.contentType}',
-        'status_code': '${value.statusCode}',
-        'method': innerContext.method,
-        'request_size': '${innerContext.contentLength}',
-        'url': innerContext.uri.toString(),
-        'trace_id': _httpSpan.traceId,
-        'span_id': _httpSpan.spanId,
+      return FaroTrackingHttpResponse(
+          value,
+          {
+            'response_size': '${value.headers.contentLength}',
+            'content_type': '${value.headers.contentType}',
+            'status_code': '${value.statusCode}',
+            'method': innerContext.method,
+            'request_size': '${innerContext.contentLength}',
+            'url': innerContext.uri.toString(),
+            'trace_id': _httpSpan.traceId,
+            'span_id': _httpSpan.spanId,
+          },
+          onFinish: _finishOperation, onStreamError: (error, stackTrace) {
+        _httpSpan.setStatus(
+          SpanStatusCode.error,
+          message: error.toString(),
+        );
+        _httpSpan.recordException(error, stackTrace: stackTrace);
       });
     } catch (error, stackTrace) {
       _httpSpan.setStatus(
@@ -309,13 +297,8 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         message: error.toString(),
       );
       _httpSpan.recordException(error, stackTrace: stackTrace);
+      _finishOperation();
       throw Exception('Error: $error, StackTrace: $stackTrace');
-    } finally {
-      _httpSpan.end();
-      _lifecycleSignalChannel.emitPendingEnd(
-        source: 'http',
-        operationId: _requestId,
-      );
     }
   }
 
@@ -409,48 +392,62 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
 class FaroTrackingHttpResponse extends Stream<List<int>>
     implements HttpClientResponse {
   FaroTrackingHttpResponse(
-    this.key,
     this.innerResponse,
-    this.userAttributes,
-  );
+    this.userAttributes, {
+    required void Function() onFinish,
+    required void Function(Object error, StackTrace stackTrace) onStreamError,
+  })  : _onFinish = onFinish,
+        _onStreamError = onStreamError;
   final HttpClientResponse innerResponse;
   final Map<String, Object?> userAttributes;
+  final void Function() _onFinish;
+  final void Function(Object error, StackTrace stackTrace) _onStreamError;
   Object? lastError;
-  String key;
+  var _finished = false;
+
+  void _finishOnce() {
+    if (_finished) {
+      return;
+    }
+    _finished = true;
+    _onFinish();
+  }
 
   @override
   StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return innerResponse.listen(
-      onData,
-      cancelOnError: cancelOnError,
-      onError: (Object e, StackTrace st) {
-        if (onError == null) {
-          return;
-        }
-        if (onError is void Function(Object, StackTrace)) {
-          onError(e, st);
-        } else if (onError is void Function(Object)) {
-          onError(e);
-        } else {
-          Faro().pushLog(
-            // ignore: lines_longer_than_80_chars
-            "network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}",
-            level: LogLevel.error,
-          );
-        }
-      },
-      onDone: () {
-        _onFinish();
-        if (onDone != null) {
-          onDone();
-        }
-      },
+    return _FaroResponseSubscription(
+      innerResponse.listen(
+        onData,
+        cancelOnError: cancelOnError,
+        onError: (Object error, StackTrace stackTrace) {
+          _onStreamError(error, stackTrace);
+          _finishOnce();
+          if (onError == null) {
+            return;
+          }
+          if (onError is void Function(Object, StackTrace)) {
+            onError(error, stackTrace);
+          } else if (onError is void Function(Object)) {
+            onError(error);
+          } else {
+            Faro().pushLog(
+              // ignore: lines_longer_than_80_chars
+              "network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}",
+              level: LogLevel.error,
+            );
+          }
+        },
+        onDone: () {
+          _finishOnce();
+          if (onDone != null) {
+            onDone();
+          }
+        },
+      ),
+      onCancel: _finishOnce,
+      onStreamError: _onStreamError,
     );
-  }
-
-  void _onFinish() {
-    Faro().markEventEnd(key, 'http_request', attributes: userAttributes);
   }
 
   @override
@@ -497,4 +494,78 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
 
   @override
   int get statusCode => innerResponse.statusCode;
+}
+
+class _FaroResponseSubscription implements StreamSubscription<List<int>> {
+  _FaroResponseSubscription(
+    this._inner, {
+    required void Function() onCancel,
+    required void Function(Object error, StackTrace stackTrace) onStreamError,
+  })  : _onCancel = onCancel,
+        _onStreamError = onStreamError;
+
+  final StreamSubscription<List<int>> _inner;
+  final void Function() _onCancel;
+  final void Function(Object error, StackTrace stackTrace) _onStreamError;
+
+  @override
+  Future<void> cancel() async {
+    _onCancel();
+    await _inner.cancel();
+  }
+
+  @override
+  void onData(void Function(List<int> data)? handleData) {
+    _inner.onData(handleData);
+  }
+
+  @override
+  void onDone(void Function()? handleDone) {
+    _inner.onDone(() {
+      _onCancel();
+      handleDone?.call();
+    });
+  }
+
+  @override
+  void onError(Function? handleError) {
+    _inner.onError((Object error, StackTrace stackTrace) {
+      _onStreamError(error, stackTrace);
+      _onCancel();
+      if (handleError == null) {
+        return;
+      }
+      if (handleError is void Function(Object, StackTrace)) {
+        handleError(error, stackTrace);
+      } else if (handleError is void Function(Object)) {
+        handleError(error);
+      }
+    });
+  }
+
+  @override
+  void pause([Future<void>? resumeSignal]) {
+    _inner.pause(resumeSignal);
+  }
+
+  @override
+  void resume() {
+    _inner.resume();
+  }
+
+  @override
+  bool get isPaused => _inner.isPaused;
+
+  @override
+  Future<E> asFuture<E>([E? futureValue]) {
+    final completer = Completer<E>();
+    onDone(() {
+      completer.complete(futureValue as E);
+    });
+    onError((Object error, StackTrace stackTrace) {
+      cancel();
+      completer.completeError(error, stackTrace);
+    });
+    return completer.future;
+  }
 }

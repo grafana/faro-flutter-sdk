@@ -635,6 +635,16 @@ class Faro {
   UserActionHandle? getActiveUserAction() =>
       _userActionsService.getActiveUserAction();
 
+  /// Deprecated: use [startSpan] for duration tracking, or
+  /// [startUserAction] for interaction-level correlation.
+  ///
+  /// Example migration:
+  /// ```dart
+  /// await Faro().startSpan('operation_name', (span) async {
+  ///   await doWork();
+  /// });
+  /// ```
+  @Deprecated('Use startSpan() for duration tracking.')
   void markEventStart(String key, String name) {
     final eventStartTime = DateTime.now().millisecondsSinceEpoch;
     eventMark[key] = {
@@ -643,15 +653,19 @@ class Faro {
     };
   }
 
+  /// Deprecated: use [startSpan] for duration tracking, or
+  /// [startUserAction] for interaction-level correlation.
+  ///
+  /// Example migration:
+  /// ```dart
+  /// await Faro().startSpan('operation_name', (span) async {
+  ///   await doWork();
+  /// });
+  /// ```
+  @Deprecated('Use startSpan() for duration tracking.')
   void markEventEnd(String key, String name,
       {Map<String, dynamic> attributes = const {}}) {
     final eventEndTime = DateTime.now().millisecondsSinceEpoch;
-    if (name == 'http_request') {
-      final url = attributes['url'];
-      if (url is String && !_httpTrackingFilter.shouldTrack(Uri.parse(url))) {
-        return;
-      }
-    }
     if (!eventMark.containsKey(key)) {
       return;
     }
