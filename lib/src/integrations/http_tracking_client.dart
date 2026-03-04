@@ -558,6 +558,14 @@ class _FaroResponseSubscription implements StreamSubscription<List<int>> {
 
   @override
   Future<E> asFuture<E>([E? futureValue]) {
-    return _inner.asFuture<E>(futureValue);
+    final completer = Completer<E>();
+    onDone(() {
+      completer.complete(futureValue as E);
+    });
+    onError((Object error, StackTrace stackTrace) {
+      cancel();
+      completer.completeError(error, stackTrace);
+    });
+    return completer.future;
   }
 }

@@ -189,8 +189,7 @@ void main() {
       when(() => mockHttpClientRequest.uri)
           .thenReturn(Uri.parse('http://example.com/path'));
       when(() => mockHttpClientRequest.contentLength).thenReturn(42);
-      when(() => mockHttpClientRequest.headers)
-          .thenReturn(mockRequestHeaders);
+      when(() => mockHttpClientRequest.headers).thenReturn(mockRequestHeaders);
       when(() => mockHttpClientRequest.close())
           .thenAnswer((_) async => mockHttpClientResponse);
       when(() => mockHttpClientResponse.statusCode).thenReturn(200);
@@ -206,11 +205,10 @@ void main() {
           cancelOnError: any(named: 'cancelOnError'),
         ),
       ).thenAnswer((invocation) {
-        final onData = invocation.positionalArguments[0]
-            as void Function(List<int>)?;
+        final onData =
+            invocation.positionalArguments[0] as void Function(List<int>)?;
         final onError = invocation.namedArguments[#onError] as Function?;
-        final onDone =
-            invocation.namedArguments[#onDone] as void Function()?;
+        final onDone = invocation.namedArguments[#onDone] as void Function()?;
         final cancelOnError =
             invocation.namedArguments[#cancelOnError] as bool?;
         return responseStreamController.stream.listen(
@@ -233,9 +231,7 @@ void main() {
       }
     });
 
-    test(
-        'replacing onDone via setter should still end span',
-        () async {
+    test('replacing onDone via setter should still end span', () async {
       final response = await trackedRequest.close();
       // ignore: cancel_subscriptions
       final subscription = response.listen((_) {});
@@ -248,9 +244,7 @@ void main() {
       verify(() => mockSpan.end()).called(1);
     });
 
-    test(
-        'replacing onError via setter should still end span',
-        () async {
+    test('replacing onError via setter should still end span', () async {
       final response = await trackedRequest.close();
       final errors = <Object>[];
       // ignore: cancel_subscriptions
@@ -272,8 +266,7 @@ void main() {
       expect(errors, hasLength(1));
     });
 
-    test(
-        'replacing onError with two-arg handler should forward both args',
+    test('replacing onError with two-arg handler should forward both args',
         () async {
       final response = await trackedRequest.close();
       final errors = <Object>[];
@@ -295,9 +288,7 @@ void main() {
       expect(traces, hasLength(1));
     });
 
-    test(
-        'replacing onDone with null should still end span',
-        () async {
+    test('replacing onDone with null should still end span', () async {
       final response = await trackedRequest.close();
       // ignore: cancel_subscriptions
       final subscription = response.listen((_) {});
@@ -310,9 +301,7 @@ void main() {
       verify(() => mockSpan.end()).called(1);
     });
 
-    test(
-        'replacing onError with null should still end span',
-        () async {
+    test('replacing onError with null should still end span', () async {
       final response = await trackedRequest.close();
       // ignore: cancel_subscriptions
       final subscription = response.listen(
@@ -328,6 +317,39 @@ void main() {
       );
       await Future<void>.delayed(Duration.zero);
 
+      verify(() => mockSpan.end()).called(1);
+    });
+
+    test('asFuture should end span when stream completes normally', () async {
+      final response = await trackedRequest.close();
+      // ignore: cancel_subscriptions
+      final subscription = response.listen((_) {});
+
+      final future = subscription.asFuture<void>();
+
+      responseStreamController.close();
+      await future;
+
+      verify(() => mockSpan.end()).called(1);
+    });
+
+    test('asFuture should end span when stream emits error', () async {
+      final response = await trackedRequest.close();
+      // ignore: cancel_subscriptions
+      final subscription = response.listen((_) {});
+
+      final future = subscription.asFuture<void>();
+
+      responseStreamController.addError(
+        StateError('boom'),
+        StackTrace.current,
+      );
+
+      await expectLater(future, throwsA(isA<StateError>()));
+      verify(() => mockSpan.setStatus(
+            SpanStatusCode.error,
+            message: any(named: 'message'),
+          )).called(1);
       verify(() => mockSpan.end()).called(1);
     });
   });
