@@ -122,7 +122,7 @@ Key implementation features shown in this example:
 
    - FaroUserInteractionWidget usage
    - FaroNavigationObserver setup
-   - FaroAssetBundle integration
+   - FaroAssetTracking integration
 
 3. Error Handling
    - Exception capture

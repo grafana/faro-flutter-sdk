@@ -71,8 +71,7 @@ Faro().runApp(
       // ... other configurations
   ),
   appRunner: () => runApp(
-    DefaultAssetBundle(
-      bundle: FaroAssetBundle(),
+    FaroAssetTracking(
       child: FaroUserInteractionWidget(child: MyApp())
     )
   ),

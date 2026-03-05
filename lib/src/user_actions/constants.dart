@@ -3,6 +3,12 @@ class UserActionConstants {
   /// Event name for user action telemetry.
   static const String userActionEventName = 'faro.user.action';
 
+  /// Internal activity signal source used for build/frame-based UI updates.
+  static const String uiActivitySignalSource = 'ui.build';
+
+  /// Internal pending-operation source used for asset/resource loading.
+  static const String resourceAssetSignalSource = 'resource.asset';
+
   /// Trigger name for actions started via API call.
   static const String apiCallTrigger = 'faroApiCall';
 
@@ -16,6 +22,13 @@ class UserActionConstants {
   /// This is the debounce period to wait for related activity after
   /// a user interaction.
   static const Duration defaultFollowUpTimeout = Duration(milliseconds: 100);
+
+  /// Quiet period used to close a UI activity burst.
+  ///
+  /// While UI updates keep happening within this period, only one
+  /// `activity(ui.build)` signal is emitted for the burst.
+  static const Duration defaultUiActivityBurstQuietPeriod =
+      defaultFollowUpTimeout;
 
   /// Default halt timeout duration (10 seconds).
   /// This is the maximum time to wait for pending async operations

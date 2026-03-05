@@ -4,7 +4,7 @@ export './src/configurations/batch_config.dart';
 export './src/configurations/faro_config.dart';
 export './src/configurations/sampling.dart';
 export './src/faro.dart';
-export './src/faro_asset_bundle.dart';
+export './src/faro_asset_tracking.dart';
 export './src/faro_navigation_observer.dart';
 export './src/faro_user_interaction_widget.dart';
 export './src/integrations/http_tracking_client.dart';
