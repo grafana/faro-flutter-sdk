@@ -22,7 +22,7 @@ rootProject.allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 35
+    compileSdk 35
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -30,7 +30,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 19
+        minSdk 19
     }
 
     namespace 'com.grafana.faro'
