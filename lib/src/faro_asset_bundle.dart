@@ -91,7 +91,7 @@ class FaroAssetBundle extends AssetBundle {
     final duration = afterLoad - beforeLoad;
 
     Faro().pushEvent('Asset-load', attributes: {
-      'name': _getFileName(key),
+      'name': key,
       'size': '$rawSize',
       'duration': '$duration',
     });
@@ -112,15 +112,11 @@ class FaroAssetBundle extends AssetBundle {
     final duration = afterLoad - beforeLoad;
     final dataSize = _getDataLength(data);
     Faro().pushEvent('Asset-load', attributes: {
-      'name': _getFileName(key),
+      'name': key,
       'size': '$dataSize',
       'duration': '$duration',
     });
     return data;
-  }
-
-  String _getFileName(String key) {
-    return key;
   }
 
   int? _getDataLength(dynamic data) {

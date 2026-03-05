@@ -326,11 +326,11 @@ Faro().runApp(
 
 Track asset loading times and sizes. Each asset load sends an `Asset-load` event with the following attributes:
 
-| Attribute  | Description                   | Example    |
-| ---------- | ----------------------------- | ---------- |
-| `name`     | File name of the loaded asset | `logo.png` |
-| `size`     | Size in bytes                 | `24576`    |
-| `duration` | Load time in milliseconds     | `12`       |
+| Attribute  | Description                       | Example                    |
+| ---------- | --------------------------------- | -------------------------- |
+| `name`     | Asset key (full path)             | `assets/images/logo.png`   |
+| `size`     | Size in bytes                     | `24576`                    |
+| `duration` | Load time in milliseconds         | `12`                       |
 
 ```dart
 appRunner: () => runApp(
