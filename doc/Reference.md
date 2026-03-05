@@ -67,8 +67,7 @@ void main() {
       // Many more options available — see Configuration Reference below
     ),
     appRunner: () => runApp(
-      DefaultAssetBundle(
-        bundle: FaroAssetBundle(),        // tracks asset loading times and sizes
+      FaroAssetTracking(                  // tracks asset loading times and sizes
         child: FaroUserInteractionWidget( // tracks user taps and gestures
           child: MyApp()
         )
@@ -327,16 +326,15 @@ Faro().runApp(
 
 Track asset loading times and sizes. Each asset load sends an `Asset-load` event with the following attributes:
 
-| Attribute  | Description                   | Example    |
-| ---------- | ----------------------------- | ---------- |
-| `name`     | File name of the loaded asset | `logo.png` |
-| `size`     | Size in bytes                 | `24576`    |
-| `duration` | Load time in milliseconds     | `12`       |
+| Attribute  | Description                       | Example                    |
+| ---------- | --------------------------------- | -------------------------- |
+| `name`     | Asset key (full path)             | `assets/images/logo.png`   |
+| `size`     | Size in bytes                     | `24576`                    |
+| `duration` | Load time in milliseconds         | `12`                       |
 
 ```dart
 appRunner: () => runApp(
-  DefaultAssetBundle(
-    bundle: FaroAssetBundle(),
+  FaroAssetTracking(
     child: const FaroUserInteractionWidget(child: MyApp())
   )
 ),
@@ -385,8 +383,12 @@ if (action != null) {
 User actions follow an automatic lifecycle managed by the SDK:
 
 1. **Started** — The action is created and begins buffering telemetry. A 100ms follow-up timer starts.
-2. **Activity resets the timer** — Each qualifying activity signal (navigation event, pending operation start) resets the 100ms timer, keeping the action alive longer.
-3. **Halted** — If there are still pending operations (for example, HTTP requests tracked out of the box via `FaroHttpOverrides`, or custom spans marked with `UserActionConstants.pendingOperationKey`) when the 100ms timer expires, the action enters a halted state and waits up to 10 seconds for them to complete.
+2. **Activity resets the timer** — Each qualifying signal (for example: UI
+   build/render activity, navigation, or pending operation start)
+   resets the 100ms timer, keeping the action alive longer.
+3. **Halted** — If there are still pending operations when the 100ms timer
+   expires, the action enters a halted state and waits up to 10 seconds for
+   them to complete.
 4. **Ended** — The action completed successfully. All buffered telemetry is flushed with action context enrichment.
 5. **Cancelled** — No qualifying activity occurred within 100ms, or a halted action timed out. Buffered telemetry is flushed _without_ action context.
 
@@ -394,15 +396,23 @@ User actions follow an automatic lifecycle managed by the SDK:
 
 The following lifecycle signals are consumed by the controller:
 
-| Signal                             | Source                                     | Effect / Requirement                              |
-| ---------------------------------- | ------------------------------------------ | ------------------------------------------------- |
-| Navigation push/pop/replace        | `FaroNavigationObserver`                   | Activity signal. Must be added to `navigatorObservers` |
-| HTTP pending operation start       | `HttpTrackingClient` / `FaroHttpOverrides` | Activity signal. Must be enabled                  |
-| HTTP pending operation end         | `HttpTrackingClient` / `FaroHttpOverrides` | Closes a pending operation; can finish halted action |
-| Marker-based pending start (span)  | Any span with `UserActionConstants.pendingOperationKey: true` | Activity signal for custom spans                  |
-| Marker-based pending end (span)    | Same marker-based span                     | Closes a pending operation; can finish halted action |
+| Signal                            | Source                                     | Effect / Requirement                         |
+| --------------------------------- | ------------------------------------------ | -------------------------------------------- |
+| UI build/render activity          | Internal monitor                           | Activity signal. Automatic when Faro is initialized |
+| Navigation push/pop/replace       | `FaroNavigationObserver`                   | Activity signal. Must be added to `navigatorObservers` |
+| HTTP pending operation start      | `HttpTrackingClient` / `FaroHttpOverrides` | `pendingStart`; activity signal. Must be enabled |
+| HTTP pending operation end        | `HttpTrackingClient` / `FaroHttpOverrides` | `pendingEnd`; closes a pending operation     |
+| Asset/resource load               | `FaroAssetTracking`                        | Activity signal; must wrap widget subtree    |
+| Marker-based pending start (span) | Any span with `UserActionConstants.pendingOperationKey: true` | `pendingStart` for custom async work         |
+| Marker-based pending end (span)   | Same marker-based span                     | `pendingEnd`; can finish halted action       |
 
-> **Important:** Signal sources are opt-in. If your app uses `startUserAction()` without `FaroNavigationObserver`, without `FaroHttpOverrides`, and without marker-based pending spans, no signals will be emitted and actions will be cancelled after 100ms. For user actions to work effectively, ensure you have at least one of these integrations enabled.
+> **Important:** Navigation, HTTP, asset-resource, and marker-based span
+> signals are opt-in integrations. UI build/render signals are automatic but
+> intentionally bounded to one signal per UI activity burst (burst closes after
+> 100ms of UI quiet time), so continuously animating widgets do not keep an
+> action alive indefinitely. To disable UI build/render monitoring entirely,
+> set `enableUiActivityMonitoring: false` in `FaroConfig`; note that actions
+> relying solely on UI rebuilds will then be cancelled.
 
 ### Extending a User Action with Custom Pending Spans
 

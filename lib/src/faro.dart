@@ -29,6 +29,7 @@ import 'package:faro/src/user_actions/start_user_action_options.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_handle.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
+import 'package:faro/src/user_actions/user_action_ui_activity_monitor.dart';
 import 'package:faro/src/user_actions/user_actions_service.dart';
 import 'package:faro/src/util/constants.dart';
 import 'package:faro/src/util/timestamp_extension.dart';
@@ -98,6 +99,9 @@ class Faro {
 
   UserActionsService get _userActionsService =>
       pod.resolve(userActionsServiceProvider);
+
+  UserActionUiActivityMonitor get _userActionUiActivityMonitor =>
+      pod.resolve(userActionUiActivityMonitorProvider);
 
   FaroTracer get _tracer => FaroTracerFactory().create();
 
@@ -223,6 +227,9 @@ class Faro {
       NativeIntegration.instance.getAppStart();
     });
     WidgetsBinding.instance.addObserver(FaroWidgetsBindingObserver());
+    if (optionsConfiguration.enableUiActivityMonitoring) {
+      _userActionUiActivityMonitor.attach();
+    }
   }
 
   Future<void> runApp(

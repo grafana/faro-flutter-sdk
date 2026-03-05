@@ -14,7 +14,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   interaction-level correlation across logs, events, exceptions, and spans.
   Use `startSpanManual()` for manual span lifecycle control.
 
+### Added
+
+- **UI activity monitoring for user actions**: The SDK now automatically
+  monitors Flutter widget rebuilds to detect UI responses to user actions.
+  This emits bounded activity signals that keep user actions alive while the
+  UI is updating, similar to DOM mutation observation in the Web SDK.
+  Disable via `enableUiActivityMonitoring: false` in `FaroConfig`.
+- **Asset load lifecycle signals**: Asset loads via `FaroAssetTracking` now
+  emit activity signals to keep user actions alive during resource loading.
+- **Expanded asset tracking**: `FaroAssetBundle` now also tracks `loadBuffer`
+  and `loadStructuredBinaryData` in addition to `load` and `loadString`.
+
 ### Changed
+
+- **BREAKING: `FaroAssetTracking` replaces `FaroAssetBundle` in public API**:
+  `FaroAssetBundle` is no longer exported from `package:faro/faro.dart`.
+  Use `FaroAssetTracking(child: ...)` instead of
+  `DefaultAssetBundle(bundle: FaroAssetBundle(), child: ...)`.
+
+  ```dart
+  // Before
+  DefaultAssetBundle(
+    bundle: FaroAssetBundle(),
+    child: const FaroUserInteractionWidget(child: MyApp()),
+  )
+
+  // After
+  FaroAssetTracking(
+    child: const FaroUserInteractionWidget(child: MyApp()),
+  )
+  ```
 
 - HTTP tracking no longer emits the legacy `http_request` custom event from
   `HttpTrackingClient`.

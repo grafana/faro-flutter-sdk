@@ -18,6 +18,7 @@ class FaroConfig {
     this.cpuUsageVitals = true,
     this.anrTracking = false,
     this.refreshRateVitals = false,
+    this.enableUiActivityMonitoring = true,
     this.fetchVitalsInterval = const Duration(seconds: 30),
     BatchConfig? batchConfig,
     this.ignoreUrls,
@@ -46,6 +47,13 @@ class FaroConfig {
   final bool enableCrashReporting;
   final bool enableFlutterErrorReporting;
   final bool refreshRateVitals;
+
+  /// Whether to monitor widget rebuilds for user action lifecycle tracking.
+  ///
+  /// When enabled (default), the SDK hooks into Flutter's build scheduling
+  /// to detect UI responses to user actions. Disable this if you experience
+  /// any framework-level issues caused by the build monitoring.
+  final bool enableUiActivityMonitoring;
   final BatchConfig batchConfig;
   final int maxBufferLimit;
   final Duration? fetchVitalsInterval;

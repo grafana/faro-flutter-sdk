@@ -81,8 +81,7 @@ void main() async {
         // This allows providers to be accessed before runApp() if needed
         UncontrolledProviderScope(
           container: container,
-          child: DefaultAssetBundle(
-            bundle: FaroAssetBundle(),
+          child: FaroAssetTracking(
             child: const FaroUserInteractionWidget(child: MyApp()),
           ),
         ),
