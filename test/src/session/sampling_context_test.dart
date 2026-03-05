@@ -21,7 +21,7 @@ void main() {
           id: 'user-123',
           attributes: {'role': 'beta'},
         ),
-        sdk: Sdk('faro-flutter-sdk', '1.0.0', []),
+        sdk: Sdk('faro-flutter-sdk', '1.0.0'),
         view: ViewMeta('home'),
       );
 

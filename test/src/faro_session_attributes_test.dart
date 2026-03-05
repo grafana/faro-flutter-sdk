@@ -121,7 +121,6 @@ void main() {
       expect(sessionAttributes?['custom_label'], 'test_value');
 
       // Default attributes should also be present
-      expect(sessionAttributes?['faro_sdk_version'], isNotNull);
       expect(sessionAttributes?['device_os'], isNotNull);
       expect(sessionAttributes?['device_model'], isNotNull);
     });
@@ -143,7 +142,6 @@ void main() {
       expect(sessionAttributes, isNotNull);
 
       // Only default attributes should be present
-      expect(sessionAttributes?['faro_sdk_version'], isNotNull);
       expect(sessionAttributes?['device_os'], isNotNull);
       expect(sessionAttributes?['device_model'], isNotNull);
     });
@@ -165,7 +163,6 @@ void main() {
       expect(sessionAttributes, isNotNull);
 
       // Only default attributes should be present
-      expect(sessionAttributes?['faro_sdk_version'], isNotNull);
       expect(sessionAttributes?['device_os'], isNotNull);
       expect(sessionAttributes?['device_model'], isNotNull);
     });
@@ -278,7 +275,6 @@ void main() {
       }
 
       // Default attributes should still be present
-      expect(sessionAttributes?['faro_sdk_version'], isNotNull);
       expect(sessionAttributes?['device_os'], isNotNull);
     });
   });
