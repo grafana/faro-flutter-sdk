@@ -115,8 +115,14 @@ class UserActionUiActivityMonitor {
       return;
     }
 
-    // Keep the callback wrapped in case a different build owner appears.
-    _attachBuildScheduledListener();
+    // Re-attach only when the BuildOwner instance itself has changed (e.g.
+    // hot restart). Checking the callback identity instead would break if
+    // another component wraps onBuildScheduled after us: we'd store the
+    // wrapper as _previousOnBuildScheduled while it already chains back to
+    // us, creating infinite recursion on the next build.
+    if (_widgetsBinding.buildOwner != _buildOwner) {
+      _attachBuildScheduledListener();
+    }
 
     if (!_hasDirtyBuildScheduled) {
       return;
