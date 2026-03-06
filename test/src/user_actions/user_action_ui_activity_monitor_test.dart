@@ -37,7 +37,7 @@ void main() {
     });
 
     tearDown(() {
-      monitor.dispose();
+      monitor.detach();
       signalChannel.dispose();
     });
 

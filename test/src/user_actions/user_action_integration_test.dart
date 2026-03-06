@@ -23,9 +23,7 @@ void main() {
   UserActionLifecycleSignalChannel lifecycleSignalChannel() =>
       pod.resolve(userActionLifecycleSignalChannelProvider);
 
-  Future<void> completeActiveAction({
-    required String source,
-  }) async {
+  Future<void> completeActiveAction({required String source}) async {
     if (faro.getActiveUserAction() == null) {
       return;
     }
@@ -39,6 +37,7 @@ void main() {
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
+    Faro.resetForTesting();
     BatchTransportFactory().reset();
 
     // Mock SharedPreferences
@@ -67,6 +66,7 @@ void main() {
 
   tearDown(() async {
     await completeActiveAction(source: 'test.teardown');
+    Faro.resetForTesting();
     BatchTransportFactory().reset();
   });
 
@@ -339,65 +339,71 @@ void main() {
       }
     });
 
-    test('should emit user action event on end with correct attributes',
-        () async {
-      // Initialize Faro with required dependencies
-      await faro.init(
-        optionsConfiguration: FaroConfig(
-          collectorUrl: 'https://example.com',
-          appName: 'test-app',
-          appEnv: 'test',
-          apiKey: 'test-key',
-          batchConfig: BatchConfig(enabled: false),
-        ),
-      );
+    test(
+      'should emit user action event on end with correct attributes',
+      () async {
+        // Initialize Faro with required dependencies
+        await faro.init(
+          optionsConfiguration: FaroConfig(
+            collectorUrl: 'https://example.com',
+            appName: 'test-app',
+            appEnv: 'test',
+            apiKey: 'test-key',
+            batchConfig: BatchConfig(enabled: false),
+          ),
+        );
 
-      faro.startUserAction(
-        'checkout-flow',
-        attributes: {'product': 'premium', 'price': '99.99'},
-        options: const StartUserActionOptions(
-          importance: UserActionConstants.importanceCritical,
-        ),
-      );
+        faro.startUserAction(
+          'checkout-flow',
+          attributes: {'product': 'premium', 'price': '99.99'},
+          options: const StartUserActionOptions(
+            importance: UserActionConstants.importanceCritical,
+          ),
+        );
 
-      // End the action
-      await completeActiveAction(source: 'test.user_action_event_on_end');
+        // End the action
+        await completeActiveAction(source: 'test.user_action_event_on_end');
 
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      // Find the user action event
-      final captured = verify(() => mockTransport.send(captureAny())).captured;
-      expect(captured, isNotEmpty);
+        // Find the user action event
+        final captured = verify(
+          () => mockTransport.send(captureAny()),
+        ).captured;
+        expect(captured, isNotEmpty);
 
-      var foundUserActionEvent = false;
-      for (final payload in captured) {
-        final map = payload as Map<String, dynamic>;
-        if (map['events'] != null && (map['events'] as List).isNotEmpty) {
-          final events = map['events'] as List;
-          for (final e in events) {
-            if (e['name'] == UserActionConstants.userActionEventName) {
-              foundUserActionEvent = true;
+        var foundUserActionEvent = false;
+        for (final payload in captured) {
+          final map = payload as Map<String, dynamic>;
+          if (map['events'] != null && (map['events'] as List).isNotEmpty) {
+            final events = map['events'] as List;
+            for (final e in events) {
+              if (e['name'] == UserActionConstants.userActionEventName) {
+                foundUserActionEvent = true;
 
-              // Verify attributes
-              expect(
-                  e['attributes']['userActionName'], equals('checkout-flow'));
-              expect(
-                e['attributes']['userActionImportance'],
-                equals(UserActionConstants.importanceCritical),
-              );
-              expect(e['attributes']['product'], equals('premium'));
-              expect(e['attributes']['price'], equals('99.99'));
-              expect(e['attributes']['userActionStartTime'], isNotNull);
-              expect(e['attributes']['userActionEndTime'], isNotNull);
-              expect(e['attributes']['userActionDuration'], isNotNull);
-              expect(e['attributes']['userActionTrigger'], isNotNull);
+                // Verify attributes
+                expect(
+                  e['attributes']['userActionName'],
+                  equals('checkout-flow'),
+                );
+                expect(
+                  e['attributes']['userActionImportance'],
+                  equals(UserActionConstants.importanceCritical),
+                );
+                expect(e['attributes']['product'], equals('premium'));
+                expect(e['attributes']['price'], equals('99.99'));
+                expect(e['attributes']['userActionStartTime'], isNotNull);
+                expect(e['attributes']['userActionEndTime'], isNotNull);
+                expect(e['attributes']['userActionDuration'], isNotNull);
+                expect(e['attributes']['userActionTrigger'], isNotNull);
+              }
             }
           }
         }
-      }
 
-      expect(foundUserActionEvent, isTrue);
-    });
+        expect(foundUserActionEvent, isTrue);
+      },
+    );
 
     test('should NOT emit user action event on cancel', () async {
       // Initialize Faro with required dependencies
@@ -587,30 +593,32 @@ void main() {
       await completeActiveAction(source: 'test.second_action_end');
     });
 
-    test('should allow starting new action after previous one is cancelled',
-        () async {
-      // Initialize Faro with required dependencies
-      await faro.init(
-        optionsConfiguration: FaroConfig(
-          collectorUrl: 'https://example.com',
-          appName: 'test-app',
-          appEnv: 'test',
-          apiKey: 'test-key',
-          batchConfig: BatchConfig(enabled: false),
-        ),
-      );
+    test(
+      'should allow starting new action after previous one is cancelled',
+      () async {
+        // Initialize Faro with required dependencies
+        await faro.init(
+          optionsConfiguration: FaroConfig(
+            collectorUrl: 'https://example.com',
+            appName: 'test-app',
+            appEnv: 'test',
+            apiKey: 'test-key',
+            batchConfig: BatchConfig(enabled: false),
+          ),
+        );
 
-      // Start and cancel first action
-      final action1 = faro.startUserAction('action-1');
-      expect(action1, isNotNull);
-      await waitForAutoCancellation();
+        // Start and cancel first action
+        final action1 = faro.startUserAction('action-1');
+        expect(action1, isNotNull);
+        await waitForAutoCancellation();
 
-      // Should be able to start a new action
-      final action2 = faro.startUserAction('action-2');
-      expect(action2, isNotNull);
-      expect(action2!.name, equals('action-2'));
+        // Should be able to start a new action
+        final action2 = faro.startUserAction('action-2');
+        expect(action2, isNotNull);
+        expect(action2!.name, equals('action-2'));
 
-      await completeActiveAction(source: 'test.after_cancel_end');
-    });
+        await completeActiveAction(source: 'test.after_cancel_end');
+      },
+    );
   });
 }

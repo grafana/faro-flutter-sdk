@@ -52,17 +52,14 @@ class _RebuildHarnessState extends State<_RebuildHarness> {
     };
 
     if (widget.enableContinuousAnimation) {
-      _animationTimer = Timer.periodic(
-        const Duration(milliseconds: 16),
-        (_) {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _buildTick += 1;
-          });
-        },
-      );
+      _animationTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _buildTick += 1;
+        });
+      });
     }
   }
 
@@ -101,6 +98,7 @@ void main() {
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
+    Faro.resetForTesting();
     BatchTransportFactory().reset();
     SharedPreferences.setMockInitialValues(<String, Object>{});
     PackageInfo.setMockInitialValues(
@@ -119,17 +117,17 @@ void main() {
   });
 
   tearDown(() {
+    Faro.resetForTesting();
     BatchTransportFactory().reset();
   });
 
-  testWidgets('cancels action when no follow-up rebuild occurs',
-      (tester) async {
+  testWidgets('cancels action when no follow-up rebuild occurs', (
+    tester,
+  ) async {
     await initializeFaro();
     final controller = _RebuildController();
     await tester.pumpWidget(
-      MaterialApp(
-        home: _RebuildHarness(controller: controller),
-      ),
+      MaterialApp(home: _RebuildHarness(controller: controller)),
     );
     await tester.pump();
 
@@ -147,9 +145,7 @@ void main() {
     await initializeFaro();
     final controller = _RebuildController();
     await tester.pumpWidget(
-      MaterialApp(
-        home: _RebuildHarness(controller: controller),
-      ),
+      MaterialApp(home: _RebuildHarness(controller: controller)),
     );
     await tester.pump();
 
@@ -165,8 +161,9 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('continuous animation does not keep action alive indefinitely',
-      (tester) async {
+  testWidgets('continuous animation does not keep action alive indefinitely', (
+    tester,
+  ) async {
     await initializeFaro();
     final controller = _RebuildController();
     await tester.pumpWidget(

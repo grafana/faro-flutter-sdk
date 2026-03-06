@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `Faro.init()` now ignores repeated calls after the first successful
+  initialization, preventing duplicate startup side effects such as extra
+  transports, repeated `session_start` events, and duplicate widget
+  observers.
+
 ## [0.12.0] - 2026-03-05
 
 ### Deprecated

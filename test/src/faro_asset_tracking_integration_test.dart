@@ -52,6 +52,7 @@ void main() {
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
+    Faro.resetForTesting();
     BatchTransportFactory().reset();
     SharedPreferences.setMockInitialValues(<String, Object>{});
     PackageInfo.setMockInitialValues(
@@ -75,6 +76,7 @@ void main() {
   });
 
   tearDown(() {
+    Faro.resetForTesting();
     pod.removeOverride(rootAssetBundleProvider);
     BatchTransportFactory().reset();
   });
@@ -108,9 +110,7 @@ void main() {
     final hasAssetLoadEvent = captured.any((payload) {
       final events = payload['events'] as List<dynamic>?;
       if (events == null) return false;
-      return events.any(
-        (e) => e['name'] == 'Asset-load',
-      );
+      return events.any((e) => e['name'] == 'Asset-load');
     });
     expect(hasAssetLoadEvent, isTrue);
   });
