@@ -53,6 +53,12 @@ class Faro {
   @visibleForTesting
   static set instance(Faro instance) => _instance = instance;
 
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance._tearDownForReset();
+    _instance = Faro._();
+  }
+
   bool get enableDataCollection => _dataCollectionPolicy?.isEnabled ?? true;
 
   /// Set data collection enabled/disabled.
@@ -72,6 +78,9 @@ class Faro {
   DataCollectionPolicy? _dataCollectionPolicy;
   UserManager? _userManager;
   bool _isSampled = true;
+  bool _isInitialized = false;
+  FaroWidgetsBindingObserver? _widgetsBindingObserver;
+  bool _didAttachUiActivityMonitor = false;
 
   /// Whether the current session is sampled.
   ///
@@ -80,13 +89,14 @@ class Faro {
   bool get isSampled => _isSampled;
 
   Meta meta = Meta(
-      session: Session(
-        SessionIdProviderFactory().create().sessionId,
-        attributes: {},
-      ),
-      sdk: Sdk(FaroConstants.sdkName, '1.3.5', []),
-      app: App(name: '', environment: '', version: ''),
-      view: ViewMeta('default'));
+    session: Session(
+      SessionIdProviderFactory().create().sessionId,
+      attributes: {},
+    ),
+    sdk: Sdk(FaroConstants.sdkName, '1.3.5', []),
+    app: App(name: '', environment: '', version: ''),
+    view: ViewMeta('default'),
+  );
 
   HttpTrackingFilter get _httpTrackingFilter =>
       pod.resolve(httpTrackingFilterProvider);
@@ -132,6 +142,11 @@ class Faro {
   }
 
   Future<void> init({required FaroConfig optionsConfiguration}) async {
+    if (_isInitialized) {
+      log('Faro: init() called after initialization; ignoring.');
+      return;
+    }
+
     _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
 
     final attributesProvider =
@@ -158,8 +173,9 @@ class Faro {
     );
 
     // Set app meta before sampling so sampler has access to full context
-    final appVersion =
-        await _resolveAppVersion(optionsConfiguration.appVersion);
+    final appVersion = await _resolveAppVersion(
+      optionsConfiguration.appVersion,
+    );
     setAppMeta(
       appName: optionsConfiguration.appName,
       appEnv: optionsConfiguration.appEnv,
@@ -169,16 +185,11 @@ class Faro {
 
     // Make sampling decision (once per session)
     _isSampled = SessionSamplingProviderFactory()
-        .create(
-          sampling: optionsConfiguration.sampling,
-          meta: meta,
-        )
+        .create(sampling: optionsConfiguration.sampling, meta: meta)
         .isSampled;
 
     if (!_isSampled) {
-      log(
-        'Faro: Session not sampled. Telemetry will be dropped.',
-      );
+      log('Faro: Session not sampled. Telemetry will be dropped.');
     }
 
     final batchTransport = BatchTransportFactory().create(
@@ -216,25 +227,30 @@ class Faro {
     }
     if (Platform.isAndroid || Platform.isIOS) {
       NativeIntegration.instance.init(
-          memusage: optionsConfiguration.memoryUsageVitals,
-          cpuusage: optionsConfiguration.cpuUsageVitals,
-          anr: optionsConfiguration.anrTracking,
-          refreshrate: optionsConfiguration.refreshRateVitals,
-          setSendUsageInterval: optionsConfiguration.fetchVitalsInterval);
+        memusage: optionsConfiguration.memoryUsageVitals,
+        cpuusage: optionsConfiguration.cpuUsageVitals,
+        anr: optionsConfiguration.anrTracking,
+        refreshrate: optionsConfiguration.refreshRateVitals,
+        setSendUsageInterval: optionsConfiguration.fetchVitalsInterval,
+      );
     }
     _instance.pushEvent('session_start');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NativeIntegration.instance.getAppStart();
     });
-    WidgetsBinding.instance.addObserver(FaroWidgetsBindingObserver());
+    _widgetsBindingObserver = FaroWidgetsBindingObserver();
+    WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
     if (optionsConfiguration.enableUiActivityMonitoring) {
       _userActionUiActivityMonitor.attach();
+      _didAttachUiActivityMonitor = true;
     }
+    _isInitialized = true;
   }
 
-  Future<void> runApp(
-      {required FaroConfig optionsConfiguration,
-      required AppRunner? appRunner}) async {
+  Future<void> runApp({
+    required FaroConfig optionsConfiguration,
+    required AppRunner? appRunner,
+  }) async {
     if (optionsConfiguration.enableFlutterErrorReporting) {
       OnErrorIntegration().call();
       FlutterErrorIntegration().call();
@@ -255,9 +271,25 @@ class Faro {
       version: appVersion,
       namespace: namespace,
     );
-    _instance.meta =
-        Meta.fromJson({..._instance.meta.toJson(), 'app': appMeta.toJson()});
+    _instance.meta = Meta.fromJson({
+      ..._instance.meta.toJson(),
+      'app': appMeta.toJson(),
+    });
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
+  }
+
+  void _tearDownForReset() {
+    final widgetsBindingObserver = _widgetsBindingObserver;
+    if (widgetsBindingObserver != null) {
+      WidgetsBinding.instance.removeObserver(widgetsBindingObserver);
+      _widgetsBindingObserver = null;
+    }
+    _widgetsBindingObserver = null;
+    if (_didAttachUiActivityMonitor) {
+      _userActionUiActivityMonitor.detach();
+      _didAttachUiActivityMonitor = false;
+    }
+    _isInitialized = false;
   }
 
   /// Sets the user for all subsequent telemetry.
@@ -299,8 +331,10 @@ class Faro {
   /// will be persisted and automatically restored on the next app start.
   ///
   /// If all parameters are null, the user will be cleared.
-  @Deprecated('Use setUser(FaroUser(...)) instead. '
-      'To clear, use setUser(FaroUser.cleared()).')
+  @Deprecated(
+    'Use setUser(FaroUser(...)) instead. '
+    'To clear, use setUser(FaroUser.cleared()).',
+  )
   void setUserMeta({String? userId, String? userName, String? userEmail}) {
     final user = (userId == null && userName == null && userEmail == null)
         ? const FaroUser.cleared()
@@ -327,15 +361,19 @@ class Faro {
 
   /// Applies user JSON to meta.
   void _applyUserMeta(Map<String, dynamic> userJson) {
-    _instance.meta =
-        Meta.fromJson({..._instance.meta.toJson(), 'user': userJson});
+    _instance.meta = Meta.fromJson({
+      ..._instance.meta.toJson(),
+      'user': userJson,
+    });
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
 
   void setViewMeta({String? name}) {
     final viewMeta = ViewMeta(name);
-    _instance.meta =
-        Meta.fromJson({..._instance.meta.toJson(), 'view': viewMeta.toJson()});
+    _instance.meta = Meta.fromJson({
+      ..._instance.meta.toJson(),
+      'view': viewMeta.toJson(),
+    });
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
 
@@ -344,11 +382,7 @@ class Faro {
     Map<String, dynamic>? attributes,
     Map<String, String>? trace,
   }) {
-    final event = Event(
-      name,
-      attributes: attributes,
-      trace: trace,
-    );
+    final event = Event(name, attributes: attributes, trace: trace);
     _telemetryRouter.ingest(TelemetryItem.fromEvent(event));
   }
 
@@ -358,8 +392,12 @@ class Faro {
     Map<String, dynamic>? context,
     Map<String, String>? trace,
   }) {
-    final faroLog =
-        FaroLog(message, level: level.value, context: context, trace: trace);
+    final faroLog = FaroLog(
+      message,
+      level: level.value,
+      context: context,
+      trace: trace,
+    );
     _telemetryRouter.ingest(TelemetryItem.fromLog(faroLog));
   }
 
@@ -374,11 +412,13 @@ class Faro {
       parsedStackTrace = {'frames': FaroException.stackTraceParse(stacktrace)};
     }
 
-    final faroException =
-        FaroException(type, value, parsedStackTrace, context: context);
-    _telemetryRouter.ingest(
-      TelemetryItem.fromException(faroException),
+    final faroException = FaroException(
+      type,
+      value,
+      parsedStackTrace,
+      context: context,
     );
+    _telemetryRouter.ingest(TelemetryItem.fromException(faroException));
   }
 
   void pushMeasurement(Map<String, dynamic>? values, String type) {
@@ -654,10 +694,7 @@ class Faro {
   @Deprecated('Use startSpan() for duration tracking.')
   void markEventStart(String key, String name) {
     final eventStartTime = DateTime.now().millisecondsSinceEpoch;
-    eventMark[key] = {
-      'eventName': name,
-      'eventStartTime': eventStartTime,
-    };
+    eventMark[key] = {'eventName': name, 'eventStartTime': eventStartTime};
   }
 
   /// Deprecated: use [startSpan] for duration tracking, or
@@ -670,19 +707,25 @@ class Faro {
   /// });
   /// ```
   @Deprecated('Use startSpan() for duration tracking.')
-  void markEventEnd(String key, String name,
-      {Map<String, dynamic> attributes = const {}}) {
+  void markEventEnd(
+    String key,
+    String name, {
+    Map<String, dynamic> attributes = const {},
+  }) {
     final eventEndTime = DateTime.now().millisecondsSinceEpoch;
     if (!eventMark.containsKey(key)) {
       return;
     }
     final duration = eventEndTime - eventMark[key]['eventStartTime'];
-    pushEvent(name, attributes: {
-      ...attributes,
-      'duration': duration.toString(),
-      'eventStart': eventMark[key]['eventStartTime'].toString(),
-      'eventEnd': eventEndTime.toString()
-    });
+    pushEvent(
+      name,
+      attributes: {
+        ...attributes,
+        'duration': duration.toString(),
+        'eventStart': eventMark[key]['eventStartTime'].toString(),
+        'eventEnd': eventEndTime.toString(),
+      },
+    );
     eventMark.remove(key);
   }
 

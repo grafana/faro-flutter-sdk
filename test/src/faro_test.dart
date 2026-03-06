@@ -35,11 +35,9 @@ void main() {
 
     setUpAll(() {
       registerFallbackValue(
-        FaroException(
-          'test',
-          'something',
-          {'frames': <Map<String, dynamic>>[]},
-        ),
+        FaroException('test', 'something', {
+          'frames': <Map<String, dynamic>>[],
+        }),
       );
       registerFallbackValue(Event('test', attributes: {'test': 'test'}));
       registerFallbackValue(FaroLog('This is a message'));
@@ -50,6 +48,9 @@ void main() {
     });
 
     setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      Faro.resetForTesting();
+
       // Reset the BatchTransportFactory singleton state
       BatchTransportFactory().reset();
 
@@ -78,20 +79,26 @@ void main() {
       Faro().nativeChannel = mockFaroNativeMethods;
       Faro().batchTransport = mockBatchTransport;
 
-      when(() => mockFaroNativeMethods.enableCrashReporter(any()))
-          .thenAnswer((_) async {});
-      when(() => mockBatchTransport.addExceptions(any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockFaroNativeMethods.enableCrashReporter(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockBatchTransport.addExceptions(any()),
+      ).thenAnswer((_) async {});
       when(() => mockBatchTransport.addLog(any())).thenAnswer((_) async {});
       when(() => mockBatchTransport.addEvent(any())).thenAnswer((_) async {});
-      when(() => mockBatchTransport.addMeasurement(any()))
-          .thenAnswer((_) async {});
-      when(() => mockBatchTransport.updatePayloadMeta(any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockBatchTransport.addMeasurement(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockBatchTransport.updatePayloadMeta(any()),
+      ).thenAnswer((_) async {});
       when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
     });
 
     tearDown(() {
+      Faro.resetForTesting();
+
       // Clean up the singleton state after each test
       BatchTransportFactory().reset();
     });
@@ -118,6 +125,35 @@ void main() {
       verify(() => mockBatchTransport.addEvent(any())).called(1);
     });
 
+    test('subsequent init calls are ignored', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      final initialConfig = FaroConfig(
+        appName: appName,
+        appVersion: appVersion,
+        appEnv: appEnv,
+        apiKey: apiKey,
+        collectorUrl: 'https://some-url.com',
+      );
+      final secondConfig = FaroConfig(
+        appName: 'SecondApp',
+        appVersion: '9.9.9',
+        appEnv: 'SecondEnv',
+        apiKey: 'SecondKey',
+        collectorUrl: 'https://other-url.com',
+      );
+
+      await Faro().init(optionsConfiguration: initialConfig);
+      clearInteractions(mockBatchTransport);
+
+      await Faro().init(optionsConfiguration: secondConfig);
+
+      final app = Faro().meta.app;
+      expect(app?.name, initialConfig.appName);
+      expect(app?.version, initialConfig.appVersion);
+      expect(app?.environment, initialConfig.appEnv);
+      verifyNever(() => mockBatchTransport.addEvent(any()));
+    });
+
     test('set App Meta data', () {
       Faro().setAppMeta(
         appName: appName,
@@ -130,24 +166,45 @@ void main() {
       expect(Faro().meta.app?.version, appVersion);
     });
 
-    test('set user meta data ', () {
+    test('set user meta data ', () async {
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        ),
+      );
       // ignore: deprecated_member_use_from_same_package
       Faro().setUserMeta(
         userId: 'testuserid',
         userName: 'testusername',
         userEmail: 'testusermail@example.com',
       );
+      await Future<void>.delayed(Duration.zero);
       expect(Faro().meta.user?.id, 'testuserid');
       expect(Faro().meta.user?.username, 'testusername');
       expect(Faro().meta.user?.email, 'testusermail@example.com');
     });
 
-    test('set user with setUser', () {
-      Faro().setUser(const FaroUser(
-        id: 'testuserid2',
-        username: 'testusername2',
-        email: 'testusermail2@example.com',
-      ));
+    test('set user with setUser', () async {
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        ),
+      );
+      await Faro().setUser(
+        const FaroUser(
+          id: 'testuserid2',
+          username: 'testusername2',
+          email: 'testusermail2@example.com',
+        ),
+      );
       expect(Faro().meta.user?.id, 'testuserid2');
       expect(Faro().meta.user?.username, 'testusername2');
       expect(Faro().meta.user?.email, 'testusermail2@example.com');
@@ -169,19 +226,25 @@ void main() {
       const logMessage = 'Log Message';
       const logContext = {'testkey': 'testvalue'};
       const trace = {'traceId': 'testtraceid', 'spanId': 'testspanid'};
-      Faro().pushLog(logMessage,
-          level: LogLevel.info, context: logContext, trace: trace);
+      Faro().pushLog(
+        logMessage,
+        level: LogLevel.info,
+        context: logContext,
+        trace: trace,
+      );
       verify(() => mockBatchTransport.addLog(any())).called(1);
     });
 
     test('send Error Logs', () {
-      final flutterErrorDetails =
-          FlutterErrorDetails(exception: FlutterError('Test Error'));
+      final flutterErrorDetails = FlutterErrorDetails(
+        exception: FlutterError('Test Error'),
+      );
       const errorType = 'flutter_error';
       Faro().pushError(
-          type: errorType,
-          value: flutterErrorDetails.exception.toString(),
-          stacktrace: flutterErrorDetails.stack);
+        type: errorType,
+        value: flutterErrorDetails.exception.toString(),
+        stacktrace: flutterErrorDetails.stack,
+      );
       verify(() => mockBatchTransport.addExceptions(any())).called(1);
     });
 
@@ -192,22 +255,24 @@ void main() {
       verify(() => mockBatchTransport.addMeasurement(any())).called(1);
     });
 
-    test('enableDataCollection getter reflects DataCollectionPolicy state',
-        () async {
-      // Set the mock policy on Faro
-      Faro().dataCollectionPolicy = mockDataCollectionPolicy;
+    test(
+      'enableDataCollection getter reflects DataCollectionPolicy state',
+      () async {
+        // Set the mock policy on Faro
+        Faro().dataCollectionPolicy = mockDataCollectionPolicy;
 
-      // Default should be enabled (as per our mock setup)
-      expect(Faro().enableDataCollection, isTrue);
+        // Default should be enabled (as per our mock setup)
+        expect(Faro().enableDataCollection, isTrue);
 
-      // Test when policy reports disabled
-      when(() => mockDataCollectionPolicy.isEnabled).thenReturn(false);
-      expect(Faro().enableDataCollection, isFalse);
+        // Test when policy reports disabled
+        when(() => mockDataCollectionPolicy.isEnabled).thenReturn(false);
+        expect(Faro().enableDataCollection, isFalse);
 
-      // Test when policy reports enabled
-      when(() => mockDataCollectionPolicy.isEnabled).thenReturn(true);
-      expect(Faro().enableDataCollection, isTrue);
-    });
+        // Test when policy reports enabled
+        when(() => mockDataCollectionPolicy.isEnabled).thenReturn(true);
+        expect(Faro().enableDataCollection, isTrue);
+      },
+    );
 
     test('enableDataCollection setter updates DataCollectionPolicy', () async {
       // Set the mock policy on Faro

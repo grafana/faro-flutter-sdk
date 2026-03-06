@@ -61,10 +61,7 @@ class UserActionUiActivityMonitor {
   }
 
   /// Stops monitoring and clears in-memory tracking.
-  ///
-  /// This API is primarily useful for tests.
-  @visibleForTesting
-  void dispose() {
+  void detach() {
     _isAttached = false;
     _hasDirtyBuildScheduled = false;
     _resetTrackedActionState();
