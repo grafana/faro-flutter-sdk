@@ -235,6 +235,10 @@ This is a client-side Flutter SDK with no server component. All unit tests run w
 
 Standard build/test commands are documented in the **Build/Test Commands** section above. Running `flutter pub get` at the workspace root also resolves `example/` dependencies (they share a workspace).
 
+### Flutter SDK
+
+Flutter is installed at `/opt/flutter`. The `PATH` is set in `~/.bashrc` to include `/opt/flutter/bin` and the bundled Dart SDK.
+
 ### Android SDK
 
 The Android SDK is installed at `/opt/android-sdk`. The `ANDROID_HOME` env var and PATH additions are set in `~/.bashrc`. Flutter is already configured to use this SDK via `flutter config --android-sdk`.
@@ -266,6 +270,10 @@ dart tool/pre_release_check.dart
 ```
 
 See `CONTRIBUTING.md` for the full contributor workflow.
+
+### Real-device testing via BrowserStack
+
+If `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` are set, the example APK can be tested on a real Android device using BrowserStack App Automate. Upload via the BrowserStack REST API with `custom_id=faro-flutter-example`, then use Appium REST calls to interact with the app. Flutter exposes UI elements through the Accessibility Bridge, so `accessibility id` element lookups work for buttons with text labels (e.g., `"Change Route"`, `"Simple Span"`). For card-style `ListTile` widgets, the accessibility label is the concatenated title and subtitle separated by `\n`.
 
 ### Gotchas
 
