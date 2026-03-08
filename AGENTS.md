@@ -222,3 +222,52 @@ class FeaturePage extends ConsumerWidget {
 ### Reference Implementation
 
 See `example/lib/features/tracing/` for the complete pattern.
+
+---
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+This is a client-side Flutter SDK with no server component. All unit tests run without external services. The only external dependency is a Faro collector URL for runtime telemetry, which is optional for development.
+
+### Key commands
+
+Standard build/test commands are documented in the **Build/Test Commands** section above. Running `flutter pub get` at the workspace root also resolves `example/` dependencies (they share a workspace).
+
+### Android SDK
+
+The Android SDK is installed at `/opt/android-sdk`. The `ANDROID_HOME` env var and PATH additions are set in `~/.bashrc`. Flutter is already configured to use this SDK via `flutter config --android-sdk`.
+
+### Example app configuration
+
+The example app requires `example/api-config.json` (gitignored). Create it by running:
+
+```bash
+export FARO_COLLECTOR_URL="https://your-collector-url" && bash tool/create-api-config-file.sh
+```
+
+A placeholder URL works for building/testing. The file is passed via `--dart-define-from-file` at runtime. See `example/api-config.example.json` for the expected format.
+
+### Running the example app
+
+There is no Android emulator in this environment. To build the example APK:
+
+```bash
+cd example && flutter build apk --dart-define-from-file api-config.json
+```
+
+### Before opening a PR
+
+Run the pre-release check script before committing/opening a PR. It validates formatting, static analysis, tests, and CHANGELOG content in one step:
+
+```bash
+dart tool/pre_release_check.dart
+```
+
+See `CONTRIBUTING.md` for the full contributor workflow.
+
+### Gotchas
+
+- `flutter pub get` in the root resolves both SDK and `example/` dependencies due to workspace configuration — no need to run it separately in `example/`.
+- The `example/pubspec.lock` is checked in but may show as modified after `flutter pub get` due to platform-specific dependency resolution differences. This is expected and should not be committed.
