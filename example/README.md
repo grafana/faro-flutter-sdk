@@ -129,6 +129,43 @@ Key implementation features shown in this example:
    - Error boundary setup
    - ANR detection configuration
 
+## QA Smoke Test Configuration
+
+The example app supports optional QA dart-define keys that inject session
+attributes and an initial user at startup, removing the need to patch source
+code for automated smoke tests.
+
+| Key | Type | Purpose |
+|-----|------|---------|
+| `FARO_QA_RUN_ID` | string | Adds `qa_run_id` to session attributes |
+| `FARO_QA_INITIAL_USER_JSON` | stringified JSON | Sets the initial `FaroUser` |
+
+Both keys are optional. When absent or empty, the app behaves normally.
+
+All configuration lives in `api-config.json` and is passed via a single flag:
+
+```bash
+flutter run --dart-define-from-file api-config.json
+```
+
+### Example: api-config.json with QA fields
+
+```json
+{
+  "FARO_COLLECTOR_URL": "https://your-collector-url",
+  "FARO_QA_RUN_ID": "smoke-test-12345",
+  "FARO_QA_INITIAL_USER_JSON": "{\"id\":\"user-123\",\"username\":\"qa-bot\",\"email\":\"qa@test.com\",\"attributes\":{\"role\":\"tester\"}}"
+}
+```
+
+The user JSON value must be a stringified JSON object (escaped quotes).
+Automation agents can produce this by JSON-encoding the user map into a string
+value.
+
+Non-string attribute values (booleans, numbers) in the user JSON are
+automatically converted to strings to match the `FaroUser.attributes` contract.
+Invalid JSON is silently ignored, falling back to the normal initial user.
+
 ## Testing Features
 
 The app provides interactive buttons to test various SDK features:
