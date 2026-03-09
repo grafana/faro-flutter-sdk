@@ -5,6 +5,7 @@ import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/user_actions/constants.dart';
 import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
+import 'package:faro/src/util/short_id.dart';
 import 'package:flutter/services.dart';
 
 /// Provides the platform's default [AssetBundle] ([rootBundle]).
@@ -80,43 +81,61 @@ class FaroAssetBundle extends AssetBundle {
     String key,
     Future<T> Function(void Function(int) reportSize) loader,
   ) async {
-    _lifecycleSignalChannel.emitActivity(
+    final operationId = generateShortId();
+    _lifecycleSignalChannel.emitPendingStart(
       source: UserActionConstants.resourceAssetSignalSource,
+      operationId: operationId,
     );
 
-    int? rawSize;
-    final beforeLoad = DateTime.now().millisecondsSinceEpoch;
-    final data = await loader((size) => rawSize = size);
-    final afterLoad = DateTime.now().millisecondsSinceEpoch;
-    final duration = afterLoad - beforeLoad;
+    try {
+      int? rawSize;
+      final beforeLoad = DateTime.now().millisecondsSinceEpoch;
+      final data = await loader((size) => rawSize = size);
+      final afterLoad = DateTime.now().millisecondsSinceEpoch;
+      final duration = afterLoad - beforeLoad;
 
-    Faro().pushEvent('Asset-load', attributes: {
-      'name': key,
-      'size': '$rawSize',
-      'duration': '$duration',
-    });
-    return data;
+      Faro().pushEvent('Asset-load', attributes: {
+        'name': key,
+        'size': '$rawSize',
+        'duration': '$duration',
+      });
+      return data;
+    } finally {
+      _lifecycleSignalChannel.emitPendingEnd(
+        source: UserActionConstants.resourceAssetSignalSource,
+        operationId: operationId,
+      );
+    }
   }
 
   Future<T> _trackAssetLoad<T>(
     String key,
     Future<T> Function() loader,
   ) async {
-    _lifecycleSignalChannel.emitActivity(
+    final operationId = generateShortId();
+    _lifecycleSignalChannel.emitPendingStart(
       source: UserActionConstants.resourceAssetSignalSource,
+      operationId: operationId,
     );
 
-    final beforeLoad = DateTime.now().millisecondsSinceEpoch;
-    final data = await loader();
-    final afterLoad = DateTime.now().millisecondsSinceEpoch;
-    final duration = afterLoad - beforeLoad;
-    final dataSize = _getDataLength(data);
-    Faro().pushEvent('Asset-load', attributes: {
-      'name': key,
-      'size': '$dataSize',
-      'duration': '$duration',
-    });
-    return data;
+    try {
+      final beforeLoad = DateTime.now().millisecondsSinceEpoch;
+      final data = await loader();
+      final afterLoad = DateTime.now().millisecondsSinceEpoch;
+      final duration = afterLoad - beforeLoad;
+      final dataSize = _getDataLength(data);
+      Faro().pushEvent('Asset-load', attributes: {
+        'name': key,
+        'size': '$dataSize',
+        'duration': '$duration',
+      });
+      return data;
+    } finally {
+      _lifecycleSignalChannel.emitPendingEnd(
+        source: UserActionConstants.resourceAssetSignalSource,
+        operationId: operationId,
+      );
+    }
   }
 
   int? _getDataLength(dynamic data) {

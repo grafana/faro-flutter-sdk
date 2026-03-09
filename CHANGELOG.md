@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   initialization, preventing duplicate startup side effects such as extra
   transports, repeated `session_start` events, and duplicate widget
   observers.
+- Asset loads and tracked HTTP requests now keep user actions pending until
+  the underlying operation completes, avoiding prematurely ended or stalled
+  actions when using long-running asset loads, `HttpClientRequest.done`, or
+  `abort()`.
 
 ## [0.12.0] - 2026-03-05
 

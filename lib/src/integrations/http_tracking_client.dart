@@ -249,20 +249,22 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     _httpSpan.end();
   }
 
-  @override
-  Future<HttpClientResponse> get done {
-    final innerFuture = innerContext.done;
-    return innerFuture.then((value) {
-      return value;
-    }, onError: (Object error, StackTrace? stackTrace) {
-      throw Exception('Error: $error, StackTrace: $stackTrace');
-    });
+  void _recordOperationError(
+    Object error, [
+    StackTrace? stackTrace,
+  ]) {
+    _httpSpan.setStatus(
+      SpanStatusCode.error,
+      message: error.toString(),
+    );
+    _httpSpan.recordException(error, stackTrace: stackTrace);
   }
 
-  @override
-  Future<HttpClientResponse> close() async {
+  Future<HttpClientResponse> _trackResponseFuture(
+    Future<HttpClientResponse> Function() responseFuture,
+  ) async {
     try {
-      final value = await innerContext.close();
+      final value = await responseFuture();
 
       _httpSpan.setAttributes({
         'http.status_code': value.statusCode,
@@ -273,34 +275,34 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
       _httpSpan.setStatus(SpanStatusCode.ok);
 
       return FaroTrackingHttpResponse(
-          value,
-          {
-            'response_size': '${value.headers.contentLength}',
-            'content_type': '${value.headers.contentType}',
-            'status_code': '${value.statusCode}',
-            'method': innerContext.method,
-            'request_size': '${innerContext.contentLength}',
-            'url': innerContext.uri.toString(),
-            'trace_id': _httpSpan.traceId,
-            'span_id': _httpSpan.spanId,
-          },
-          onFinish: _finishOperation, onStreamError: (error, stackTrace) {
-        _httpSpan.setStatus(
-          SpanStatusCode.error,
-          message: error.toString(),
-        );
-        _httpSpan.recordException(error, stackTrace: stackTrace);
-      });
-    } catch (error, stackTrace) {
-      _httpSpan.setStatus(
-        SpanStatusCode.error,
-        message: error.toString(),
+        value,
+        {
+          'response_size': '${value.headers.contentLength}',
+          'content_type': '${value.headers.contentType}',
+          'status_code': '${value.statusCode}',
+          'method': innerContext.method,
+          'request_size': '${innerContext.contentLength}',
+          'url': innerContext.uri.toString(),
+          'trace_id': _httpSpan.traceId,
+          'span_id': _httpSpan.spanId,
+        },
+        onFinish: _finishOperation,
+        onStreamError: _recordOperationError,
       );
-      _httpSpan.recordException(error, stackTrace: stackTrace);
+    } catch (error, stackTrace) {
+      _recordOperationError(error, stackTrace);
       _finishOperation();
       throw Exception('Error: $error, StackTrace: $stackTrace');
     }
   }
+
+  @override
+  Future<HttpClientResponse> get done =>
+      _trackResponseFuture(() => innerContext.done);
+
+  @override
+  Future<HttpClientResponse> close() =>
+      _trackResponseFuture(innerContext.close);
 
   @override
   bool get bufferOutput => innerContext.bufferOutput;
@@ -335,8 +337,16 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
       innerContext.persistentConnection = value;
 
   @override
-  void abort([Object? exception, StackTrace? stackTrace]) =>
+  void abort([Object? exception, StackTrace? stackTrace]) {
+    if (exception != null) {
+      _recordOperationError(exception, stackTrace);
+    }
+    try {
       innerContext.abort(exception, stackTrace);
+    } finally {
+      _finishOperation();
+    }
+  }
 
   @override
   void add(List<int> data) => innerContext.add(data);

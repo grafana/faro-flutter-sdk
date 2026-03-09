@@ -1,9 +1,13 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:faro/src/faro_asset_bundle.dart';
 import 'package:faro/src/user_actions/constants.dart';
+import 'package:faro/src/user_actions/user_action.dart';
+import 'package:faro/src/user_actions/user_action_controller.dart';
 import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
 import 'package:faro/src/user_actions/user_action_signal.dart';
+import 'package:faro/src/user_actions/user_action_state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -57,6 +61,23 @@ class _FakeAssetBundle extends AssetBundle {
   }
 }
 
+class _DelayedAssetBundle extends AssetBundle {
+  _DelayedAssetBundle(this.loadStringCompleter);
+
+  final Completer<String> loadStringCompleter;
+
+  @override
+  Future<ByteData> load(String key) async {
+    final bytes = Uint8List.fromList(<int>[1, 2, 3, 4]);
+    return ByteData.sublistView(bytes);
+  }
+
+  @override
+  Future<String> loadString(String key, {bool cache = true}) {
+    return loadStringCompleter.future;
+  }
+}
+
 void main() {
   group('FaroAssetBundle user-action lifecycle signals:', () {
     late UserActionLifecycleSignalChannel signalChannel;
@@ -72,7 +93,7 @@ void main() {
       signalChannel.dispose();
     });
 
-    test('load emits activity signal', () async {
+    test('load emits pending lifecycle signals', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(),
         lifecycleSignalChannel: signalChannel,
@@ -81,15 +102,21 @@ void main() {
       await bundle.load('assets/logo.png');
       await Future<void>.delayed(Duration.zero);
 
-      expect(emittedSignals, hasLength(1));
-      expect(emittedSignals[0].type, UserActionSignalType.activity);
+      expect(emittedSignals, hasLength(2));
+      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
       expect(
         emittedSignals[0].source,
         UserActionConstants.resourceAssetSignalSource,
       );
+      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+      expect(
+        emittedSignals[1].source,
+        UserActionConstants.resourceAssetSignalSource,
+      );
+      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
-    test('load emits activity signal even when asset loading throws', () async {
+    test('load emits pending signals even when asset loading throws', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(throwOnLoad: true),
         lifecycleSignalChannel: signalChannel,
@@ -101,11 +128,13 @@ void main() {
       );
       await Future<void>.delayed(Duration.zero);
 
-      expect(emittedSignals, hasLength(1));
-      expect(emittedSignals[0].type, UserActionSignalType.activity);
+      expect(emittedSignals, hasLength(2));
+      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
+      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
-    test('loadString emits activity signal', () async {
+    test('loadString emits pending lifecycle signals', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(),
         lifecycleSignalChannel: signalChannel,
@@ -114,12 +143,18 @@ void main() {
       await bundle.loadString('assets/config.txt');
       await Future<void>.delayed(Duration.zero);
 
-      expect(emittedSignals, hasLength(1));
-      expect(emittedSignals[0].type, UserActionSignalType.activity);
+      expect(emittedSignals, hasLength(2));
+      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
       expect(
         emittedSignals[0].source,
         UserActionConstants.resourceAssetSignalSource,
       );
+      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+      expect(
+        emittedSignals[1].source,
+        UserActionConstants.resourceAssetSignalSource,
+      );
+      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
     test('load returns the data from the underlying bundle', () async {
@@ -147,7 +182,7 @@ void main() {
       expect(result, 'hello');
     });
 
-    test('loadString emits activity signal even when asset loading throws',
+    test('loadString emits pending signals even when asset loading throws',
         () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(throwOnLoadString: true),
@@ -160,11 +195,13 @@ void main() {
       );
       await Future<void>.delayed(Duration.zero);
 
-      expect(emittedSignals, hasLength(1));
-      expect(emittedSignals[0].type, UserActionSignalType.activity);
+      expect(emittedSignals, hasLength(2));
+      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
+      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
-    test('loadStructuredData emits activity signal', () async {
+    test('loadStructuredData emits pending lifecycle signals', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(),
         lifecycleSignalChannel: signalChannel,
@@ -177,12 +214,18 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(value, 'structured-data');
-      expect(emittedSignals, hasLength(1));
-      expect(emittedSignals[0].type, UserActionSignalType.activity);
+      expect(emittedSignals, hasLength(2));
+      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
       expect(
         emittedSignals[0].source,
         UserActionConstants.resourceAssetSignalSource,
       );
+      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+      expect(
+        emittedSignals[1].source,
+        UserActionConstants.resourceAssetSignalSource,
+      );
+      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
     test(
@@ -217,7 +260,7 @@ void main() {
       expect(result.length, 4);
     });
 
-    test('loadBuffer emits activity signal', () async {
+    test('loadBuffer emits pending lifecycle signals', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(),
         lifecycleSignalChannel: signalChannel,
@@ -226,12 +269,18 @@ void main() {
       await bundle.loadBuffer('assets/image.png');
       await Future<void>.delayed(Duration.zero);
 
-      expect(emittedSignals, hasLength(1));
-      expect(emittedSignals[0].type, UserActionSignalType.activity);
+      expect(emittedSignals, hasLength(2));
+      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
       expect(
         emittedSignals[0].source,
         UserActionConstants.resourceAssetSignalSource,
       );
+      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+      expect(
+        emittedSignals[1].source,
+        UserActionConstants.resourceAssetSignalSource,
+      );
+      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
     test(
@@ -255,7 +304,7 @@ void main() {
       expect(result, 4);
     });
 
-    test('loadStructuredBinaryData emits activity signal', () async {
+    test('loadStructuredBinaryData emits pending lifecycle signals', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(),
         lifecycleSignalChannel: signalChannel,
@@ -267,12 +316,51 @@ void main() {
       );
       await Future<void>.delayed(Duration.zero);
 
-      expect(emittedSignals, hasLength(1));
-      expect(emittedSignals[0].type, UserActionSignalType.activity);
+      expect(emittedSignals, hasLength(2));
+      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
       expect(
         emittedSignals[0].source,
         UserActionConstants.resourceAssetSignalSource,
       );
+      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+      expect(
+        emittedSignals[1].source,
+        UserActionConstants.resourceAssetSignalSource,
+      );
+      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
+    });
+
+    test('long asset load keeps a user action alive until completion', () {
+      fakeAsync((async) {
+        final loadStringCompleter = Completer<String>();
+        final action = UserAction(
+          name: 'asset-load-action',
+          trigger: 'test',
+        );
+        final controller = UserActionLifecycleController(
+          action,
+          signalChannel.stream,
+        );
+        final bundle = FaroAssetBundle(
+          bundle: _DelayedAssetBundle(loadStringCompleter),
+          lifecycleSignalChannel: signalChannel,
+        );
+
+        controller.attach();
+        unawaited(bundle.loadString('assets/slow-config.txt'));
+        async.flushMicrotasks();
+
+        async.elapse(const Duration(milliseconds: 160));
+        expect(action.getState(), UserActionState.halted);
+
+        loadStringCompleter.complete('hello');
+        async.flushMicrotasks();
+
+        expect(action.getState(), UserActionState.ended);
+
+        controller.dispose();
+        action.dispose();
+      });
     });
   });
 }

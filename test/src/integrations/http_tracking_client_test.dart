@@ -164,6 +164,57 @@ void main() {
       ).called(1);
       verify(() => mockSpan.end()).called(1);
     });
+
+    test('done should wrap response and end span on completion', () async {
+      when(() => mockHttpClientRequest.done)
+          .thenAnswer((_) async => mockHttpClientResponse);
+      when(() => mockHttpClientResponse.statusCode).thenReturn(200);
+      when(() => mockHttpClientResponse.headers)
+          .thenReturn(mockResponseHeaders);
+      when(() => mockResponseHeaders.contentLength).thenReturn(128);
+      when(() => mockResponseHeaders.contentType).thenReturn(null);
+      when(
+        () => mockHttpClientResponse.listen(
+          any(),
+          onError: any(named: 'onError'),
+          onDone: any(named: 'onDone'),
+          cancelOnError: any(named: 'cancelOnError'),
+        ),
+      ).thenAnswer((invocation) {
+        final onDone = invocation.namedArguments[#onDone] as void Function()?;
+        onDone?.call();
+        return const Stream<List<int>>.empty().listen(null);
+      });
+
+      final response = await trackedRequest.done;
+
+      expect(response, isA<FaroTrackingHttpResponse>());
+      verifyNever(() => mockSpan.end());
+
+      response.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+
+      verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
+      verify(() => mockSpan.end()).called(1);
+    });
+
+    test('abort should finish the span and forward the error', () {
+      final error = StateError('aborted');
+      final stackTrace = StackTrace.current;
+
+      trackedRequest.abort(error, stackTrace);
+
+      verify(() => mockHttpClientRequest.abort(error, stackTrace)).called(1);
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
+      verify(() => mockSpan.recordException(error, stackTrace: stackTrace))
+          .called(1);
+      verify(() => mockSpan.end()).called(1);
+    });
   });
 
   group('FaroTrackingHttpResponse subscription handlers:', () {

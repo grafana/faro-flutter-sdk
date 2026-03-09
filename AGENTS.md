@@ -116,7 +116,6 @@ Follow `.gitmessage` template: `type(scope): description`
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
-**Important**: Always show a draft of the commit message for approval before creating the actual commit. Never commit without explicit approval.
 
 ## Pull Requests
 
@@ -128,7 +127,6 @@ Use the PR template at `.github/pull_request_template.md`. The template includes
 - **Checklist**: Confirm docs, tests, and changelog are updated
 - **Additional Notes**: Optional context for reviewers
 
-**Important**: Always show a draft of the PR title and body for approval before creating the PR. Never create a PR without explicit approval.
 
 ---
 
