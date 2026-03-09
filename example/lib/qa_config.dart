@@ -65,9 +65,11 @@ class QaConfig {
       if (decoded is! Map<String, dynamic>) return null;
 
       return FaroUser(
-        id: decoded['id'] as String?,
-        username: decoded['username'] as String?,
-        email: decoded['email'] as String?,
+        id: decoded['id'] is String ? decoded['id'] as String : null,
+        username: decoded['username'] is String
+            ? decoded['username'] as String
+            : null,
+        email: decoded['email'] is String ? decoded['email'] as String : null,
         attributes: _parseAttributes(decoded['attributes']),
       );
     } on FormatException {

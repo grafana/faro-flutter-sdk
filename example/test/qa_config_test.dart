@@ -138,6 +138,22 @@ void main() {
         expect(config.hasInitialUser, isFalse);
         expect(config.initialUser, isNull);
       });
+
+      test('skips non-string field values without crashing', () {
+        final userJson = jsonEncode({
+          'id': 123,
+          'username': true,
+          'email': 45.6,
+        });
+
+        final config = QaConfig.parse(qaInitialUserJson: userJson);
+
+        expect(config.hasInitialUser, isTrue);
+        final user = config.initialUser!;
+        expect(user.id, isNull);
+        expect(user.username, isNull);
+        expect(user.email, isNull);
+      });
     });
 
     group('combined', () {
