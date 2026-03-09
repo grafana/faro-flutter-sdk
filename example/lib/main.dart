@@ -4,16 +4,17 @@ import 'package:faro/faro.dart';
 import 'package:faro_example/features/app_diagnostics/presentation/app_diagnostics_page.dart';
 import 'package:faro_example/features/custom_telemetry/presentation/custom_telemetry_page.dart';
 import 'package:faro_example/features/feature_catalog/presentation/feature_catalog_page.dart';
+import 'package:faro_example/features/network_requests/presentation/network_requests_page.dart';
 import 'package:faro_example/features/sampling_settings/domain/sampling_settings_service.dart';
 import 'package:faro_example/features/sampling_settings/presentation/sampling_settings_page.dart';
 import 'package:faro_example/features/tracing/presentation/tracing_page.dart';
 import 'package:faro_example/features/user_actions/presentation/user_actions_page.dart';
 import 'package:faro_example/features/user_settings/user_settings_page.dart';
 import 'package:faro_example/features/user_settings/user_settings_service.dart';
+import 'package:faro_example/qa_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:faro_example/features/network_requests/presentation/network_requests_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +47,21 @@ void main() async {
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
   final faroApiKey = faroCollectorUrl.split('/').last;
 
+  final qaConfig = QaConfig.fromEnvironment();
+
+  final sessionAttributes = <String, Object>{
+    'team': 'mobile',
+    'department': 'engineering',
+    'test_int': 42,
+    'test_bool': true,
+    'test_double': 3.14,
+    if (qaConfig.hasRunId) 'qa_run_id': qaConfig.runId!,
+  };
+
+  final initialUser = qaConfig.hasInitialUser
+      ? qaConfig.initialUser
+      : userSettingsService.initialUser;
+
   Faro().transports.add(OfflineTransport(
         maxCacheDuration: const Duration(days: 3),
       ));
@@ -57,7 +73,6 @@ void main() async {
       appEnv: 'Test',
       apiKey: faroApiKey,
       namespace: 'flutter_app',
-      // Sampling is configured via SamplingSettingsService
       sampling: samplingSettingsService.sampling,
       anrTracking: true,
       cpuUsageVitals: true,
@@ -66,14 +81,8 @@ void main() async {
       memoryUsageVitals: true,
       refreshRateVitals: true,
       fetchVitalsInterval: const Duration(seconds: 30),
-      sessionAttributes: {
-        'team': 'mobile',
-        'department': 'engineering',
-        'test_int': 42,
-        'test_bool': true,
-        'test_double': 3.14,
-      },
-      initialUser: userSettingsService.initialUser,
+      sessionAttributes: sessionAttributes,
+      initialUser: initialUser,
       persistUser: userSettingsService.persistUser,
     ),
     appRunner: () async {
