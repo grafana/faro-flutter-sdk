@@ -140,10 +140,10 @@ The example app supports optional QA dart-define keys that inject session
 attributes and an initial user at startup, removing the need to patch source
 code for automated smoke tests.
 
-| Key                         | Type             | Purpose                                |
-| --------------------------- | ---------------- | -------------------------------------- |
-| `FARO_QA_RUN_ID`            | string           | Adds `qa_run_id` to session attributes |
-| `FARO_QA_INITIAL_USER_JSON` | stringified JSON | Sets the initial `FaroUser`            |
+| Key | Type | Purpose |
+|-----|------|---------|
+| `FARO_QA_RUN_ID` | string | Adds `qa_run_id` to session attributes |
+| `FARO_QA_INITIAL_USER_JSON` | stringified JSON | Sets the initial `FaroUser` |
 
 Both keys are optional. When absent or empty, the app behaves normally.
 
@@ -212,6 +212,7 @@ across native and web.
   under the same trace ID in Grafana Tempo
 - Both Flutter and React spans share one trace, demonstrating
   cross-boundary trace continuity
+
 
 ## Testing Features
 

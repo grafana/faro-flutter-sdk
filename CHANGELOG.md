@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Widened `connectivity_plus` dependency to `>=6.1.2 <8.0.0` (adds v7.x support).
+- Widened `package_info_plus` dependency to `>=8.0.1 <10.0.0` (adds v9.x support).
+
 ### Fixed
 
 - `Faro.init()` now ignores repeated calls after the first successful
