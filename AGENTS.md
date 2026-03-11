@@ -259,6 +259,22 @@ There is no Android emulator in this environment. To build the example APK:
 cd example && flutter build apk --dart-define-from-file api-config.json
 ```
 
+### QA smoke-test overrides
+
+The example app reads optional QA dart-define keys (`FARO_QA_RUN_ID`, `FARO_QA_INITIAL_USER_JSON`) from `api-config.json` to inject session attributes and an initial user without patching source code. Include them in the config file:
+
+```json
+{
+  "FARO_COLLECTOR_URL": "https://...",
+  "FARO_QA_RUN_ID": "smoke-123",
+  "FARO_QA_INITIAL_USER_JSON": "{\"id\":\"qa-user\",\"username\":\"bot\"}"
+}
+```
+
+Then run as usual: `flutter run --dart-define-from-file api-config.json`
+
+See `example/README.md` § "QA Smoke Test Configuration" for the full reference.
+
 ### Before opening a PR
 
 Run the pre-release check script before committing/opening a PR. It validates formatting, static analysis, tests, and CHANGELOG content in one step:
