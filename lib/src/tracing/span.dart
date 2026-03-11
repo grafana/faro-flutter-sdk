@@ -144,9 +144,10 @@ class InternalSpan implements Span {
     // https://github.com/open-telemetry/opentelemetry-swift/blob/7bad8ae7f230e7a1b9ec697f36dcae91a8debff9/Sources/OpenTelemetryApi/Trace/Propagation/W3CTraceContextPropagator.swift
     const version = '00';
     const delimiter = '-';
-    const endString = '01';
+    final traceFlags =
+        _otelSpan.spanContext.traceFlags.toRadixString(16).padLeft(2, '0');
     final traceparent =
-        '$version$delimiter$traceId$delimiter$spanId$delimiter$endString';
+        '$version$delimiter$traceId$delimiter$spanId$delimiter$traceFlags';
     return traceparent;
   }
 

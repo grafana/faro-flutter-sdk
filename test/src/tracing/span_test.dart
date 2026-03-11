@@ -135,6 +135,44 @@ void main() {
       return SpanProvider().getSpan(mockOtelSpan, fakeContext);
     }
 
+    group('toHttpTraceparent:', () {
+      InternalSpan createInternalSpanWithTraceFlags(int traceFlags) {
+        when(() => mockOtelSpan.spanContext).thenReturn(
+          otel_api.SpanContext(
+            otel_api.TraceId.fromString(
+              '00000000000000000000000000000001',
+            ),
+            otel_api.SpanId.fromString('0000000000000001'),
+            traceFlags,
+            otel_api.TraceState.empty(),
+          ),
+        );
+        return createSpan() as InternalSpan;
+      }
+
+      test('should preserve sampled trace flag', () {
+        final span = createInternalSpanWithTraceFlags(
+          otel_api.TraceFlags.sampled,
+        );
+
+        expect(
+          span.toHttpTraceparent(),
+          '00-00000000000000000000000000000001-0000000000000001-01',
+        );
+      });
+
+      test('should preserve unsampled trace flag', () {
+        final span = createInternalSpanWithTraceFlags(
+          otel_api.TraceFlags.none,
+        );
+
+        expect(
+          span.toHttpTraceparent(),
+          '00-00000000000000000000000000000001-0000000000000001-00',
+        );
+      });
+    });
+
     group('setAttributes with typed values:', () {
       test('should pass string attributes to OTel span', () {
         final span = createSpan();
