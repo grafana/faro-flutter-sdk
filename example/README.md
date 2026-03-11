@@ -108,18 +108,23 @@ The example app showcases various Faro SDK features:
 - Automatic page view tracking
 - Navigation observer integration
 
+### WebView Tracing
+
+- Open a React app in a WebView with the current traceparent
+- The web app continues the native trace when making HTTP requests
+- Verify in Grafana Tempo that Flutter and React spans share one trace
+- See [WebView Tracing Feature](#webview-tracing-feature) for setup instructions
+
 ## Implementation Details
 
 Key implementation features shown in this example:
 
 1. SDK Initialization
-
    - Proper configuration setup
    - Environment-based collector URL
    - Offline storage configuration
 
 2. Widget Integration
-
    - FaroUserInteractionWidget usage
    - FaroNavigationObserver setup
    - FaroAssetTracking integration
@@ -165,6 +170,49 @@ value.
 Non-string attribute values (booleans, numbers) in the user JSON are
 automatically converted to strings to match the `FaroUser.attributes` contract.
 Invalid JSON is silently ignored, falling back to the normal initial user.
+
+## WebView Tracing Feature
+
+The example app includes a `WebView Tracing` feature page. It opens an
+external React demo app in a WebView, passing the current Flutter
+`traceparent` as a query parameter. The React app uses it as the parent
+context for a simulated login request, creating a continuous trace
+across native and web.
+
+### Running the WebView demo
+
+1. Install dependencies and start the React dev server:
+
+   ```bash
+   cd example/webview_demo
+   npm install
+   cp .env.example .env   # edit with your Faro Web collector URL
+   npm run dev
+   ```
+
+2. Add `FARO_WEBVIEW_DEMO_URL` to your `api-config.json`:
+
+   ```json
+   {
+     "FARO_COLLECTOR_URL": "https://your-collector-url",
+     "FARO_WEBVIEW_DEMO_URL": "http://10.0.2.2:5173"
+   }
+   ```
+
+   Use `http://10.0.2.2:5173` for the Android emulator or
+   `http://localhost:5173` for the iOS simulator.
+
+3. Run the Flutter example app as usual.
+
+### What to inspect
+
+- A `WebView` span appears on the Flutter side, covering the full
+  WebView session
+- The React app's `POST /api/login` appears as a child HTTP span
+  under the same trace ID in Grafana Tempo
+- Both Flutter and React spans share one trace, demonstrating
+  cross-boundary trace continuity
+
 
 ## Testing Features
 
