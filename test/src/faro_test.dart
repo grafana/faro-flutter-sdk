@@ -2,11 +2,12 @@ import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -221,6 +222,59 @@ void main() {
       Faro().pushEvent(eventName, attributes: eventAttributes);
       verify(() => mockBatchTransport.addEvent(any())).called(1);
     });
+
+    test(
+      'app lifecycle events include a deterministic sequence attribute',
+      () {
+        final observer = FaroWidgetsBindingObserver();
+
+        observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
+        observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
+        observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+
+        final capturedEvents = verify(
+          () => mockBatchTransport.addEvent(captureAny()),
+        ).captured.cast<Event>();
+
+        expect(capturedEvents, hasLength(3));
+        expect(
+          capturedEvents[0].attributes,
+          containsPair('fromState', ''),
+        );
+        expect(
+          capturedEvents[0].attributes,
+          containsPair('toState', 'inactive'),
+        );
+        expect(
+          capturedEvents[0].attributes,
+          containsPair('sequence', 0),
+        );
+        expect(
+          capturedEvents[1].attributes,
+          containsPair('fromState', 'inactive'),
+        );
+        expect(
+          capturedEvents[1].attributes,
+          containsPair('toState', 'hidden'),
+        );
+        expect(
+          capturedEvents[1].attributes,
+          containsPair('sequence', 1),
+        );
+        expect(
+          capturedEvents[2].attributes,
+          containsPair('fromState', 'hidden'),
+        );
+        expect(
+          capturedEvents[2].attributes,
+          containsPair('toState', 'paused'),
+        );
+        expect(
+          capturedEvents[2].attributes,
+          containsPair('sequence', 2),
+        );
+      },
+    );
 
     test('send custom log', () {
       const logMessage = 'Log Message';
