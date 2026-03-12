@@ -224,7 +224,7 @@ void main() {
     });
 
     test(
-      'app lifecycle events include a deterministic sequence attribute',
+      'app lifecycle events rely on timestamp ordering without sequence',
       () {
         final observer = FaroWidgetsBindingObserver();
 
@@ -247,7 +247,7 @@ void main() {
         );
         expect(
           capturedEvents[0].attributes,
-          containsPair('sequence', 0),
+          isNot(contains('sequence')),
         );
         expect(
           capturedEvents[1].attributes,
@@ -259,7 +259,7 @@ void main() {
         );
         expect(
           capturedEvents[1].attributes,
-          containsPair('sequence', 1),
+          isNot(contains('sequence')),
         );
         expect(
           capturedEvents[2].attributes,
@@ -271,7 +271,83 @@ void main() {
         );
         expect(
           capturedEvents[2].attributes,
-          containsPair('sequence', 2),
+          isNot(contains('sequence')),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp),
+          everyElement(
+            matches(
+              RegExp(
+                r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$',
+              ),
+            ),
+          ),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp).toSet().length,
+          equals(3),
+        );
+      },
+    );
+
+    testWidgets(
+      'binding-dispatched lifecycle events rely on timestamp ordering',
+      (tester) async {
+        final rumConfig = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        );
+
+        await Faro().init(optionsConfiguration: rumConfig);
+        clearInteractions(mockBatchTransport);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.hidden,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.paused,
+        );
+
+        final capturedEvents = verify(
+          () => mockBatchTransport.addEvent(captureAny()),
+        ).captured.cast<Event>();
+
+        expect(capturedEvents, hasLength(3));
+        expect(
+          capturedEvents.map((event) => event.name),
+          everyElement('app_lifecycle_changed'),
+        );
+        expect(
+          capturedEvents.map((event) => event.attributes?['sequence']),
+          everyElement(isNull),
+        );
+        expect(
+          capturedEvents.map((event) => event.attributes?['fromState']),
+          orderedEquals(<String>['', 'inactive', 'hidden']),
+        );
+        expect(
+          capturedEvents.map((event) => event.attributes?['toState']),
+          orderedEquals(<String>['inactive', 'hidden', 'paused']),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp),
+          everyElement(
+            matches(
+              RegExp(
+                r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$',
+              ),
+            ),
+          ),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp).toSet().length,
+          equals(3),
         );
       },
     );

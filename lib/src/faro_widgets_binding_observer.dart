@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 
 class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
   AppLifecycleState? _previousState;
-  int _lifecycleSequence = 0;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -19,8 +18,6 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
     Faro().pushEvent('app_lifecycle_changed', attributes: {
       'fromState': _previousState?.name ?? '',
       'toState': state.name,
-      // Preserve ordering when multiple transitions share the same timestamp.
-      'sequence': _lifecycleSequence++,
     });
     _previousState = state;
   }
