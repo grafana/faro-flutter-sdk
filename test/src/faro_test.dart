@@ -2,11 +2,12 @@ import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -221,6 +222,135 @@ void main() {
       Faro().pushEvent(eventName, attributes: eventAttributes);
       verify(() => mockBatchTransport.addEvent(any())).called(1);
     });
+
+    test(
+      'app lifecycle events rely on timestamp ordering without sequence',
+      () {
+        final observer = FaroWidgetsBindingObserver();
+
+        observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
+        observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
+        observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+
+        final capturedEvents = verify(
+          () => mockBatchTransport.addEvent(captureAny()),
+        ).captured.cast<Event>();
+
+        expect(capturedEvents, hasLength(3));
+        expect(
+          capturedEvents[0].attributes,
+          containsPair('fromState', ''),
+        );
+        expect(
+          capturedEvents[0].attributes,
+          containsPair('toState', 'inactive'),
+        );
+        expect(
+          capturedEvents[0].attributes,
+          isNot(contains('sequence')),
+        );
+        expect(
+          capturedEvents[1].attributes,
+          containsPair('fromState', 'inactive'),
+        );
+        expect(
+          capturedEvents[1].attributes,
+          containsPair('toState', 'hidden'),
+        );
+        expect(
+          capturedEvents[1].attributes,
+          isNot(contains('sequence')),
+        );
+        expect(
+          capturedEvents[2].attributes,
+          containsPair('fromState', 'hidden'),
+        );
+        expect(
+          capturedEvents[2].attributes,
+          containsPair('toState', 'paused'),
+        );
+        expect(
+          capturedEvents[2].attributes,
+          isNot(contains('sequence')),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp),
+          everyElement(
+            matches(
+              RegExp(
+                r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$',
+              ),
+            ),
+          ),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp).toSet().length,
+          equals(3),
+        );
+      },
+    );
+
+    testWidgets(
+      'binding-dispatched lifecycle events rely on timestamp ordering',
+      (tester) async {
+        final rumConfig = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        );
+
+        await Faro().init(optionsConfiguration: rumConfig);
+        clearInteractions(mockBatchTransport);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.hidden,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.paused,
+        );
+
+        final capturedEvents = verify(
+          () => mockBatchTransport.addEvent(captureAny()),
+        ).captured.cast<Event>();
+
+        expect(capturedEvents, hasLength(3));
+        expect(
+          capturedEvents.map((event) => event.name),
+          everyElement('app_lifecycle_changed'),
+        );
+        expect(
+          capturedEvents.map((event) => event.attributes?['sequence']),
+          everyElement(isNull),
+        );
+        expect(
+          capturedEvents.map((event) => event.attributes?['fromState']),
+          orderedEquals(<String>['', 'inactive', 'hidden']),
+        );
+        expect(
+          capturedEvents.map((event) => event.attributes?['toState']),
+          orderedEquals(<String>['inactive', 'hidden', 'paused']),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp),
+          everyElement(
+            matches(
+              RegExp(
+                r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$',
+              ),
+            ),
+          ),
+        );
+        expect(
+          capturedEvents.map((event) => event.timestamp).toSet().length,
+          equals(3),
+        );
+      },
+    );
 
     test('send custom log', () {
       const logMessage = 'Log Message';
