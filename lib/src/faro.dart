@@ -3,12 +3,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
-
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
+import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/integrations/flutter_error_integration.dart';
@@ -16,6 +15,7 @@ import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
+import 'package:faro/src/models/page.dart' as faro_models;
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
@@ -76,6 +76,7 @@ class Faro {
   BatchTransport? _batchTransport;
   List<BaseTransport> get transports => _transports;
   DataCollectionPolicy? _dataCollectionPolicy;
+  SessionAttributesProvider? _sessionAttributesProvider;
   UserManager? _userManager;
   bool _isSampled = true;
   bool _isInitialized = false;
@@ -102,6 +103,7 @@ class Faro {
       pod.resolve(httpTrackingFilterProvider);
   Map<String, dynamic> eventMark = {};
   FaroNativeMethods? _nativeChannel;
+  PlatformInfoProvider get _platformInfoProvider => resolvedPlatformInfoProvider;
 
   FaroNativeMethods? get nativeChannel => _nativeChannel;
 
@@ -137,6 +139,11 @@ class Faro {
   }
 
   @visibleForTesting
+  set sessionAttributesProvider(SessionAttributesProvider? provider) {
+    _sessionAttributesProvider = provider;
+  }
+
+  @visibleForTesting
   set userManager(UserManager? manager) {
     _userManager = manager;
   }
@@ -147,25 +154,26 @@ class Faro {
       return;
     }
 
-    _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
+    _dataCollectionPolicy ??= await DataCollectionPolicyFactory().create();
 
-    final attributesProvider =
+    final attributesProvider = _sessionAttributesProvider ??=
         await SessionAttributesProviderFactory().create();
     final customAttributes = optionsConfiguration.sessionAttributes ?? {};
     final defaultAttributes = await attributesProvider.getAttributes();
     // Merge custom attributes first, then default attributes
     // Default attributes take precedence if there are conflicts
     meta.session?.attributes = {...customAttributes, ...defaultAttributes};
+    meta.browser = await attributesProvider.getBrowserInfo();
 
     _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
 
     // Initialize user manager (always with persistence to handle stale data cleanup)
-    final userManager = await UserManagerFactory().create(
-      onUserMetaApplied: _applyUserMeta,
-      onPushEvent: pushEvent,
-    );
-    _userManager = userManager;
+    final userManager = _userManager ??=
+        await UserManagerFactory().create(
+          onUserMetaApplied: _applyUserMeta,
+          onPushEvent: pushEvent,
+        );
 
     await userManager.initialize(
       initialUser: optionsConfiguration.initialUser,
@@ -182,6 +190,7 @@ class Faro {
       appVersion: appVersion,
       namespace: optionsConfiguration.namespace ?? '',
     );
+    await _applyRuntimeMeta(attributesProvider);
 
     // Make sampling decision (once per session)
     _isSampled = SessionSamplingProviderFactory()
@@ -225,7 +234,7 @@ class Faro {
         collectorUrl: optionsConfiguration.collectorUrl ?? '',
       );
     }
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_platformInfoProvider.supportsNativeIntegration) {
       NativeIntegration.instance.init(
         memusage: optionsConfiguration.memoryUsageVitals,
         cpuusage: optionsConfiguration.cpuUsageVitals,
@@ -235,9 +244,11 @@ class Faro {
       );
     }
     _instance.pushEvent('session_start');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NativeIntegration.instance.getAppStart();
-    });
+    if (_platformInfoProvider.supportsNativeIntegration) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        NativeIntegration.instance.getAppStart();
+      });
+    }
     _widgetsBindingObserver = FaroWidgetsBindingObserver();
     WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
     if (optionsConfiguration.enableUiActivityMonitoring) {
@@ -364,6 +375,26 @@ class Faro {
     _instance.meta = Meta.fromJson({
       ..._instance.meta.toJson(),
       'user': userJson,
+    });
+    _instance._batchTransport?.updatePayloadMeta(_instance.meta);
+  }
+
+  Future<void> _applyRuntimeMeta(
+    SessionAttributesProvider attributesProvider,
+  ) async {
+    final browserInfo = await attributesProvider.getBrowserInfo();
+    final currentPage = _platformInfoProvider.isWeb
+        ? faro_models.Page(Uri.base.toString())
+        : null;
+
+    if (browserInfo == null && currentPage == null) {
+      return;
+    }
+
+    _instance.meta = Meta.fromJson({
+      ..._instance.meta.toJson(),
+      if (browserInfo != null) 'browser': browserInfo.toJson(),
+      if (currentPage != null) 'page': currentPage.toJson(),
     });
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
@@ -735,14 +766,17 @@ class Faro {
     required String collectorUrl,
   }) async {
     try {
+      if (!_platformInfoProvider.supportsNativeIntegration) {
+        return;
+      }
       final metadata = meta.toJson();
       metadata['app'] = app.toJson();
       metadata['apiKey'] = apiKey;
       metadata['collectorUrl'] = collectorUrl;
-      if (Platform.isIOS) {
+      if (_platformInfoProvider.isIOS) {
         _nativeChannel?.enableCrashReporter(metadata);
       }
-      if (Platform.isAndroid) {
+      if (_platformInfoProvider.isAndroid) {
         final crashReports = await _nativeChannel?.getCrashReport();
         if (crashReports != null) {
           for (final crashInfo in crashReports) {

@@ -1,5 +1,6 @@
 import 'package:faro/src/device_info/device_id_provider.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
+import 'package:faro/src/models/browser.dart';
 import 'package:faro/src/util/constants.dart';
 
 class SessionAttributesProvider {
@@ -32,10 +33,19 @@ class SessionAttributesProvider {
 
     return attributes;
   }
+
+  Future<Browser?> getBrowserInfo() {
+    return _deviceInfoProvider.getBrowserInfo();
+  }
 }
 
 class SessionAttributesProviderFactory {
+  static SessionAttributesProvider? debugInstance;
+
   Future<SessionAttributesProvider> create() async {
+    if (debugInstance != null) {
+      return debugInstance!;
+    }
     final deviceIdProvider = await DeviceIdProviderFactory().create();
     final deviceInfoProvider = DeviceInfoProviderFactory().create();
 

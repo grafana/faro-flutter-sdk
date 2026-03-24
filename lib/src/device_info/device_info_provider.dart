@@ -1,6 +1,6 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
-import 'package:faro/src/models/device_info.dart';
+import 'package:faro/src/models/models.dart';
 
 class DeviceInfoProvider {
   DeviceInfoProvider({
@@ -13,6 +13,7 @@ class DeviceInfoProvider {
   final PlatformInfoProvider _platformInfoProvider;
 
   DeviceInfo? _deviceInfo;
+  Browser? _browserInfo;
 
   Future<DeviceInfo> getDeviceInfo() async {
     if (_deviceInfo != null) {
@@ -60,6 +61,33 @@ class DeviceInfoProvider {
       deviceIsPhysical = iosInfo.isPhysicalDevice;
     }
 
+    if (_platformInfoProvider.isWeb) {
+      final webInfo = await _deviceInfoPlugin.webBrowserInfo;
+      final browserName = webInfo.browserName.name;
+      final browserPlatform =
+          webInfo.platform ?? _platformInfoProvider.operatingSystem;
+      final browserVersion = webInfo.appVersion ?? 'unknown';
+      final userAgent = webInfo.userAgent ?? '';
+      final language = webInfo.language ?? 'unknown';
+
+      deviceOs = browserPlatform;
+      deviceOsVersion = browserVersion;
+      deviceOsDetail = '$browserName on $browserPlatform';
+      deviceManufacturer = webInfo.vendor ?? 'browser';
+      deviceModel = browserName;
+      deviceModelName = browserName;
+      deviceBrand = browserPlatform;
+      deviceIsPhysical = true;
+      _browserInfo = Browser(
+        browserName,
+        browserVersion,
+        browserPlatform,
+        userAgent,
+        language,
+        webInfo.maxTouchPoints != null && webInfo.maxTouchPoints! > 0,
+      );
+    }
+
     final deviceInfo = DeviceInfo(
       dartVersion: dartVersion,
       deviceOs: deviceOs,
@@ -73,6 +101,15 @@ class DeviceInfoProvider {
     );
     _deviceInfo = deviceInfo;
     return deviceInfo;
+  }
+
+  Future<Browser?> getBrowserInfo() async {
+    if (_browserInfo != null) {
+      return _browserInfo;
+    }
+
+    await getDeviceInfo();
+    return _browserInfo;
   }
 }
 

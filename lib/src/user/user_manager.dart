@@ -2,6 +2,8 @@ import 'package:faro/src/models/faro_user.dart';
 import 'package:faro/src/user/user_persistence.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+typedef SharedPreferencesFactory = Future<SharedPreferences> Function();
+
 /// Callback signature for when user metadata should be applied.
 ///
 /// The [userJson] contains the user data in the format expected by Meta:
@@ -142,6 +144,13 @@ class UserManager {
 /// Handles the async creation of [UserPersistence] and wires up
 /// the callbacks to the Faro instance.
 class UserManagerFactory {
+  UserManagerFactory({
+    SharedPreferencesFactory? sharedPreferencesFactory,
+  }) : _sharedPreferencesFactory =
+            sharedPreferencesFactory ?? SharedPreferences.getInstance;
+
+  final SharedPreferencesFactory _sharedPreferencesFactory;
+
   /// Creates a [UserManager] with persistence.
   ///
   /// The [UserManager] always has access to persistence so it can clean up
@@ -153,7 +162,7 @@ class UserManagerFactory {
     required OnUserMetaApplied onUserMetaApplied,
     required OnPushEvent onPushEvent,
   }) async {
-    final sharedPreferences = await SharedPreferences.getInstance();
+    final sharedPreferences = await _sharedPreferencesFactory();
     final persistence = UserPersistence(sharedPreferences: sharedPreferences);
     return UserManager(
       persistence: persistence,

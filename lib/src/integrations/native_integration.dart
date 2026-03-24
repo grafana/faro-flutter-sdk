@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 
+import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +30,9 @@ class NativeIntegration {
     bool? refreshrate,
     Duration? setSendUsageInterval,
   }) async {
+    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
+      return;
+    }
     _scheduleCalls(
       memusage: memusage ?? false,
       cpuusage: cpuusage ?? false,
@@ -43,6 +46,9 @@ class NativeIntegration {
 
   /// Initialize refresh rate monitoring
   Future<void> initRefreshRate() async {
+    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
+      return;
+    }
     try {
       await Faro().nativeChannel?.initRefreshRate();
     } catch (error) {
@@ -52,6 +58,9 @@ class NativeIntegration {
 
   /// Get app start metrics for cold start
   Future<void> getAppStart() async {
+    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
+      return;
+    }
     try {
       final appStart = await Faro().nativeChannel?.getAppStart();
       if (appStart != null) {
@@ -71,6 +80,9 @@ class NativeIntegration {
 
   /// Get app start metrics for warm start
   Future<void> getWarmStart() async {
+    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
+      return;
+    }
     try {
       final warmStartDuration =
           DateTime.now().millisecondsSinceEpoch - warmStart;
@@ -91,6 +103,9 @@ class NativeIntegration {
     bool refreshrate = false,
     Duration setSendUsageInterval = const Duration(seconds: 60),
   }) {
+    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
+      return;
+    }
     if (memusage || cpuusage || anr || refreshrate) {
       Timer.periodic(setSendUsageInterval, (timer) {
         if (memusage) {
@@ -99,11 +114,11 @@ class NativeIntegration {
         if (cpuusage) {
           _pushCpuUsage();
         }
-        if (anr && Platform.isAndroid) {
+        if (anr && resolvedPlatformInfoProvider.isAndroid) {
           _getAnrStatus();
         }
         if (refreshrate) {
-          if (Platform.isAndroid) {
+          if (resolvedPlatformInfoProvider.isAndroid) {
             initRefreshRate();
           } else {
             _pushRefreshRate();

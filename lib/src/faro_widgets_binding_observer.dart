@@ -1,3 +1,4 @@
+import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/native_integration.dart';
 import 'package:flutter/cupertino.dart';
@@ -8,7 +9,8 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed &&
+        resolvedPlatformInfoProvider.supportsNativeIntegration) {
       WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
         NativeIntegration.instance.getWarmStart();
       });

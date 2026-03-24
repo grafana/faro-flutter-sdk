@@ -12,6 +12,7 @@ import 'package:faro_example/features/user_actions/presentation/user_actions_pag
 import 'package:faro_example/features/user_settings/user_settings_page.dart';
 import 'package:faro_example/features/user_settings/user_settings_service.dart';
 import 'package:faro_example/qa_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,11 +20,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // IMPORTANT: Set HttpOverrides BEFORE creating any http.Client instances!
-  // The http package uses IOClient on mobile, which creates an HttpClient
-  // at construction time. If HttpOverrides is set after the client is created,
-  // Faro won't intercept those HTTP requests.
-  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  if (!kIsWeb) {
+    // IMPORTANT: Set HttpOverrides BEFORE creating any http.Client instances!
+    // The http package uses IOClient on mobile, which creates an HttpClient
+    // at construction time. If HttpOverrides is set after the client is
+    // created, Faro won't intercept those HTTP requests.
+    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  }
 
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
@@ -62,9 +65,11 @@ void main() async {
       ? qaConfig.initialUser
       : userSettingsService.initialUser;
 
-  Faro().transports.add(OfflineTransport(
-        maxCacheDuration: const Duration(days: 3),
-      ));
+  if (!kIsWeb) {
+    Faro().transports.add(OfflineTransport(
+          maxCacheDuration: const Duration(days: 3),
+        ));
+  }
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(

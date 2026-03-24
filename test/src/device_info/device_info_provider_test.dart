@@ -1,8 +1,10 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
+import 'package:faro/src/models/browser.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import '../../helpers/fake_web_browser_info.dart';
 
 class MockDeviceInfoPlugin extends Mock implements DeviceInfoPlugin {}
 
@@ -36,12 +38,16 @@ void main() {
     when(() => mockDeviceInfoPlugin.iosInfo).thenAnswer(
       (_) async => mockIosDeviceInfo,
     );
+    when(() => mockDeviceInfoPlugin.webBrowserInfo).thenAnswer(
+      (_) async => createFakeWebBrowserInfo(),
+    );
 
     when(() => mockPlatformInfoProvider.dartVersion)
         .thenReturn('Some-dart-version');
     when(() => mockPlatformInfoProvider.operatingSystem).thenReturn('Some-OS');
     when(() => mockPlatformInfoProvider.operatingSystemVersion)
         .thenReturn('Some-OS-version');
+    when(() => mockPlatformInfoProvider.isWeb).thenReturn(false);
 
     sut = DeviceInfoProvider(
       deviceInfoPlugin: mockDeviceInfoPlugin,
@@ -106,10 +112,39 @@ void main() {
       expect(deviceInfo.deviceIsPhysical, true);
     });
 
+    test('should return browser-based device info for web', () async {
+      when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
+      when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
+      when(() => mockPlatformInfoProvider.isWeb).thenReturn(true);
+      when(() => mockPlatformInfoProvider.operatingSystem).thenReturn('web');
+      when(() => mockPlatformInfoProvider.operatingSystemVersion)
+          .thenReturn('browser');
+
+      final deviceInfo = await sut.getDeviceInfo();
+      final browserInfo = await sut.getBrowserInfo();
+
+      expect(deviceInfo.dartVersion, 'Some-dart-version');
+      expect(deviceInfo.deviceOs, 'Linux x86_64');
+      expect(deviceInfo.deviceOsVersion, '123.0');
+      expect(deviceInfo.deviceOsDetail, 'chrome on Linux x86_64');
+      expect(deviceInfo.deviceManufacturer, 'Google Inc.');
+      expect(deviceInfo.deviceModel, 'chrome');
+      expect(deviceInfo.deviceModelName, 'chrome');
+      expect(deviceInfo.deviceBrand, 'Linux x86_64');
+      expect(deviceInfo.deviceIsPhysical, true);
+      expect(browserInfo, isA<Browser>());
+      expect(browserInfo?.name, 'chrome');
+      expect(browserInfo?.version, '123.0');
+      expect(browserInfo?.os, 'Linux x86_64');
+      expect(browserInfo?.language, 'en-US');
+      expect(browserInfo?.mobile, isFalse);
+    });
+
     test('should return correct device info when not iOS and not Android',
         () async {
       when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
       when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
+      when(() => mockPlatformInfoProvider.isWeb).thenReturn(false);
 
       final deviceInfo = await sut.getDeviceInfo();
 

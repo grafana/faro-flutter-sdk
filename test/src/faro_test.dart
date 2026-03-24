@@ -1,11 +1,16 @@
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
+import 'package:faro/src/device_info/platform_info_provider.dart';
+import 'package:faro/src/device_info/platform_info_provider_test_support.dart';
+import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
+import 'package:faro/src/user/user_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -20,6 +25,13 @@ class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
 class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
 
+class MockPlatformInfoProvider extends Mock implements PlatformInfoProvider {}
+
+class MockUserManager extends Mock implements UserManager {}
+
+class MockSessionAttributesProvider extends Mock
+    implements SessionAttributesProvider {}
+
 void main() {
   group('RUM Flutter initialization', () {
     const appName = 'TestApp';
@@ -32,6 +44,9 @@ void main() {
     late MockBatchTransport mockBatchTransport;
     late MockFaroNativeMethods mockFaroNativeMethods;
     late MockDataCollectionPolicy mockDataCollectionPolicy;
+    late MockPlatformInfoProvider mockPlatformInfoProvider;
+    late MockUserManager mockUserManager;
+    late MockSessionAttributesProvider mockSessionAttributesProvider;
 
     setUpAll(() {
       registerFallbackValue(
@@ -45,6 +60,7 @@ void main() {
       registerFallbackValue(Payload(Meta()));
       registerFallbackValue(BatchConfig());
       registerFallbackValue(Meta());
+      registerFallbackValue(const FaroUser(id: 'fallback-user'));
     });
 
     setUp(() {
@@ -72,12 +88,66 @@ void main() {
       mockFaroTransport = MockFaroTransport();
       mockBatchTransport = MockBatchTransport();
       mockFaroNativeMethods = MockFaroNativeMethods();
+      mockPlatformInfoProvider = MockPlatformInfoProvider();
+      mockUserManager = MockUserManager();
+      mockSessionAttributesProvider = MockSessionAttributesProvider();
+
+      pod.overrideProvider(
+        platformInfoProvider,
+        (_) => mockPlatformInfoProvider,
+      );
+      debugPlatformInfoProviderOverride = mockPlatformInfoProvider;
+      when(() => mockPlatformInfoProvider.isWeb).thenReturn(false);
+      when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
+      when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
+      when(() => mockPlatformInfoProvider.supportsNativeIntegration)
+          .thenReturn(false);
+      when(() => mockPlatformInfoProvider.supportsHttpOverrides)
+          .thenReturn(true);
+      when(() => mockPlatformInfoProvider.supportsOfflineTransport)
+          .thenReturn(true);
+      when(() => mockPlatformInfoProvider.dartVersion)
+          .thenReturn('test-dart-version');
+      when(() => mockPlatformInfoProvider.operatingSystem)
+          .thenReturn('test-os');
+      when(() => mockPlatformInfoProvider.operatingSystemVersion)
+          .thenReturn('test-os-version');
+      when(
+        () => mockUserManager.initialize(
+          initialUser: any(named: 'initialUser'),
+          persistUser: any(named: 'persistUser'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockUserManager.setUser(
+          any(),
+          persistUser: any(named: 'persistUser'),
+        ),
+      ).thenAnswer((invocation) async {
+        final user = invocation.positionalArguments.first as FaroUser;
+        Faro().meta = Meta.fromJson({
+          ...Faro().meta.toJson(),
+          'user': user.toJson(),
+        });
+      });
+      when(() => mockSessionAttributesProvider.getAttributes()).thenAnswer(
+        (_) async => <String, Object>{
+          'dart_version': 'test-dart-version',
+          'device_os': 'test-os',
+        },
+      );
+      when(() => mockSessionAttributesProvider.getBrowserInfo()).thenAnswer(
+        (_) async => null,
+      );
+      SessionAttributesProviderFactory.debugInstance =
+          mockSessionAttributesProvider;
 
       BatchTransportFactory().setInstance(mockBatchTransport);
 
       Faro().transports = [mockFaroTransport];
       Faro().nativeChannel = mockFaroNativeMethods;
       Faro().batchTransport = mockBatchTransport;
+      Faro().userManager = mockUserManager;
 
       when(
         () => mockFaroNativeMethods.enableCrashReporter(any()),
@@ -98,6 +168,8 @@ void main() {
 
     tearDown(() {
       Faro.resetForTesting();
+      debugPlatformInfoProviderOverride = null;
+      SessionAttributesProviderFactory.debugInstance = null;
 
       // Clean up the singleton state after each test
       BatchTransportFactory().reset();
@@ -123,6 +195,42 @@ void main() {
       expect(app?.version, rumConfig.appVersion);
       expect(app?.environment, rumConfig.appEnv);
       verify(() => mockBatchTransport.addEvent(any())).called(1);
+    });
+
+    test('init sets browser/page metadata on web without native startup',
+        () async {
+      when(() => mockPlatformInfoProvider.isWeb).thenReturn(true);
+      when(() => mockPlatformInfoProvider.supportsNativeIntegration)
+          .thenReturn(false);
+      when(() => mockPlatformInfoProvider.operatingSystem)
+          .thenReturn('Linux x86_64');
+      when(() => mockPlatformInfoProvider.operatingSystemVersion)
+          .thenReturn('browser');
+      when(() => mockSessionAttributesProvider.getBrowserInfo()).thenAnswer(
+        (_) async => Browser(
+          'chrome',
+          '123.0',
+          'Linux x86_64',
+          'Mozilla/5.0 Chrome/123.0.0.0 Safari/537.36',
+          'en-US',
+          false,
+        ),
+      );
+
+      final rumConfig = FaroConfig(
+        appName: appName,
+        appVersion: appVersion,
+        appEnv: appEnv,
+        apiKey: apiKey,
+        collectorUrl: 'https://some-url.com',
+      );
+
+      await Faro().init(optionsConfiguration: rumConfig);
+
+      expect(Faro().meta.browser, isNotNull);
+      expect(Faro().meta.page, isNotNull);
+      verifyNever(() => mockFaroNativeMethods.getAppStart());
+      verify(() => mockBatchTransport.addEvent(any())).called(greaterThan(0));
     });
 
     test('subsequent init calls are ignored', () async {
@@ -183,9 +291,16 @@ void main() {
         userEmail: 'testusermail@example.com',
       );
       await Future<void>.delayed(Duration.zero);
-      expect(Faro().meta.user?.id, 'testuserid');
-      expect(Faro().meta.user?.username, 'testusername');
-      expect(Faro().meta.user?.email, 'testusermail@example.com');
+      verify(
+        () => mockUserManager.setUser(
+          const FaroUser(
+            id: 'testuserid',
+            username: 'testusername',
+            email: 'testusermail@example.com',
+          ),
+          persistUser: true,
+        ),
+      ).called(1);
     });
 
     test('set user with setUser', () async {
@@ -205,9 +320,16 @@ void main() {
           email: 'testusermail2@example.com',
         ),
       );
-      expect(Faro().meta.user?.id, 'testuserid2');
-      expect(Faro().meta.user?.username, 'testusername2');
-      expect(Faro().meta.user?.email, 'testusermail2@example.com');
+      verify(
+        () => mockUserManager.setUser(
+          const FaroUser(
+            id: 'testuserid2',
+            username: 'testusername2',
+            email: 'testusermail2@example.com',
+          ),
+          persistUser: true,
+        ),
+      ).called(1);
     });
 
     test('set view meta data ', () {

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Flutter web beta support for core telemetry**:
+  - Faro can now initialize on Flutter web and send core telemetry such as
+    logs, events, errors, measurements, navigation events, and
+    `session_start`
+  - Web sessions now populate browser/page metadata using browser-safe APIs
+  - Mobile-only integrations remain disabled on web rather than attempting to
+    invoke native startup metrics or crash hooks
+
 ### Changed
 
 - Widened `connectivity_plus` dependency to `>=6.1.2 <8.0.0` (adds v7.x support).
@@ -22,6 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the underlying operation completes, avoiding prematurely ended or stalled
   actions when using long-running asset loads, `HttpClientRequest.done`, or
   `abort()`.
+- `dart:io`-based platform detection no longer breaks Faro initialization on
+  Flutter web.
+
+### Deprecated
+
+- None.
+
+### Notes
+
+- Web beta intentionally does **not** yet include automatic HTTP tracing via
+  `FaroHttpOverrides`.
+- `OfflineTransport` remains unsupported on Flutter web and now throws a clear
+  `UnsupportedError` when constructed there.
 
 ## [0.12.0] - 2026-03-05
 

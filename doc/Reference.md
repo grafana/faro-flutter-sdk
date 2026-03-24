@@ -45,14 +45,16 @@ For self-hosted setups:
 Add this code to your Flutter app's main function:
 
 ```dart
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:faro/faro.dart';
 
-void main() {
-  // Enable HTTP request tracking — must be set before any HTTP calls are made
-  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+void main() async {
+  if (!kIsWeb) {
+    // Enable HTTP request tracking on mobile before any HTTP calls are made.
+    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  }
 
-  Faro().runApp(
+  await Faro().runApp(
     optionsConfiguration: FaroConfig(
       appName: "my-flutter-app",
       appVersion: "1.0.0",                // optional — resolved from pubspec.yaml if omitted
@@ -94,10 +96,35 @@ GoRouter(
 ### Next Steps
 
 - **Send custom telemetry**: Use `Faro().pushEvent()`, `Faro().pushLog()`, and other methods — see [Custom Telemetry](#custom-telemetry)
-- **Create distributed traces**: Use `Faro().startSpan()` to trace operations across your app — see [Distributed Tracing](#distributed-tracing). Note that HTTP requests are automatically traced if you set up `FaroHttpOverrides` as shown above.
+- **Create distributed traces**: Use `Faro().startSpan()` to trace operations across your app — see [Distributed Tracing](#distributed-tracing). Note that HTTP requests are automatically traced on mobile if you set up `FaroHttpOverrides` as shown above.
 - **Explore the telemetry data**: Use **Tempo** for traces and **Loki** for everything else in any Grafana dashboard
 
 ---
+
+## Flutter Web Beta Support
+
+Flutter web is supported as a **beta** for core telemetry flows.
+
+### Supported on web beta
+
+- SDK initialization
+- session metadata and `session_start`
+- logs, events, errors, and custom measurements
+- browser metadata in `meta.browser`
+- page URL metadata in `meta.page`
+- navigation/view tracking and user-action correlation that runs entirely in
+  Dart/Flutter
+
+### Not yet supported on web beta
+
+- `FaroHttpOverrides` / automatic HTTP instrumentation
+- `OfflineTransport`
+- mobile-native vitals such as CPU, memory, ANR, refresh rate, and app-start
+  metrics
+- native crash reporter integration
+
+This keeps the first web release small, predictable, and aligned with Flutter
+web platform constraints.
 
 ## Automatic Event Metadata
 
@@ -112,7 +139,8 @@ Every event captured by Faro includes rich metadata to give you complete context
 
 ### Device & System Information
 
-- **Operating System**: iOS/Android version and device model
+- **Operating System**: iOS/Android version and device model, or browser
+  runtime details on web
 - **Device Specifications**: Memory, CPU architecture, and hardware details
 - **User Information**: Optional user ID, username, email, and custom attributes
 - **User Persistence**: Automatically restore user identity across app restarts for consistent session tracking
@@ -136,6 +164,10 @@ Every telemetry event automatically includes these session attributes:
 | `device_id`           | Unique device ID            | `uuid`               | `uuid`                |
 
 > \*Android does not provide a mapping from model codes to marketing names, so `device_model_name` equals `device_model`.
+
+On Flutter web, these fields are populated from browser information where
+possible. For example, `device_os` and `device_brand` may reflect the browser
+platform string instead of a mobile OS/device pair.
 
 ---
 
@@ -942,6 +974,9 @@ Faro().enableDataCollection = false;
 ---
 
 ## Offline Support
+
+> **Web beta limitation:** `OfflineTransport` is currently supported on mobile
+> only. Constructing it on Flutter web throws an `UnsupportedError`.
 
 Offline support is opt-in. Add `OfflineTransport` to the transports list **before** calling `runApp`:
 

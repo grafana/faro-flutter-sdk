@@ -7,8 +7,11 @@
 [![pub package](https://img.shields.io/pub/v/faro.svg)](https://pub.dev/packages/faro)
 ![iOS](https://img.shields.io/badge/iOS-supported-brightgreen?logo=apple&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-supported-brightgreen?logo=android&logoColor=white)
+![Web](https://img.shields.io/badge/Web-beta-blue?logo=googlechrome&logoColor=white)
 
-The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile applications by instrumenting Flutter apps to collect telemetry.
+The Grafana Faro Flutter SDK enables real user monitoring (RUM) for Flutter
+applications by instrumenting apps to collect telemetry on mobile and, in a
+first beta form, on web.
 
 > **Note:** [Grafana Frontend Observability](https://grafana.com/products/cloud/frontend-observability-for-real-user-monitoring/) is built for web applications — there is currently no official mobile observability product from Grafana.
 >
@@ -53,30 +56,50 @@ dependencies:
 
 ### Initialize Faro
 
-Add the following snippet to initialize Faro Monitoring with the default configurations:
+Add the following snippet to initialize Faro Monitoring with the default
+configurations:
 
 ```dart
-HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current); // enable HTTP tracking
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-Faro().runApp(
-  optionsConfiguration: FaroConfig(
-      appName: "<App_Name>",
-      appVersion: "1.0.0",
-      appEnv: "Production",
-      apiKey: "<API_KEY>",
-      collectorUrl: "faro receiver endpoint",
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb) {
+    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  }
+
+  await Faro().runApp(
+    optionsConfiguration: FaroConfig(
+      appName: '<App_Name>',
+      appVersion: '1.0.0',
+      appEnv: 'Production',
+      apiKey: '<API_KEY>',
+      collectorUrl: 'faro receiver endpoint',
       collectorHeaders: {
-        ... // custom headers to be sent with each request to the collector url
-      }
-      // ... other configurations
-  ),
-  appRunner: () => runApp(
-    FaroAssetTracking(
-      child: FaroUserInteractionWidget(child: MyApp())
-    )
-  ),
-);
+        // custom headers to be sent with each request to the collector url
+      },
+    ),
+    appRunner: () => runApp(
+      FaroAssetTracking(
+        child: FaroUserInteractionWidget(child: MyApp()),
+      ),
+    ),
+  );
+}
 ```
+
+### Web beta scope
+
+Current web support is intentionally limited to a pragmatic first beta:
+
+- ✅ SDK initialization
+- ✅ logs, events, errors, measurements, session tracking, and browser metadata
+- ✅ navigation/view metadata
+- ✅ asset tracking and user-action infrastructure that already runs in Dart
+- ❌ automatic HTTP instrumentation via `FaroHttpOverrides`
+- ❌ `OfflineTransport`
+- ❌ native mobile vitals (CPU, memory, ANR, refresh rate, app start)
 
 ## Documentation
 

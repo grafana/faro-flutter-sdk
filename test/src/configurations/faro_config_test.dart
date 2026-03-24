@@ -37,11 +37,17 @@ void main() {
 
       test('should accept SamplingFunction', () {
         final config = createConfig(
-          sampling: SamplingFunction((context) => 0.5),
+          sampling: SamplingFunction(const _SamplingHalf().call),
         );
 
         expect(config.sampling, isA<SamplingFunction>());
       });
     });
   });
+}
+
+class _SamplingHalf {
+  const _SamplingHalf();
+
+  double call(dynamic _) => 0.5;
 }

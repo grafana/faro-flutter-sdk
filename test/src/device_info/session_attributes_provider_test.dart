@@ -59,5 +59,24 @@ void main() {
         'device_id': 'device-id',
       });
     });
+
+    test('should return browser info when available', () async {
+      when(() => mockDeviceInfoProvider.getBrowserInfo()).thenAnswer(
+        (_) async => Browser(
+          'chrome',
+          '123.0',
+          'linux',
+          'Mozilla/5.0',
+          'en-US',
+          false,
+        ),
+      );
+
+      final browser = await sut.getBrowserInfo();
+
+      expect(browser, isNotNull);
+      expect(browser?.name, 'chrome');
+      expect(browser?.language, 'en-US');
+    });
   });
 }

@@ -1,4 +1,6 @@
 import 'dart:developer';
+
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DataCollectionPolicy {
@@ -41,8 +43,12 @@ class DataCollectionPolicy {
 }
 
 class DataCollectionPolicyFactory {
+  @visibleForTesting
+  SharedPreferences? sharedPreferencesOverride;
+
   Future<DataCollectionPolicy> create() async {
-    final sharedPreferences = await SharedPreferences.getInstance();
+    final sharedPreferences =
+        sharedPreferencesOverride ?? await SharedPreferences.getInstance();
     return DataCollectionPolicy(sharedPreferences: sharedPreferences);
   }
 }
