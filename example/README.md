@@ -110,8 +110,11 @@ The example app showcases various Faro SDK features:
 
 ### WebView Tracing
 
-- Open a React app in a WebView with the current traceparent
+- Open a React app in a WebView with the current `traceparent` and
+  `correlation.from.*` session attributes (session ID + app name)
 - The web app continues the native trace when making HTTP requests
+- The web app reports its own Faro session ID back to Flutter, which
+  pushes a `correlation.linked` event with `correlation.to.*` attributes
 - Verify in Grafana Tempo that Flutter and React spans share one trace
 - See [WebView Tracing Feature](#webview-tracing-feature) for setup instructions
 
@@ -175,9 +178,12 @@ Invalid JSON is silently ignored, falling back to the normal initial user.
 
 The example app includes a `WebView Tracing` feature page. It opens an
 external React demo app in a WebView, passing the current Flutter
-`traceparent` as a query parameter. The React app uses it as the parent
-context for a simulated login request, creating a continuous trace
-across native and web.
+`traceparent` and `correlation.from.*` attributes as query parameters.
+The React app uses the `traceparent` as the parent context for a
+simulated login request, creating a continuous trace across native and
+web. It also stores the `correlation.from.*` values as Faro session
+attributes and sends its own session ID back to Flutter via the
+`HandoffBridge` JS channel, enabling bidirectional session correlation.
 
 ### Running the WebView demo
 
@@ -212,6 +218,12 @@ across native and web.
   under the same trace ID in Grafana Tempo
 - Both Flutter and React spans share one trace, demonstrating
   cross-boundary trace continuity
+- The web app's Faro session includes `correlation.from.session_id`
+  and `correlation.from.app_name` attributes identifying the Flutter
+  session that opened it
+- A `correlation.linked` event in the Flutter session records the
+  web app's session ID (`correlation.to.session_id`) and app name
+  (`correlation.to.app_name`), enabling bidirectional lookup
 
 
 ## Testing Features

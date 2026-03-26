@@ -1,7 +1,8 @@
 import 'package:faro/faro.dart';
 
-/// Tracks a WebView session as a Faro span and injects a `traceparent`
-/// query parameter so the loaded web app can continue the trace.
+/// Tracks a WebView session as a Faro span and injects `traceparent` and
+/// correlation query parameters so the loaded web app can continue the
+/// trace and identify the originating mobile app/session.
 ///
 /// This is the **Flutter-side glue** for cross-boundary tracing between a
 /// native Flutter app and a web app running inside a WebView. On the web
@@ -24,12 +25,14 @@ import 'package:faro/faro.dart';
 class FaroWebViewTracker {
   Span? _activeSpan;
 
-  /// Appends a `?traceparent=…` query parameter to [url] and starts
-  /// a `WebView` span. Call [end] when the WebView is closed.
+  /// Appends `traceparent` and `correlation.from.*` query parameters
+  /// to [url] and starts a `WebView` span. Call [end] when the WebView
+  /// is closed.
   Uri traceUrl(Uri url) {
     _endActiveSpan(SpanStatusCode.error, message: 'Superseded by new load');
 
-    final span = Faro().startSpanManual(
+    final faro = Faro();
+    final span = faro.startSpanManual(
       'WebView',
       attributes: {
         'http.request.method': 'GET',
@@ -43,9 +46,12 @@ class FaroWebViewTracker {
     _activeSpan = span;
 
     final traceparent = '00-${span.traceId}-${span.spanId}-01';
+
     return url.replace(queryParameters: {
       ...url.queryParameters,
       'traceparent': traceparent,
+      'correlation.from.session_id': faro.meta.session?.id ?? '',
+      'correlation.from.app_name': faro.meta.app?.name ?? '',
     });
   }
 

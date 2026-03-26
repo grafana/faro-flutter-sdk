@@ -69,7 +69,7 @@ void main() async {
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
-      appName: 'example_app',
+      appName: 'faro-flutter-sdk-example',
       appVersion: '2.0.1',
       appEnv: 'Test',
       apiKey: faroApiKey,

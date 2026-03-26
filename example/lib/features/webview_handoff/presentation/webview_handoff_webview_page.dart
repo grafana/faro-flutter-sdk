@@ -1,18 +1,22 @@
 import 'dart:convert';
 
+import 'package:faro/faro.dart';
 import 'package:faro_example/features/webview_handoff/domain/faro_webview_tracker.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Hosts the React demo inside a WebView.
 ///
-/// Uses [FaroWebViewTracker] to create a `WebView` span and inject a
-/// `traceparent` query parameter into the URL so the web app can
-/// continue the Flutter trace.
+/// Uses [FaroWebViewTracker] to create a `WebView` span and inject
+/// `traceparent` and `correlation.from.*` query parameters into the URL
+/// so the web app can continue the Flutter trace and identify its
+/// originating session.
 ///
 /// A `HandoffBridge` JavaScript channel is registered so the React app
-/// can send login results back. When a `login_result` message arrives
-/// the page auto-pops with the decoded result map.
+/// can send messages back. Supported message types:
+/// - `faro_session` — the web app's Faro session ID, used to push a
+///   `correlation.linked` event with `correlation.to.*` attributes.
+/// - `login_result` — login result data; auto-pops the page.
 class WebViewHandoffWebViewPage extends StatefulWidget {
   const WebViewHandoffWebViewPage({
     required this.url,
@@ -84,7 +88,12 @@ class _WebViewHandoffWebViewPageState
     if (!mounted) return;
     try {
       final data = jsonDecode(message.message) as Map<String, dynamic>;
-      if (data['type'] == 'login_result') {
+      if (data['type'] == 'faro_session') {
+        Faro().pushEvent('correlation.linked', attributes: {
+          'correlation.to.session_id': data['session_id'] as String? ?? '',
+          'correlation.to.app_name': data['app_name'] as String? ?? '',
+        });
+      } else if (data['type'] == 'login_result') {
         Navigator.of(context).pop(data);
       }
     } catch (_) {
