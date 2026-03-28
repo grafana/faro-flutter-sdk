@@ -1,6 +1,6 @@
-import 'dart:io';
-
 import 'package:faro/faro.dart';
+import 'package:faro_example/configure_http_overrides.dart'
+    if (dart.library.io) 'package:faro_example/configure_http_overrides_io.dart';
 import 'package:faro_example/features/app_diagnostics/presentation/app_diagnostics_page.dart';
 import 'package:faro_example/features/custom_telemetry/presentation/custom_telemetry_page.dart';
 import 'package:faro_example/features/feature_catalog/presentation/feature_catalog_page.dart';
@@ -20,13 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb) {
-    // IMPORTANT: Set HttpOverrides BEFORE creating any http.Client instances!
-    // The http package uses IOClient on mobile, which creates an HttpClient
-    // at construction time. If HttpOverrides is set after the client is
-    // created, Faro won't intercept those HTTP requests.
-    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
-  }
+  configureHttpOverrides();
 
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();

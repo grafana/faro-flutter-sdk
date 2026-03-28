@@ -46,9 +46,6 @@ class NativeIntegration {
 
   /// Initialize refresh rate monitoring
   Future<void> initRefreshRate() async {
-    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
-      return;
-    }
     try {
       await Faro().nativeChannel?.initRefreshRate();
     } catch (error) {
@@ -58,9 +55,6 @@ class NativeIntegration {
 
   /// Get app start metrics for cold start
   Future<void> getAppStart() async {
-    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
-      return;
-    }
     try {
       final appStart = await Faro().nativeChannel?.getAppStart();
       if (appStart != null) {
@@ -80,9 +74,6 @@ class NativeIntegration {
 
   /// Get app start metrics for warm start
   Future<void> getWarmStart() async {
-    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
-      return;
-    }
     try {
       final warmStartDuration =
           DateTime.now().millisecondsSinceEpoch - warmStart;
@@ -103,9 +94,6 @@ class NativeIntegration {
     bool refreshrate = false,
     Duration setSendUsageInterval = const Duration(seconds: 60),
   }) {
-    if (!resolvedPlatformInfoProvider.supportsNativeIntegration) {
-      return;
-    }
     if (memusage || cpuusage || anr || refreshrate) {
       Timer.periodic(setSendUsageInterval, (timer) {
         if (memusage) {

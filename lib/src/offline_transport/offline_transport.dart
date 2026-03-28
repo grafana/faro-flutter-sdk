@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
@@ -18,16 +17,10 @@ class OfflineTransport extends BaseTransport {
     Duration? maxCacheDuration,
     String? internetConnectionCheckerUrl,
     InternetConnectivityService? internetConnectivityService,
-  })  : _platformInfoProvider = PlatformInfoProviderFactory().create(),
-        _connectivityService = internetConnectivityService ??
+  })  : _connectivityService = internetConnectivityService ??
             InternetConnectivityServiceFactory().create(
                 internetConnectionCheckerUrl: internetConnectionCheckerUrl),
         _maxCacheDuration = maxCacheDuration {
-    if (_platformInfoProvider.supportsOfflineTransport == false) {
-      throw UnsupportedError(
-        'OfflineTransport is not supported on Flutter web in this beta.',
-      );
-    }
     _connectivityService.onConnectivityChanged.listen((isOnline) {
       if (isOnline) {
         try {
@@ -44,7 +37,6 @@ class OfflineTransport extends BaseTransport {
   }
 
   final Duration? _maxCacheDuration;
-  final PlatformInfoProvider _platformInfoProvider;
   final InternetConnectivityService _connectivityService;
 
   // File operation lock to prevent concurrent access

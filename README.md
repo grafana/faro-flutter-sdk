@@ -60,14 +60,10 @@ Add the following snippet to initialize Faro Monitoring with the default
 configurations:
 
 ```dart
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb) {
-    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
-  }
+  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
@@ -100,6 +96,11 @@ Current web support is intentionally limited to a pragmatic first beta:
 - ❌ automatic HTTP instrumentation via `FaroHttpOverrides`
 - ❌ `OfflineTransport`
 - ❌ native mobile vitals (CPU, memory, ANR, refresh rate, app start)
+
+> **Note:** When also targeting web, `FaroHttpOverrides` and `OfflineTransport`
+> must be guarded behind platform checks because they rely on `dart:io`. See the
+> [SDK Reference](./doc/Reference.md#flutter-web-beta-support) for the full web
+> setup.
 
 ## Documentation
 

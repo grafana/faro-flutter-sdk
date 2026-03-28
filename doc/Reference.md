@@ -45,14 +45,11 @@ For self-hosted setups:
 Add this code to your Flutter app's main function:
 
 ```dart
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:faro/faro.dart';
 
 void main() async {
-  if (!kIsWeb) {
-    // Enable HTTP request tracking on mobile before any HTTP calls are made.
-    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
-  }
+  // Enable HTTP request tracking before any HTTP calls are made.
+  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
@@ -125,6 +122,47 @@ Flutter web is supported as a **beta** for core telemetry flows.
 
 This keeps the first web release small, predictable, and aligned with Flutter
 web platform constraints.
+
+### Web initialization
+
+When also targeting web, `FaroHttpOverrides` and `OfflineTransport` must be
+guarded because they rely on `dart:io`. The recommended approach is a
+conditional import so that `dart:io` is never pulled into the web build:
+
+```dart
+// configure_http_overrides.dart  (web-safe stub)
+void configureHttpOverrides() {}
+
+// configure_http_overrides_io.dart  (mobile implementation)
+import 'dart:io';
+import 'package:faro/faro.dart';
+void configureHttpOverrides() {
+  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+}
+
+// main.dart
+import 'package:faro/faro.dart';
+import 'configure_http_overrides.dart'
+    if (dart.library.io) 'configure_http_overrides_io.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  configureHttpOverrides();
+
+  await Faro().runApp(
+    optionsConfiguration: FaroConfig(
+      appName: 'my-app',
+      appEnv: 'production',
+      collectorUrl: '...',
+      apiKey: '...',
+    ),
+    appRunner: () => runApp(MyApp()),
+  );
+}
+```
+
+`OfflineTransport` is automatically excluded on web via conditional exports in
+the SDK, so no additional guard is needed for it.
 
 ## Automatic Event Metadata
 
