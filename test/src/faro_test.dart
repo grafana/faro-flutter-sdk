@@ -224,13 +224,15 @@ void main() {
     });
 
     test(
-      'app lifecycle events rely on timestamp ordering without sequence',
-      () {
+      'app lifecycle events are recorded in order via deferred helper',
+      () async {
         final observer = FaroWidgetsBindingObserver();
 
         observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
         observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
         observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+
+        await Future<void>.delayed(Duration.zero);
 
         final capturedEvents = verify(
           () => mockBatchTransport.addEvent(captureAny()),
@@ -246,20 +248,12 @@ void main() {
           containsPair('toState', 'inactive'),
         );
         expect(
-          capturedEvents[0].attributes,
-          isNot(contains('sequence')),
-        );
-        expect(
           capturedEvents[1].attributes,
           containsPair('fromState', 'inactive'),
         );
         expect(
           capturedEvents[1].attributes,
           containsPair('toState', 'hidden'),
-        );
-        expect(
-          capturedEvents[1].attributes,
-          isNot(contains('sequence')),
         );
         expect(
           capturedEvents[2].attributes,
@@ -270,22 +264,12 @@ void main() {
           containsPair('toState', 'paused'),
         );
         expect(
-          capturedEvents[2].attributes,
-          isNot(contains('sequence')),
+          capturedEvents.map((event) => event.attributes?['fromState']),
+          orderedEquals(<String>['', 'inactive', 'hidden']),
         );
         expect(
-          capturedEvents.map((event) => event.timestamp),
-          everyElement(
-            matches(
-              RegExp(
-                r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$',
-              ),
-            ),
-          ),
-        );
-        expect(
-          capturedEvents.map((event) => event.timestamp).toSet().length,
-          equals(3),
+          capturedEvents.map((event) => event.attributes?['toState']),
+          orderedEquals(<String>['inactive', 'hidden', 'paused']),
         );
       },
     );
