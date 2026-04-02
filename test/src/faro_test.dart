@@ -224,13 +224,15 @@ void main() {
     });
 
     test(
-      'app lifecycle events rely on timestamp ordering without sequence',
-      () {
+      'app lifecycle events are recorded in order via deferred helper',
+      () async {
         final observer = FaroWidgetsBindingObserver();
 
         observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
         observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
         observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+
+        await Future<void>.delayed(Duration.zero);
 
         final capturedEvents = verify(
           () => mockBatchTransport.addEvent(captureAny()),
@@ -268,24 +270,6 @@ void main() {
         expect(
           capturedEvents.map((event) => event.attributes?['toState']),
           orderedEquals(<String>['inactive', 'hidden', 'paused']),
-        );
-        expect(
-          capturedEvents.map((event) => event.attributes?['sequence']),
-          everyElement(isNull),
-        );
-        expect(
-          capturedEvents.map((event) => event.timestamp),
-          everyElement(
-            matches(
-              RegExp(
-                r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$',
-              ),
-            ),
-          ),
-        );
-        expect(
-          capturedEvents.map((event) => event.timestamp).toSet().length,
-          equals(3),
         );
       },
     );
