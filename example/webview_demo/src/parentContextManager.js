@@ -104,7 +104,10 @@ function parseTraceparentToContext(traceparent) {
   return trace.setSpanContext(ROOT_CONTEXT, {
     traceId: parts[1],
     spanId: parts[2],
-    traceFlags: parseInt(parts[3], 16) || TraceFlags.SAMPLED,
+    traceFlags: (() => {
+      const parsed = parseInt(parts[3], 16)
+      return Number.isNaN(parsed) ? TraceFlags.SAMPLED : parsed
+    })(),
     isRemote: true,
   })
 }
