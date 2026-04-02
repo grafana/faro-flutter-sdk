@@ -97,6 +97,13 @@ void main() {
       );
     });
 
+    test('should throw UnsupportedError when traceparent is accessed', () {
+      expect(
+        () => Span.noParent.traceparent,
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
     test('should throw UnsupportedError when end is called', () {
       expect(
         () => Span.noParent.end(),
@@ -135,8 +142,8 @@ void main() {
       return SpanProvider().getSpan(mockOtelSpan, fakeContext);
     }
 
-    group('toHttpTraceparent:', () {
-      InternalSpan createInternalSpanWithTraceFlags(int traceFlags) {
+    group('traceparent:', () {
+      Span createSpanWithTraceFlags(int traceFlags) {
         when(() => mockOtelSpan.spanContext).thenReturn(
           otel_api.SpanContext(
             otel_api.TraceId.fromString(
@@ -147,27 +154,40 @@ void main() {
             otel_api.TraceState.empty(),
           ),
         );
-        return createSpan() as InternalSpan;
+        return createSpan();
       }
 
-      test('should preserve sampled trace flag', () {
-        final span = createInternalSpanWithTraceFlags(
+      test('should return W3C formatted traceparent string', () {
+        const traceIdHex = '0af7651916cd43dd8448eb211c80319c';
+        const spanIdHex = 'b7ad6b7169203331';
+
+        final spanContext = otel_api.SpanContext(
+          otel_api.TraceId.fromString(traceIdHex),
+          otel_api.SpanId.fromString(spanIdHex),
           otel_api.TraceFlags.sampled,
+          otel_api.TraceState.empty(),
         );
+        when(() => mockOtelSpan.spanContext).thenReturn(spanContext);
+
+        final span = createSpan();
+
+        expect(span.traceparent, '00-$traceIdHex-$spanIdHex-01');
+      });
+
+      test('should preserve sampled trace flag', () {
+        final span = createSpanWithTraceFlags(otel_api.TraceFlags.sampled);
 
         expect(
-          span.toHttpTraceparent(),
+          span.traceparent,
           '00-00000000000000000000000000000001-0000000000000001-01',
         );
       });
 
       test('should preserve unsampled trace flag', () {
-        final span = createInternalSpanWithTraceFlags(
-          otel_api.TraceFlags.none,
-        );
+        final span = createSpanWithTraceFlags(otel_api.TraceFlags.none);
 
         expect(
-          span.toHttpTraceparent(),
+          span.traceparent,
           '00-00000000000000000000000000000001-0000000000000001-00',
         );
       });

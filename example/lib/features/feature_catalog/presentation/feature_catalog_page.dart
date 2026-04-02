@@ -103,6 +103,14 @@ class _FeatureCatalogPageState extends State<FeatureCatalogPage> {
           ),
           const SizedBox(height: 8),
           _FeatureCard(
+            icon: Icons.language,
+            title: 'WebView Tracing',
+            subtitle:
+                'Cross-boundary tracing between Flutter and a React WebView.',
+            onTap: () => _openFeature('/webview-handoff'),
+          ),
+          const SizedBox(height: 8),
+          _FeatureCard(
             icon: Icons.touch_app,
             title: 'User Actions',
             subtitle: 'Run lifecycle scenarios and inspect action state.',

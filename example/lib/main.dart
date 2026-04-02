@@ -11,6 +11,7 @@ import 'package:faro_example/features/tracing/presentation/tracing_page.dart';
 import 'package:faro_example/features/user_actions/presentation/user_actions_page.dart';
 import 'package:faro_example/features/user_settings/user_settings_page.dart';
 import 'package:faro_example/features/user_settings/user_settings_service.dart';
+import 'package:faro_example/features/webview_handoff/presentation/webview_handoff_page.dart';
 import 'package:faro_example/qa_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,7 +69,7 @@ void main() async {
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
-      appName: 'example_app',
+      appName: 'faro-flutter-sdk-example',
       appVersion: '2.0.1',
       appEnv: 'Test',
       apiKey: faroApiKey,
@@ -129,6 +130,7 @@ class _MyAppState extends State<MyApp> {
         '/tracing': (context) => const TracingPage(),
         '/user-actions': (context) => const UserActionsPage(),
         '/app-diagnostics': (context) => const AppDiagnosticsPage(),
+        '/webview-handoff': (context) => const WebViewHandoffPage(),
       },
       home: Scaffold(
         appBar: AppBar(

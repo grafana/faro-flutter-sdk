@@ -749,6 +749,10 @@ span.setStatus(SpanStatusCode.error, message: 'Something went wrong');
 
 // Record exceptions
 span.recordException(exception, stackTrace: stackTrace);
+
+// Access the W3C traceparent header value (for custom trace propagation)
+final traceparent = span.traceparent;
+// e.g. '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'
 ```
 
 > **Typed Attributes**: Span attributes preserve their original types (int, double, bool, String) when sent via OTLP. This enables proper numeric querying and bucketing in Grafana/Tempo — for example, you can filter traces where `account_count > 10` or create histograms of `balance` values.
@@ -760,6 +764,128 @@ span.recordException(exception, stackTrace: stackTrace);
 - **Error Handling**: Automatic span status updates when exceptions occur
 - **Typed Attributes**: Add business context with preserved types (int, double, bool, String) — enables numeric querying and bucketing in Grafana
 - **Event Logging**: Record important events within span timelines with typed attributes
+
+---
+
+## WebView Tracing
+
+When your Flutter app opens a web page in a WebView, `FaroWebViewBridge` propagates the distributed trace and session context across the boundary so the web app's telemetry appears as part of the same user journey.
+
+### How It Works
+
+1. **Flutter → Web**: `instrumentedUrl()` starts a span and appends `traceparent`, `session.parent_id`, and `session.parent_app` as query parameters. The web app reads these to continue the trace and identify the originating mobile session.
+2. **Web → Flutter**: The web app sends its Faro session ID back (e.g. via a JavaScript channel). You call `linkChildSession()` to push a `session.linked` event that correlates the two sessions.
+3. **Span lifecycle**: Call `end()` when the WebView is dismissed so the span duration reflects how long the user spent in the WebView.
+
+### Basic Usage
+
+```dart
+import 'package:faro/faro.dart';
+
+final bridge = FaroWebViewBridge();
+
+// 1. Decorate the URL and start the WebView span
+final url = bridge.instrumentedUrl(Uri.parse('https://my-web-app.com/login'));
+webViewController.loadRequest(url);
+
+// 2. When the web app sends back its session info (e.g. via JS channel):
+bridge.linkChildSession(sessionId: webSessionId, appName: webAppName);
+
+// 3. When the WebView is dismissed (typically in dispose()):
+bridge.end();
+```
+
+### Full Widget Example
+
+```dart
+class MyWebViewPage extends StatefulWidget {
+  const MyWebViewPage({required this.url, super.key});
+  final Uri url;
+
+  @override
+  State<MyWebViewPage> createState() => _MyWebViewPageState();
+}
+
+class _MyWebViewPageState extends State<MyWebViewPage> {
+  late final WebViewController _controller;
+  late final FaroWebViewBridge _bridge;
+
+  @override
+  void initState() {
+    super.initState();
+    _bridge = FaroWebViewBridge();
+    final instrumentedUrl = _bridge.instrumentedUrl(widget.url);
+
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel('MyBridge', onMessageReceived: (msg) {
+        final data = jsonDecode(msg.message) as Map<String, dynamic>;
+        if (data['type'] == 'faro_session') {
+          _bridge.linkChildSession(
+            sessionId: data['session_id'] as String,
+            appName: data['app_name'] as String?,
+          );
+        }
+      })
+      ..loadRequest(instrumentedUrl);
+  }
+
+  @override
+  void dispose() {
+    _bridge.end();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(body: WebViewWidget(controller: _controller));
+  }
+}
+```
+
+### API Reference
+
+#### `instrumentedUrl(Uri url, {String spanName = 'WebView'})`
+
+Returns a new `Uri` with three query parameters appended:
+
+| Parameter           | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| `traceparent`       | W3C Trace Context header for trace propagation |
+| `session.parent_id` | The current Flutter Faro session ID            |
+| `session.parent_app`| The Flutter app name from Faro config          |
+
+Starts a manual span named `spanName` (default `'WebView'`). If called while a previous span is still active, the previous span is ended with an error status.
+
+#### `linkChildSession({required String sessionId, String? appName})`
+
+Pushes a `session.linked` event with attributes:
+
+| Attribute           | Description                          |
+| ------------------- | ------------------------------------ |
+| `session.child_id`  | The web app's Faro session ID        |
+| `session.child_app` | The web app's name (optional)        |
+
+The parent session info is automatically included via Faro's session context on the event.
+
+#### `end({SpanStatusCode status = SpanStatusCode.ok, String? message})`
+
+Ends the active WebView span. Safe to call multiple times or without a prior `instrumentedUrl()` call.
+
+### Web-Side Setup
+
+The web app needs to read the query parameters from the URL. For a Faro Web SDK app, read `traceparent` and set it as the root OpenTelemetry context, and read `session.parent_id` / `session.parent_app` to store as session attributes.
+
+See `example/webview_demo/` in this repository for a complete React reference implementation.
+
+### Session Correlation in Grafana
+
+The bidirectional session linking enables lookups in both directions:
+
+| Starting from       | How to find the linked session                                                  |
+| ------------------- | ------------------------------------------------------------------------------- |
+| Web session         | Filter on `session.parent_id` attribute to find the originating mobile session  |
+| Mobile session      | Look for `session.linked` events; read `session.child_id` for spawned web sessions |
 
 ---
 

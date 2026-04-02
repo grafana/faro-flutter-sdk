@@ -103,6 +103,7 @@ void main() {
 
       when(() => mockSpan.traceId).thenReturn('trace-id');
       when(() => mockSpan.spanId).thenReturn('span-id');
+      when(() => mockSpan.traceparent).thenReturn('00-trace-id-span-id-01');
       when(() => mockHttpClientRequest.method).thenReturn('GET');
       when(() => mockHttpClientRequest.uri)
           .thenReturn(Uri.parse('http://example.com/path'));
@@ -236,6 +237,7 @@ void main() {
 
       when(() => mockSpan.traceId).thenReturn('trace-id');
       when(() => mockSpan.spanId).thenReturn('span-id');
+      when(() => mockSpan.traceparent).thenReturn('00-trace-id-span-id-01');
       when(() => mockHttpClientRequest.method).thenReturn('GET');
       when(() => mockHttpClientRequest.uri)
           .thenReturn(Uri.parse('http://example.com/path'));
