@@ -56,7 +56,7 @@ class FaroWebViewBridge {
     _activeSpan = span;
 
     return url.replace(queryParameters: {
-      ...url.queryParameters,
+      ...url.queryParametersAll,
       'traceparent': span.traceparent,
       'session.parent_id': faro.meta.session?.id ?? '',
       'session.parent_app': faro.meta.app?.name ?? '',

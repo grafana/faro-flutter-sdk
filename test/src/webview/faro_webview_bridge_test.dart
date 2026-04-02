@@ -107,6 +107,19 @@ void main() {
         expect(result.queryParameters['existing'], equals('param'));
       });
 
+      test('should preserve multi-valued query parameters', () {
+        final bridge = FaroWebViewBridge();
+        final url = Uri.parse(
+          'https://example.com/login?tag=a&tag=b&single=one',
+        );
+
+        final result = bridge.instrumentedUrl(url);
+
+        expect(result.queryParametersAll['tag'], equals(['a', 'b']));
+        expect(result.queryParameters['single'], equals('one'));
+        expect(result.queryParameters.containsKey('traceparent'), isTrue);
+      });
+
       test('should preserve the original URL scheme, host and path', () {
         final bridge = FaroWebViewBridge();
         final url = Uri.parse(testUrl);
