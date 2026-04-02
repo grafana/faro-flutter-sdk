@@ -33,7 +33,7 @@ abstract class Span {
 
   /// The W3C Trace Context `traceparent` header value for this span.
   ///
-  /// Format: `00-{traceId}-{spanId}-01`
+  /// Format: `00-{traceId}-{spanId}-{traceFlags}`
   String get traceparent;
 
   bool get wasEnded;
@@ -84,7 +84,11 @@ class InternalSpan implements Span {
   String get spanId => _otelSpan.spanContext.spanId.toString();
 
   @override
-  String get traceparent => '00-$traceId-$spanId-01';
+  String get traceparent {
+    final traceFlags =
+        _otelSpan.spanContext.traceFlags.toRadixString(16).padLeft(2, '0');
+    return '00-$traceId-$spanId-$traceFlags';
+  }
 
   bool _wasEnded = false;
 
