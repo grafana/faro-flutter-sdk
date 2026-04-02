@@ -17,3 +17,4 @@ export './src/user_actions/constants.dart';
 export './src/user_actions/start_user_action_options.dart';
 export './src/user_actions/user_action_handle.dart';
 export './src/user_actions/user_action_state.dart';
+export './src/webview/faro_webview_bridge.dart';

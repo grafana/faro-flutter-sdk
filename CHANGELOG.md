@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `FaroWebViewBridge` — a public API for cross-boundary session and trace
+  correlation between Flutter apps and web apps running in a WebView.
+  Provides `instrumentedUrl()` to decorate URLs with `traceparent` and
+  `session.parent_*` query parameters, `linkChildSession()` to push a
+  `session.linked` event correlating the web session, and `end()` to
+  close the WebView span.
+
+- `Span.traceparent` getter — exposes the W3C Trace Context `traceparent`
+  header value (`00-{traceId}-{spanId}-01`) directly on the `Span` interface,
+  removing the need to cast to `InternalSpan`.
+
 ### Changed
 
 - Widened `connectivity_plus` dependency to `>=6.1.2 <8.0.0` (adds v7.x support).

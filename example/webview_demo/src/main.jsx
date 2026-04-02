@@ -12,8 +12,8 @@ import "./index.css";
 
 const params = new URLSearchParams(window.location.search);
 const traceparent = params.get("traceparent");
-const correlationFromSessionId = params.get("correlation.from.session_id");
-const correlationFromAppName = params.get("correlation.from.app_name");
+const parentSessionId = params.get("session.parent_id");
+const parentApp = params.get("session.parent_app");
 const collectorUrl = import.meta.env.VITE_FARO_COLLECTOR_URL ?? "";
 const serviceName =
   import.meta.env.VITE_FARO_SERVICE_NAME ?? "example_webview_react";
@@ -36,11 +36,11 @@ const initConfig = {
   sessionTracking: {
     session: {
       attributes: {
-        ...(correlationFromSessionId && {
-          "correlation.from.session_id": correlationFromSessionId,
+        ...(parentSessionId && {
+          "session.parent_id": parentSessionId,
         }),
-        ...(correlationFromAppName && {
-          "correlation.from.app_name": correlationFromAppName,
+        ...(parentApp && {
+          "session.parent_app": parentApp,
         }),
       },
     },
@@ -73,9 +73,9 @@ console.log(
   traceparent ?? "not provided",
 );
 console.log(
-  "[WebView Demo] correlation from: session_id=%s, app_name=%s",
-  correlationFromSessionId ?? "not provided",
-  correlationFromAppName ?? "not provided",
+  "[WebView Demo] parent session: id=%s, app=%s",
+  parentSessionId ?? "not provided",
+  parentApp ?? "not provided",
 );
 console.log(
   "[WebView Demo] collector URL:",

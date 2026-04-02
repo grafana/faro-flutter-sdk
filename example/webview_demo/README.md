@@ -30,20 +30,22 @@ Use `http://10.0.2.2:5173` for the Android emulator or
 
 ## How it works
 
-1. The Flutter app opens this page in a WebView with
-   `?traceparent=00-<traceId>-<spanId>-01&correlation.from.session_id=<id>&correlation.from.app_name=<name>`
+1. The Flutter app opens this page in a WebView using `FaroWebViewBridge`
+   (from `package:faro`) which appends
+   `?traceparent=00-<traceId>-<spanId>-01&session.parent_id=<id>&session.parent_app=<name>`
 2. `main.jsx` reads the `traceparent` from the URL and passes it to a
    custom `InitialParentContextManager` (see `parentContextManager.js`).
    This sets the Flutter span as the root context for **all**
    auto-instrumented spans (fetch, XHR) — no manual `context.with()`
    needed in application code.
-3. `main.jsx` also reads the `correlation.from.*` query parameters and
-   stores them as Faro session attributes, linking this web session back
-   to the originating Flutter session.
+3. `main.jsx` also reads the `session.parent_id` and `session.parent_app`
+   query parameters and stores them as Faro session attributes, linking
+   this web session back to the originating Flutter session.
 4. After Faro initialises, the web app sends its own Faro session ID
    back to Flutter via the `HandoffBridge` JS channel (`faro_session`
-   message). Flutter pushes a `correlation.linked` event with
-   `correlation.to.*` attributes, completing the bidirectional link.
+   message). Flutter calls `bridge.linkChildSession()` which pushes a
+   `session.linked` event with `session.child_id` and `session.child_app`
+   attributes, completing the bidirectional link.
 5. The user taps "Log in" (optionally toggling "Simulate failure").
    The auto-instrumented `POST /api/login` fetch carries the trace
    context, appearing as a child span under the Flutter `WebView` span

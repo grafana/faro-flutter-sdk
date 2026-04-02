@@ -136,4 +136,3 @@ class _MissingConfigCard extends StatelessWidget {
     );
   }
 }
-

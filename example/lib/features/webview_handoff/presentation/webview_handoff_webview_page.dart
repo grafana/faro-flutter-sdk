@@ -1,21 +1,20 @@
 import 'dart:convert';
 
 import 'package:faro/faro.dart';
-import 'package:faro_example/features/webview_handoff/domain/faro_webview_tracker.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Hosts the React demo inside a WebView.
 ///
-/// Uses [FaroWebViewTracker] to create a `WebView` span and inject
-/// `traceparent` and `correlation.from.*` query parameters into the URL
+/// Uses [FaroWebViewBridge] to create a `WebView` span and inject
+/// `traceparent` and `session.parent_*` query parameters into the URL
 /// so the web app can continue the Flutter trace and identify its
 /// originating session.
 ///
 /// A `HandoffBridge` JavaScript channel is registered so the React app
 /// can send messages back. Supported message types:
 /// - `faro_session` — the web app's Faro session ID, used to push a
-///   `correlation.linked` event with `correlation.to.*` attributes.
+///   `session.linked` event with `session.child_*` attributes.
 /// - `login_result` — login result data; auto-pops the page.
 class WebViewHandoffWebViewPage extends StatefulWidget {
   const WebViewHandoffWebViewPage({
@@ -30,10 +29,9 @@ class WebViewHandoffWebViewPage extends StatefulWidget {
       _WebViewHandoffWebViewPageState();
 }
 
-class _WebViewHandoffWebViewPageState
-    extends State<WebViewHandoffWebViewPage> {
+class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
   late final WebViewController _controller;
-  late final FaroWebViewTracker _tracker;
+  late final FaroWebViewBridge _bridge;
   String _status = 'Opening WebView\u2026';
   bool _hasLoadError = false;
 
@@ -41,8 +39,10 @@ class _WebViewHandoffWebViewPageState
   void initState() {
     super.initState();
 
-    _tracker = FaroWebViewTracker();
-    final tracedUrl = _tracker.traceUrl(widget.url);
+    // Starts a WebView span and appends traceparent + session correlation
+    // query params so the web app can continue the trace and link sessions.
+    _bridge = FaroWebViewBridge();
+    final instrumentedUrl = _bridge.instrumentedUrl(widget.url);
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -75,12 +75,15 @@ class _WebViewHandoffWebViewPageState
           },
         ),
       )
-      ..loadRequest(tracedUrl);
+      ..loadRequest(instrumentedUrl);
   }
 
   @override
   void dispose() {
-    _tracker.end();
+    // End the WebView span started by instrumentedUrl(). Always call
+    // bridge.end() when the WebView is dismissed so the span duration
+    // accurately reflects the time the user spent in the WebView.
+    _bridge.end();
     super.dispose();
   }
 
@@ -89,10 +92,10 @@ class _WebViewHandoffWebViewPageState
     try {
       final data = jsonDecode(message.message) as Map<String, dynamic>;
       if (data['type'] == 'faro_session') {
-        Faro().pushEvent('correlation.linked', attributes: {
-          'correlation.to.session_id': data['session_id'] as String? ?? '',
-          'correlation.to.app_name': data['app_name'] as String? ?? '',
-        });
+        _bridge.linkChildSession(
+          sessionId: data['session_id'] as String? ?? '',
+          appName: data['app_name'] as String?,
+        );
       } else if (data['type'] == 'login_result') {
         Navigator.of(context).pop(data);
       }

@@ -97,6 +97,13 @@ void main() {
       );
     });
 
+    test('should throw UnsupportedError when traceparent is accessed', () {
+      expect(
+        () => Span.noParent.traceparent,
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
     test('should throw UnsupportedError when end is called', () {
       expect(
         () => Span.noParent.end(),
@@ -134,6 +141,25 @@ void main() {
     Span createSpan() {
       return SpanProvider().getSpan(mockOtelSpan, fakeContext);
     }
+
+    group('traceparent:', () {
+      test('should return W3C formatted traceparent string', () {
+        const traceIdHex = '0af7651916cd43dd8448eb211c80319c';
+        const spanIdHex = 'b7ad6b7169203331';
+
+        final spanContext = otel_api.SpanContext(
+          otel_api.TraceId.fromString(traceIdHex),
+          otel_api.SpanId.fromString(spanIdHex),
+          otel_api.TraceFlags.sampled,
+          otel_api.TraceState.empty(),
+        );
+        when(() => mockOtelSpan.spanContext).thenReturn(spanContext);
+
+        final span = createSpan();
+
+        expect(span.traceparent, '00-$traceIdHex-$spanIdHex-01');
+      });
+    });
 
     group('setAttributes with typed values:', () {
       test('should pass string attributes to OTel span', () {

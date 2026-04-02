@@ -231,10 +231,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     this.innerContext, {
     required Span httpSpan,
   }) : _httpSpan = httpSpan {
-    if (_httpSpan is InternalSpan) {
-      innerContext.headers
-          .add('traceparent', (_httpSpan as InternalSpan).toHttpTraceparent());
-    }
+    innerContext.headers.add('traceparent', _httpSpan.traceparent);
   }
 
   final HttpClientRequest innerContext;
