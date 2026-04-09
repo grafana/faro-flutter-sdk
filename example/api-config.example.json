@@ -1,4 +1,15 @@
 {
   "_comment": "Grafana Cloud: Get URL from Frontend Observability > Your App > Web SDK Config. Self-hosted: Use your Grafana Alloy faro.receiver endpoint.",
-  "FARO_COLLECTOR_URL": "https://faro-collector-prod-us-central-0.grafana.net/collect/YOUR_API_KEY"
+  "FARO_COLLECTOR_URL": "https://faro-collector-prod-us-central-0.grafana.net/collect/YOUR_API_KEY",
+
+  "_comment_webview": "Optional: URL of the React demo for WebView tracing. Run 'cd example/webview_demo && npm run dev' first.",
+  "FARO_WEBVIEW_DEMO_URL": "http://10.0.2.2:5173",
+
+  "_qa_comment": "Optional QA fields below. Omit or leave empty for normal app behavior. The user JSON value must be a stringified JSON object (escaped quotes).",
+  "FARO_QA_RUN_ID": "",
+  "FARO_QA_INITIAL_USER_JSON": "",
+
+  "_qa_example_comment": "Example with QA values populated:",
+  "_qa_example_FARO_QA_RUN_ID": "smoke-test-12345",
+  "_qa_example_FARO_QA_INITIAL_USER_JSON": "{\"id\":\"user-123\",\"username\":\"qa-bot\",\"email\":\"qa@test.com\",\"attributes\":{\"role\":\"tester\"}}"
 }

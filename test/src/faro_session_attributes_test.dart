@@ -33,11 +33,9 @@ void main() {
 
     setUpAll(() {
       registerFallbackValue(
-        FaroException(
-          'test',
-          'something',
-          {'frames': <Map<String, dynamic>>[]},
-        ),
+        FaroException('test', 'something', {
+          'frames': <Map<String, dynamic>>[],
+        }),
       );
       registerFallbackValue(Event('test', attributes: {'test': 'test'}));
       registerFallbackValue(FaroLog('This is a message'));
@@ -48,6 +46,9 @@ void main() {
     });
 
     setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      Faro.resetForTesting();
+
       // Reset the BatchTransportFactory singleton state
       BatchTransportFactory().reset();
 
@@ -76,54 +77,62 @@ void main() {
       Faro().nativeChannel = mockFaroNativeMethods;
       Faro().batchTransport = mockBatchTransport;
 
-      when(() => mockFaroNativeMethods.enableCrashReporter(any()))
-          .thenAnswer((_) async {});
-      when(() => mockBatchTransport.addExceptions(any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockFaroNativeMethods.enableCrashReporter(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockBatchTransport.addExceptions(any()),
+      ).thenAnswer((_) async {});
       when(() => mockBatchTransport.addLog(any())).thenAnswer((_) async {});
       when(() => mockBatchTransport.addEvent(any())).thenAnswer((_) async {});
-      when(() => mockBatchTransport.addMeasurement(any()))
-          .thenAnswer((_) async {});
-      when(() => mockBatchTransport.updatePayloadMeta(any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockBatchTransport.addMeasurement(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockBatchTransport.updatePayloadMeta(any()),
+      ).thenAnswer((_) async {});
       when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
     });
 
     tearDown(() {
+      Faro.resetForTesting();
+
       // Clean up the singleton state after each test
       BatchTransportFactory().reset();
     });
 
-    test('init with custom session attributes merges with default attributes',
-        () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
-      final rumConfig = FaroConfig(
-        appName: appName,
-        appVersion: appVersion,
-        appEnv: appEnv,
-        apiKey: apiKey,
-        collectorUrl: 'https://some-url.com',
-        sessionAttributes: {
-          'team': 'mobile',
-          'department': 'engineering',
-          'custom_label': 'test_value',
-        },
-      );
+    test(
+      'init with custom session attributes merges with default attributes',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+        final rumConfig = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sessionAttributes: {
+            'team': 'mobile',
+            'department': 'engineering',
+            'custom_label': 'test_value',
+          },
+        );
 
-      await Faro().init(optionsConfiguration: rumConfig);
+        await Faro().init(optionsConfiguration: rumConfig);
 
-      final sessionAttributes = Faro().meta.session?.attributes;
-      expect(sessionAttributes, isNotNull);
+        final sessionAttributes = Faro().meta.session?.attributes;
+        expect(sessionAttributes, isNotNull);
 
-      // Custom attributes should be present
-      expect(sessionAttributes?['team'], 'mobile');
-      expect(sessionAttributes?['department'], 'engineering');
-      expect(sessionAttributes?['custom_label'], 'test_value');
+        // Custom attributes should be present
+        expect(sessionAttributes?['team'], 'mobile');
+        expect(sessionAttributes?['department'], 'engineering');
+        expect(sessionAttributes?['custom_label'], 'test_value');
 
-      // Default attributes should also be present
-      expect(sessionAttributes?['device_os'], isNotNull);
-      expect(sessionAttributes?['device_model'], isNotNull);
-    });
+        // Default attributes should also be present
+        expect(sessionAttributes?['device_os'], isNotNull);
+        expect(sessionAttributes?['device_model'], isNotNull);
+      },
+    );
 
     test('init with null session attributes works correctly', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
@@ -223,30 +232,29 @@ void main() {
       expect(sessionAttributes?['label/with/slash'], 'value4');
     });
 
-    test('session attributes with empty string values work correctly',
-        () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
-      final rumConfig = FaroConfig(
-        appName: appName,
-        appVersion: appVersion,
-        appEnv: appEnv,
-        apiKey: apiKey,
-        collectorUrl: 'https://some-url.com',
-        sessionAttributes: {
-          'empty_label': '',
-          'normal_label': 'value',
-        },
-      );
+    test(
+      'session attributes with empty string values work correctly',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+        final rumConfig = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sessionAttributes: {'empty_label': '', 'normal_label': 'value'},
+        );
 
-      await Faro().init(optionsConfiguration: rumConfig);
+        await Faro().init(optionsConfiguration: rumConfig);
 
-      final sessionAttributes = Faro().meta.session?.attributes;
-      expect(sessionAttributes, isNotNull);
+        final sessionAttributes = Faro().meta.session?.attributes;
+        expect(sessionAttributes, isNotNull);
 
-      // Empty string value should be present
-      expect(sessionAttributes?['empty_label'], '');
-      expect(sessionAttributes?['normal_label'], 'value');
-    });
+        // Empty string value should be present
+        expect(sessionAttributes?['empty_label'], '');
+        expect(sessionAttributes?['normal_label'], 'value');
+      },
+    );
 
     test('multiple custom session attributes are all preserved', () async {
       TestWidgetsFlutterBinding.ensureInitialized();

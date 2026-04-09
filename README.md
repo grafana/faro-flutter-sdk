@@ -10,10 +10,15 @@
 
 The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile applications by instrumenting Flutter apps to collect telemetry.
 
-The collected data can be visualized in [Grafana Frontend Observability](https://grafana.com/products/cloud/frontend-observability-for-real-user-monitoring/).  
-_Please note:_ Grafana Frontend Observability is primarily tailored for web RUM. But the session tracking and error monitoring capabilities work similarly for mobile applications. Additionally, all telemetry data collected by the Faro Flutter SDK is stored in Loki/Tempo, allowing you to create custom dashboards and perform detailed investigations using Loki/Tempo queries within Grafana.
-
-Importantly, you don't need to rely on Grafana Frontend Observability in Grafana Cloud to benefit from this SDK. The telemetry data can be forwarded to [Grafana Alloy](https://grafana.com/docs/alloy/latest/) (with faro receiver integration enabled) and then made accessible in a observability vendor of your choice and integrate Faro's powerful mobile instrumentation into your existing observability workflow.
+> **Note:** [Grafana Frontend Observability](https://grafana.com/products/cloud/frontend-observability-for-real-user-monitoring/) is built for web applications — there is currently no official mobile observability product from Grafana.
+>
+> This SDK enables mobile telemetry collection using the Faro protocol. It can work well for many use cases, but please be aware that it is not yet backed by a dedicated mobile product experience in Grafana Cloud.
+>
+> **What you can expect:**
+>
+> - Session tracking and error monitoring work similarly to web applications
+> - All telemetry data is stored in Loki/Tempo, allowing you to create custom dashboards and run queries in Grafana
+> - Data can be forwarded to [Grafana Alloy](https://grafana.com/docs/alloy/latest/) (with faro receiver enabled) and routed to any observability backend of your choice
 
 ## Features
 
@@ -28,11 +33,12 @@ The Faro Flutter SDK provides real user monitoring capabilities including:
   - ANR (Application Not Responding) detection
 - **Error Tracking**: Automatic capture of Flutter errors and exceptions
 - **User Interaction**: Track user events, interactions, navigation patterns, and complete user flows through your application
+- **User Actions**: Group related telemetry under a single action context to track end-to-end user interactions
 - **HTTP Network Monitoring**: Request/response details and timing
 - **Asset Loading**: Track asset loading performance
 - **Offline Support**: Caching of events when offline
 
-See [Features Documentation](./doc/Features.md) for a complete list.
+See [SDK Reference](./doc/Reference.md) for complete documentation.
 
 ## Getting Started
 
@@ -65,8 +71,7 @@ Faro().runApp(
       // ... other configurations
   ),
   appRunner: () => runApp(
-    DefaultAssetBundle(
-      bundle: FaroAssetBundle(),
+    FaroAssetTracking(
       child: FaroUserInteractionWidget(child: MyApp())
     )
   ),
@@ -75,9 +80,7 @@ Faro().runApp(
 
 ## Documentation
 
-- [Getting Started Guide](./doc/Getting%20Started.md)
-- [Configuration Options](./doc/Configurations.md)
-- [Feature Documentation](./doc/Features.md)
+- [SDK Reference](./doc/Reference.md) — Getting started, features, configuration, and API usage
 
 ## Releases
 

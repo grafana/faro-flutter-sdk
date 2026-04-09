@@ -116,7 +116,6 @@ Follow `.gitmessage` template: `type(scope): description`
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
-**Important**: Always show a draft of the commit message for approval before creating the actual commit. Never commit without explicit approval.
 
 ## Pull Requests
 
@@ -128,7 +127,6 @@ Use the PR template at `.github/pull_request_template.md`. The template includes
 - **Checklist**: Confirm docs, tests, and changelog are updated
 - **Additional Notes**: Optional context for reviewers
 
-**Important**: Always show a draft of the PR title and body for approval before creating the PR. Never create a PR without explicit approval.
 
 ---
 
@@ -222,3 +220,76 @@ class FeaturePage extends ConsumerWidget {
 ### Reference Implementation
 
 See `example/lib/features/tracing/` for the complete pattern.
+
+---
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+This is a client-side Flutter SDK with no server component. All unit tests run without external services. The only external dependency is a Faro collector URL for runtime telemetry, which is optional for development.
+
+### Key commands
+
+Standard build/test commands are documented in the **Build/Test Commands** section above. Running `flutter pub get` at the workspace root also resolves `example/` dependencies (they share a workspace).
+
+### Flutter SDK
+
+Flutter is installed at `/opt/flutter`. The `PATH` is set in `~/.bashrc` to include `/opt/flutter/bin` and the bundled Dart SDK.
+
+### Android SDK
+
+The Android SDK is installed at `/opt/android-sdk`. The `ANDROID_HOME` env var and PATH additions are set in `~/.bashrc`. Flutter is already configured to use this SDK via `flutter config --android-sdk`.
+
+### Example app configuration
+
+The example app requires `example/api-config.json` (gitignored). Create it by running:
+
+```bash
+export FARO_COLLECTOR_URL="https://your-collector-url" && bash tool/create-api-config-file.sh
+```
+
+A placeholder URL works for building/testing. The file is passed via `--dart-define-from-file` at runtime. See `example/api-config.example.json` for the expected format.
+
+### Running the example app
+
+There is no Android emulator in this environment. To build the example APK:
+
+```bash
+cd example && flutter build apk --dart-define-from-file api-config.json
+```
+
+### QA smoke-test overrides
+
+The example app reads optional QA dart-define keys (`FARO_QA_RUN_ID`, `FARO_QA_INITIAL_USER_JSON`) from `api-config.json` to inject session attributes and an initial user without patching source code. Include them in the config file:
+
+```json
+{
+  "FARO_COLLECTOR_URL": "https://...",
+  "FARO_QA_RUN_ID": "smoke-123",
+  "FARO_QA_INITIAL_USER_JSON": "{\"id\":\"qa-user\",\"username\":\"bot\"}"
+}
+```
+
+Then run as usual: `flutter run --dart-define-from-file api-config.json`
+
+See `example/README.md` § "QA Smoke Test Configuration" for the full reference.
+
+### Before opening a PR
+
+Run the pre-release check script before committing/opening a PR. It validates formatting, static analysis, tests, and CHANGELOG content in one step:
+
+```bash
+dart tool/pre_release_check.dart
+```
+
+See `CONTRIBUTING.md` for the full contributor workflow.
+
+### Real-device testing via BrowserStack
+
+If `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` are set, the example APK can be tested on a real Android device using BrowserStack App Automate. Upload via the BrowserStack REST API with `custom_id=faro-flutter-example`, then use Appium REST calls to interact with the app. Flutter exposes UI elements through the Accessibility Bridge, so `accessibility id` element lookups work for buttons with text labels (e.g., `"Change Route"`, `"Simple Span"`). For card-style `ListTile` widgets, the accessibility label is the concatenated title and subtitle separated by `\n`.
+
+### Gotchas
+
+- `flutter pub get` in the root resolves both SDK and `example/` dependencies due to workspace configuration — no need to run it separately in `example/`.
+- The `example/pubspec.lock` is checked in but may show as modified after `flutter pub get` due to platform-specific dependency resolution differences. This is expected and should not be committed.

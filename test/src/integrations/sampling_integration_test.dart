@@ -34,11 +34,9 @@ void main() {
 
     setUpAll(() {
       registerFallbackValue(
-        FaroException(
-          'test',
-          'something',
-          {'frames': <Map<String, dynamic>>[]},
-        ),
+        FaroException('test', 'something', {
+          'frames': <Map<String, dynamic>>[],
+        }),
       );
       registerFallbackValue(Event('test', attributes: {'test': 'test'}));
       registerFallbackValue(FaroLog('This is a message'));
@@ -48,6 +46,9 @@ void main() {
     });
 
     setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      Faro.resetForTesting();
+
       // Reset all singleton factories
       BatchTransportFactory().reset();
       SessionSamplingProviderFactory().reset();
@@ -70,113 +71,125 @@ void main() {
       Faro().transports = [mockFaroTransport];
       Faro().nativeChannel = mockFaroNativeMethods;
 
-      when(() => mockFaroNativeMethods.enableCrashReporter(any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockFaroNativeMethods.enableCrashReporter(any()),
+      ).thenAnswer((_) async {});
       when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
     });
 
     tearDown(() {
+      Faro.resetForTesting();
+
       BatchTransportFactory().reset();
       SessionSamplingProviderFactory().reset();
       RandomValueProviderFactory().reset();
     });
 
-    test('SamplingRate(1.0) should sample session and send telemetry',
-        () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
+    test(
+      'SamplingRate(1.0) should sample session and send telemetry',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
 
-      final config = FaroConfig(
-        appName: appName,
-        appVersion: appVersion,
-        appEnv: appEnv,
-        apiKey: apiKey,
-        collectorUrl: 'https://some-url.com',
-        sampling: const SamplingRate(1.0),
-        cpuUsageVitals: false,
-        memoryUsageVitals: false,
-      );
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(1.0),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        );
 
-      await Faro().init(optionsConfiguration: config);
+        await Faro().init(optionsConfiguration: config);
 
-      // Verify BatchTransport is the real implementation (sampled)
-      final batchTransport = BatchTransportFactory().instance;
-      expect(batchTransport, isNot(isA<NoOpBatchTransport>()));
+        // Verify BatchTransport is the real implementation (sampled)
+        final batchTransport = BatchTransportFactory().instance;
+        expect(batchTransport, isNot(isA<NoOpBatchTransport>()));
 
-      // Push an event and verify it's added to the payload
-      Faro().pushEvent('test_event');
-    });
-
-    test('SamplingRate(0.0) should not sample session and drop telemetry',
-        () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
-
-      final config = FaroConfig(
-        appName: appName,
-        appVersion: appVersion,
-        appEnv: appEnv,
-        apiKey: apiKey,
-        collectorUrl: 'https://some-url.com',
-        sampling: const SamplingRate(0.0),
-        cpuUsageVitals: false,
-        memoryUsageVitals: false,
-      );
-
-      await Faro().init(optionsConfiguration: config);
-
-      // Verify BatchTransport is NoOpBatchTransport (not sampled)
-      final batchTransport = BatchTransportFactory().instance;
-      expect(batchTransport, isA<NoOpBatchTransport>());
-    });
-
-    test('sampling decision is consistent with injected random value - sampled',
-        () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
-
-      // Inject a fake random provider that returns 0.3
-      // With rate 0.5, random 0.3 < 0.5, so should be sampled
-      RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.3));
-
-      final config = FaroConfig(
-        appName: appName,
-        appVersion: appVersion,
-        appEnv: appEnv,
-        apiKey: apiKey,
-        collectorUrl: 'https://some-url.com',
-        sampling: const SamplingRate(0.5),
-        cpuUsageVitals: false,
-        memoryUsageVitals: false,
-      );
-
-      await Faro().init(optionsConfiguration: config);
-
-      expect(
-          BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
-    });
+        // Push an event and verify it's added to the payload
+        Faro().pushEvent('test_event');
+      },
+    );
 
     test(
-        'sampling decision is consistent with injected random value, - not sampled',
-        () async {
-      TestWidgetsFlutterBinding.ensureInitialized();
+      'SamplingRate(0.0) should not sample session and drop telemetry',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
 
-      // Inject a fake random provider that returns 0.7
-      // With rate 0.5, random 0.7 >= 0.5, so should NOT be sampled
-      RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.7));
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.0),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        );
 
-      final config = FaroConfig(
-        appName: appName,
-        appVersion: appVersion,
-        appEnv: appEnv,
-        apiKey: apiKey,
-        collectorUrl: 'https://some-url.com',
-        sampling: const SamplingRate(0.5),
-        cpuUsageVitals: false,
-        memoryUsageVitals: false,
-      );
+        await Faro().init(optionsConfiguration: config);
 
-      await Faro().init(optionsConfiguration: config);
+        // Verify BatchTransport is NoOpBatchTransport (not sampled)
+        final batchTransport = BatchTransportFactory().instance;
+        expect(batchTransport, isA<NoOpBatchTransport>());
+      },
+    );
 
-      expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
-    });
+    test(
+      'sampling decision is consistent with injected random value - sampled',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        // Inject a fake random provider that returns 0.3
+        // With rate 0.5, random 0.3 < 0.5, so should be sampled
+        RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.3));
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.5),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(
+          BatchTransportFactory().instance,
+          isNot(isA<NoOpBatchTransport>()),
+        );
+      },
+    );
+
+    test(
+      'sampling decision is consistent with injected random value, - not sampled',
+      () async {
+        TestWidgetsFlutterBinding.ensureInitialized();
+
+        // Inject a fake random provider that returns 0.7
+        // With rate 0.5, random 0.7 >= 0.5, so should NOT be sampled
+        RandomValueProviderFactory().setInstance(FakeRandomValueProvider(0.7));
+
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.5),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        );
+
+        await Faro().init(optionsConfiguration: config);
+
+        expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
+      },
+    );
 
     test('default sampling is 100% (all sessions sampled)', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
@@ -197,7 +210,9 @@ void main() {
 
       // With default 100%, should always be sampled (not NoOpBatchTransport)
       expect(
-          BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+        BatchTransportFactory().instance,
+        isNot(isA<NoOpBatchTransport>()),
+      );
     });
 
     test('unsampled session drops events silently', () async {
@@ -364,10 +379,14 @@ void main() {
         expect(capturedContext!.meta.session, isNotNull);
         expect(capturedContext!.meta.session?.id, isNotNull);
         // Session attributes should include custom attributes
-        expect(capturedContext!.meta.session?.attributes?['team'],
-            equals('mobile'));
-        expect(capturedContext!.meta.session?.attributes?['feature_flag'],
-            equals('beta'));
+        expect(
+          capturedContext!.meta.session?.attributes?['team'],
+          equals('mobile'),
+        );
+        expect(
+          capturedContext!.meta.session?.attributes?['feature_flag'],
+          equals('beta'),
+        );
       });
 
       test('returning 1.0 should sample session', () async {
@@ -387,7 +406,9 @@ void main() {
         await Faro().init(optionsConfiguration: config);
 
         expect(
-            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+          BatchTransportFactory().instance,
+          isNot(isA<NoOpBatchTransport>()),
+        );
       });
 
       test('returning 0.0 should not sample session', () async {
@@ -430,7 +451,9 @@ void main() {
         await Faro().init(optionsConfiguration: config);
 
         expect(
-            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+          BatchTransportFactory().instance,
+          isNot(isA<NoOpBatchTransport>()),
+        );
       });
 
       test('return value above 1.0 is clamped to 1.0', () async {
@@ -452,7 +475,9 @@ void main() {
         await Faro().init(optionsConfiguration: config);
 
         expect(
-            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+          BatchTransportFactory().instance,
+          isNot(isA<NoOpBatchTransport>()),
+        );
       });
 
       test('return value below 0.0 is clamped to 0.0', () async {
@@ -529,7 +554,9 @@ void main() {
         await Faro().init(optionsConfiguration: config);
 
         expect(
-            BatchTransportFactory().instance, isNot(isA<NoOpBatchTransport>()));
+          BatchTransportFactory().instance,
+          isNot(isA<NoOpBatchTransport>()),
+        );
       });
     });
   });

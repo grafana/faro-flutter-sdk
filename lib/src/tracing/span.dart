@@ -30,6 +30,12 @@ abstract class Span {
 
   String get traceId;
   String get spanId;
+
+  /// The W3C Trace Context `traceparent` header value for this span.
+  ///
+  /// Format: `00-{traceId}-{spanId}-{traceFlags}`
+  String get traceparent;
+
   bool get wasEnded;
   SpanStatusCode get status;
   bool get statusHasBeenSet;
@@ -76,6 +82,13 @@ class InternalSpan implements Span {
 
   @override
   String get spanId => _otelSpan.spanContext.spanId.toString();
+
+  @override
+  String get traceparent {
+    final traceFlags =
+        _otelSpan.spanContext.traceFlags.toRadixString(16).padLeft(2, '0');
+    return '00-$traceId-$spanId-$traceFlags';
+  }
 
   bool _wasEnded = false;
 
@@ -136,18 +149,6 @@ class InternalSpan implements Span {
   void end() {
     _wasEnded = true;
     _otelSpan.end();
-  }
-
-  String toHttpTraceparent() {
-    // W3CTraceContextPropagator stuff.
-    // Copied from the OtelSift implementation
-    // https://github.com/open-telemetry/opentelemetry-swift/blob/7bad8ae7f230e7a1b9ec697f36dcae91a8debff9/Sources/OpenTelemetryApi/Trace/Propagation/W3CTraceContextPropagator.swift
-    const version = '00';
-    const delimiter = '-';
-    const endString = '01';
-    final traceparent =
-        '$version$delimiter$traceId$delimiter$spanId$delimiter$endString';
-    return traceparent;
   }
 
   /// Converts a map of typed attributes to OpenTelemetry Attributes.
@@ -223,6 +224,9 @@ class _NoParentSpan implements Span {
 
   @override
   String get spanId => throw UnsupportedError(_errorMessage);
+
+  @override
+  String get traceparent => throw UnsupportedError(_errorMessage);
 
   @override
   bool get wasEnded => throw UnsupportedError(_errorMessage);

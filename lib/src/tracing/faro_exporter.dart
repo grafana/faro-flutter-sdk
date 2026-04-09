@@ -1,16 +1,18 @@
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
-import 'package:faro/src/transport/batch_transport.dart';
+import 'package:faro/src/models/user_action_context.dart';
+import 'package:faro/src/user_actions/constants.dart';
+import 'package:faro/src/user_actions/telemetry_router.dart';
+import 'package:faro/src/user_actions/user_action_types.dart';
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 class FaroExporter implements otel_sdk.SpanExporter {
-  FaroExporter({
-    required BatchTransportFactory batchTransportFactory,
-  }) : _batchTransportFactory = batchTransportFactory;
+  FaroExporter({required TelemetryRouter telemetryRouter})
+      : _telemetryRouter = telemetryRouter;
 
+  final TelemetryRouter _telemetryRouter;
   var _isShutdown = false;
-
-  final BatchTransportFactory _batchTransportFactory;
 
   @override
   void export(List<otel_sdk.ReadOnlySpan> spans) {
@@ -31,29 +33,43 @@ class FaroExporter implements otel_sdk.SpanExporter {
   }
 
   void _sendSpansToFaro(List<otel_sdk.ReadOnlySpan> spans) {
-    final batchTransport = _batchTransport;
-    if (batchTransport == null) {
-      return;
-    }
-
     for (final otelReadOnlySpan in spans) {
       final spanRecord = SpanRecord(otelReadOnlySpan: otelReadOnlySpan);
+      final attributes = spanRecord.getFaroEventAttributes();
 
-      batchTransport.addEvent(Event(
+      final actionName = attributes[UserActionConstants.actionNameKey];
+      final actionParentId = attributes[UserActionConstants.actionParentIdKey];
+      if (actionName != null && actionParentId != null) {
+        attributes.remove(UserActionConstants.actionNameKey);
+        attributes.remove(UserActionConstants.actionParentIdKey);
+      }
+
+      final event = Event(
         spanRecord.getFaroEventName(),
-        attributes: spanRecord.getFaroEventAttributes(),
+        attributes: attributes,
         trace: spanRecord.getFaroSpanContext(),
-      ));
+      );
 
-      batchTransport.addSpan(spanRecord);
+      if (actionName != null && actionParentId != null) {
+        event.action = UserActionContext(
+          name: actionName.toString(),
+          parentId: actionParentId.toString(),
+        );
+      }
+
+      _telemetryRouter.ingest(
+        TelemetryItem.fromEvent(event),
+        skipBuffer: true,
+      );
+      _telemetryRouter.ingest(TelemetryItem.fromSpan(spanRecord));
     }
   }
-
-  BatchTransport? get _batchTransport => _batchTransportFactory.instance;
 }
 
 class FaroExporterFactory {
   FaroExporter create() {
-    return FaroExporter(batchTransportFactory: BatchTransportFactory());
+    return FaroExporter(
+      telemetryRouter: pod.resolve(telemetryRouterProvider),
+    );
   }
 }

@@ -65,6 +65,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
 
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
@@ -94,6 +95,7 @@ void main() {
               spanName,
               context: any(named: 'context'),
               kind: otel_api.SpanKind.client,
+              attributes: any(named: 'attributes'),
             )).called(1);
         verify(() => mockFaroZoneSpanManager.executeWithSpan<String>(
               any(),
@@ -112,6 +114,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
         when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
@@ -128,15 +131,18 @@ void main() {
         await faroTracer.startSpan<String>(spanName, (span) => 'result');
 
         // Assert
-        verify(() => mockOtelSpan.setAttributes(
-              any(that: predicate<List<otel_api.Attribute>>((attributes) {
-                final attributeMap = <String, String>{
-                  for (final attr in attributes) attr.key: attr.value.toString()
-                };
-                return attributeMap['session_id'] == sessionId &&
-                    attributeMap['session.id'] == sessionId;
-              })),
-            )).called(1);
+        final captured = verify(() => mockOtelTracer.startSpan(
+              spanName,
+              context: any(named: 'context'),
+              kind: otel_api.SpanKind.client,
+              attributes: captureAny(named: 'attributes'),
+            )).captured;
+        final attributes = captured.single as List<otel_api.Attribute>;
+        final attributeMap = <String, String>{
+          for (final attr in attributes) attr.key: attr.value.toString(),
+        };
+        expect(attributeMap['session_id'], sessionId);
+        expect(attributeMap['session.id'], sessionId);
       });
 
       test('should include custom attributes along with session attributes',
@@ -152,6 +158,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
         when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
@@ -172,17 +179,20 @@ void main() {
         );
 
         // Assert
-        verify(() => mockOtelSpan.setAttributes(
-              any(that: predicate<List<otel_api.Attribute>>((attributes) {
-                final attributeMap = <String, String>{
-                  for (final attr in attributes) attr.key: attr.value.toString()
-                };
-                return attributeMap['custom.key1'] == 'value1' &&
-                    attributeMap['custom.key2'] == 'value2' &&
-                    attributeMap['session_id'] == 'test-session-id' &&
-                    attributeMap['session.id'] == 'test-session-id';
-              })),
-            )).called(1);
+        final captured = verify(() => mockOtelTracer.startSpan(
+              spanName,
+              context: any(named: 'context'),
+              kind: otel_api.SpanKind.client,
+              attributes: captureAny(named: 'attributes'),
+            )).captured;
+        final attributes = captured.single as List<otel_api.Attribute>;
+        final attributeMap = <String, String>{
+          for (final attr in attributes) attr.key: attr.value.toString(),
+        };
+        expect(attributeMap['custom.key1'], 'value1');
+        expect(attributeMap['custom.key2'], 'value2');
+        expect(attributeMap['session_id'], 'test-session-id');
+        expect(attributeMap['session.id'], 'test-session-id');
       });
     });
 
@@ -195,6 +205,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
 
@@ -207,6 +218,7 @@ void main() {
               spanName,
               context: any(named: 'context'),
               kind: otel_api.SpanKind.client,
+              attributes: any(named: 'attributes'),
             )).called(1);
 
         // Verify executeWithSpan is NOT called for manual spans
@@ -227,6 +239,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
 
@@ -234,16 +247,19 @@ void main() {
         faroTracer.startSpanManual(spanName, attributes: customAttributes);
 
         // Assert
-        verify(() => mockOtelSpan.setAttributes(
-              any(that: predicate<List<otel_api.Attribute>>((attributes) {
-                final attributeMap = <String, String>{
-                  for (final attr in attributes) attr.key: attr.value.toString()
-                };
-                return attributeMap['manual.key'] == 'manual.value' &&
-                    attributeMap['session_id'] == 'test-session-id' &&
-                    attributeMap['session.id'] == 'test-session-id';
-              })),
-            )).called(1);
+        final captured = verify(() => mockOtelTracer.startSpan(
+              spanName,
+              context: any(named: 'context'),
+              kind: otel_api.SpanKind.client,
+              attributes: captureAny(named: 'attributes'),
+            )).captured;
+        final attributes = captured.single as List<otel_api.Attribute>;
+        final attributeMap = <String, String>{
+          for (final attr in attributes) attr.key: attr.value.toString(),
+        };
+        expect(attributeMap['manual.key'], 'manual.value');
+        expect(attributeMap['session_id'], 'test-session-id');
+        expect(attributeMap['session.id'], 'test-session-id');
       });
     });
 
@@ -287,6 +303,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
 
@@ -294,15 +311,18 @@ void main() {
         faroTracer.startSpanManual(spanName);
 
         // Assert
-        verify(() => mockOtelSpan.setAttributes(
-              any(that: predicate<List<otel_api.Attribute>>((attributes) {
-                final attributeMap = <String, String>{
-                  for (final attr in attributes) attr.key: attr.value.toString()
-                };
-                return attributeMap['session_id'] == sessionId &&
-                    attributeMap['session.id'] == sessionId;
-              })),
-            )).called(1);
+        final captured = verify(() => mockOtelTracer.startSpan(
+              spanName,
+              context: any(named: 'context'),
+              kind: otel_api.SpanKind.client,
+              attributes: captureAny(named: 'attributes'),
+            )).captured;
+        final attributes = captured.single as List<otel_api.Attribute>;
+        final attributeMap = <String, String>{
+          for (final attr in attributes) attr.key: attr.value.toString(),
+        };
+        expect(attributeMap['session_id'], sessionId);
+        expect(attributeMap['session.id'], sessionId);
       });
     });
 
@@ -318,6 +338,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
         when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
@@ -350,6 +371,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
         when(() => mockFaroZoneSpanManager.executeWithSpan<String>(
@@ -389,6 +411,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan())
             .thenReturn(mockActiveSpan);
@@ -405,6 +428,7 @@ void main() {
               spanName,
               context: any(named: 'context'),
               kind: otel_api.SpanKind.client,
+              attributes: any(named: 'attributes'),
             )).called(1);
       });
 
@@ -421,6 +445,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         // Even though there's an active span available...
         when(() => mockFaroZoneSpanManager.getActiveSpan())
@@ -447,6 +472,7 @@ void main() {
               any(),
               context: any(named: 'context'),
               kind: any(named: 'kind'),
+              attributes: any(named: 'attributes'),
             )).thenReturn(mockOtelSpan);
         when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
 

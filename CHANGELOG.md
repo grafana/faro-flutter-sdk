@@ -9,6 +9,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `FaroWebViewBridge` — a public API for cross-boundary session and trace
+  correlation between Flutter apps and web apps running in a WebView.
+  Provides `instrumentedUrl()` to decorate URLs with `traceparent` and
+  `session.parent_*` query parameters, `linkChildSession()` to push a
+  `session.linked` event correlating the web session, and `end()` to
+  close the WebView span.
+
+- `Span.traceparent` getter — exposes the W3C Trace Context `traceparent`
+  header value (`00-{traceId}-{spanId}-01`) directly on the `Span` interface,
+  removing the need to cast to `InternalSpan`.
+
+### Changed
+
+- Widened `connectivity_plus` dependency to `>=6.1.2 <8.0.0` (adds v7.x support).
+- Widened `package_info_plus` dependency to `>=8.0.1 <10.0.0` (adds v9.x support).
+
+### Fixed
+
+- `Faro.init()` now ignores repeated calls after the first successful
+  initialization, preventing duplicate startup side effects such as extra
+  transports, repeated `session_start` events, and duplicate widget
+  observers.
+- Asset loads and tracked HTTP requests now keep user actions pending until
+  the underlying operation completes, avoiding prematurely ended or stalled
+  actions when using long-running asset loads, `HttpClientRequest.done`, or
+  `abort()`.
+
+## [0.12.0] - 2026-03-05
+
+### Deprecated
+
+- `markEventStart()` and `markEventEnd()` are now deprecated. Use
+  `startSpan()` for duration tracking. Use `startUserAction()` when you need
+  interaction-level correlation across logs, events, exceptions, and spans.
+  Use `startSpanManual()` for manual span lifecycle control.
+
+### Added
+
+- **UI activity monitoring for user actions**: The SDK now automatically
+  monitors Flutter widget rebuilds to detect UI responses to user actions.
+  This emits bounded activity signals that keep user actions alive while the
+  UI is updating, similar to DOM mutation observation in the Web SDK.
+  Disable via `enableUiActivityMonitoring: false` in `FaroConfig`.
+- **Asset load lifecycle signals**: Asset loads via `FaroAssetTracking` now
+  emit activity signals to keep user actions alive during resource loading.
+- **Expanded asset tracking**: `FaroAssetBundle` now also tracks `loadBuffer`
+  and `loadStructuredBinaryData` in addition to `load` and `loadString`.
+
+### Changed
+
+- **BREAKING: `FaroAssetTracking` replaces `FaroAssetBundle` in public API**:
+  `FaroAssetBundle` is no longer exported from `package:faro/faro.dart`.
+  Use `FaroAssetTracking(child: ...)` instead of
+  `DefaultAssetBundle(bundle: FaroAssetBundle(), child: ...)`.
+
+  ```dart
+  // Before
+  DefaultAssetBundle(
+    bundle: FaroAssetBundle(),
+    child: const FaroUserInteractionWidget(child: MyApp()),
+  )
+
+  // After
+  FaroAssetTracking(
+    child: const FaroUserInteractionWidget(child: MyApp()),
+  )
+  ```
+
+- HTTP tracking no longer emits the legacy `http_request` custom event from
+  `HttpTrackingClient`.
+- HTTP request telemetry continues to be available through span-derived
+  `faro.tracing.fetch` events and OTLP spans.
+- Pending operation lifecycle signals are now span-driven via
+  `UserActionConstants.pendingOperationKey`:
+  - HTTP spans set this marker automatically.
+  - Custom spans can opt in by setting this attribute to `true`.
+  - Marker-based pending operations use span ID as operation ID.
+  - The marker attribute is exported with the span/event attributes.
+
+## [0.11.0] - 2026-03-03
+
+### Added
+
+- **User Actions**: Group related telemetry (logs, events, exceptions, traces) under a single action context to track end-to-end user interactions. (Resolves #131)
+  - `Faro().startUserAction('name')` starts a new action that buffers and enriches telemetry with action context
+  - `Faro().getActiveUserAction()` returns the currently active action handle
+  - Automatic lifecycle management with follow-up timeout (100ms) and halt timeout (10s)
+  - HTTP requests and navigation events automatically extend action lifetime via signal channels
+  - Telemetry items captured during an action include `action.name` and `action.id` for correlation in Grafana
+  - Only one action can be active at a time; overlapping calls return `null`
+  - Spans created during an action automatically receive `faro.action.user.name` and `faro.action.user.parentId` attributes via `FaroUserActionSpanProcessor`
+
+- **HTTP Tracking Filter**: New `HttpTrackingFilter` for controlling which URLs are instrumented
+  - Automatically excludes Faro collector URL from tracking
+  - Supports `ignoreUrls` patterns from `FaroConfig` to skip custom URL patterns
+
+- **New dependency**: Added `dartypod` (^0.2.0) for lightweight dependency injection
+
+### Changed
+
+- **Documentation consolidation**: Replaced separate `Getting Started.md`, `Features.md`, and `Configurations.md` with a single comprehensive `Reference.md`
+
+## [0.10.0] - 2026-02-09
+
+### Added
+
 - **Session sampling support**: New `sampling` configuration option allows controlling what percentage of sessions send telemetry data. This enables cost management and traffic reduction for high-volume applications. (Resolves #89)
   - Use `SamplingRate(0.5)` for fixed 50% sampling
   - Use `SamplingFunction((context) => ...)` for dynamic sampling based on session context (user attributes, app environment, etc.)

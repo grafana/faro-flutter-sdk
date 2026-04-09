@@ -1,17 +1,21 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:faro/faro.dart';
+import 'package:faro_example/features/app_diagnostics/presentation/app_diagnostics_page.dart';
+import 'package:faro_example/features/custom_telemetry/presentation/custom_telemetry_page.dart';
+import 'package:faro_example/features/feature_catalog/presentation/feature_catalog_page.dart';
+import 'package:faro_example/features/network_requests/presentation/network_requests_page.dart';
+import 'package:faro_example/features/sampling_settings/domain/sampling_settings_service.dart';
+import 'package:faro_example/features/sampling_settings/presentation/sampling_settings_page.dart';
+import 'package:faro_example/features/tracing/presentation/tracing_page.dart';
+import 'package:faro_example/features/user_actions/presentation/user_actions_page.dart';
+import 'package:faro_example/features/user_settings/user_settings_page.dart';
+import 'package:faro_example/features/user_settings/user_settings_service.dart';
+import 'package:faro_example/features/webview_handoff/presentation/webview_handoff_page.dart';
+import 'package:faro_example/qa_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'features/sampling_settings/domain/sampling_settings_service.dart';
-import 'features/sampling_settings/presentation/sampling_settings_page.dart';
-import 'features/tracing/presentation/tracing_page.dart';
-import 'features/user_settings/user_settings_page.dart';
-import 'features/user_settings/user_settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,18 +48,32 @@ void main() async {
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
   final faroApiKey = faroCollectorUrl.split('/').last;
 
+  final qaConfig = QaConfig.fromEnvironment();
+
+  final sessionAttributes = <String, Object>{
+    'team': 'mobile',
+    'department': 'engineering',
+    'test_int': 42,
+    'test_bool': true,
+    'test_double': 3.14,
+    if (qaConfig.hasRunId) 'qa_run_id': qaConfig.runId!,
+  };
+
+  final initialUser = qaConfig.hasInitialUser
+      ? qaConfig.initialUser
+      : userSettingsService.initialUser;
+
   Faro().transports.add(OfflineTransport(
         maxCacheDuration: const Duration(days: 3),
       ));
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
-      appName: 'example_app',
+      appName: 'faro-flutter-sdk-example',
       appVersion: '2.0.1',
       appEnv: 'Test',
       apiKey: faroApiKey,
       namespace: 'flutter_app',
-      // Sampling is configured via SamplingSettingsService
       sampling: samplingSettingsService.sampling,
       anrTracking: true,
       cpuUsageVitals: true,
@@ -64,14 +82,8 @@ void main() async {
       memoryUsageVitals: true,
       refreshRateVitals: true,
       fetchVitalsInterval: const Duration(seconds: 30),
-      sessionAttributes: {
-        'team': 'mobile',
-        'department': 'engineering',
-        'test_int': 42,
-        'test_bool': true,
-        'test_double': 3.14,
-      },
-      initialUser: userSettingsService.initialUser,
+      sessionAttributes: sessionAttributes,
+      initialUser: initialUser,
       persistUser: userSettingsService.persistUser,
     ),
     appRunner: () async {
@@ -80,8 +92,7 @@ void main() async {
         // This allows providers to be accessed before runApp() if needed
         UncontrolledProviderScope(
           container: container,
-          child: DefaultAssetBundle(
-            bundle: FaroAssetBundle(),
+          child: FaroAssetTracking(
             child: const FaroUserInteractionWidget(child: MyApp()),
           ),
         ),
@@ -104,21 +115,6 @@ class _MyAppState extends State<MyApp> {
     setState(() {});
   }
 
-  // Method to simulate an ANR by blocking the main thread
-  void simulateANR({int seconds = 10}) {
-    debugPrint(
-        'Simulating ANR by blocking main thread for $seconds seconds...');
-    final startTime = DateTime.now();
-    // This loop will block the main thread
-    while (DateTime.now().difference(startTime).inSeconds < seconds) {
-      // Perform intensive calculations to block the thread
-      for (int i = 0; i < 10000000; i++) {
-        final _ = i * i * i;
-      }
-    }
-    debugPrint('ANR simulation completed');
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -126,10 +122,15 @@ class _MyAppState extends State<MyApp> {
       initialRoute: '/',
       routes: {
         '/home': (context) => const HomePage(),
-        '/features': (context) => const FeaturesPage(),
+        '/features': (context) => const FeatureCatalogPage(),
         '/user-settings': (context) => const UserSettingsPage(),
         '/sampling-settings': (context) => const SamplingSettingsPage(),
+        '/custom-telemetry': (context) => const CustomTelemetryPage(),
+        '/network-requests': (context) => const NetworkRequestsPage(),
         '/tracing': (context) => const TracingPage(),
+        '/user-actions': (context) => const UserActionsPage(),
+        '/app-diagnostics': (context) => const AppDiagnosticsPage(),
+        '/webview-handoff': (context) => const WebViewHandoffPage(),
       },
       home: Scaffold(
         appBar: AppBar(
@@ -168,246 +169,6 @@ class _HomePageState extends State<HomePage> {
             },
           ),
         ],
-      ),
-    );
-  }
-}
-
-class FeaturesPage extends StatefulWidget {
-  const FeaturesPage({super.key});
-
-  @override
-  State<FeaturesPage> createState() => _FeaturesPageState();
-}
-
-class _FeaturesPageState extends State<FeaturesPage> {
-  final _userSettingsService = UserSettingsService.instance;
-  String _currentUserDisplay = 'Not set';
-
-  bool get _isSessionSampled => Faro().isSampled;
-  String get _samplingStatusDisplay =>
-      _isSessionSampled ? 'Sampled' : 'Not sampled';
-
-  @override
-  void initState() {
-    super.initState();
-    Faro().markEventEnd('home_event_start', 'home_page_load');
-    _updateCurrentUser();
-  }
-
-  void _updateCurrentUser() {
-    setState(() {
-      _currentUserDisplay = _userSettingsService.getCurrentUserDisplay();
-    });
-  }
-
-  void simulateANR({int seconds = 10}) {
-    debugPrint(
-        'Simulating ANR by blocking main thread for $seconds seconds...');
-    final startTime = DateTime.now();
-    while (DateTime.now().difference(startTime).inSeconds < seconds) {
-      for (int i = 0; i < 10000000; i++) {
-        final _ = i * i * i;
-      }
-    }
-    debugPrint('ANR simulation completed');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Features'),
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // User Settings Card
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.person),
-                  title: const Text('User Settings'),
-                  subtitle: Text('Current: $_currentUserDisplay'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    await Navigator.pushNamed(context, '/user-settings');
-                    _updateCurrentUser();
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Sampling Settings Card
-              Card(
-                child: ListTile(
-                  leading: Icon(
-                    Icons.analytics,
-                    color: _isSessionSampled ? Colors.green : Colors.grey,
-                  ),
-                  title: const Text('Sampling Settings'),
-                  subtitle: Text(
-                    'Session: $_samplingStatusDisplay',
-                    style: TextStyle(
-                      color: _isSessionSampled ? Colors.green : Colors.grey,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    await Navigator.pushNamed(context, '/sampling-settings');
-                    // Trigger rebuild (sampling status is a getter)
-                    setState(() {});
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Tracing Card
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.timeline),
-                  title: const Text('Tracing / Spans'),
-                  subtitle: const Text('Test spans and traces'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pushNamed(context, '/tracing');
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                child: const Text('HTTP POST Request - success'),
-                onPressed: () async {
-                  await http.post(
-                    Uri.parse('https://httpbin.io/post'),
-                    body: jsonEncode(<String, String>{
-                      'title': 'This is a title',
-                    }),
-                  );
-                },
-              ),
-              ElevatedButton(
-                child: const Text('HTTP POST Request - fail'),
-                onPressed: () async {
-                  await http.post(
-                    Uri.parse('https://httpbin.io/unstable'),
-                    body: jsonEncode(<String, String>{
-                      'title': 'This is a title',
-                    }),
-                  );
-                },
-              ),
-              ElevatedButton(
-                child: const Text('HTTP GET Request - success'),
-                onPressed: () async {
-                  await http.get(Uri.parse('https://httpbin.io/get?foo=bar'));
-                },
-              ),
-              ElevatedButton(
-                child: const Text('HTTP GET Request - fail'),
-                onPressed: () async {
-                  await http.get(Uri.parse('https://httpbin.io/unstable'));
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Custom Warn Log'),
-                onPressed: () {
-                  Faro().pushLog('Custom Warning Log', level: LogLevel.warn);
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Custom Info Log'),
-                onPressed: () {
-                  Faro()
-                      .pushLog('This is an info message', level: LogLevel.info);
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Custom Error Log'),
-                onPressed: () {
-                  Faro().pushLog('This is an error message',
-                      level: LogLevel.error);
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Custom Debug Log'),
-                onPressed: () {
-                  Faro().pushLog('This is a debug message',
-                      level: LogLevel.debug);
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Custom Trace Log'),
-                onPressed: () {
-                  Faro().pushLog('This is a trace message',
-                      level: LogLevel.trace);
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Custom Measurement'),
-                onPressed: () {
-                  Faro().pushMeasurement(
-                      {'custom_value': 1}, 'custom_measurement');
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Custom Event'),
-                onPressed: () {
-                  Faro().pushEvent('custom_event');
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Error'),
-                onPressed: () {
-                  setState(() {
-                    throw Error();
-                  });
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Exception'),
-                onPressed: () {
-                  setState(() {
-                    double _ = 0 / 0;
-                    throw Exception('This is an Exception!');
-                  });
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Mark Event Start'),
-                onPressed: () async {
-                  Faro().markEventStart('event1', 'event1_duration');
-                },
-              ),
-              ElevatedButton(
-                child: const Text('Mark Event End'),
-                onPressed: () async {
-                  Faro().markEventEnd('event1', 'event1_duration');
-                },
-              ),
-              ElevatedButton(
-                onPressed: () => simulateANR(),
-                child: const Text('Simulate ANR (10s)'),
-              ),
-              ElevatedButton(
-                onPressed: () => simulateANR(seconds: 8),
-                child: const Text('Simulate ANR (8s)'),
-              ),
-              ElevatedButton(
-                child: Text(
-                    'Data Collection: ${Faro().enableDataCollection ? "ENABLED" : "DISABLED"}'),
-                onPressed: () {
-                  Faro().enableDataCollection = !Faro().enableDataCollection;
-                  setState(() {}); // Refresh UI
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
       ),
     );
   }
