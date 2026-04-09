@@ -123,7 +123,6 @@ Every telemetry event automatically includes these session attributes:
 
 | Attribute             | Description                 | iOS Example          | Android Example       |
 | --------------------- | --------------------------- | -------------------- | --------------------- |
-| `faro_sdk_version`    | SDK version                 | `0.10.0`             | `0.10.0`              |
 | `dart_version`        | Dart runtime version        | `3.10.1 (stable)...` | `3.10.1 (stable)...`  |
 | `device_os`           | Operating system            | `iOS`                | `Android`             |
 | `device_os_version`   | OS version                  | `17.0`               | `15`                  |
@@ -136,6 +135,17 @@ Every telemetry event automatically includes these session attributes:
 | `device_id`           | Unique device ID            | `uuid`               | `uuid`                |
 
 > \*Android does not provide a mapping from model codes to marketing names, so `device_model_name` equals `device_model`.
+
+### SDK Metadata
+
+In addition to session attributes, every telemetry payload includes SDK identification via the `meta.sdk` object. These values are set automatically and cannot be changed by the user.
+
+| Field              | Description       | Example              |
+| ------------------ | ----------------- | -------------------- |
+| `meta.sdk.name`    | SDK identifier    | `faro-mobile-flutter`|
+| `meta.sdk.version` | SDK version       | `0.12.0`             |
+
+In Grafana Cloud Frontend Observability, these appear as `sdk_name` and `sdk_version` in the structured metadata of each telemetry event.
 
 ---
 
@@ -948,7 +958,7 @@ Faro().runApp(
 
 **Notes:**
 
-- Custom attributes are merged with default attributes (like `faro_sdk_version`, `device_os`, `device_model`, etc.)
+- Custom attributes are merged with default attributes (like `device_os`, `device_model`, etc.)
 - Default attributes take precedence if there are naming conflicts
 - Session attributes are included in all telemetry data (logs, events, exceptions, traces)
 - **Type handling**: Session attributes support typed values (String, int, double, bool):
