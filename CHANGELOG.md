@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bump Android `compileSdkVersion` from 35 to 36 (aligned with Flutter default since May 2025).
+
 ## [0.13.0] - 2026-04-09
 
 ### Added
