@@ -28,11 +28,11 @@ class FakeReadOnlySpan extends Fake implements otel_sdk.ReadOnlySpan {
 
   @override
   otel_api.SpanContext get spanContext => otel_api.SpanContext(
-        otel_api.TraceId.fromString('00000000000000000000000000000001'),
-        otel_api.SpanId.fromString('0000000000000001'),
-        otel_api.TraceFlags.sampled,
-        otel_api.TraceState.empty(),
-      );
+    otel_api.TraceId.fromString('00000000000000000000000000000001'),
+    otel_api.SpanId.fromString('0000000000000001'),
+    otel_api.TraceFlags.sampled,
+    otel_api.TraceState.empty(),
+  );
 
   @override
   otel_api.SpanId get parentSpanId => otel_api.SpanId.invalid();
@@ -68,9 +68,7 @@ void main() {
   late MockTelemetryRouter mockRouter;
 
   setUpAll(() {
-    registerFallbackValue(
-      TelemetryItem.fromEvent(Event('fallback')),
-    );
+    registerFallbackValue(TelemetryItem.fromEvent(Event('fallback')));
     registerFallbackValue(false);
   });
 
@@ -80,155 +78,118 @@ void main() {
 
   group('FaroExporter:', () {
     group('user action attribute mapping:', () {
-      test(
-        'should set Event.action and strip attributes '
-        'when both faro.action.user.name and faro.action.user.parentId '
-        'are present',
-        () {
-          final attrs = otel_sdk.Attributes.empty();
-          attrs.add(otel_api.Attribute.fromString('http.method', 'GET'));
-          attrs.add(otel_api.Attribute.fromString('http.scheme', 'https'));
-          attrs.add(otel_api.Attribute.fromString(
-            'faro.action.user.name',
-            'checkout',
-          ));
-          attrs.add(otel_api.Attribute.fromString(
-            'faro.action.user.parentId',
-            'abc123',
-          ));
+      test('should set Event.action and strip attributes '
+          'when both faro.action.user.name and faro.action.user.parentId '
+          'are present', () {
+        final attrs = otel_sdk.Attributes.empty();
+        attrs.add(otel_api.Attribute.fromString('http.method', 'GET'));
+        attrs.add(otel_api.Attribute.fromString('http.scheme', 'https'));
+        attrs.add(
+          otel_api.Attribute.fromString('faro.action.user.name', 'checkout'),
+        );
+        attrs.add(
+          otel_api.Attribute.fromString('faro.action.user.parentId', 'abc123'),
+        );
 
-          final span = FakeReadOnlySpan(
-            name: 'HTTP GET',
-            attributes: attrs,
-          );
+        final span = FakeReadOnlySpan(name: 'HTTP GET', attributes: attrs);
 
-          final exporter = FaroExporter(telemetryRouter: mockRouter);
-          exporter.export([span]);
+        final exporter = FaroExporter(telemetryRouter: mockRouter);
+        exporter.export([span]);
 
-          final captured = verify(
-            () => mockRouter.ingest(
-              captureAny(),
-              skipBuffer: any(named: 'skipBuffer'),
-            ),
-          ).captured;
+        final captured = verify(
+          () => mockRouter.ingest(
+            captureAny(),
+            skipBuffer: any(named: 'skipBuffer'),
+          ),
+        ).captured;
 
-          // captureAny captures positional args only
-          expect(captured, hasLength(2));
+        // captureAny captures positional args only
+        expect(captured, hasLength(2));
 
-          final eventItem = captured[0] as TelemetryItem;
-          expect(eventItem.type, equals(TelemetryItemType.event));
+        final eventItem = captured[0] as TelemetryItem;
+        expect(eventItem.type, equals(TelemetryItemType.event));
 
-          final event = eventItem.asEvent!;
-          expect(event.action, isNotNull);
-          expect(event.action!.name, equals('checkout'));
-          expect(event.action!.parentId, equals('abc123'));
+        final event = eventItem.asEvent!;
+        expect(event.action, isNotNull);
+        expect(event.action!.name, equals('checkout'));
+        expect(event.action!.parentId, equals('abc123'));
 
-          expect(
-            event.attributes!.containsKey('faro.action.user.name'),
-            isFalse,
-          );
-          expect(
-            event.attributes!.containsKey('faro.action.user.parentId'),
-            isFalse,
-          );
+        expect(event.attributes!.containsKey('faro.action.user.name'), isFalse);
+        expect(
+          event.attributes!.containsKey('faro.action.user.parentId'),
+          isFalse,
+        );
 
-          expect(event.attributes!['http.method'], equals('GET'));
-          expect(event.attributes!['http.scheme'], equals('https'));
-        },
-      );
+        expect(event.attributes!['http.method'], equals('GET'));
+        expect(event.attributes!['http.scheme'], equals('https'));
+      });
 
-      test(
-        'should NOT set Event.action when only faro.action.user.name '
-        'is present (missing parentId)',
-        () {
-          final attrs = otel_sdk.Attributes.empty();
-          attrs.add(otel_api.Attribute.fromString('http.method', 'GET'));
-          attrs.add(otel_api.Attribute.fromString(
-            'faro.action.user.name',
-            'checkout',
-          ));
+      test('should NOT set Event.action when only faro.action.user.name '
+          'is present (missing parentId)', () {
+        final attrs = otel_sdk.Attributes.empty();
+        attrs.add(otel_api.Attribute.fromString('http.method', 'GET'));
+        attrs.add(
+          otel_api.Attribute.fromString('faro.action.user.name', 'checkout'),
+        );
 
-          final span = FakeReadOnlySpan(
-            name: 'HTTP GET',
-            attributes: attrs,
-          );
+        final span = FakeReadOnlySpan(name: 'HTTP GET', attributes: attrs);
 
-          final exporter = FaroExporter(telemetryRouter: mockRouter);
-          exporter.export([span]);
+        final exporter = FaroExporter(telemetryRouter: mockRouter);
+        exporter.export([span]);
 
-          final captured = verify(
-            () => mockRouter.ingest(
-              captureAny(),
-              skipBuffer: any(named: 'skipBuffer'),
-            ),
-          ).captured;
+        final captured = verify(
+          () => mockRouter.ingest(
+            captureAny(),
+            skipBuffer: any(named: 'skipBuffer'),
+          ),
+        ).captured;
 
-          final eventItem = captured[0] as TelemetryItem;
-          final event = eventItem.asEvent!;
-          expect(event.action, isNull);
-          expect(
-            event.attributes!.containsKey('faro.action.user.name'),
-            isTrue,
-          );
-        },
-      );
+        final eventItem = captured[0] as TelemetryItem;
+        final event = eventItem.asEvent!;
+        expect(event.action, isNull);
+        expect(event.attributes!.containsKey('faro.action.user.name'), isTrue);
+      });
 
-      test(
-        'should NOT set Event.action when no action attributes '
-        'are present',
-        () {
-          final attrs = otel_sdk.Attributes.empty();
-          attrs.add(otel_api.Attribute.fromString('http.method', 'POST'));
+      test('should NOT set Event.action when no action attributes '
+          'are present', () {
+        final attrs = otel_sdk.Attributes.empty();
+        attrs.add(otel_api.Attribute.fromString('http.method', 'POST'));
 
-          final span = FakeReadOnlySpan(
-            name: 'HTTP POST',
-            attributes: attrs,
-          );
+        final span = FakeReadOnlySpan(name: 'HTTP POST', attributes: attrs);
 
-          final exporter = FaroExporter(telemetryRouter: mockRouter);
-          exporter.export([span]);
+        final exporter = FaroExporter(telemetryRouter: mockRouter);
+        exporter.export([span]);
 
-          final captured = verify(
-            () => mockRouter.ingest(
-              captureAny(),
-              skipBuffer: any(named: 'skipBuffer'),
-            ),
-          ).captured;
+        final captured = verify(
+          () => mockRouter.ingest(
+            captureAny(),
+            skipBuffer: any(named: 'skipBuffer'),
+          ),
+        ).captured;
 
-          final eventItem = captured[0] as TelemetryItem;
-          final event = eventItem.asEvent!;
-          expect(event.action, isNull);
-        },
-      );
+        final eventItem = captured[0] as TelemetryItem;
+        final event = eventItem.asEvent!;
+        expect(event.action, isNull);
+      });
     });
 
     group('telemetry routing:', () {
-      test(
-        'should ingest span-derived event with skipBuffer: true',
-        () {
-          final attrs = otel_sdk.Attributes.empty();
-          attrs.add(otel_api.Attribute.fromString('http.method', 'GET'));
-          attrs.add(otel_api.Attribute.fromString('http.scheme', 'https'));
+      test('should ingest span-derived event with skipBuffer: true', () {
+        final attrs = otel_sdk.Attributes.empty();
+        attrs.add(otel_api.Attribute.fromString('http.method', 'GET'));
+        attrs.add(otel_api.Attribute.fromString('http.scheme', 'https'));
 
-          final span = FakeReadOnlySpan(
-            name: 'HTTP GET',
-            attributes: attrs,
-          );
+        final span = FakeReadOnlySpan(name: 'HTTP GET', attributes: attrs);
 
-          final exporter = FaroExporter(telemetryRouter: mockRouter);
-          exporter.export([span]);
+        final exporter = FaroExporter(telemetryRouter: mockRouter);
+        exporter.export([span]);
 
-          // Event should be ingested with skipBuffer: true
-          verify(
-            () => mockRouter.ingest(any(), skipBuffer: true),
-          ).called(1);
+        // Event should be ingested with skipBuffer: true
+        verify(() => mockRouter.ingest(any(), skipBuffer: true)).called(1);
 
-          // Span should be ingested with default skipBuffer (false)
-          verify(
-            () => mockRouter.ingest(any()),
-          ).called(1);
-        },
-      );
+        // Span should be ingested with default skipBuffer (false)
+        verify(() => mockRouter.ingest(any())).called(1);
+      });
     });
   });
 }

@@ -32,9 +32,7 @@ void main() async {
   // Create ProviderContainer with SharedPreferences override
   // This is Riverpod's root and allows us to access providers before runApp()
   final container = ProviderContainer(
-    overrides: [
-      sharedPreferencesProvider.overrideWithValue(sharedPreferences),
-    ],
+    overrides: [sharedPreferencesProvider.overrideWithValue(sharedPreferences)],
   );
 
   // Load user settings service (still using singleton pattern)
@@ -42,8 +40,9 @@ void main() async {
   await userSettingsService.init();
 
   // Get sampling settings from Riverpod
-  final samplingSettingsService =
-      container.read(samplingSettingsServiceProvider);
+  final samplingSettingsService = container.read(
+    samplingSettingsServiceProvider,
+  );
 
   const faroCollectorUrl = String.fromEnvironment('FARO_COLLECTOR_URL');
   final faroApiKey = faroCollectorUrl.split('/').last;
@@ -63,9 +62,9 @@ void main() async {
       ? qaConfig.initialUser
       : userSettingsService.initialUser;
 
-  Faro().transports.add(OfflineTransport(
-        maxCacheDuration: const Duration(days: 3),
-      ));
+  Faro().transports.add(
+    OfflineTransport(maxCacheDuration: const Duration(days: 3)),
+  );
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
@@ -133,9 +132,7 @@ class _MyAppState extends State<MyApp> {
         '/webview-handoff': (context) => const WebViewHandoffPage(),
       },
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Faro Test App'),
-        ),
+        appBar: AppBar(title: const Text('Faro Test App')),
         body: const HomePage(),
       ),
     );

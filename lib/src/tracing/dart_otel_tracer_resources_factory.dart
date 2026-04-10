@@ -8,52 +8,45 @@ class DartOtelTracerResourcesFactory {
     final faro = Faro();
     const unknownString = 'unknown';
 
-    return otel_sdk.Resource(
-      [
-        // App info
-        otel_api.Attribute.fromString(
-          otel_api.ResourceAttributes.serviceName,
-          faro.meta.app?.name ?? unknownString,
-        ),
-        otel_api.Attribute.fromString(
-          otel_api.ResourceAttributes.deploymentEnvironment,
-          faro.meta.app?.environment ?? unknownString,
-        ),
-        otel_api.Attribute.fromString(
-          otel_api.ResourceAttributes.serviceVersion,
-          faro.meta.app?.version ?? unknownString,
-        ),
-        otel_api.Attribute.fromString(
-          otel_api.ResourceAttributes.serviceNamespace,
-          faro.meta.app?.namespace ?? 'flutter_app',
-        ),
+    return otel_sdk.Resource([
+      // App info
+      otel_api.Attribute.fromString(
+        otel_api.ResourceAttributes.serviceName,
+        faro.meta.app?.name ?? unknownString,
+      ),
+      otel_api.Attribute.fromString(
+        otel_api.ResourceAttributes.deploymentEnvironment,
+        faro.meta.app?.environment ?? unknownString,
+      ),
+      otel_api.Attribute.fromString(
+        otel_api.ResourceAttributes.serviceVersion,
+        faro.meta.app?.version ?? unknownString,
+      ),
+      otel_api.Attribute.fromString(
+        otel_api.ResourceAttributes.serviceNamespace,
+        faro.meta.app?.namespace ?? 'flutter_app',
+      ),
 
-        // Otel info
-        otel_api.Attribute.fromString(
-          'telemetry.sdk.name',
-          FaroConstants.sdkName,
-        ),
-        otel_api.Attribute.fromString(
-          'telemetry.sdk.language',
-          'dart',
-        ),
-        otel_api.Attribute.fromString(
-          'telemetry.sdk.version',
-          FaroConstants.sdkVersion,
-        ),
-        otel_api.Attribute.fromString(
-          'telemetry.sdk.platform',
-          'flutter',
-        ),
+      // Otel info
+      otel_api.Attribute.fromString(
+        'telemetry.sdk.name',
+        FaroConstants.sdkName,
+      ),
+      otel_api.Attribute.fromString('telemetry.sdk.language', 'dart'),
+      otel_api.Attribute.fromString(
+        'telemetry.sdk.version',
+        FaroConstants.sdkVersion,
+      ),
+      otel_api.Attribute.fromString('telemetry.sdk.platform', 'flutter'),
 
-        // Session attributes
-        ..._buildSessionAttributes(faro.meta.session?.attributes),
-      ],
-    );
+      // Session attributes
+      ..._buildSessionAttributes(faro.meta.session?.attributes),
+    ]);
   }
 
   List<otel_api.Attribute> _buildSessionAttributes(
-      Map<String, dynamic>? sessionAttributes) {
+    Map<String, dynamic>? sessionAttributes,
+  ) {
     if (sessionAttributes == null) return [];
 
     return sessionAttributes.entries.map((entry) {

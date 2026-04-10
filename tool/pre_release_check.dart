@@ -89,15 +89,21 @@ class PreReleaseChecker {
 
   /// Check code formatting
   Future<bool> _checkFormatting() async {
-    final result =
-        await Process.run('dart', ['format', '--set-exit-if-changed', '.']);
+    final result = await Process.run('dart', [
+      'format',
+      '--set-exit-if-changed',
+      '.',
+    ]);
     return result.exitCode == 0;
   }
 
   /// Check publish dry run
   Future<bool> _checkPublishDryRun() async {
-    final result =
-        await Process.run('flutter', ['pub', 'publish', '--dry-run']);
+    final result = await Process.run('flutter', [
+      'pub',
+      'publish',
+      '--dry-run',
+    ]);
     return result.exitCode == 0;
   }
 
@@ -110,8 +116,10 @@ class PreReleaseChecker {
   /// Run pre-version-bump checks
   Future<bool> runPreChecks() async {
     // ignore: avoid_print
-    print('${Colors.blue}🔍 Running pre-version-bump checks...'
-        '${Colors.reset}\n');
+    print(
+      '${Colors.blue}🔍 Running pre-version-bump checks...'
+      '${Colors.reset}\n',
+    );
 
     // Git checks (skipped - we expect changes during development)
 
@@ -131,13 +139,17 @@ class PreReleaseChecker {
     print('\n${Colors.blue}📊 Pre-checks Results:${Colors.reset}');
     if (_checksPassed == _checksTotal) {
       // ignore: avoid_print
-      print('${Colors.green}✅ All $_checksTotal pre-checks passed! '
-          'Ready for version bump.${Colors.reset}');
+      print(
+        '${Colors.green}✅ All $_checksTotal pre-checks passed! '
+        'Ready for version bump.${Colors.reset}',
+      );
       return true;
     } else {
       // ignore: avoid_print
-      print('${Colors.red}❌ $_checksPassed/$_checksTotal pre-checks '
-          'passed. Please fix issues before version bump.${Colors.reset}');
+      print(
+        '${Colors.red}❌ $_checksPassed/$_checksTotal pre-checks '
+        'passed. Please fix issues before version bump.${Colors.reset}',
+      );
       return false;
     }
   }
@@ -145,8 +157,10 @@ class PreReleaseChecker {
   /// Run post-version-bump checks
   Future<bool> runPostChecks() async {
     // ignore: avoid_print
-    print('${Colors.blue}🔍 Running post-version-bump checks...'
-        '${Colors.reset}\n');
+    print(
+      '${Colors.blue}🔍 Running post-version-bump checks...'
+      '${Colors.reset}\n',
+    );
 
     // Reset counters
     _checksPassed = 0;
@@ -160,13 +174,17 @@ class PreReleaseChecker {
     print('\n${Colors.blue}📊 Post-checks Results:${Colors.reset}');
     if (_checksPassed == _checksTotal) {
       // ignore: avoid_print
-      print('${Colors.green}✅ All $_checksTotal post-checks passed! '
-          'Ready to push and create PR.${Colors.reset}');
+      print(
+        '${Colors.green}✅ All $_checksTotal post-checks passed! '
+        'Ready to push and create PR.${Colors.reset}',
+      );
       return true;
     } else {
       // ignore: avoid_print
-      print('${Colors.red}❌ $_checksPassed/$_checksTotal post-checks '
-          'passed. Please fix issues and amend the commit.${Colors.reset}');
+      print(
+        '${Colors.red}❌ $_checksPassed/$_checksTotal post-checks '
+        'passed. Please fix issues and amend the commit.${Colors.reset}',
+      );
       return false;
     }
   }
@@ -183,8 +201,10 @@ Future<void> main(List<String> args) async {
       exit(1);
     }
     // ignore: avoid_print
-    print('\n${Colors.green}🚀 Ready to push and create PR!'
-        '${Colors.reset}');
+    print(
+      '\n${Colors.green}🚀 Ready to push and create PR!'
+      '${Colors.reset}',
+    );
   } else {
     // Pre-version-bump checks
     final success = await checker.runPreChecks();
@@ -192,7 +212,9 @@ Future<void> main(List<String> args) async {
       exit(1);
     }
     // ignore: avoid_print
-    print('\n${Colors.green}🚀 Ready to run: ${Colors.yellow}'
-        'dart tool/version_bump.dart <patch|minor|major>${Colors.reset}');
+    print(
+      '\n${Colors.green}🚀 Ready to run: ${Colors.yellow}'
+      'dart tool/version_bump.dart <patch|minor|major>${Colors.reset}',
+    );
   }
 }

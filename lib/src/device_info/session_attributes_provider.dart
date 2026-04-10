@@ -5,8 +5,8 @@ class SessionAttributesProvider {
   SessionAttributesProvider({
     required DeviceIdProvider deviceIdProvider,
     required DeviceInfoProvider deviceInfoProvider,
-  })  : _deviceIdProvider = deviceIdProvider,
-        _deviceInfoProvider = deviceInfoProvider;
+  }) : _deviceIdProvider = deviceIdProvider,
+       _deviceInfoProvider = deviceInfoProvider;
 
   final DeviceIdProvider _deviceIdProvider;
   final DeviceInfoProvider _deviceInfoProvider;

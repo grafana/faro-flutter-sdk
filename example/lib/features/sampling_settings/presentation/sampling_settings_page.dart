@@ -25,9 +25,7 @@ class SamplingSettingsPage extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sampling Settings'),
-      ),
+      appBar: AppBar(title: const Text('Sampling Settings')),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           16.0,

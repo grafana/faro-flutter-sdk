@@ -105,11 +105,7 @@ void main() {
       });
 
       test('should create from JSON with null properties', () {
-        final json = {
-          'id': 'user-123',
-          'username': null,
-          'email': null,
-        };
+        final json = {'id': 'user-123', 'username': null, 'email': null};
 
         final user = FaroUser.fromJson(json);
 
@@ -202,15 +198,9 @@ void main() {
       });
 
       test('should include attributes in toString when present', () {
-        const user = FaroUser(
-          id: 'user-123',
-          attributes: {'role': 'admin'},
-        );
+        const user = FaroUser(id: 'user-123', attributes: {'role': 'admin'});
 
-        expect(
-          user.toString(),
-          contains('attributes: {role: admin}'),
-        );
+        expect(user.toString(), contains('attributes: {role: admin}'));
       });
     });
 
@@ -226,9 +216,7 @@ void main() {
       });
 
       test('should have hasData true with only attributes', () {
-        const user = FaroUser(
-          attributes: {'role': 'admin'},
-        );
+        const user = FaroUser(attributes: {'role': 'admin'});
 
         expect(user.id, isNull);
         expect(user.username, isNull);
@@ -238,9 +226,7 @@ void main() {
       });
 
       test('should have hasData false with empty attributes', () {
-        const user = FaroUser(
-          attributes: {},
-        );
+        const user = FaroUser(attributes: {});
 
         expect(user.hasData, isFalse);
       });
@@ -276,10 +262,7 @@ void main() {
       });
 
       test('should handle missing attributes in JSON (backward compat)', () {
-        final json = {
-          'id': 'user-123',
-          'username': 'john.doe',
-        };
+        final json = {'id': 'user-123', 'username': 'john.doe'};
 
         final user = FaroUser.fromJson(json);
 
@@ -301,18 +284,9 @@ void main() {
       });
 
       test('should compare attributes in equality', () {
-        const user1 = FaroUser(
-          id: 'user-123',
-          attributes: {'role': 'admin'},
-        );
-        const user2 = FaroUser(
-          id: 'user-123',
-          attributes: {'role': 'admin'},
-        );
-        const user3 = FaroUser(
-          id: 'user-123',
-          attributes: {'role': 'user'},
-        );
+        const user1 = FaroUser(id: 'user-123', attributes: {'role': 'admin'});
+        const user2 = FaroUser(id: 'user-123', attributes: {'role': 'admin'});
+        const user3 = FaroUser(id: 'user-123', attributes: {'role': 'user'});
 
         expect(user1, equals(user2));
         expect(user1, isNot(equals(user3)));

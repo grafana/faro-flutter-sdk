@@ -44,24 +44,14 @@ class _NetworkRequestsPageViewModel extends Notifier<NetworkRequestsPageUiState>
   NetworkRequestsPageUiState build() {
     _service = ref.watch(networkRequestsDemoServiceProvider);
 
-    return const NetworkRequestsPageUiState(
-      log: [],
-      isRunning: false,
-    );
+    return const NetworkRequestsPageUiState(log: [], isRunning: false);
   }
 
-  void _addLog(
-    String message, {
-    DemoLogTone tone = DemoLogTone.neutral,
-  }) {
+  void _addLog(String message, {DemoLogTone tone = DemoLogTone.neutral}) {
     state = state.copyWith(
       log: [
         ...state.log,
-        DemoLogEntry(
-          message: message,
-          timestamp: DateTime.now(),
-          tone: tone,
-        ),
+        DemoLogEntry(message: message, timestamp: DateTime.now(), tone: tone),
       ],
     );
   }
@@ -105,15 +95,17 @@ class _NetworkRequestsPageViewModel extends Notifier<NetworkRequestsPageUiState>
 
 final _viewModelProvider =
     NotifierProvider<_NetworkRequestsPageViewModel, NetworkRequestsPageUiState>(
-  _NetworkRequestsPageViewModel.new,
+      _NetworkRequestsPageViewModel.new,
+    );
+
+final networkRequestsPageUiStateProvider = Provider<NetworkRequestsPageUiState>(
+  (ref) {
+    return ref.watch(_viewModelProvider);
+  },
 );
 
-final networkRequestsPageUiStateProvider =
-    Provider<NetworkRequestsPageUiState>((ref) {
-  return ref.watch(_viewModelProvider);
-});
-
-final networkRequestsPageActionsProvider =
-    Provider<NetworkRequestsPageActions>((ref) {
-  return ref.read(_viewModelProvider.notifier);
-});
+final networkRequestsPageActionsProvider = Provider<NetworkRequestsPageActions>(
+  (ref) {
+    return ref.read(_viewModelProvider.notifier);
+  },
+);

@@ -42,10 +42,7 @@ class TracingPage extends ConsumerWidget {
 // =============================================================================
 
 class _ButtonsSection extends StatelessWidget {
-  const _ButtonsSection({
-    required this.uiState,
-    required this.actions,
-  });
+  const _ButtonsSection({required this.uiState, required this.actions});
 
   final TracingPageUiState uiState;
   final TracingPageActions actions;
@@ -59,10 +56,7 @@ class _ButtonsSection extends StatelessWidget {
         children: [
           const Text(
             'Test Span Operations',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Text(

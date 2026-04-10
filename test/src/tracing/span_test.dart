@@ -28,31 +28,19 @@ void main() {
     });
 
     test('should throw UnsupportedError when traceId is accessed', () {
-      expect(
-        () => Span.noParent.traceId,
-        throwsA(isA<UnsupportedError>()),
-      );
+      expect(() => Span.noParent.traceId, throwsA(isA<UnsupportedError>()));
     });
 
     test('should throw UnsupportedError when spanId is accessed', () {
-      expect(
-        () => Span.noParent.spanId,
-        throwsA(isA<UnsupportedError>()),
-      );
+      expect(() => Span.noParent.spanId, throwsA(isA<UnsupportedError>()));
     });
 
     test('should throw UnsupportedError when wasEnded is accessed', () {
-      expect(
-        () => Span.noParent.wasEnded,
-        throwsA(isA<UnsupportedError>()),
-      );
+      expect(() => Span.noParent.wasEnded, throwsA(isA<UnsupportedError>()));
     });
 
     test('should throw UnsupportedError when status is accessed', () {
-      expect(
-        () => Span.noParent.status,
-        throwsA(isA<UnsupportedError>()),
-      );
+      expect(() => Span.noParent.status, throwsA(isA<UnsupportedError>()));
     });
 
     test('should throw UnsupportedError when statusHasBeenSet is accessed', () {
@@ -98,17 +86,11 @@ void main() {
     });
 
     test('should throw UnsupportedError when traceparent is accessed', () {
-      expect(
-        () => Span.noParent.traceparent,
-        throwsA(isA<UnsupportedError>()),
-      );
+      expect(() => Span.noParent.traceparent, throwsA(isA<UnsupportedError>()));
     });
 
     test('should throw UnsupportedError when end is called', () {
-      expect(
-        () => Span.noParent.end(),
-        throwsA(isA<UnsupportedError>()),
-      );
+      expect(() => Span.noParent.end(), throwsA(isA<UnsupportedError>()));
     });
 
     test('should have descriptive error message', () {
@@ -146,9 +128,7 @@ void main() {
       Span createSpanWithTraceFlags(int traceFlags) {
         when(() => mockOtelSpan.spanContext).thenReturn(
           otel_api.SpanContext(
-            otel_api.TraceId.fromString(
-              '00000000000000000000000000000001',
-            ),
+            otel_api.TraceId.fromString('00000000000000000000000000000001'),
             otel_api.SpanId.fromString('0000000000000001'),
             traceFlags,
             otel_api.TraceState.empty(),
@@ -200,7 +180,8 @@ void main() {
 
         when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
           capturedAttributes.addAll(
-              invocation.positionalArguments[0] as List<otel_api.Attribute>);
+            invocation.positionalArguments[0] as List<otel_api.Attribute>,
+          );
         });
 
         span.setAttributes({'name': 'test'});
@@ -216,7 +197,8 @@ void main() {
 
         when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
           capturedAttributes.addAll(
-              invocation.positionalArguments[0] as List<otel_api.Attribute>);
+            invocation.positionalArguments[0] as List<otel_api.Attribute>,
+          );
         });
 
         span.setAttributes({'count': 42});
@@ -232,7 +214,8 @@ void main() {
 
         when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
           capturedAttributes.addAll(
-              invocation.positionalArguments[0] as List<otel_api.Attribute>);
+            invocation.positionalArguments[0] as List<otel_api.Attribute>,
+          );
         });
 
         span.setAttributes({'score': 99.5});
@@ -248,7 +231,8 @@ void main() {
 
         when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
           capturedAttributes.addAll(
-              invocation.positionalArguments[0] as List<otel_api.Attribute>);
+            invocation.positionalArguments[0] as List<otel_api.Attribute>,
+          );
         });
 
         span.setAttributes({'enabled': true});
@@ -264,7 +248,8 @@ void main() {
 
         when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
           capturedAttributes.addAll(
-              invocation.positionalArguments[0] as List<otel_api.Attribute>);
+            invocation.positionalArguments[0] as List<otel_api.Attribute>,
+          );
         });
 
         span.setAttributes({
@@ -277,7 +262,7 @@ void main() {
         expect(capturedAttributes.length, 4);
 
         final attrMap = {
-          for (final attr in capturedAttributes) attr.key: attr.value
+          for (final attr in capturedAttributes) attr.key: attr.value,
         };
         expect(attrMap['name'], 'test');
         expect(attrMap['count'], 42);
@@ -291,26 +276,34 @@ void main() {
         final span = createSpan();
         final capturedAttributes = <otel_api.Attribute>[];
 
-        when(() => mockOtelSpan.addEvent(any(),
-            attributes: any(named: 'attributes'))).thenAnswer((invocation) {
-          final attrs = invocation.namedArguments[const Symbol('attributes')]
-              as List<otel_api.Attribute>?;
+        when(
+          () => mockOtelSpan.addEvent(
+            any(),
+            attributes: any(named: 'attributes'),
+          ),
+        ).thenAnswer((invocation) {
+          final attrs =
+              invocation.namedArguments[const Symbol('attributes')]
+                  as List<otel_api.Attribute>?;
           if (attrs != null) {
             capturedAttributes.addAll(attrs);
           }
         });
 
-        span.addEvent('test event', attributes: {
-          'message': 'hello',
-          'count': 5,
-          'duration': 1.5,
-          'success': true,
-        });
+        span.addEvent(
+          'test event',
+          attributes: {
+            'message': 'hello',
+            'count': 5,
+            'duration': 1.5,
+            'success': true,
+          },
+        );
 
         expect(capturedAttributes.length, 4);
 
         final attrMap = {
-          for (final attr in capturedAttributes) attr.key: attr.value
+          for (final attr in capturedAttributes) attr.key: attr.value,
         };
         expect(attrMap['message'], 'hello');
         expect(attrMap['count'], 5);

@@ -7,8 +7,8 @@ class InternetConnectivityService {
   InternetConnectivityService({
     required ConnectivityChecker connectivity,
     required String internetConnectionCheckerUrl,
-  })  : _connectivity = connectivity,
-        _internetConnectionCheckerUrl = internetConnectionCheckerUrl {
+  }) : _connectivity = connectivity,
+       _internetConnectionCheckerUrl = internetConnectionCheckerUrl {
     _checkConnectivity();
     _monitorConnectivity();
   }
@@ -17,7 +17,7 @@ class InternetConnectivityService {
   final _connectivityController = StreamController<bool>.broadcast();
   final String _internetConnectionCheckerUrl;
   StreamSubscription<List<ConnectivityResult>>?
-      _connectivityChangedSubscription;
+  _connectivityChangedSubscription;
   bool _isOnline = true;
 
   bool get isOnline => _isOnline;
@@ -40,8 +40,8 @@ class InternetConnectivityService {
 
   void _monitorConnectivity() {
     _connectivityChangedSubscription?.cancel();
-    _connectivityChangedSubscription =
-        _connectivity.onConnectivityChanged.listen(_handleConnectivityResults);
+    _connectivityChangedSubscription = _connectivity.onConnectivityChanged
+        .listen(_handleConnectivityResults);
   }
 
   void _setOnline(bool value) {
@@ -52,7 +52,8 @@ class InternetConnectivityService {
   }
 
   Future<void> _handleConnectivityResults(
-      List<ConnectivityResult> results) async {
+    List<ConnectivityResult> results,
+  ) async {
     final result = results.firstOrNull ?? ConnectivityResult.none;
     if (result == ConnectivityResult.none) {
       _setOnline(false);
@@ -74,9 +75,7 @@ class InternetConnectivityService {
 }
 
 class InternetConnectivityServiceFactory {
-  InternetConnectivityService create({
-    String? internetConnectionCheckerUrl,
-  }) {
+  InternetConnectivityService create({String? internetConnectionCheckerUrl}) {
     final checkerUrl = internetConnectionCheckerUrl ?? 'one.one.one.one';
     return InternetConnectivityService(
       connectivity: ConnectivityCheckerFactory().create(),

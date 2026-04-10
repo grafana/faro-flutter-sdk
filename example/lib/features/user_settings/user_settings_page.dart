@@ -71,9 +71,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('User Settings'),
-      ),
+      appBar: AppBar(title: const Text('User Settings')),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           16.0,
@@ -109,10 +107,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                 SizedBox(width: 8),
                 Text(
                   'Current Session User',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -143,8 +138,11 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber,
-                        size: 20, color: Colors.orange.shade700),
+                    Icon(
+                      Icons.warning_amber,
+                      size: 20,
+                      color: Colors.orange.shade700,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -212,10 +210,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                 Expanded(
                   child: Text(
                     'FaroConfig Settings',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -248,10 +243,7 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
             // Initial User Setting
             const Text(
               'Initial User',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             RadioGroup<InitialUserSetting>(
@@ -285,8 +277,11 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline,
-                      size: 20, color: Colors.blue.shade700),
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: Colors.blue.shade700,
+                  ),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(

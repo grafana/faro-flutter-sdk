@@ -12,10 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeAssetBundle extends AssetBundle {
-  _FakeAssetBundle({
-    this.throwOnLoad = false,
-    this.throwOnLoadString = false,
-  });
+  _FakeAssetBundle({this.throwOnLoad = false, this.throwOnLoadString = false});
 
   final bool throwOnLoad;
   final bool throwOnLoadString;
@@ -182,24 +179,26 @@ void main() {
       expect(result, 'hello');
     });
 
-    test('loadString emits pending signals even when asset loading throws',
-        () async {
-      final bundle = FaroAssetBundle(
-        bundle: _FakeAssetBundle(throwOnLoadString: true),
-        lifecycleSignalChannel: signalChannel,
-      );
+    test(
+      'loadString emits pending signals even when asset loading throws',
+      () async {
+        final bundle = FaroAssetBundle(
+          bundle: _FakeAssetBundle(throwOnLoadString: true),
+          lifecycleSignalChannel: signalChannel,
+        );
 
-      await expectLater(
-        () => bundle.loadString('assets/missing.txt'),
-        throwsException,
-      );
-      await Future<void>.delayed(Duration.zero);
+        await expectLater(
+          () => bundle.loadString('assets/missing.txt'),
+          throwsException,
+        );
+        await Future<void>.delayed(Duration.zero);
 
-      expect(emittedSignals, hasLength(2));
-      expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
-      expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
-      expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
-    });
+        expect(emittedSignals, hasLength(2));
+        expect(emittedSignals[0].type, UserActionSignalType.pendingStart);
+        expect(emittedSignals[1].type, UserActionSignalType.pendingEnd);
+        expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
+      },
+    );
 
     test('loadStructuredData emits pending lifecycle signals', () async {
       final bundle = FaroAssetBundle(
@@ -228,8 +227,7 @@ void main() {
       expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
-    test(
-        'loadStructuredData passes raw string to parser and returns '
+    test('loadStructuredData passes raw string to parser and returns '
         'the parsed result', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(),
@@ -283,8 +281,7 @@ void main() {
       expect(emittedSignals[1].operationId, emittedSignals[0].operationId);
     });
 
-    test(
-        'loadStructuredBinaryData passes raw data to parser and '
+    test('loadStructuredBinaryData passes raw data to parser and '
         'returns the parsed result', () async {
       final bundle = FaroAssetBundle(
         bundle: _FakeAssetBundle(),
@@ -333,10 +330,7 @@ void main() {
     test('long asset load keeps a user action alive until completion', () {
       fakeAsync((async) {
         final loadStringCompleter = Completer<String>();
-        final action = UserAction(
-          name: 'asset-load-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'asset-load-action', trigger: 'test');
         final controller = UserActionLifecycleController(
           action,
           signalChannel.stream,

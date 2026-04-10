@@ -4,9 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// UI state for the WebView tracing landing page.
 class WebViewHandoffPageUiState extends Equatable {
-  const WebViewHandoffPageUiState({
-    required this.isConfigured,
-  });
+  const WebViewHandoffPageUiState({required this.isConfigured});
 
   final bool isConfigured;
 
@@ -26,9 +24,7 @@ class _WebViewHandoffPageViewModel extends Notifier<WebViewHandoffPageUiState>
   @override
   WebViewHandoffPageUiState build() {
     _service = ref.watch(webViewHandoffServiceProvider);
-    return WebViewHandoffPageUiState(
-      isConfigured: _service.isConfigured,
-    );
+    return WebViewHandoffPageUiState(isConfigured: _service.isConfigured);
   }
 
   @override
@@ -37,15 +33,17 @@ class _WebViewHandoffPageViewModel extends Notifier<WebViewHandoffPageUiState>
 
 final _webViewHandoffPageViewModelProvider =
     NotifierProvider<_WebViewHandoffPageViewModel, WebViewHandoffPageUiState>(
-  _WebViewHandoffPageViewModel.new,
-);
+      _WebViewHandoffPageViewModel.new,
+    );
 
-final webViewHandoffPageUiStateProvider =
-    Provider<WebViewHandoffPageUiState>((ref) {
+final webViewHandoffPageUiStateProvider = Provider<WebViewHandoffPageUiState>((
+  ref,
+) {
   return ref.watch(_webViewHandoffPageViewModelProvider);
 });
 
-final webViewHandoffPageActionsProvider =
-    Provider<WebViewHandoffPageActions>((ref) {
+final webViewHandoffPageActionsProvider = Provider<WebViewHandoffPageActions>((
+  ref,
+) {
   return ref.read(_webViewHandoffPageViewModelProvider.notifier);
 });

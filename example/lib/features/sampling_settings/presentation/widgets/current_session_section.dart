@@ -24,19 +24,14 @@ class CurrentSessionSection extends StatelessWidget {
                 SizedBox(width: 8),
                 Text(
                   'Current Session',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
             // Sampled status - prominent display
-            SampledStatusBanner(
-              isSessionSampled: uiState.isSessionSampled,
-            ),
+            SampledStatusBanner(isSessionSampled: uiState.isSessionSampled),
             const SizedBox(height: 12),
             Text(
               'Config: ${uiState.currentConfigDisplay}',
@@ -46,9 +41,7 @@ class CurrentSessionSection extends StatelessWidget {
             // Restart warning
             if (uiState.needsRestart) ...[
               const SizedBox(height: 12),
-              RestartWarningBanner(
-                selectedSetting: uiState.selectedSetting,
-              ),
+              RestartWarningBanner(selectedSetting: uiState.selectedSetting),
             ],
           ],
         ),

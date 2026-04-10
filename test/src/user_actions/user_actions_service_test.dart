@@ -24,9 +24,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(Event('fallback'));
     registerFallbackValue(FaroLog('fallback'));
-    registerFallbackValue(
-      FaroException('fallback', 'fallback', null),
-    );
+    registerFallbackValue(FaroException('fallback', 'fallback', null));
   });
 
   setUp(() {
@@ -87,44 +85,46 @@ void main() {
       service.dispose();
     });
 
-    test('dispatches buffered telemetry and clears active action on end',
-        () async {
-      final action = service.startUserAction('checkout')! as UserAction;
-      service.tryBuffer(TelemetryItem.fromEvent(Event('event')));
-      service.tryBuffer(TelemetryItem.fromLog(FaroLog('log')));
-      service.tryBuffer(
-        TelemetryItem.fromException(
-          FaroException('type', 'value', null),
-        ),
-      );
+    test(
+      'dispatches buffered telemetry and clears active action on end',
+      () async {
+        final action = service.startUserAction('checkout')! as UserAction;
+        service.tryBuffer(TelemetryItem.fromEvent(Event('event')));
+        service.tryBuffer(TelemetryItem.fromLog(FaroLog('log')));
+        service.tryBuffer(
+          TelemetryItem.fromException(FaroException('type', 'value', null)),
+        );
 
-      action.end();
-      await Future<void>.delayed(Duration.zero);
+        action.end();
+        await Future<void>.delayed(Duration.zero);
 
-      // event + summary event
-      verify(() => mockTransport.addEvent(any())).called(2);
-      verify(() => mockTransport.addLog(any())).called(1);
-      verify(() => mockTransport.addExceptions(any())).called(1);
-      expect(service.getActiveUserAction(), isNull);
-      verify(() => mockController.dispose()).called(1);
+        // event + summary event
+        verify(() => mockTransport.addEvent(any())).called(2);
+        verify(() => mockTransport.addLog(any())).called(1);
+        verify(() => mockTransport.addExceptions(any())).called(1);
+        expect(service.getActiveUserAction(), isNull);
+        verify(() => mockController.dispose()).called(1);
 
-      action.dispose();
-    });
+        action.dispose();
+      },
+    );
 
-    test('dispatches buffered telemetry without summary event on cancel',
-        () async {
-      final action = service.startUserAction('checkout')! as UserAction;
-      service.tryBuffer(TelemetryItem.fromEvent(Event('event')));
+    test(
+      'dispatches buffered telemetry without summary event on cancel',
+      () async {
+        final action = service.startUserAction('checkout')! as UserAction;
+        service.tryBuffer(TelemetryItem.fromEvent(Event('event')));
 
-      action.cancel();
-      await Future<void>.delayed(Duration.zero);
+        action.cancel();
+        await Future<void>.delayed(Duration.zero);
 
-      verify(() => mockTransport.addEvent(any())).called(1);
-      expect(service.getActiveUserAction(), isNull);
-      verify(() => mockController.dispose()).called(1);
+        verify(() => mockTransport.addEvent(any())).called(1);
+        expect(service.getActiveUserAction(), isNull);
+        verify(() => mockController.dispose()).called(1);
 
-      action.dispose();
-    });
+        action.dispose();
+      },
+    );
 
     test('dispose releases active action resources', () {
       final action = service.startUserAction('checkout')! as UserAction;

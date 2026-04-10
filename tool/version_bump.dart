@@ -1,11 +1,7 @@
 import 'dart:io';
 
 /// Version bump types
-enum BumpType {
-  patch,
-  minor,
-  major,
-}
+enum BumpType { patch, minor, major }
 
 /// Represents a semantic version
 class Version {
@@ -84,17 +80,15 @@ Future<void> updateChangelog(String version) async {
 
   // Get current date
   final now = DateTime.now();
-  final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+  final dateStr =
+      '${now.year}-${now.month.toString().padLeft(2, '0')}-'
       '${now.day.toString().padLeft(2, '0')}';
 
   // Replace "## [Unreleased]" with version and date, then add new Unreleased
-  final updated = content.replaceFirst(
-    '## [Unreleased]',
-    '''
+  final updated = content.replaceFirst('## [Unreleased]', '''
 ## [Unreleased]
 
-## [$version] - $dateStr''',
-  );
+## [$version] - $dateStr''');
 
   // If there was no "[Unreleased]" section, add the version at the top
   // after the header
@@ -104,7 +98,8 @@ Future<void> updateChangelog(String version) async {
     if (unreleasedIndex != -1) {
       final beforeUnreleased = content.substring(0, unreleasedIndex);
       final afterUnreleased = content.substring(unreleasedIndex);
-      final newEntry = '''
+      final newEntry =
+          '''
 $beforeUnreleased## [Unreleased]
 
 ## [$version] - $dateStr
@@ -113,7 +108,8 @@ $afterUnreleased''';
       await file.writeAsString(newEntry);
     } else {
       // Fallback: add at the beginning if no Unreleased section found
-      final newEntry = '''
+      final newEntry =
+          '''
 ## [Unreleased]
 
 ## [$version] - $dateStr
@@ -160,7 +156,8 @@ Future<void> main(List<String> args) async {
       break;
     default:
       stderr.writeln(
-          'Invalid bump type: $bumpTypeStr. Must be patch, minor, or major');
+        'Invalid bump type: $bumpTypeStr. Must be patch, minor, or major',
+      );
       exit(1);
   }
 
@@ -168,8 +165,9 @@ Future<void> main(List<String> args) async {
     // Read current version from pubspec
     final pubspecFile = File('pubspec.yaml');
     final pubspecContent = await pubspecFile.readAsString();
-    final versionMatch =
-        RegExp(r'version: (\d+\.\d+\.\d+)').firstMatch(pubspecContent);
+    final versionMatch = RegExp(
+      r'version: (\d+\.\d+\.\d+)',
+    ).firstMatch(pubspecContent);
 
     if (versionMatch == null) {
       stderr.writeln('Could not find version in pubspec.yaml');

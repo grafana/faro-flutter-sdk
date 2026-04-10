@@ -16,9 +16,7 @@ class WebViewHandoffPage extends ConsumerWidget {
     final actions = ref.watch(webViewHandoffPageActionsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('WebView Tracing'),
-      ),
+      appBar: AppBar(title: const Text('WebView Tracing')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -55,7 +53,8 @@ class WebViewHandoffPage extends ConsumerWidget {
 
     if (result != null) {
       final ok = result['ok'] == true;
-      final message = result['message'] as String? ??
+      final message =
+          result['message'] as String? ??
           (ok ? 'Login successful' : 'Login failed');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -80,9 +79,9 @@ class _OverviewCard extends StatelessWidget {
           children: [
             Text(
               'Cross-boundary tracing',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -116,9 +115,9 @@ class _MissingConfigCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Setup required',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),

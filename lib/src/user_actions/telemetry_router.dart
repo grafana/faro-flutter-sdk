@@ -9,8 +9,8 @@ class TelemetryRouter {
   TelemetryRouter({
     required BatchTransportResolver transportResolver,
     required UserActionsService userActionsService,
-  })  : _transportResolver = transportResolver,
-        _userActionsService = userActionsService;
+  }) : _transportResolver = transportResolver,
+       _userActionsService = userActionsService;
 
   final BatchTransportResolver _transportResolver;
   final UserActionsService _userActionsService;

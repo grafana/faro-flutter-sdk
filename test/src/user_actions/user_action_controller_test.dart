@@ -23,10 +23,7 @@ void main() {
     group('attach and cleanup:', () {
       test('should attach and start monitoring', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -43,10 +40,7 @@ void main() {
       });
 
       test('should clean up when action ends', () async {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final controller = UserActionLifecycleController(
           action,
@@ -66,10 +60,7 @@ void main() {
       });
 
       test('should clean up when action is cancelled', () async {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final controller = UserActionLifecycleController(
           action,
@@ -92,10 +83,7 @@ void main() {
     group('follow-up timeout:', () {
       test('should cancel action after follow-up timeout with no activity', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -117,10 +105,7 @@ void main() {
 
       test('should end action after follow-up timeout with valid activity', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -129,15 +114,13 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
 
@@ -150,10 +133,7 @@ void main() {
 
       test('should reset follow-up timeout on new activity', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -163,18 +143,16 @@ void main() {
           controller.attach();
 
           async.elapse(const Duration(milliseconds: 50));
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(const Duration(milliseconds: 50));
           expect(action.getState(), equals(UserActionState.started));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
           async.elapse(const Duration(milliseconds: 100));
 
           expect(action.getState(), equals(UserActionState.ended));
@@ -186,41 +164,39 @@ void main() {
     });
 
     group('halt logic:', () {
-      test('should halt action when pending requests exist after follow-up',
-          () {
-        fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+      test(
+        'should halt action when pending requests exist after follow-up',
+        () {
+          fakeAsync((async) {
+            final action = UserAction(name: 'test-action', trigger: 'test');
 
-          final controller = UserActionLifecycleController(
-            action,
-            signalController.stream,
-          );
+            final controller = UserActionLifecycleController(
+              action,
+              signalController.stream,
+            );
 
-          controller.attach();
+            controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+            signalController.add(
+              UserActionSignal.pendingStart(
+                source: 'http',
+                operationId: 'req1',
+              ),
+            );
 
-          async.elapse(UserActionConstants.defaultFollowUpTimeout);
+            async.elapse(UserActionConstants.defaultFollowUpTimeout);
 
-          expect(action.getState(), equals(UserActionState.halted));
+            expect(action.getState(), equals(UserActionState.halted));
 
-          controller.dispose();
-          action.dispose();
-        });
-      });
+            controller.dispose();
+            action.dispose();
+          });
+        },
+      );
 
       test('should end action when all requests complete in halted state', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -229,18 +205,16 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
           expect(action.getState(), equals(UserActionState.halted));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
           async.flushMicrotasks();
           expect(action.getState(), equals(UserActionState.ended));
@@ -252,10 +226,7 @@ void main() {
 
       test('should handle multiple pending requests', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -264,38 +235,32 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req2',
-          ));
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req3',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req2'),
+          );
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req3'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
           expect(action.getState(), equals(UserActionState.halted));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
           expect(action.getState(), equals(UserActionState.halted));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req2',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req2'),
+          );
           expect(action.getState(), equals(UserActionState.halted));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req3',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req3'),
+          );
           async.flushMicrotasks();
           expect(action.getState(), equals(UserActionState.ended));
 
@@ -306,10 +271,7 @@ void main() {
 
       test('should ignore untracked request ends in halted state', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -318,25 +280,25 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
           expect(action.getState(), equals(UserActionState.halted));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req-unknown',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(
+              source: 'http',
+              operationId: 'req-unknown',
+            ),
+          );
 
           expect(action.getState(), equals(UserActionState.halted));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
           async.flushMicrotasks();
           expect(action.getState(), equals(UserActionState.ended));
@@ -350,10 +312,7 @@ void main() {
     group('halt timeout:', () {
       test('should end action after halt timeout expires', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -362,10 +321,9 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
           expect(action.getState(), equals(UserActionState.halted));
@@ -381,10 +339,7 @@ void main() {
 
       test('should not end if requests complete before halt timeout', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -393,19 +348,17 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
           expect(action.getState(), equals(UserActionState.halted));
 
           async.elapse(const Duration(seconds: 5));
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
           async.flushMicrotasks();
           expect(action.getState(), equals(UserActionState.ended));
@@ -422,10 +375,7 @@ void main() {
     group('validity tracking:', () {
       test('should mark action as valid on pending start', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -434,15 +384,13 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
 
@@ -455,10 +403,7 @@ void main() {
 
       test('should not mark as valid on pending end alone', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -467,10 +412,9 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
 
@@ -485,10 +429,7 @@ void main() {
     group('edge cases:', () {
       test('should handle rapid request start/end cycles', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -498,14 +439,15 @@ void main() {
           controller.attach();
 
           for (var i = 0; i < 5; i++) {
-            signalController.add(UserActionSignal.pendingStart(
-              source: 'http',
-              operationId: 'req$i',
-            ));
-            signalController.add(UserActionSignal.pendingEnd(
-              source: 'http',
-              operationId: 'req$i',
-            ));
+            signalController.add(
+              UserActionSignal.pendingStart(
+                source: 'http',
+                operationId: 'req$i',
+              ),
+            );
+            signalController.add(
+              UserActionSignal.pendingEnd(source: 'http', operationId: 'req$i'),
+            );
           }
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
@@ -519,10 +461,7 @@ void main() {
 
       test('should handle no activity', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -542,10 +481,7 @@ void main() {
 
       test('should not process signals after action ends', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -554,23 +490,20 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
           expect(action.getState(), equals(UserActionState.ended));
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req2',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req2'),
+          );
 
           expect(action.getState(), equals(UserActionState.ended));
 
@@ -581,10 +514,7 @@ void main() {
 
       test('should handle interleaved requests', () {
         fakeAsync((async) {
-          final action = UserAction(
-            name: 'test-action',
-            trigger: 'test',
-          );
+          final action = UserAction(name: 'test-action', trigger: 'test');
 
           final controller = UserActionLifecycleController(
             action,
@@ -593,38 +523,32 @@ void main() {
 
           controller.attach();
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req1'),
+          );
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req2',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req2'),
+          );
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req1',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req1'),
+          );
 
-          signalController.add(UserActionSignal.pendingStart(
-            source: 'http',
-            operationId: 'req3',
-          ));
+          signalController.add(
+            UserActionSignal.pendingStart(source: 'http', operationId: 'req3'),
+          );
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req2',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req2'),
+          );
 
           async.elapse(UserActionConstants.defaultFollowUpTimeout);
           expect(action.getState(), equals(UserActionState.halted));
 
-          signalController.add(UserActionSignal.pendingEnd(
-            source: 'http',
-            operationId: 'req3',
-          ));
+          signalController.add(
+            UserActionSignal.pendingEnd(source: 'http', operationId: 'req3'),
+          );
 
           async.flushMicrotasks();
           expect(action.getState(), equals(UserActionState.ended));

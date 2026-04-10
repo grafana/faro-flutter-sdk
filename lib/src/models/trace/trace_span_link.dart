@@ -6,10 +6,10 @@ class TraceSpanLink {
     required String spanId,
     required String traceState,
     required List<TraceAttribute> attributes,
-  })  : _traceId = traceId,
-        _spanId = spanId,
-        _traceState = traceState,
-        _attributes = attributes;
+  }) : _traceId = traceId,
+       _spanId = spanId,
+       _traceState = traceState,
+       _attributes = attributes;
 
   TraceSpanLink.fromJson(dynamic json) {
     if (json['traceId'] != null) {

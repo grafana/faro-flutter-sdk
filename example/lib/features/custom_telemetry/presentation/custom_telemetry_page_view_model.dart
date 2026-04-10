@@ -56,18 +56,11 @@ class _CustomTelemetryPageViewModel extends Notifier<CustomTelemetryPageUiState>
     );
   }
 
-  void _addLog(
-    String message, {
-    DemoLogTone tone = DemoLogTone.neutral,
-  }) {
+  void _addLog(String message, {DemoLogTone tone = DemoLogTone.neutral}) {
     state = state.copyWith(
       log: [
         ...state.log,
-        DemoLogEntry(
-          message: message,
-          timestamp: DateTime.now(),
-          tone: tone,
-        ),
+        DemoLogEntry(message: message, timestamp: DateTime.now(), tone: tone),
       ],
     );
   }
@@ -121,15 +114,17 @@ class _CustomTelemetryPageViewModel extends Notifier<CustomTelemetryPageUiState>
 
 final _viewModelProvider =
     NotifierProvider<_CustomTelemetryPageViewModel, CustomTelemetryPageUiState>(
-  _CustomTelemetryPageViewModel.new,
+      _CustomTelemetryPageViewModel.new,
+    );
+
+final customTelemetryPageUiStateProvider = Provider<CustomTelemetryPageUiState>(
+  (ref) {
+    return ref.watch(_viewModelProvider);
+  },
 );
 
-final customTelemetryPageUiStateProvider =
-    Provider<CustomTelemetryPageUiState>((ref) {
-  return ref.watch(_viewModelProvider);
-});
-
-final customTelemetryPageActionsProvider =
-    Provider<CustomTelemetryPageActions>((ref) {
-  return ref.read(_viewModelProvider.notifier);
-});
+final customTelemetryPageActionsProvider = Provider<CustomTelemetryPageActions>(
+  (ref) {
+    return ref.read(_viewModelProvider.notifier);
+  },
+);

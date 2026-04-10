@@ -33,9 +33,7 @@ class UserActionSignal {
   final String? operationId;
 
   /// Creates an activity signal.
-  factory UserActionSignal.activity({
-    required String source,
-  }) {
+  factory UserActionSignal.activity({required String source}) {
     return UserActionSignal._(
       type: UserActionSignalType.activity,
       source: source,

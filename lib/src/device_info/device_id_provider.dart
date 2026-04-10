@@ -6,8 +6,8 @@ class DeviceIdProvider {
   DeviceIdProvider({
     required SharedPreferences sharedPreferences,
     required UuidProvider uuidProvider,
-  })  : _sharedPreferences = sharedPreferences,
-        _uuidProvider = uuidProvider;
+  }) : _sharedPreferences = sharedPreferences,
+       _uuidProvider = uuidProvider;
 
   final String _deviceIdPrefsKey = 'device_id';
 

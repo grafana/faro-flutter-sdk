@@ -12,10 +12,7 @@ import '../models/span_log_entry.dart';
 ///
 /// Contains all data needed to render the tracing page UI.
 class TracingPageUiState extends Equatable {
-  const TracingPageUiState({
-    required this.spanLog,
-    required this.isRunning,
-  });
+  const TracingPageUiState({required this.spanLog, required this.isRunning});
 
   /// Log entries to display in the log view.
   final List<SpanLogEntry> spanLog;
@@ -24,10 +21,7 @@ class TracingPageUiState extends Equatable {
   final bool isRunning;
 
   /// Creates a copy of this state with the given fields replaced.
-  TracingPageUiState copyWith({
-    List<SpanLogEntry>? spanLog,
-    bool? isRunning,
-  }) {
+  TracingPageUiState copyWith({List<SpanLogEntry>? spanLog, bool? isRunning}) {
     return TracingPageUiState(
       spanLog: spanLog ?? this.spanLog,
       isRunning: isRunning ?? this.isRunning,
@@ -99,10 +93,7 @@ class _TracingPageViewModel extends Notifier<TracingPageUiState>
     // Initialize dependencies
     _tracingService = ref.watch(tracingServiceProvider);
 
-    return const TracingPageUiState(
-      spanLog: [],
-      isRunning: false,
-    );
+    return const TracingPageUiState(spanLog: [], isRunning: false);
   }
 
   // ---------------------------------------------------------------------------
@@ -199,8 +190,8 @@ class _TracingPageViewModel extends Notifier<TracingPageUiState>
 
 final _tracingPageViewModelProvider =
     NotifierProvider<_TracingPageViewModel, TracingPageUiState>(
-  _TracingPageViewModel.new,
-);
+      _TracingPageViewModel.new,
+    );
 
 /// Provider for the tracing page UI state.
 ///

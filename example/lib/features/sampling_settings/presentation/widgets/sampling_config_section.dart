@@ -31,10 +31,7 @@ class SamplingConfigSection extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Sampling Configuration',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -61,15 +58,12 @@ class SamplingConfigSection extends StatelessWidget {
                   // Fixed Rate Options
                   const Text(
                     'Fixed Rate (SamplingRate)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
-                  ...SamplingSetting.values.where((s) => !s.isFunction).map(
-                        (setting) => SamplingRadioTile(setting: setting),
-                      ),
+                  ...SamplingSetting.values
+                      .where((s) => !s.isFunction)
+                      .map((setting) => SamplingRadioTile(setting: setting)),
 
                   const SizedBox(height: 16),
                   const Divider(),
@@ -78,10 +72,7 @@ class SamplingConfigSection extends StatelessWidget {
                   // Function-based Options
                   const Text(
                     'Dynamic (SamplingFunction)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   const Text(
@@ -89,9 +80,9 @@ class SamplingConfigSection extends StatelessWidget {
                     style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                   const SizedBox(height: 8),
-                  ...SamplingSetting.values.where((s) => s.isFunction).map(
-                        (setting) => SamplingRadioTile(setting: setting),
-                      ),
+                  ...SamplingSetting.values
+                      .where((s) => s.isFunction)
+                      .map((setting) => SamplingRadioTile(setting: setting)),
                 ],
               ),
             ),

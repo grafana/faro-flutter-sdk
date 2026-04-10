@@ -5,20 +5,18 @@ import 'package:faro/src/tracing/span.dart';
 export 'package:faro/src/tracing/span.dart' show ContextScope;
 
 typedef ParentSpanLookup = dynamic Function(Symbol key);
-typedef ZoneRunner = Future<T> Function<T>(
-  Future<T> Function() callback,
-  Map<Object?, Object?> zoneValues,
-);
+typedef ZoneRunner =
+    Future<T> Function<T>(
+      Future<T> Function() callback,
+      Map<Object?, Object?> zoneValues,
+    );
 
 /// Holds a span and tracks whether it's still active in context.
 ///
 /// Used internally to support deactivation when the callback completes,
 /// allowing proper separation between span lifecycle (end) and context scope.
 class SpanContextHolder {
-  SpanContextHolder({
-    required this.span,
-    required this.contextScope,
-  });
+  SpanContextHolder({required this.span, required this.contextScope});
 
   /// The span being held.
   final Span span;
@@ -46,8 +44,8 @@ class FaroZoneSpanManager {
   FaroZoneSpanManager({
     required ParentSpanLookup parentSpanLookup,
     required ZoneRunner zoneRunner,
-  })  : _parentSpanLookup = parentSpanLookup,
-        _zoneRunner = zoneRunner;
+  }) : _parentSpanLookup = parentSpanLookup,
+       _zoneRunner = zoneRunner;
 
   static const _spanContextKey = #faroSpanContext;
 
@@ -91,10 +89,7 @@ class FaroZoneSpanManager {
         return result;
       } catch (error, stackTrace) {
         if (!span.statusHasBeenSet) {
-          span.setStatus(
-            SpanStatusCode.error,
-            message: error.toString(),
-          );
+          span.setStatus(SpanStatusCode.error, message: error.toString());
         }
         span.recordException(error, stackTrace: stackTrace);
         rethrow;
@@ -105,9 +100,7 @@ class FaroZoneSpanManager {
           spanContextHolder.deactivate();
         }
       }
-    }, {
-      _spanContextKey: spanContextHolder,
-    });
+    }, {_spanContextKey: spanContextHolder});
   }
 }
 

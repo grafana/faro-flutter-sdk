@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CrashReporter.xcframework`; PLCrashReporter continues to come from the pod dependency.
 - Dart: removed a deprecated linter rule and small fixes so `flutter analyze` exits cleanly
   on current stable.
+- Reformatted Dart sources with the current stable `dart format` so CI format checks pass.
 
 ## [0.13.0] - 2026-04-09
 

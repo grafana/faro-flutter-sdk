@@ -52,12 +52,12 @@ class SamplingSettingsPageUiState extends Equatable {
 
   @override
   List<Object?> get props => [
-        selectedSetting,
-        isSessionSampled,
-        currentConfigDisplay,
-        needsRestart,
-        isLoading,
-      ];
+    selectedSetting,
+    isSessionSampled,
+    currentConfigDisplay,
+    needsRestart,
+    isLoading,
+  ];
 }
 
 // =============================================================================
@@ -120,23 +120,24 @@ class _SamplingSettingsPageViewModel
 // Providers
 // =============================================================================
 
-final _samplingSettingsPageViewModelProvider = NotifierProvider<
-    _SamplingSettingsPageViewModel, SamplingSettingsPageUiState>(
-  _SamplingSettingsPageViewModel.new,
-);
+final _samplingSettingsPageViewModelProvider =
+    NotifierProvider<
+      _SamplingSettingsPageViewModel,
+      SamplingSettingsPageUiState
+    >(_SamplingSettingsPageViewModel.new);
 
 /// Provider for the sampling settings page UI state.
 ///
 /// Use this in widgets to reactively rebuild when state changes.
 final samplingSettingsPageUiStateProvider =
     Provider<SamplingSettingsPageUiState>((ref) {
-  return ref.watch(_samplingSettingsPageViewModelProvider);
-});
+      return ref.watch(_samplingSettingsPageViewModelProvider);
+    });
 
 /// Provider for the sampling settings page actions.
 ///
 /// Use this in widgets to trigger user actions.
 final samplingSettingsPageActionsProvider =
     Provider<SamplingSettingsPageActions>((ref) {
-  return ref.read(_samplingSettingsPageViewModelProvider.notifier);
-});
+      return ref.read(_samplingSettingsPageViewModelProvider.notifier);
+    });

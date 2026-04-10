@@ -18,13 +18,15 @@ class Meta {
   });
 
   Meta.fromJson(dynamic json) {
-    session =
-        json['session'] != null ? Session.fromJson(json['session']) : null;
+    session = json['session'] != null
+        ? Session.fromJson(json['session'])
+        : null;
     sdk = json['sdk'] != null ? Sdk.fromJson(json['sdk']) : null;
     app = json['app'] != null ? App.fromJson(json['app']) : null;
     view = json['view'] != null ? ViewMeta.fromJson(json['view']) : null;
-    browser =
-        json['browser'] != null ? Browser.fromJson(json['browser']) : null;
+    browser = json['browser'] != null
+        ? Browser.fromJson(json['browser'])
+        : null;
     page = json['page'] != null ? Page.fromJson(json['page']) : null;
     user = json['user'] != null ? FaroUser.fromJson(json['user']) : null;
   }

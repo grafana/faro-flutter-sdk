@@ -41,8 +41,7 @@ void main() {
       signalChannel.dispose();
     });
 
-    testWidgets(
-        'does not recurse when another component wraps '
+    testWidgets('does not recurse when another component wraps '
         'onBuildScheduled after attach', (tester) async {
       final binding = TestWidgetsFlutterBinding.instance;
       final buildOwner = binding.buildOwner!;
@@ -85,8 +84,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
     });
 
-    testWidgets('preserves external wrapper in the callback chain',
-        (tester) async {
+    testWidgets('preserves external wrapper in the callback chain', (
+      tester,
+    ) async {
       final binding = TestWidgetsFlutterBinding.instance;
       final buildOwner = binding.buildOwner!;
 

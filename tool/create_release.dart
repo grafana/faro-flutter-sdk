@@ -28,10 +28,7 @@ Future<String> getVersion() async {
 /// Get the previous git tag
 Future<String?> getPreviousTag() async {
   // Get all tags sorted by version
-  final result = await Process.run(
-    'git',
-    ['tag', '--sort=-v:refname'],
-  );
+  final result = await Process.run('git', ['tag', '--sort=-v:refname']);
 
   if (result.exitCode != 0) {
     return null;
@@ -47,10 +44,7 @@ Future<String?> getPreviousTag() async {
 
 /// Get the GitHub repository URL
 Future<String?> getRepoUrl() async {
-  final result = await Process.run(
-    'git',
-    ['remote', 'get-url', 'origin'],
-  );
+  final result = await Process.run('git', ['remote', 'get-url', 'origin']);
 
   if (result.exitCode != 0) {
     return null;
@@ -139,7 +133,8 @@ Future<bool> createAndPushTag(String tag) async {
   var result = await Process.run('git', ['tag', tag]);
   if (result.exitCode != 0) {
     stderr.writeln(
-        '${Colors.red}Failed to create tag: ${result.stderr}${Colors.reset}');
+      '${Colors.red}Failed to create tag: ${result.stderr}${Colors.reset}',
+    );
     return false;
   }
 
@@ -147,7 +142,8 @@ Future<bool> createAndPushTag(String tag) async {
   result = await Process.run('git', ['push', 'origin', tag]);
   if (result.exitCode != 0) {
     stderr.writeln(
-        '${Colors.red}Failed to push tag: ${result.stderr}${Colors.reset}');
+      '${Colors.red}Failed to push tag: ${result.stderr}${Colors.reset}',
+    );
     // Try to delete the local tag if push failed
     await Process.run('git', ['tag', '-d', tag]);
     return false;
@@ -157,27 +153,22 @@ Future<bool> createAndPushTag(String tag) async {
 }
 
 /// Create GitHub release using gh CLI
-Future<bool> createGitHubRelease(
-  String tag,
-  String title,
-  String body,
-) async {
-  final result = await Process.run(
-    'gh',
-    [
-      'release',
-      'create',
-      tag,
-      '--title',
-      title,
-      '--notes',
-      body,
-    ],
-  );
+Future<bool> createGitHubRelease(String tag, String title, String body) async {
+  final result = await Process.run('gh', [
+    'release',
+    'create',
+    tag,
+    '--title',
+    title,
+    '--notes',
+    body,
+  ]);
 
   if (result.exitCode != 0) {
-    stderr.writeln('${Colors.red}Failed to create GitHub '
-        'release: ${result.stderr}${Colors.reset}');
+    stderr.writeln(
+      '${Colors.red}Failed to create GitHub '
+      'release: ${result.stderr}${Colors.reset}',
+    );
     return false;
   }
 
@@ -188,14 +179,17 @@ Future<bool> createGitHubRelease(
 Future<String?> enrichWithAI(String changelog, String version) async {
   final apiKey = Platform.environment['OPENAI_API_KEY'];
   if (apiKey == null || apiKey.isEmpty) {
-    stderr.writeln('${Colors.red}Error: OPENAI_API_KEY '
-        'environment variable is not set${Colors.reset}');
+    stderr.writeln(
+      '${Colors.red}Error: OPENAI_API_KEY '
+      'environment variable is not set${Colors.reset}',
+    );
     stderr.writeln('Set it with: export OPENAI_API_KEY="your-key-here"');
     return null;
   }
 
   stdout.write(
-      '${Colors.blue}Enriching release notes with AI... ${Colors.reset}');
+    '${Colors.blue}Enriching release notes with AI... ${Colors.reset}',
+  );
 
   try {
     final client = HttpClient();
@@ -212,7 +206,8 @@ Future<String?> enrichWithAI(String changelog, String version) async {
       'messages': [
         {
           'role': 'system',
-          'content': '''
+          'content':
+              '''
 You are writing GitHub release notes for the Grafana Faro Flutter SDK (pub.dev package: faro), a mobile observability SDK for Flutter applications.
 
 Transform raw CHANGELOG content into polished, user-friendly GitHub release notes.
@@ -235,7 +230,7 @@ Guidelines:
           'role': 'user',
           'content':
               'Create release notes for version $version from this changelog '
-                  'content:\n\n$changelog',
+              'content:\n\n$changelog',
         },
       ],
     });
@@ -247,8 +242,10 @@ Guidelines:
 
     if (response.statusCode != 200) {
       stdout.writeln('${Colors.red}✗${Colors.reset}');
-      stderr.writeln('${Colors.yellow}Warning: OpenAI API returned status '
-          '${response.statusCode}${Colors.reset}');
+      stderr.writeln(
+        '${Colors.yellow}Warning: OpenAI API returned status '
+        '${response.statusCode}${Colors.reset}',
+      );
       return null;
     }
 
@@ -256,8 +253,10 @@ Guidelines:
     final choices = json['choices'] as List<dynamic>;
     if (choices.isEmpty) {
       stdout.writeln('${Colors.red}✗${Colors.reset}');
-      stderr.writeln('${Colors.yellow}Warning: OpenAI API returned no choices'
-          '${Colors.reset}');
+      stderr.writeln(
+        '${Colors.yellow}Warning: OpenAI API returned no choices'
+        '${Colors.reset}',
+      );
       return null;
     }
 
@@ -267,17 +266,14 @@ Guidelines:
   } catch (e) {
     stdout.writeln('${Colors.red}✗${Colors.reset}');
     stderr.writeln(
-        '${Colors.yellow}Warning: AI enrichment failed: $e${Colors.reset}');
+      '${Colors.yellow}Warning: AI enrichment failed: $e${Colors.reset}',
+    );
     return null;
   }
 }
 
 /// Wrap raw changelog in a standard release notes template
-String _wrapInTemplate(
-  String changelog,
-  String version,
-  String changelogUrl,
-) {
+String _wrapInTemplate(String changelog, String version, String changelogUrl) {
   final buffer = StringBuffer();
   buffer.writeln('# Faro Flutter SDK v$version');
   buffer.writeln();
@@ -292,10 +288,13 @@ void printUsage() {
   stdout.writeln('Usage: dart tool/create_release.dart [options]');
   stdout.writeln('');
   stdout.writeln('Options:');
-  stdout
-      .writeln('  --dry-run    Preview the release without creating anything');
-  stdout.writeln('  --enrich     Use AI to enrich release notes '
-      '(requires OPENAI_API_KEY)');
+  stdout.writeln(
+    '  --dry-run    Preview the release without creating anything',
+  );
+  stdout.writeln(
+    '  --enrich     Use AI to enrich release notes '
+    '(requires OPENAI_API_KEY)',
+  );
   stdout.writeln('  --help       Show this help message');
 }
 
@@ -313,23 +312,29 @@ Future<void> main(List<String> args) async {
   stdout.writeln('');
 
   if (isDryRun) {
-    stdout.writeln('${Colors.yellow}🔍 DRY RUN MODE '
-        '- No changes will be made${Colors.reset}');
+    stdout.writeln(
+      '${Colors.yellow}🔍 DRY RUN MODE '
+      '- No changes will be made${Colors.reset}',
+    );
     stdout.writeln('');
   }
 
   // Check prerequisites (skip in dry-run mode)
   if (!isDryRun) {
     if (!await isOnMainBranch()) {
-      stderr.writeln('${Colors.red}Error: Must be on main '
-          'branch to create a release${Colors.reset}');
+      stderr.writeln(
+        '${Colors.red}Error: Must be on main '
+        'branch to create a release${Colors.reset}',
+      );
       stderr.writeln('Run: git checkout main && git pull origin main');
       exit(1);
     }
 
     if (!await isWorkingDirectoryClean()) {
-      stderr.writeln('${Colors.red}Error: Working directory '
-          'has uncommitted changes${Colors.reset}');
+      stderr.writeln(
+        '${Colors.red}Error: Working directory '
+        'has uncommitted changes${Colors.reset}',
+      );
       stderr.writeln('Commit or stash your changes before creating a release.');
       exit(1);
     }
@@ -339,19 +344,24 @@ Future<void> main(List<String> args) async {
   final version = await getVersion();
   final tag = 'v$version';
 
-  stdout.writeln('${Colors.blue}📦 Creating release for '
-      'Faro Flutter SDK $tag${Colors.reset}');
+  stdout.writeln(
+    '${Colors.blue}📦 Creating release for '
+    'Faro Flutter SDK $tag${Colors.reset}',
+  );
   stdout.writeln('');
 
   // Check if tag already exists (warn in dry-run, error otherwise)
   if (await tagExists(tag)) {
     if (isDryRun) {
-      stdout.writeln('${Colors.yellow}⚠ Tag $tag already '
-          'exists (would fail in real run)${Colors.reset}');
+      stdout.writeln(
+        '${Colors.yellow}⚠ Tag $tag already '
+        'exists (would fail in real run)${Colors.reset}',
+      );
       stdout.writeln('');
     } else {
       stderr.writeln(
-          '${Colors.red}Error: Tag $tag already exists${Colors.reset}');
+        '${Colors.red}Error: Tag $tag already exists${Colors.reset}',
+      );
       stderr.writeln('If you need to re-release, delete the tag first:');
       stderr.writeln('  git tag -d $tag && git push origin :$tag');
       exit(1);
@@ -368,8 +378,10 @@ Future<void> main(List<String> args) async {
   }
 
   if (changelog.trim().isEmpty) {
-    stderr.writeln('${Colors.red}Error: No changelog content '
-        'found for version $version${Colors.reset}');
+    stderr.writeln(
+      '${Colors.red}Error: No changelog content '
+      'found for version $version${Colors.reset}',
+    );
     exit(1);
   }
 
@@ -388,7 +400,8 @@ Future<void> main(List<String> args) async {
       releaseNotes = enriched;
     } else {
       stderr.writeln(
-          '${Colors.yellow}Falling back to plain changelog${Colors.reset}');
+        '${Colors.yellow}Falling back to plain changelog${Colors.reset}',
+      );
       stdout.writeln('');
       releaseNotes = _wrapInTemplate(changelog, version, changelogUrl);
     }
@@ -415,17 +428,23 @@ Future<void> main(List<String> args) async {
   } else {
     stdout.writeln('This will:');
   }
-  stdout.writeln('  ${Colors.green}•${Colors.reset} Create '
-      'git tag: ${Colors.yellow}$tag${Colors.reset}');
+  stdout.writeln(
+    '  ${Colors.green}•${Colors.reset} Create '
+    'git tag: ${Colors.yellow}$tag${Colors.reset}',
+  );
   stdout.writeln('  ${Colors.green}•${Colors.reset} Push tag to origin');
-  stdout.writeln('  ${Colors.green}•${Colors.reset} Create '
-      'GitHub release with above notes');
+  stdout.writeln(
+    '  ${Colors.green}•${Colors.reset} Create '
+    'GitHub release with above notes',
+  );
   stdout.writeln('');
 
   // In dry-run mode, exit here
   if (isDryRun) {
-    stdout.writeln('${Colors.green}✅ Dry run complete. '
-        'No changes were made.${Colors.reset}');
+    stdout.writeln(
+      '${Colors.green}✅ Dry run complete. '
+      'No changes were made.${Colors.reset}',
+    );
     exit(0);
   }
 
@@ -453,29 +472,35 @@ Future<void> main(List<String> args) async {
   try {
     if (!await createGitHubRelease(tag, releaseTitle, releaseNotes)) {
       stderr.writeln('');
-      stderr.writeln('${Colors.yellow}Tag was pushed but GitHub '
-          'release creation failed.${Colors.reset}');
+      stderr.writeln(
+        '${Colors.yellow}Tag was pushed but GitHub '
+        'release creation failed.${Colors.reset}',
+      );
       stderr.writeln('You can create the release manually at:');
       if (repoUrl != null) {
         stderr.writeln('  $repoUrl/releases/new?tag=$tag');
       } else {
         stderr.writeln(
-            '  https://github.com/<owner>/<repo>/releases/new?tag=$tag');
+          '  https://github.com/<owner>/<repo>/releases/new?tag=$tag',
+        );
       }
       exit(1);
     }
   } on ProcessException catch (e) {
     stderr.writeln('');
-    stderr.writeln('${Colors.yellow}Tag was pushed but GitHub '
-        'release creation failed.${Colors.reset}');
+    stderr.writeln(
+      '${Colors.yellow}Tag was pushed but GitHub '
+      'release creation failed.${Colors.reset}',
+    );
     stderr.writeln('${Colors.red}Error: ${e.message}${Colors.reset}');
     stderr.writeln('Make sure the gh CLI is installed and in your PATH.');
     stderr.writeln('You can create the release manually at:');
     if (repoUrl != null) {
       stderr.writeln('  $repoUrl/releases/new?tag=$tag');
     } else {
-      stderr
-          .writeln('  https://github.com/<owner>/<repo>/releases/new?tag=$tag');
+      stderr.writeln(
+        '  https://github.com/<owner>/<repo>/releases/new?tag=$tag',
+      );
     }
     exit(1);
   }
@@ -484,7 +509,8 @@ Future<void> main(List<String> args) async {
   // Success!
   stdout.writeln('');
   stdout.writeln(
-      '${Colors.green}🚀 Release $tag created successfully!${Colors.reset}');
+    '${Colors.green}🚀 Release $tag created successfully!${Colors.reset}',
+  );
   stdout.writeln('');
   stdout.writeln('Next steps:');
   stdout.writeln('  1. GitHub Actions will automatically publish to pub.dev');
@@ -492,7 +518,8 @@ Future<void> main(List<String> args) async {
   stdout.writeln('');
   if (repoUrl != null) {
     stdout.writeln(
-        '${Colors.cyan}Release:${Colors.reset} $repoUrl/releases/tag/$tag');
+      '${Colors.cyan}Release:${Colors.reset} $repoUrl/releases/tag/$tag',
+    );
     stdout.writeln('${Colors.cyan}Actions:${Colors.reset} $repoUrl/actions');
   }
 }

@@ -12,10 +12,7 @@ import 'auto_pop_page.dart';
 
 /// Immutable UI state for the User Actions demo page.
 class UserActionsPageUiState extends Equatable {
-  const UserActionsPageUiState({
-    required this.log,
-    required this.isRunning,
-  });
+  const UserActionsPageUiState({required this.log, required this.isRunning});
 
   final List<ActionLogEntry> log;
   final bool isRunning;
@@ -74,10 +71,7 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
   @override
   UserActionsPageUiState build() {
     _service = ref.watch(userActionsDemoServiceProvider);
-    return const UserActionsPageUiState(
-      log: [],
-      isRunning: false,
-    );
+    return const UserActionsPageUiState(log: [], isRunning: false);
   }
 
   // ---------------------------------------------------------------------------
@@ -105,10 +99,7 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
   void _noop() {}
 
   Future<void> _run(
-    Future<void> Function(
-      LogCallback log,
-      StatePollCallback onTick,
-    ) operation,
+    Future<void> Function(LogCallback log, StatePollCallback onTick) operation,
   ) async {
     state = state.copyWith(isRunning: true);
     try {
@@ -217,8 +208,8 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
 
 final _viewModelProvider =
     NotifierProvider<_UserActionsPageViewModel, UserActionsPageUiState>(
-  _UserActionsPageViewModel.new,
-);
+      _UserActionsPageViewModel.new,
+    );
 
 /// Watch this to rebuild when UI state changes.
 final userActionsPageUiStateProvider = Provider<UserActionsPageUiState>((ref) {

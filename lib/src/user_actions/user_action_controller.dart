@@ -32,10 +32,7 @@ class UserActionLifecycleController {
   ///
   /// - [userAction]: The user action to manage
   /// - [signalStream]: Stream of user action lifecycle signals
-  UserActionLifecycleController(
-    this._userAction,
-    this._signalStream,
-  );
+  UserActionLifecycleController(this._userAction, this._signalStream);
 
   final UserAction _userAction;
   final Stream<UserActionSignal> _signalStream;
@@ -54,9 +51,11 @@ class UserActionLifecycleController {
   void attach() {
     _signalSubscription?.cancel();
     _signalSubscription = _signalStream
-        .where((_) =>
-            _userAction.getState() == UserActionState.started ||
-            _userAction.getState() == UserActionState.halted)
+        .where(
+          (_) =>
+              _userAction.getState() == UserActionState.started ||
+              _userAction.getState() == UserActionState.halted,
+        )
         .where(_shouldProcessSignal)
         .listen(_handleSignal);
 
@@ -161,13 +160,15 @@ class UserActionLifecycleController {
   }
 }
 
-typedef UserActionLifecycleControllerFactory = UserActionLifecycleController
-    Function(UserAction userAction);
+typedef UserActionLifecycleControllerFactory =
+    UserActionLifecycleController Function(UserAction userAction);
 
 final userActionLifecycleControllerFactoryProvider =
     Provider<UserActionLifecycleControllerFactory>((pod) {
-  final signalChannel = pod.resolve(userActionLifecycleSignalChannelProvider);
-  return (UserAction userAction) {
-    return UserActionLifecycleController(userAction, signalChannel.stream);
-  };
-});
+      final signalChannel = pod.resolve(
+        userActionLifecycleSignalChannelProvider,
+      );
+      return (UserAction userAction) {
+        return UserActionLifecycleController(userAction, signalChannel.stream);
+      };
+    });

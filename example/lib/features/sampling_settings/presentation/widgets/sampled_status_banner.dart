@@ -14,8 +14,9 @@ class SampledStatusBanner extends StatelessWidget {
         color: isSessionSampled ? Colors.green.shade50 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color:
-              isSessionSampled ? Colors.green.shade200 : Colors.grey.shade300,
+          color: isSessionSampled
+              ? Colors.green.shade200
+              : Colors.grey.shade300,
         ),
       ),
       child: Row(

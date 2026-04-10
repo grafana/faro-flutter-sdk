@@ -81,8 +81,7 @@ void main() {
     BatchTransportFactory().reset();
   });
 
-  testWidgets(
-      'asset load through FaroAssetTracking pushes Asset-load event '
+  testWidgets('asset load through FaroAssetTracking pushes Asset-load event '
       'to transport', (tester) async {
     await initializeFaro();
 
@@ -115,8 +114,7 @@ void main() {
     expect(hasAssetLoadEvent, isTrue);
   });
 
-  testWidgets(
-      'asset load during active user action emits activity signal '
+  testWidgets('asset load during active user action emits activity signal '
       'that keeps the action alive', (tester) async {
     await initializeFaro();
 

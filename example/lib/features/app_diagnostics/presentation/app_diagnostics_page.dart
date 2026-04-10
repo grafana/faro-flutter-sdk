@@ -16,10 +16,7 @@ class AppDiagnosticsPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('App Diagnostics'),
         actions: [
-          TextButton(
-            onPressed: actions.clearLog,
-            child: const Text('Clear'),
-          ),
+          TextButton(onPressed: actions.clearLog, child: const Text('Clear')),
         ],
       ),
       body: Column(
@@ -38,10 +35,7 @@ class AppDiagnosticsPage extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.warning_amber,
-                        color: Colors.orange.shade800,
-                      ),
+                      Icon(Icons.warning_amber, color: Colors.orange.shade800),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
@@ -56,10 +50,7 @@ class AppDiagnosticsPage extends ConsumerWidget {
                 const SizedBox(height: 16),
                 const Text(
                   'Failure and ANR demos',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(

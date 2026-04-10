@@ -58,7 +58,7 @@ abstract class FaroSdkPlatform extends PlatformInterface {
     throw UnimplementedError('getANRStatus() has not been implemented.');
   }
 
-// Test
+  // Test
   Future<Map<String, dynamic>?> stopFramesTracker() {
     throw UnimplementedError('stopFramesTracker() has not been implemented.');
   }

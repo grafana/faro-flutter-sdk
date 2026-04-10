@@ -1,9 +1,8 @@
 import 'package:faro/src/models/trace/trace_attribute.dart';
 
 class TraceResource {
-  TraceResource({
-    required List<TraceAttribute> attributes,
-  }) : _attributes = attributes;
+  TraceResource({required List<TraceAttribute> attributes})
+    : _attributes = attributes;
 
   TraceResource.fromJson(dynamic json) {
     if (json['attributes'] != null) {

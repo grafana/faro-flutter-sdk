@@ -7,8 +7,12 @@ Element? _clickTrackerElement;
 const _tapAreaSizeSquared = 20 * 20.0;
 
 class UserInteractionProperties {
-  UserInteractionProperties(
-      {this.element, this.elementType, this.description, this.eventType});
+  UserInteractionProperties({
+    this.element,
+    this.elementType,
+    this.description,
+    this.eventType,
+  });
   Element? element;
   String? elementType;
   String? description;
@@ -53,8 +57,9 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
   void _onPointerUp(PointerUpEvent event) {
     if (_lastPointerDownLocation != null && event.pointer == _lastPointerId) {
       final distanceOffset = Offset(
-          _lastPointerDownLocation!.dx - event.localPosition.dx,
-          _lastPointerDownLocation!.dy - event.localPosition.dy);
+        _lastPointerDownLocation!.dx - event.localPosition.dx,
+        _lastPointerDownLocation!.dy - event.localPosition.dy,
+      );
 
       final distanceSquared = distanceOffset.distanceSquared;
       if (distanceSquared < _tapAreaSizeSquared) {
@@ -66,12 +71,15 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
   void _onTapped(Offset localPosition, String tap) {
     final tappedElement = _findElementTapped(localPosition);
     if (tappedElement != null) {
-      Faro().pushEvent('user_interaction', attributes: {
-        'element_type': tappedElement.elementType,
-        'element_description': tappedElement.description,
-        'event_type': tappedElement.eventType,
-        'event': 'onClick'
-      });
+      Faro().pushEvent(
+        'user_interaction',
+        attributes: {
+          'element_type': tappedElement.elementType,
+          'element_description': tappedElement.description,
+          'event_type': tappedElement.eventType,
+          'event': 'onClick',
+        },
+      );
     }
   }
 
@@ -102,8 +110,10 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
         hitFound = renderObject.hitTest(hitTest, position: position);
       }
       final transform = renderObject.getTransformTo(rootElement.renderObject);
-      final paintBounds =
-          MatrixUtils.transformRect(transform, renderObject.paintBounds);
+      final paintBounds = MatrixUtils.transformRect(
+        transform,
+        renderObject.paintBounds,
+      );
 
       if (!paintBounds.contains(position)) {
         return;
@@ -160,58 +170,65 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
     if (widget is ButtonStyleButton) {
       if (widget.enabled) {
         return UserInteractionProperties(
-            element: element,
-            elementType: 'ButtonStyleButton',
-            description: _getElementDescription(element),
-            eventType: 'onClick');
+          element: element,
+          elementType: 'ButtonStyleButton',
+          description: _getElementDescription(element),
+          eventType: 'onClick',
+        );
       }
     } else if (widget is MaterialButton) {
       if (widget.enabled) {
         return UserInteractionProperties(
-            element: element,
-            elementType: 'MaterialButton',
-            description: _getElementDescription(element),
-            eventType: 'onClick');
+          element: element,
+          elementType: 'MaterialButton',
+          description: _getElementDescription(element),
+          eventType: 'onClick',
+        );
       }
     } else if (widget is CupertinoButton) {
       if (widget.enabled) {
         return UserInteractionProperties(
-            element: element,
-            elementType: 'CupertinoButton',
-            description: _getElementDescription(element),
-            eventType: 'onPressed');
+          element: element,
+          elementType: 'CupertinoButton',
+          description: _getElementDescription(element),
+          eventType: 'onPressed',
+        );
       }
     } else if (widget is PopupMenuButton) {
       if (widget.enabled) {
         return UserInteractionProperties(
-            element: element,
-            elementType: 'PopupMenuButton',
-            description: _getElementDescription(element),
-            eventType: 'onTap');
+          element: element,
+          elementType: 'PopupMenuButton',
+          description: _getElementDescription(element),
+          eventType: 'onTap',
+        );
       }
     } else if (widget is PopupMenuItem) {
       if (widget.enabled) {
         return UserInteractionProperties(
-            element: element,
-            elementType: 'PopupMenuItem',
-            description: _getElementDescription(element),
-            eventType: 'onTap');
+          element: element,
+          elementType: 'PopupMenuItem',
+          description: _getElementDescription(element),
+          eventType: 'onTap',
+        );
       }
     } else if (widget is InkWell) {
       if (widget.onTap != null) {
         return UserInteractionProperties(
-            element: element,
-            elementType: 'InkWell',
-            description: _getElementDescription(element),
-            eventType: 'onTap');
+          element: element,
+          elementType: 'InkWell',
+          description: _getElementDescription(element),
+          eventType: 'onTap',
+        );
       }
     } else if (widget is IconButton) {
       if (widget.onPressed != null) {
         return UserInteractionProperties(
-            element: element,
-            elementType: 'IconButton',
-            description: _getElementDescription(element),
-            eventType: 'onPressed');
+          element: element,
+          elementType: 'IconButton',
+          description: _getElementDescription(element),
+          eventType: 'onPressed',
+        );
       }
     }
     return null;

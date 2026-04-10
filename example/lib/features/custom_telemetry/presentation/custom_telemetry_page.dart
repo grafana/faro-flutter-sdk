@@ -12,17 +12,15 @@ class CustomTelemetryPage extends ConsumerWidget {
     final uiState = ref.watch(customTelemetryPageUiStateProvider);
     final actions = ref.watch(customTelemetryPageActionsProvider);
 
-    final dataCollectionColor =
-        uiState.isDataCollectionEnabled ? Colors.green : Colors.orange;
+    final dataCollectionColor = uiState.isDataCollectionEnabled
+        ? Colors.green
+        : Colors.orange;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Custom Telemetry'),
         actions: [
-          TextButton(
-            onPressed: actions.clearLog,
-            child: const Text('Clear'),
-          ),
+          TextButton(onPressed: actions.clearLog, child: const Text('Clear')),
         ],
       ),
       body: Column(
@@ -62,10 +60,7 @@ class CustomTelemetryPage extends ConsumerWidget {
                 const SizedBox(height: 16),
                 const Text(
                   'Telemetry Signals',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(

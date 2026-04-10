@@ -149,8 +149,8 @@ class Faro {
 
     _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
 
-    final attributesProvider =
-        await SessionAttributesProviderFactory().create();
+    final attributesProvider = await SessionAttributesProviderFactory()
+        .create();
     final customAttributes = optionsConfiguration.sessionAttributes ?? {};
     final defaultAttributes = await attributesProvider.getAttributes();
     // Merge custom attributes first, then default attributes
@@ -203,14 +203,14 @@ class Faro {
 
     if (config?.transports == null) {
       Faro()._transports.add(
-            FaroTransport(
-              collectorUrl: optionsConfiguration.collectorUrl ?? '',
-              apiKey: optionsConfiguration.apiKey,
-              maxBufferLimit: config?.maxBufferLimit,
-              sessionId: meta.session?.id,
-              headers: optionsConfiguration.collectorHeaders,
-            ),
-          );
+        FaroTransport(
+          collectorUrl: optionsConfiguration.collectorUrl ?? '',
+          apiKey: optionsConfiguration.apiKey,
+          maxBufferLimit: config?.maxBufferLimit,
+          sessionId: meta.session?.id,
+          headers: optionsConfiguration.collectorHeaders,
+        ),
+      );
     } else {
       Faro()._transports.addAll(config?.transports ?? []);
     }

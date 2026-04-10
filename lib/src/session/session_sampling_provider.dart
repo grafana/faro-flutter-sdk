@@ -20,8 +20,9 @@ class SessionSamplingProvider {
     Sampling? sampling,
     required Meta meta,
     required RandomValueProvider randomValueProvider,
-  }) : isSampled = randomValueProvider.nextDouble() <
-            (sampling ?? _defaultSampling).resolve(SamplingContext(meta: meta));
+  }) : isSampled =
+           randomValueProvider.nextDouble() <
+           (sampling ?? _defaultSampling).resolve(SamplingContext(meta: meta));
 
   /// Whether this session is sampled.
   ///

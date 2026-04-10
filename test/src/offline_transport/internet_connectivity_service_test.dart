@@ -26,10 +26,12 @@ void main() {
         StreamController<List<ConnectivityResult>>.broadcast();
     fakeConnectivityResults = [ConnectivityResult.none];
 
-    when(() => mockConnectivity.checkConnectivity())
-        .thenAnswer((_) async => fakeConnectivityResults);
-    when(() => mockConnectivity.onConnectivityChanged)
-        .thenAnswer((_) => fakeConnectivityController.stream);
+    when(
+      () => mockConnectivity.checkConnectivity(),
+    ).thenAnswer((_) async => fakeConnectivityResults);
+    when(
+      () => mockConnectivity.onConnectivityChanged,
+    ).thenAnswer((_) => fakeConnectivityController.stream);
 
     service = InternetConnectivityService(
       connectivity: mockConnectivity,
@@ -76,26 +78,30 @@ void main() {
         expect(service.isOnline, false);
       });
 
-      test('returns true when has connectivity and internet check succeeds',
-          () async {
-        fakeConnectivityController.add([ConnectivityResult.wifi]);
-        await waitForAsyncWork();
-        expect(service.isOnline, true);
-      });
+      test(
+        'returns true when has connectivity and internet check succeeds',
+        () async {
+          fakeConnectivityController.add([ConnectivityResult.wifi]);
+          await waitForAsyncWork();
+          expect(service.isOnline, true);
+        },
+      );
 
-      test('returns false when has connectivity but internet check fails',
-          () async {
-        service = InternetConnectivityService(
-          connectivity: mockConnectivity,
-          internetConnectionCheckerUrl: 'invalid.domain.that.does.not.exist',
-        );
+      test(
+        'returns false when has connectivity but internet check fails',
+        () async {
+          service = InternetConnectivityService(
+            connectivity: mockConnectivity,
+            internetConnectionCheckerUrl: 'invalid.domain.that.does.not.exist',
+          );
 
-        fakeConnectivityController.add([ConnectivityResult.wifi]);
+          fakeConnectivityController.add([ConnectivityResult.wifi]);
 
-        await waitForAsyncWork();
+          await waitForAsyncWork();
 
-        expect(service.isOnline, false);
-      });
+          expect(service.isOnline, false);
+        },
+      );
     });
 
     group('onConnectivityChanged:', () {

@@ -41,149 +41,129 @@ void main() {
 
   group('FaroUserActionSpanProcessor:', () {
     group('onStart:', () {
-      test(
-        'should set action attributes on span '
-        'when action is in started state',
-        () {
-          final action = UserAction(name: 'checkout');
-          final processor = FaroUserActionSpanProcessor(
-            delegate: mockDelegate,
-            activeUserActionResolver: () => action,
-            lifecycleSignalChannel: lifecycleSignalChannel,
-          );
+      test('should set action attributes on span '
+          'when action is in started state', () {
+        final action = UserAction(name: 'checkout');
+        final processor = FaroUserActionSpanProcessor(
+          delegate: mockDelegate,
+          activeUserActionResolver: () => action,
+          lifecycleSignalChannel: lifecycleSignalChannel,
+        );
 
+        processor.onStart(mockSpan, mockContext);
+
+        final captured = verify(
+          () => mockSpan.setAttribute(captureAny()),
+        ).captured;
+
+        expect(captured, hasLength(2));
+        final nameAttr = captured[0] as otel_api.Attribute;
+        final parentIdAttr = captured[1] as otel_api.Attribute;
+
+        expect(nameAttr.key, equals('faro.action.user.name'));
+        expect(nameAttr.value, equals('checkout'));
+        expect(parentIdAttr.key, equals('faro.action.user.parentId'));
+        expect(parentIdAttr.value, equals(action.id));
+
+        action.dispose();
+      });
+
+      test('should NOT set attributes when no active action', () {
+        final processor = FaroUserActionSpanProcessor(
+          delegate: mockDelegate,
+          activeUserActionResolver: () => null,
+          lifecycleSignalChannel: lifecycleSignalChannel,
+        );
+
+        processor.onStart(mockSpan, mockContext);
+
+        verifyNever(() => mockSpan.setAttribute(any()));
+      });
+
+      test('should NOT set attributes when action is in halted state', () {
+        final action = UserAction(name: 'checkout');
+        action.halt();
+
+        final processor = FaroUserActionSpanProcessor(
+          delegate: mockDelegate,
+          activeUserActionResolver: () => action,
+          lifecycleSignalChannel: lifecycleSignalChannel,
+        );
+
+        processor.onStart(mockSpan, mockContext);
+
+        verifyNever(() => mockSpan.setAttribute(any()));
+
+        action.dispose();
+      });
+
+      test('should NOT set attributes when action is in ended state', () {
+        final action = UserAction(name: 'checkout');
+        action.end();
+
+        final processor = FaroUserActionSpanProcessor(
+          delegate: mockDelegate,
+          activeUserActionResolver: () => action,
+          lifecycleSignalChannel: lifecycleSignalChannel,
+        );
+
+        processor.onStart(mockSpan, mockContext);
+
+        verifyNever(() => mockSpan.setAttribute(any()));
+
+        action.dispose();
+      });
+
+      test('should NOT set attributes when action is in cancelled state', () {
+        final action = UserAction(name: 'checkout');
+        action.cancel();
+
+        final processor = FaroUserActionSpanProcessor(
+          delegate: mockDelegate,
+          activeUserActionResolver: () => action,
+          lifecycleSignalChannel: lifecycleSignalChannel,
+        );
+
+        processor.onStart(mockSpan, mockContext);
+
+        verifyNever(() => mockSpan.setAttribute(any()));
+
+        action.dispose();
+      });
+
+      test('should set action attributes on all span kinds', () {
+        final action = UserAction(name: 'checkout');
+        final processor = FaroUserActionSpanProcessor(
+          delegate: mockDelegate,
+          activeUserActionResolver: () => action,
+          lifecycleSignalChannel: lifecycleSignalChannel,
+        );
+
+        for (final kind in otel_api.SpanKind.values) {
+          reset(mockSpan);
+          when(() => mockSpan.kind).thenReturn(kind);
+          when(
+            () => mockSpan.attributes,
+          ).thenReturn(otel_sdk.Attributes.empty());
           processor.onStart(mockSpan, mockContext);
 
-          final captured = verify(
-            () => mockSpan.setAttribute(captureAny()),
-          ).captured;
+          verify(() => mockSpan.setAttribute(any())).called(2);
+        }
 
-          expect(captured, hasLength(2));
-          final nameAttr = captured[0] as otel_api.Attribute;
-          final parentIdAttr = captured[1] as otel_api.Attribute;
+        action.dispose();
+      });
 
-          expect(nameAttr.key, equals('faro.action.user.name'));
-          expect(nameAttr.value, equals('checkout'));
-          expect(parentIdAttr.key, equals('faro.action.user.parentId'));
-          expect(parentIdAttr.value, equals(action.id));
+      test('should always delegate onStart to wrapped processor', () {
+        final processor = FaroUserActionSpanProcessor(
+          delegate: mockDelegate,
+          activeUserActionResolver: () => null,
+          lifecycleSignalChannel: lifecycleSignalChannel,
+        );
 
-          action.dispose();
-        },
-      );
+        processor.onStart(mockSpan, mockContext);
 
-      test(
-        'should NOT set attributes when no active action',
-        () {
-          final processor = FaroUserActionSpanProcessor(
-            delegate: mockDelegate,
-            activeUserActionResolver: () => null,
-            lifecycleSignalChannel: lifecycleSignalChannel,
-          );
-
-          processor.onStart(mockSpan, mockContext);
-
-          verifyNever(() => mockSpan.setAttribute(any()));
-        },
-      );
-
-      test(
-        'should NOT set attributes when action is in halted state',
-        () {
-          final action = UserAction(name: 'checkout');
-          action.halt();
-
-          final processor = FaroUserActionSpanProcessor(
-            delegate: mockDelegate,
-            activeUserActionResolver: () => action,
-            lifecycleSignalChannel: lifecycleSignalChannel,
-          );
-
-          processor.onStart(mockSpan, mockContext);
-
-          verifyNever(() => mockSpan.setAttribute(any()));
-
-          action.dispose();
-        },
-      );
-
-      test(
-        'should NOT set attributes when action is in ended state',
-        () {
-          final action = UserAction(name: 'checkout');
-          action.end();
-
-          final processor = FaroUserActionSpanProcessor(
-            delegate: mockDelegate,
-            activeUserActionResolver: () => action,
-            lifecycleSignalChannel: lifecycleSignalChannel,
-          );
-
-          processor.onStart(mockSpan, mockContext);
-
-          verifyNever(() => mockSpan.setAttribute(any()));
-
-          action.dispose();
-        },
-      );
-
-      test(
-        'should NOT set attributes when action is in cancelled state',
-        () {
-          final action = UserAction(name: 'checkout');
-          action.cancel();
-
-          final processor = FaroUserActionSpanProcessor(
-            delegate: mockDelegate,
-            activeUserActionResolver: () => action,
-            lifecycleSignalChannel: lifecycleSignalChannel,
-          );
-
-          processor.onStart(mockSpan, mockContext);
-
-          verifyNever(() => mockSpan.setAttribute(any()));
-
-          action.dispose();
-        },
-      );
-
-      test(
-        'should set action attributes on all span kinds',
-        () {
-          final action = UserAction(name: 'checkout');
-          final processor = FaroUserActionSpanProcessor(
-            delegate: mockDelegate,
-            activeUserActionResolver: () => action,
-            lifecycleSignalChannel: lifecycleSignalChannel,
-          );
-
-          for (final kind in otel_api.SpanKind.values) {
-            reset(mockSpan);
-            when(() => mockSpan.kind).thenReturn(kind);
-            when(() => mockSpan.attributes)
-                .thenReturn(otel_sdk.Attributes.empty());
-            processor.onStart(mockSpan, mockContext);
-
-            verify(() => mockSpan.setAttribute(any())).called(2);
-          }
-
-          action.dispose();
-        },
-      );
-
-      test(
-        'should always delegate onStart to wrapped processor',
-        () {
-          final processor = FaroUserActionSpanProcessor(
-            delegate: mockDelegate,
-            activeUserActionResolver: () => null,
-            lifecycleSignalChannel: lifecycleSignalChannel,
-          );
-
-          processor.onStart(mockSpan, mockContext);
-
-          verify(() => mockDelegate.onStart(mockSpan, mockContext)).called(1);
-        },
-      );
+        verify(() => mockDelegate.onStart(mockSpan, mockContext)).called(1);
+      });
     });
 
     group('delegation:', () {
@@ -230,50 +210,48 @@ void main() {
         verify(() => mockDelegate.forceFlush()).called(1);
       });
 
-      test('should emit pendingStart and pendingEnd when marker is true',
-          () async {
-        final pendingAttributes = otel_sdk.Attributes.empty();
-        pendingAttributes.add(
-          otel_api.Attribute.fromBoolean(
-            'faro.action.user.pending',
-            true,
-          ),
-        );
-        when(() => mockSpan.attributes).thenReturn(pendingAttributes);
+      test(
+        'should emit pendingStart and pendingEnd when marker is true',
+        () async {
+          final pendingAttributes = otel_sdk.Attributes.empty();
+          pendingAttributes.add(
+            otel_api.Attribute.fromBoolean('faro.action.user.pending', true),
+          );
+          when(() => mockSpan.attributes).thenReturn(pendingAttributes);
 
-        final spanContext = otel_api.SpanContext(
-          otel_api.TraceId.fromString('00000000000000000000000000000001'),
-          otel_api.SpanId.fromString('0000000000000001'),
-          otel_api.TraceFlags.sampled,
-          otel_api.TraceState.empty(),
-        );
-        when(() => mockSpan.spanContext).thenReturn(spanContext);
-        when(() => mockReadOnlySpan.spanContext).thenReturn(spanContext);
+          final spanContext = otel_api.SpanContext(
+            otel_api.TraceId.fromString('00000000000000000000000000000001'),
+            otel_api.SpanId.fromString('0000000000000001'),
+            otel_api.TraceFlags.sampled,
+            otel_api.TraceState.empty(),
+          );
+          when(() => mockSpan.spanContext).thenReturn(spanContext);
+          when(() => mockReadOnlySpan.spanContext).thenReturn(spanContext);
 
-        final processor = FaroUserActionSpanProcessor(
-          delegate: mockDelegate,
-          activeUserActionResolver: () => null,
-          lifecycleSignalChannel: lifecycleSignalChannel,
-        );
+          final processor = FaroUserActionSpanProcessor(
+            delegate: mockDelegate,
+            activeUserActionResolver: () => null,
+            lifecycleSignalChannel: lifecycleSignalChannel,
+          );
 
-        final emitted = <UserActionSignal>[];
-        final subscription = lifecycleSignalChannel.stream.listen(emitted.add);
+          final emitted = <UserActionSignal>[];
+          final subscription = lifecycleSignalChannel.stream.listen(
+            emitted.add,
+          );
 
-        processor.onStart(mockSpan, mockContext);
-        await Future<void>.delayed(Duration.zero);
-        processor.onEnd(mockReadOnlySpan);
-        await Future<void>.delayed(Duration.zero);
+          processor.onStart(mockSpan, mockContext);
+          await Future<void>.delayed(Duration.zero);
+          processor.onEnd(mockReadOnlySpan);
+          await Future<void>.delayed(Duration.zero);
 
-        expect(emitted.length, 2);
-        expect(emitted[0].type, UserActionSignalType.pendingStart);
-        expect(emitted[1].type, UserActionSignalType.pendingEnd);
-        expect(
-          emitted[0].operationId,
-          equals(emitted[1].operationId),
-        );
+          expect(emitted.length, 2);
+          expect(emitted[0].type, UserActionSignalType.pendingStart);
+          expect(emitted[1].type, UserActionSignalType.pendingEnd);
+          expect(emitted[0].operationId, equals(emitted[1].operationId));
 
-        await subscription.cancel();
-      });
+          await subscription.cancel();
+        },
+      );
 
       test('should not emit pending signals when marker is absent', () async {
         when(() => mockSpan.attributes).thenReturn(otel_sdk.Attributes.empty());

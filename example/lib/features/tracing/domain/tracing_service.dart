@@ -19,15 +19,14 @@ class TracingService {
     log('Starting simple span...');
 
     try {
-      final result = await Faro().startSpan<String>(
-        'simple-test-span',
-        (span) async {
-          log('Inside span, doing work...');
-          await Future.delayed(const Duration(milliseconds: 500));
-          span.addEvent('work-completed');
-          return 'success';
-        },
-      );
+      final result = await Faro().startSpan<String>('simple-test-span', (
+        span,
+      ) async {
+        log('Inside span, doing work...');
+        await Future.delayed(const Duration(milliseconds: 500));
+        span.addEvent('work-completed');
+        return 'success';
+      });
       log('Span completed with result: $result');
     } catch (error) {
       log('Error: $error', isError: true);
@@ -47,16 +46,13 @@ class TracingService {
             'user.email': 'john@example.com',
             'action': 'test-action',
           });
-          span.addEvent('user-action', attributes: {
-            'button': 'submit',
-            'page': 'checkout',
-          });
+          span.addEvent(
+            'user-action',
+            attributes: {'button': 'submit', 'page': 'checkout'},
+          );
           await Future.delayed(const Duration(milliseconds: 300));
         },
-        attributes: {
-          'environment': 'test',
-          'version': '1.0.0',
-        },
+        attributes: {'environment': 'test', 'version': '1.0.0'},
       );
       log('String attributes span completed');
     } catch (error) {
@@ -86,18 +82,19 @@ class TracingService {
           });
 
           log('Set attributes: account_count=$accountCount (int)');
-          log(
-            'Set attributes: balance=${balance.toStringAsFixed(2)} (double)',
-          );
+          log('Set attributes: balance=${balance.toStringAsFixed(2)} (double)');
           log('Set attributes: is_premium=$isPremium (bool)');
 
           // Add event with typed attributes
-          span.addEvent('purchase-completed', attributes: {
-            'item_count': random.nextInt(10) + 1,
-            'total_amount': random.nextDouble() * 500,
-            'used_coupon': random.nextBool(),
-            'payment_method': 'credit_card',
-          });
+          span.addEvent(
+            'purchase-completed',
+            attributes: {
+              'item_count': random.nextInt(10) + 1,
+              'total_amount': random.nextDouble() * 500,
+              'used_coupon': random.nextBool(),
+              'payment_method': 'credit_card',
+            },
+          );
 
           await Future.delayed(const Duration(milliseconds: 400));
         },
@@ -148,40 +145,30 @@ class TracingService {
     log('Starting nested spans demo...');
 
     try {
-      await Faro().startSpan<void>(
-        'parent-span',
-        (parentSpan) async {
-          log('Parent span started');
-          parentSpan.setAttributes({'level': 0, 'type': 'parent'});
+      await Faro().startSpan<void>('parent-span', (parentSpan) async {
+        log('Parent span started');
+        parentSpan.setAttributes({'level': 0, 'type': 'parent'});
 
-          await Faro().startSpan<void>(
-            'child-span-1',
-            (childSpan) async {
-              log('  Child span 1 started');
-              childSpan.setAttributes({'level': 1, 'type': 'child'});
-              await Future.delayed(const Duration(milliseconds: 200));
-              log('  Child span 1 completed');
-            },
-          );
+        await Faro().startSpan<void>('child-span-1', (childSpan) async {
+          log('  Child span 1 started');
+          childSpan.setAttributes({'level': 1, 'type': 'child'});
+          await Future.delayed(const Duration(milliseconds: 200));
+          log('  Child span 1 completed');
+        });
 
-          await Faro().startSpan<void>(
-            'child-span-2',
-            (childSpan) async {
-              log('  Child span 2 started');
-              childSpan.setAttributes({
-                'level': 1,
-                'items_processed': 42,
-                'success_rate': 0.95,
-              });
-              await Future.delayed(const Duration(milliseconds: 300));
-              log('  Child span 2 completed');
-            },
-          );
+        await Faro().startSpan<void>('child-span-2', (childSpan) async {
+          log('  Child span 2 started');
+          childSpan.setAttributes({
+            'level': 1,
+            'items_processed': 42,
+            'success_rate': 0.95,
+          });
+          await Future.delayed(const Duration(milliseconds: 300));
+          log('  Child span 2 completed');
+        });
 
-          log('Parent span completing');
-        },
-        attributes: {'test_type': 'nested'},
-      );
+        log('Parent span completing');
+      }, attributes: {'test_type': 'nested'});
       log('All nested spans completed');
     } catch (error) {
       log('Error: $error', isError: true);
@@ -193,26 +180,20 @@ class TracingService {
     log('Starting span that will record an error...');
 
     try {
-      await Faro().startSpan<void>(
-        'error-demo-span',
-        (span) async {
-          span.setAttributes({
-            'operation': 'risky-operation',
-            'attempt': 1,
-          });
+      await Faro().startSpan<void>('error-demo-span', (span) async {
+        span.setAttributes({'operation': 'risky-operation', 'attempt': 1});
 
-          await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(const Duration(milliseconds: 200));
 
-          // Record an exception
-          try {
-            throw Exception('Simulated error for testing');
-          } catch (error, stackTrace) {
-            span.recordException(error, stackTrace: stackTrace);
-            span.setStatus(SpanStatusCode.error, message: 'Operation failed');
-            log('Recorded exception in span');
-          }
-        },
-      );
+        // Record an exception
+        try {
+          throw Exception('Simulated error for testing');
+        } catch (error, stackTrace) {
+          span.recordException(error, stackTrace: stackTrace);
+          span.setStatus(SpanStatusCode.error, message: 'Operation failed');
+          log('Recorded exception in span');
+        }
+      });
       log('Error span completed (error was recorded, not thrown)');
     } catch (error) {
       log('Unexpected error: $error', isError: true);
@@ -228,45 +209,43 @@ class TracingService {
     log('This shows how to start independent traces.');
 
     try {
-      await Faro().startSpan<void>(
-        'outer-context-span',
-        (outerSpan) async {
-          outerSpan.setAttributes({'type': 'outer-context'});
-          log('Outer span started (traceId: ${outerSpan.traceId.substring(0, 8)}...)');
+      await Faro().startSpan<void>('outer-context-span', (outerSpan) async {
+        outerSpan.setAttributes({'type': 'outer-context'});
+        log(
+          'Outer span started (traceId: ${outerSpan.traceId.substring(0, 8)}...)',
+        );
 
-          // Simulate a "timer callback" scenario
-          // In real code, this might be Timer.periodic or a stream listener
-          log('Simulating timer callback scenario...');
-          await Future.delayed(const Duration(milliseconds: 300));
+        // Simulate a "timer callback" scenario
+        // In real code, this might be Timer.periodic or a stream listener
+        log('Simulating timer callback scenario...');
+        await Future.delayed(const Duration(milliseconds: 300));
 
-          // WITHOUT Span.noParent - would inherit outer span as parent
-          await Faro().startSpan<void>(
-            'child-with-parent',
-            (childSpan) async {
-              log('  Child WITH parent (traceId: ${childSpan.traceId.substring(0, 8)}...)');
-              log('  ^ Same traceId = same trace');
-              await Future.delayed(const Duration(milliseconds: 200));
-            },
+        // WITHOUT Span.noParent - would inherit outer span as parent
+        await Faro().startSpan<void>('child-with-parent', (childSpan) async {
+          log(
+            '  Child WITH parent (traceId: ${childSpan.traceId.substring(0, 8)}...)',
           );
+          log('  ^ Same traceId = same trace');
+          await Future.delayed(const Duration(milliseconds: 200));
+        });
 
-          // WITH Span.noParent - starts a completely new trace
-          await Faro().startSpan<void>(
-            'independent-trace',
-            (independentSpan) async {
-              independentSpan.setAttributes({
-                'type': 'independent',
-                'reason': 'timer-callback',
-              });
-              log('  Independent span (traceId: ${independentSpan.traceId.substring(0, 8)}...)');
-              log('  ^ Different traceId = new trace!');
-              await Future.delayed(const Duration(milliseconds: 200));
-            },
-            parentSpan: Span.noParent,
+        // WITH Span.noParent - starts a completely new trace
+        await Faro().startSpan<void>('independent-trace', (
+          independentSpan,
+        ) async {
+          independentSpan.setAttributes({
+            'type': 'independent',
+            'reason': 'timer-callback',
+          });
+          log(
+            '  Independent span (traceId: ${independentSpan.traceId.substring(0, 8)}...)',
           );
+          log('  ^ Different traceId = new trace!');
+          await Future.delayed(const Duration(milliseconds: 200));
+        }, parentSpan: Span.noParent);
 
-          log('Outer span completing');
-        },
-      );
+        log('Outer span completing');
+      });
       log('Span.noParent demo completed!');
       log('Check backend: you should see 2 separate traces.');
     } catch (error) {
@@ -281,7 +260,9 @@ class TracingService {
   Future<void> runContextScopeDemo(LogCallback log) async {
     log('Starting ContextScope demo...');
     log('');
-    log('ContextScope controls whether timer callbacks inherit the parent span.');
+    log(
+      'ContextScope controls whether timer callbacks inherit the parent span.',
+    );
     log('');
 
     try {
@@ -297,17 +278,20 @@ class TracingService {
         'parent-callback-scope',
         (parentSpan) async {
           parentTraceId1 = parentSpan.traceId;
-          log('Parent span started (traceId: ${parentSpan.traceId.substring(0, 8)}...)');
+          log(
+            'Parent span started (traceId: ${parentSpan.traceId.substring(0, 8)}...)',
+          );
 
           // Schedule a timer that fires after parent callback ends
           Timer(const Duration(milliseconds: 100), () async {
-            await Faro().startSpan<void>(
-              'timer-child-callback',
-              (timerSpan) async {
-                timerSpanTraceId1 = timerSpan.traceId;
-                log('  Timer span (traceId: ${timerSpan.traceId.substring(0, 8)}...)');
-              },
-            );
+            await Faro().startSpan<void>('timer-child-callback', (
+              timerSpan,
+            ) async {
+              timerSpanTraceId1 = timerSpan.traceId;
+              log(
+                '  Timer span (traceId: ${timerSpan.traceId.substring(0, 8)}...)',
+              );
+            });
             completer1.complete();
           });
 
@@ -337,17 +321,18 @@ class TracingService {
         'parent-zone-scope',
         (parentSpan) async {
           parentTraceId = parentSpan.traceId;
-          log('Parent span started (traceId: ${parentSpan.traceId.substring(0, 8)}...)');
+          log(
+            'Parent span started (traceId: ${parentSpan.traceId.substring(0, 8)}...)',
+          );
 
           // Schedule a timer that fires after parent callback ends
           Timer(const Duration(milliseconds: 100), () async {
-            await Faro().startSpan<void>(
-              'timer-child-zone',
-              (timerSpan) async {
-                timerSpanTraceId2 = timerSpan.traceId;
-                log('  Timer span (traceId: ${timerSpan.traceId.substring(0, 8)}...)');
-              },
-            );
+            await Faro().startSpan<void>('timer-child-zone', (timerSpan) async {
+              timerSpanTraceId2 = timerSpan.traceId;
+              log(
+                '  Timer span (traceId: ${timerSpan.traceId.substring(0, 8)}...)',
+              );
+            });
             completer2.complete();
           });
 

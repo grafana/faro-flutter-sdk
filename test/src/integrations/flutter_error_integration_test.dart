@@ -27,7 +27,8 @@ void main() {
 
     setUpAll(() {
       registerFallbackValue(
-          FlutterErrorDetails(exception: FlutterError('Fallback Error')));
+        FlutterErrorDetails(exception: FlutterError('Fallback Error')),
+      );
       registerFallbackValue(FaroException('exception', 'test exception', {}));
     });
 
@@ -35,11 +36,13 @@ void main() {
       mockBatchTransport = MockBatchTransport();
       mockFunctions = MockFunctions();
       Faro().batchTransport = mockBatchTransport;
-      when(() => mockBatchTransport.addExceptions(any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockBatchTransport.addExceptions(any()),
+      ).thenAnswer((_) async {});
       flutterErrorDetails = FlutterErrorDetails(
-          exception: FlutterError('Test Error'),
-          stack: StackTrace.fromString('Test Stack Trace'));
+        exception: FlutterError('Test Error'),
+        stack: StackTrace.fromString('Test Stack Trace'),
+      );
     });
 
     tearDown(() {});
@@ -61,13 +64,14 @@ void main() {
     });
 
     test(
-        'Closing Flutter Error Integration sets back the default error handler',
-        () {
-      final flutterErrorIntegration = FlutterErrorIntegration();
-      FlutterError.onError = mockFunctions.defaultOnError;
-      flutterErrorIntegration.call();
-      flutterErrorIntegration.close();
-      expect(FlutterError.onError, mockFunctions.defaultOnError);
-    });
+      'Closing Flutter Error Integration sets back the default error handler',
+      () {
+        final flutterErrorIntegration = FlutterErrorIntegration();
+        FlutterError.onError = mockFunctions.defaultOnError;
+        flutterErrorIntegration.call();
+        flutterErrorIntegration.close();
+        expect(FlutterError.onError, mockFunctions.defaultOnError);
+      },
+    );
   });
 }

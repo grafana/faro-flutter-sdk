@@ -48,10 +48,7 @@ void main() {
       test('should track all URLs when collector URL is null', () {
         filter.configure(collectorUrl: null, ignoreUrls: null);
 
-        expect(
-          filter.shouldTrack(Uri.parse('https://anything.com')),
-          isTrue,
-        );
+        expect(filter.shouldTrack(Uri.parse('https://anything.com')), isTrue);
       });
     });
 
@@ -63,9 +60,7 @@ void main() {
         );
 
         expect(
-          filter.shouldTrack(
-            Uri.parse('https://analytics.example.com/track'),
-          ),
+          filter.shouldTrack(Uri.parse('https://analytics.example.com/track')),
           isFalse,
         );
       });
@@ -92,15 +87,11 @@ void main() {
         );
 
         expect(
-          filter.shouldTrack(
-            Uri.parse('https://analytics.example.com/event'),
-          ),
+          filter.shouldTrack(Uri.parse('https://analytics.example.com/event')),
           isFalse,
         );
         expect(
-          filter.shouldTrack(
-            Uri.parse('https://tracking.vendor.io/pixel'),
-          ),
+          filter.shouldTrack(Uri.parse('https://tracking.vendor.io/pixel')),
           isFalse,
         );
         expect(
@@ -112,19 +103,13 @@ void main() {
       test('should track all URLs when ignoreUrls is null', () {
         filter.configure(collectorUrl: null, ignoreUrls: null);
 
-        expect(
-          filter.shouldTrack(Uri.parse('https://anything.com')),
-          isTrue,
-        );
+        expect(filter.shouldTrack(Uri.parse('https://anything.com')), isTrue);
       });
 
       test('should track all URLs when ignoreUrls is empty', () {
         filter.configure(collectorUrl: null, ignoreUrls: []);
 
-        expect(
-          filter.shouldTrack(Uri.parse('https://anything.com')),
-          isTrue,
-        );
+        expect(filter.shouldTrack(Uri.parse('https://anything.com')), isTrue);
       });
     });
 
@@ -142,9 +127,7 @@ void main() {
           isFalse,
         );
         expect(
-          filter.shouldTrack(
-            Uri.parse('https://analytics.example.com/track'),
-          ),
+          filter.shouldTrack(Uri.parse('https://analytics.example.com/track')),
           isFalse,
         );
         expect(

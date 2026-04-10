@@ -1,9 +1,7 @@
 class TraceSpanStatus {
-  TraceSpanStatus({
-    required int code,
-    required String? message,
-  })  : _code = code,
-        _message = message;
+  TraceSpanStatus({required int code, required String? message})
+    : _code = code,
+      _message = message;
 
   TraceSpanStatus.fromJson(dynamic json) {
     if (json['code'] != null) {

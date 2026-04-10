@@ -1,11 +1,9 @@
 import 'package:faro/src/models/trace/trace_span.dart';
 
 class TraceScopeSpans {
-  TraceScopeSpans({
-    required TraceScope scope,
-    required List<TraceSpan> spans,
-  })  : _scope = scope,
-        _spans = spans;
+  TraceScopeSpans({required TraceScope scope, required List<TraceSpan> spans})
+    : _scope = scope,
+      _spans = spans;
 
   TraceScopeSpans.fromJson(dynamic json) {
     if (json['scope'] != null) {
@@ -41,11 +39,9 @@ class TraceScopeSpans {
 }
 
 class TraceScope {
-  TraceScope({
-    required String name,
-    required String version,
-  })  : _name = name,
-        _version = version;
+  TraceScope({required String name, required String version})
+    : _name = name,
+      _version = version;
 
   TraceScope.fromJson(dynamic json) {
     if (json['name'] != null) {

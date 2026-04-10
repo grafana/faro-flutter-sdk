@@ -127,8 +127,9 @@ void main() {
         expect(batchTransport.payloadSize(), equals(0));
 
         // Verify send was called with the correct payload content
-        final captured =
-            verify(() => mockBaseTransport.send(captureAny())).captured;
+        final captured = verify(
+          () => mockBaseTransport.send(captureAny()),
+        ).captured;
         expect(captured, hasLength(1));
 
         final sentPayload = captured.single as Map<String, dynamic>;

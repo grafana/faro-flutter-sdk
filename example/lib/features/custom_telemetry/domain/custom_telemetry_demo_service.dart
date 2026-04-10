@@ -2,10 +2,8 @@ import 'package:faro/faro.dart';
 import 'package:faro_example/shared/models/demo_log_entry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-typedef CustomTelemetryLogCallback = void Function(
-  String message, {
-  DemoLogTone tone,
-});
+typedef CustomTelemetryLogCallback =
+    void Function(String message, {DemoLogTone tone});
 
 final customTelemetryDemoServiceProvider = Provider<CustomTelemetryDemoService>(
   (ref) => const CustomTelemetryDemoService(),

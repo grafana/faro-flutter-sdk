@@ -17,10 +17,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 ///   `session.linked` event with `session.child_*` attributes.
 /// - `login_result` — login result data; auto-pops the page.
 class WebViewHandoffWebViewPage extends StatefulWidget {
-  const WebViewHandoffWebViewPage({
-    required this.url,
-    super.key,
-  });
+  const WebViewHandoffWebViewPage({required this.url, super.key});
 
   final Uri url;
 
@@ -107,9 +104,7 @@ class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('WebView Login Demo'),
-      ),
+      appBar: AppBar(title: const Text('WebView Login Demo')),
       body: Column(
         children: [
           Material(
@@ -142,11 +137,7 @@ class _LoadErrorHint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.cloud_off,
-              size: 48,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.cloud_off, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
               'Could not load the web app',
@@ -160,9 +151,9 @@ class _LoadErrorHint extends StatelessWidget {
               'And verify that FARO_WEBVIEW_DEMO_URL in '
               'api-config.json points to the correct address\n'
               '(e.g. http://10.0.2.2:5173 for Android emulator).',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
           ],

@@ -19,8 +19,10 @@ class MockSession extends Mock implements Session {}
 String _getPackageVersionFromPubspec() {
   final pubspecFile = File('pubspec.yaml');
   final pubspecContent = pubspecFile.readAsStringSync();
-  final versionMatch =
-      RegExp(r'^version:\s*(.+)$', multiLine: true).firstMatch(pubspecContent);
+  final versionMatch = RegExp(
+    r'^version:\s*(.+)$',
+    multiLine: true,
+  ).firstMatch(pubspecContent);
 
   if (versionMatch == null) {
     throw Exception('Could not find version in pubspec.yaml');
@@ -52,44 +54,49 @@ void main() {
 
     group('getTracerResource', () {
       test(
-          'should create resource with app information when all app data is present',
-          () {
-        // Arrange
-        when(() => mockMeta.app).thenReturn(mockApp);
-        when(() => mockMeta.session).thenReturn(null);
-        when(() => mockApp.name).thenReturn('TestApp');
-        when(() => mockApp.environment).thenReturn('production');
-        when(() => mockApp.version).thenReturn('1.2.3');
-        when(() => mockApp.namespace).thenReturn('test.namespace');
+        'should create resource with app information when all app data is present',
+        () {
+          // Arrange
+          when(() => mockMeta.app).thenReturn(mockApp);
+          when(() => mockMeta.session).thenReturn(null);
+          when(() => mockApp.name).thenReturn('TestApp');
+          when(() => mockApp.environment).thenReturn('production');
+          when(() => mockApp.version).thenReturn('1.2.3');
+          when(() => mockApp.namespace).thenReturn('test.namespace');
 
-        // Act
-        final resource = factory.getTracerResource();
+          // Act
+          final resource = factory.getTracerResource();
 
-        // Assert
-        expect(resource, isNotNull);
-        expect(resource.attributes.keys, isNotEmpty);
+          // Assert
+          expect(resource, isNotNull);
+          expect(resource.attributes.keys, isNotEmpty);
 
-        expect(
+          expect(
             resource.attributes
                 .get(otel_api.ResourceAttributes.serviceName)
                 .toString(),
-            equals('TestApp'));
-        expect(
+            equals('TestApp'),
+          );
+          expect(
             resource.attributes
                 .get(otel_api.ResourceAttributes.deploymentEnvironment)
                 .toString(),
-            equals('production'));
-        expect(
+            equals('production'),
+          );
+          expect(
             resource.attributes
                 .get(otel_api.ResourceAttributes.serviceVersion)
                 .toString(),
-            equals('1.2.3'));
-        expect(
+            equals('1.2.3'),
+          );
+          expect(
             resource.attributes
                 .get(otel_api.ResourceAttributes.serviceNamespace)
                 .toString(),
-            equals('test.namespace'));
-      });
+            equals('test.namespace'),
+          );
+        },
+      );
 
       test('should use default values when app data is null', () {
         // Arrange
@@ -101,25 +108,29 @@ void main() {
 
         // Assert
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceName)
-                .toString(),
-            equals('unknown'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.serviceName)
+              .toString(),
+          equals('unknown'),
+        );
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.deploymentEnvironment)
-                .toString(),
-            equals('unknown'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.deploymentEnvironment)
+              .toString(),
+          equals('unknown'),
+        );
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceVersion)
-                .toString(),
-            equals('unknown'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.serviceVersion)
+              .toString(),
+          equals('unknown'),
+        );
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceNamespace)
-                .toString(),
-            equals('flutter_app'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.serviceNamespace)
+              .toString(),
+          equals('flutter_app'),
+        );
       });
 
       test('should use default values when individual app fields are null', () {
@@ -136,25 +147,29 @@ void main() {
 
         // Assert
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceName)
-                .toString(),
-            equals('unknown'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.serviceName)
+              .toString(),
+          equals('unknown'),
+        );
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.deploymentEnvironment)
-                .toString(),
-            equals('unknown'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.deploymentEnvironment)
+              .toString(),
+          equals('unknown'),
+        );
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceVersion)
-                .toString(),
-            equals('unknown'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.serviceVersion)
+              .toString(),
+          equals('unknown'),
+        );
         expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceNamespace)
-                .toString(),
-            equals('flutter_app'));
+          resource.attributes
+              .get(otel_api.ResourceAttributes.serviceNamespace)
+              .toString(),
+          equals('flutter_app'),
+        );
       });
 
       test('should include SDK telemetry attributes', () {
@@ -166,14 +181,22 @@ void main() {
         final resource = factory.getTracerResource();
 
         // Assert
-        expect(resource.attributes.get('telemetry.sdk.name').toString(),
-            equals('faro-mobile-flutter'));
-        expect(resource.attributes.get('telemetry.sdk.language').toString(),
-            equals('dart'));
-        expect(resource.attributes.get('telemetry.sdk.version').toString(),
-            equals(_getPackageVersionFromPubspec()));
-        expect(resource.attributes.get('telemetry.sdk.platform').toString(),
-            equals('flutter'));
+        expect(
+          resource.attributes.get('telemetry.sdk.name').toString(),
+          equals('faro-mobile-flutter'),
+        );
+        expect(
+          resource.attributes.get('telemetry.sdk.language').toString(),
+          equals('dart'),
+        );
+        expect(
+          resource.attributes.get('telemetry.sdk.version').toString(),
+          equals(_getPackageVersionFromPubspec()),
+        );
+        expect(
+          resource.attributes.get('telemetry.sdk.platform').toString(),
+          equals('flutter'),
+        );
       });
 
       test('should include session attributes when session exists', () {
@@ -183,7 +206,7 @@ void main() {
         when(() => mockSession.attributes).thenReturn({
           'session_id': '12345',
           'user_id': 'user123',
-          'custom_attr': 'value'
+          'custom_attr': 'value',
         });
 
         // Act
@@ -191,11 +214,17 @@ void main() {
 
         // Assert
         expect(
-            resource.attributes.get('session_id').toString(), equals('12345'));
+          resource.attributes.get('session_id').toString(),
+          equals('12345'),
+        );
         expect(
-            resource.attributes.get('user_id').toString(), equals('user123'));
+          resource.attributes.get('user_id').toString(),
+          equals('user123'),
+        );
         expect(
-            resource.attributes.get('custom_attr').toString(), equals('value'));
+          resource.attributes.get('custom_attr').toString(),
+          equals('value'),
+        );
       });
 
       test('should handle empty session attributes', () {
@@ -247,8 +276,10 @@ void main() {
 
         // Null and object values fall back to string representation
         expect(resource.attributes.get('null_value').toString(), equals(''));
-        expect(resource.attributes.get('object').toString(),
-            equals('{nested: value}'));
+        expect(
+          resource.attributes.get('object').toString(),
+          equals('{nested: value}'),
+        );
       });
 
       test('should handle null session', () {
