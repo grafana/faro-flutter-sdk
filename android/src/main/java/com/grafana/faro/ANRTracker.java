@@ -11,7 +11,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -25,6 +24,15 @@ public class ANRTracker extends Thread {
     private static final String TAG = "ANRTracker";
     private static final long TIMEOUT = 5000L; // Time interval for checking ANR, in milliseconds
     private static final long CHECK_INTERVAL = 500L; // Time to wait between checks, in milliseconds
+
+    /**
+     * Maximum stack frames to stringify. Deep Flutter stacks can be huge and
+     * building unbounded strings risks OOM on low-memory devices (see #174).
+     */
+    private static final int MAX_STACK_FRAMES = 128;
+
+    /** Maximum characters for the stack trace string, including truncation note. */
+    private static final int MAX_STACKTRACE_CHARS = 64 * 1024;
     
     // Thread-safe list to store ANR information
     private static final List<String> anrList = Collections.synchronizedList(new ArrayList<>());
@@ -169,44 +177,119 @@ public class ANRTracker extends Thread {
      */
     private void handleAnrDetected() {
         try {
-            // Get the main thread's stack trace
             StackTraceElement[] stackTrace = mainThread.getStackTrace();
-            
-            // Build a readable stack trace
-            StringBuilder stackTraceStr = new StringBuilder();
-            for (StackTraceElement element : stackTrace) {
-                stackTraceStr.append(element.getClassName())
-                        .append(".")
-                        .append(element.getMethodName())
-                        .append("(")
-                        .append(element.getFileName())
-                        .append(":")
-                        .append(element.getLineNumber())
-                        .append(")\n");
-            }
-            
-            // Create JSON object with ANR information
+            int totalFrames = stackTrace.length;
+            StackTraceStringResult stackResult =
+                    buildBoundedStackTraceString(
+                            stackTrace, MAX_STACK_FRAMES, MAX_STACKTRACE_CHARS);
+
             JSONObject anrInfo = new JSONObject();
             try {
                 anrInfo.put("type", "ANR");
                 anrInfo.put("timestamp", System.currentTimeMillis());
-                anrInfo.put("stacktrace", stackTraceStr.toString());
-                
-                // Add duration estimate (at least TIMEOUT ms)
+                anrInfo.put("stacktrace", stackResult.text);
+                anrInfo.put("stacktrace_truncated", stackResult.truncated);
+                anrInfo.put("stacktrace_total_frames", totalFrames);
+                anrInfo.put("stacktrace_included_frames", stackResult.includedFrames);
                 anrInfo.put("duration", TIMEOUT);
             } catch (JSONException e) {
                 Log.e(TAG, "Error creating ANR JSON", e);
             }
-            
-            // Store the ANR information
+
             String anrData = anrInfo.toString();
             synchronized (anrList) {
                 anrList.add(anrData);
             }
-            
-            Log.w(TAG, "ANR detected: " + stackTraceStr);
+
+            Log.w(
+                    TAG,
+                    "ANR detected: included "
+                            + stackResult.includedFrames
+                            + "/"
+                            + totalFrames
+                            + " frames, truncated="
+                            + stackResult.truncated);
         } catch (Exception e) {
             Log.e(TAG, "Error handling ANR", e);
         }
+    }
+
+    private static final class StackTraceStringResult {
+        final @NonNull String text;
+        final boolean truncated;
+        final int includedFrames;
+
+        StackTraceStringResult(
+                @NonNull String text, boolean truncated, int includedFrames) {
+            this.text = text;
+            this.truncated = truncated;
+            this.includedFrames = includedFrames;
+        }
+    }
+
+    /**
+     * Builds a stack trace string capped by {@code maxFrames} and
+     * {@code maxChars} to limit peak allocation on ANR paths.
+     */
+    @NonNull
+    private static StackTraceStringResult buildBoundedStackTraceString(
+            @NonNull StackTraceElement[] stackTrace,
+            int maxFrames,
+            int maxChars) {
+        int total = stackTrace.length;
+        if (total == 0) {
+            return new StackTraceStringResult("", false, 0);
+        }
+
+        StringBuilder sb = new StringBuilder(
+                Math.min(total, maxFrames) * 80);
+        int included = 0;
+        boolean truncated = false;
+
+        for (int i = 0; i < total && included < maxFrames; i++) {
+            String line = formatStackFrameLine(stackTrace[i]);
+            int nextLen = sb.length() + line.length();
+            if (nextLen > maxChars) {
+                truncated = true;
+                break;
+            }
+            sb.append(line);
+            included++;
+        }
+
+        if (included < total) {
+            truncated = true;
+        }
+
+        if (truncated) {
+            String note =
+                    "... (truncated: "
+                            + included
+                            + " of "
+                            + total
+                            + " frames, maxFrames="
+                            + maxFrames
+                            + ", maxChars="
+                            + maxChars
+                            + ")\n";
+            if (sb.length() + note.length() > maxChars) {
+                sb.setLength(Math.max(0, maxChars - note.length()));
+            }
+            sb.append(note);
+        }
+
+        return new StackTraceStringResult(sb.toString(), truncated, included);
+    }
+
+    @NonNull
+    private static String formatStackFrameLine(@NonNull StackTraceElement element) {
+        return element.getClassName()
+                + "."
+                + element.getMethodName()
+                + "("
+                + element.getFileName()
+                + ":"
+                + element.getLineNumber()
+                + ")\n";
     }
 }

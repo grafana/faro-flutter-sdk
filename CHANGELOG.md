@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bump Android `compileSdkVersion` from 35 to 36 (aligned with Flutter default since May 2025).
 
+### Fixed
+
+- Android `ANRTracker` now caps main-thread stack traces (frames and total
+  characters) and avoids logging the full trace, reducing risk of OOM when
+  capturing ANR diagnostics on low-memory devices ([#174](https://github.com/grafana/faro-flutter-sdk/issues/174)).
+
 ## [0.13.0] - 2026-04-09
 
 ### Added
