@@ -53,7 +53,7 @@ lib/
 │   ├── transport/           # Network and batching logic
 │   ├── tracing/             # OpenTelemetry integration
 │   └── util/                # Shared utilities
-ios/Classes/                 # iOS-specific implementation (Swift)
+ios/faro/Sources/faro/       # iOS-specific implementation (Swift, SPM layout)
 android/src/main/java/       # Android-specific implementation (Java)
 test/                        # Unit and widget tests
 example/                     # Example Flutter app

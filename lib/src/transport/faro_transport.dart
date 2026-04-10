@@ -37,7 +37,7 @@ class FaroTransport extends BaseTransport {
       final headers = {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        if (sessionId != null) 'x-faro-session-id': sessionId,
+        'x-faro-session-id': ?sessionId,
         ...?this.headers,
       };
 

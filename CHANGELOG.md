@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- iOS: Swift Package Manager support (`ios/faro/Package.swift`) alongside CocoaPods,
+  per [Flutter plugin author guidance](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-plugin-authors).
+
 ### Changed
 
 - Bump Android `compileSdkVersion` from 35 to 36 (aligned with Flutter default since May 2025).
+- iOS: minimum deployment target raised from 11.0 to **13.0** (podspec and SPM).
+- iOS: native Swift sources moved from `ios/Classes/` to `ios/faro/Sources/faro/`.
+- Raised package `environment` to `sdk: >=3.11.0` and `flutter: >=3.41.0` for Flutter SPM
+  (`FlutterFramework`) integration.
+- iOS CocoaPods: removed stale `vendored_frameworks` / `preserve_paths` for a missing
+  `CrashReporter.xcframework`; PLCrashReporter continues to come from the pod dependency.
+- Dart: removed a deprecated linter rule and small fixes so `flutter analyze` exits cleanly
+  on current stable.
 
 ## [0.13.0] - 2026-04-09
 

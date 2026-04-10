@@ -5,8 +5,8 @@ homepage: https://grafana.com/oss/faro/
 repository: https://github.com/grafana/faro-flutter-sdk
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
-  flutter: ">=3.0.0"
+  sdk: ">=3.11.0 <4.0.0"
+  flutter: ">=3.41.0"
 
 dependencies:
   connectivity_plus: ">=6.1.2 <8.0.0"

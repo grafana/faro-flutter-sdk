@@ -55,12 +55,14 @@ class FaroWebViewBridge {
     );
     _activeSpan = span;
 
-    return url.replace(queryParameters: {
-      ...url.queryParametersAll,
-      'traceparent': span.traceparent,
-      'session.parent_id': faro.meta.session?.id ?? '',
-      'session.parent_app': faro.meta.app?.name ?? '',
-    });
+    return url.replace(
+      queryParameters: {
+        ...url.queryParametersAll,
+        'traceparent': span.traceparent,
+        'session.parent_id': faro.meta.session?.id ?? '',
+        'session.parent_app': faro.meta.app?.name ?? '',
+      },
+    );
   }
 
   /// Pushes a `session.linked` event that correlates the web app's
@@ -73,18 +75,18 @@ class FaroWebViewBridge {
   /// Call this when the web app sends its Faro session information back
   /// to Flutter (e.g. via a JavaScript channel).
   void linkChildSession({required String sessionId, String? appName}) {
-    Faro().pushEvent('session.linked', attributes: {
-      'session.child_id': sessionId,
-      if (appName != null) 'session.child_app': appName,
-    });
+    Faro().pushEvent(
+      'session.linked',
+      attributes: {
+        'session.child_id': sessionId,
+        'session.child_app': ?appName,
+      },
+    );
   }
 
   /// Ends the active span. Call this when the WebView is disposed or
   /// popped from the navigation stack.
-  void end({
-    SpanStatusCode status = SpanStatusCode.ok,
-    String? message,
-  }) {
+  void end({SpanStatusCode status = SpanStatusCode.ok, String? message}) {
     _endActiveSpan(status, message: message);
   }
 

@@ -17,10 +17,12 @@ class OfflineTransport extends BaseTransport {
     Duration? maxCacheDuration,
     String? internetConnectionCheckerUrl,
     InternetConnectivityService? internetConnectivityService,
-  })  : _connectivityService = internetConnectivityService ??
-            InternetConnectivityServiceFactory().create(
-                internetConnectionCheckerUrl: internetConnectionCheckerUrl),
-        _maxCacheDuration = maxCacheDuration {
+  }) : _connectivityService =
+           internetConnectivityService ??
+           InternetConnectivityServiceFactory().create(
+             internetConnectionCheckerUrl: internetConnectionCheckerUrl,
+           ),
+       _maxCacheDuration = maxCacheDuration {
     _connectivityService.onConnectivityChanged.listen((isOnline) {
       if (isOnline) {
         try {
@@ -80,10 +82,13 @@ class OfflineTransport extends BaseTransport {
       final file = await _getCacheFile();
       final logJson = {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'payload': payload.toJson()
+        'payload': payload.toJson(),
       };
-      await file.writeAsString('${jsonEncode(logJson)}\n',
-          mode: FileMode.append, flush: true);
+      await file.writeAsString(
+        '${jsonEncode(logJson)}\n',
+        mode: FileMode.append,
+        flush: true,
+      );
     });
   }
 
@@ -98,15 +103,18 @@ class OfflineTransport extends BaseTransport {
       final failedLines = <String>[];
       final currentTime = DateTime.now().millisecondsSinceEpoch;
 
-      await for (final line in file
-          .openRead()
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())) {
+      await for (final line
+          in file
+              .openRead()
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
         if (line.trim().isEmpty) continue;
 
         final logJson = _parseJsonSafely(line);
         if (logJson == null) {
-          log('OfflineTransport: Failed to parse cached data to json. Skipping this payload.');
+          log(
+            'OfflineTransport: Failed to parse cached data to json. Skipping this payload.',
+          );
           continue;
         }
 
@@ -114,12 +122,15 @@ class OfflineTransport extends BaseTransport {
         final payload = Payload.fromJson(logJson['payload']);
 
         if (timestamp == null) {
-          log('OfflineTransport: Failed to parse timestamp in payload. Skipping this payload.');
+          log(
+            'OfflineTransport: Failed to parse timestamp in payload. Skipping this payload.',
+          );
           continue;
         }
 
-        if (_maxCacheDuration != null &&
-            currentTime - timestamp > _maxCacheDuration!.inMilliseconds) {
+        final maxCacheDuration = _maxCacheDuration;
+        if (maxCacheDuration != null &&
+            currentTime - timestamp > maxCacheDuration.inMilliseconds) {
           continue;
         }
         final sendSuccess = await _sendCachedData(payload);
