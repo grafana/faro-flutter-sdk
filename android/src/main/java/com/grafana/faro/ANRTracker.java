@@ -179,8 +179,8 @@ public class ANRTracker extends Thread {
         try {
             StackTraceElement[] stackTrace = mainThread.getStackTrace();
             int totalFrames = stackTrace.length;
-            StackTraceStringResult stackResult =
-                    buildBoundedStackTraceString(
+            AnrStackTraceFormatter.Result stackResult =
+                    AnrStackTraceFormatter.buildBoundedStackTraceString(
                             stackTrace, MAX_STACK_FRAMES, MAX_STACKTRACE_CHARS);
 
             JSONObject anrInfo = new JSONObject();
@@ -214,82 +214,4 @@ public class ANRTracker extends Thread {
         }
     }
 
-    private static final class StackTraceStringResult {
-        final @NonNull String text;
-        final boolean truncated;
-        final int includedFrames;
-
-        StackTraceStringResult(
-                @NonNull String text, boolean truncated, int includedFrames) {
-            this.text = text;
-            this.truncated = truncated;
-            this.includedFrames = includedFrames;
-        }
-    }
-
-    /**
-     * Builds a stack trace string capped by {@code maxFrames} and
-     * {@code maxChars} to limit peak allocation on ANR paths.
-     */
-    @NonNull
-    private static StackTraceStringResult buildBoundedStackTraceString(
-            @NonNull StackTraceElement[] stackTrace,
-            int maxFrames,
-            int maxChars) {
-        int total = stackTrace.length;
-        if (total == 0) {
-            return new StackTraceStringResult("", false, 0);
-        }
-
-        StringBuilder sb = new StringBuilder(
-                Math.min(total, maxFrames) * 80);
-        int included = 0;
-        boolean truncated = false;
-
-        for (int i = 0; i < total && included < maxFrames; i++) {
-            String line = formatStackFrameLine(stackTrace[i]);
-            int nextLen = sb.length() + line.length();
-            if (nextLen > maxChars) {
-                truncated = true;
-                break;
-            }
-            sb.append(line);
-            included++;
-        }
-
-        if (included < total) {
-            truncated = true;
-        }
-
-        if (truncated) {
-            String note =
-                    "... (truncated: "
-                            + included
-                            + " of "
-                            + total
-                            + " frames, maxFrames="
-                            + maxFrames
-                            + ", maxChars="
-                            + maxChars
-                            + ")\n";
-            if (sb.length() + note.length() > maxChars) {
-                sb.setLength(Math.max(0, maxChars - note.length()));
-            }
-            sb.append(note);
-        }
-
-        return new StackTraceStringResult(sb.toString(), truncated, included);
-    }
-
-    @NonNull
-    private static String formatStackFrameLine(@NonNull StackTraceElement element) {
-        return element.getClassName()
-                + "."
-                + element.getMethodName()
-                + "("
-                + element.getFileName()
-                + ":"
-                + element.getLineNumber()
-                + ")\n";
-    }
 }

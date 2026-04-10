@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   characters) and avoids logging the full trace, reducing risk of OOM when
   capturing ANR diagnostics on low-memory devices ([#174](https://github.com/grafana/faro-flutter-sdk/issues/174)).
 
+### Added
+
+- Android: JUnit tests for bounded ANR stack formatting (`AnrStackTraceFormatter`),
+  run via `./gradlew :anr-stack-formatter-tests:test` in CI.
+
 ## [0.13.0] - 2026-04-09
 
 ### Added

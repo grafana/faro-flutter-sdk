@@ -1,1 +1,3 @@
 rootProject.name = 'faro'
+
+include 'anr-stack-formatter-tests'
