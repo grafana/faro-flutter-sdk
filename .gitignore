@@ -32,6 +32,10 @@ build/
 # Example app config (contains API keys)
 example/api-config.json
 
+# Example app iOS Podfile.lock (generated file; Flutter engine pod always
+# reports version 1.0.0 which triggers false-positive CVE scanner matches)
+example/ios/Podfile.lock
+
 # Cursor related
 .cursor_tasks/
 
