@@ -81,6 +81,16 @@ class PreReleaseChecker {
     return result.exitCode == 0;
   }
 
+  /// Run Android native unit tests via Gradle
+  Future<bool> _checkAndroidTests() async {
+    final result = await Process.run(
+      './gradlew',
+      [':faro:testDebugUnitTest'],
+      workingDirectory: 'example/android',
+    );
+    return result.exitCode == 0;
+  }
+
   /// Run Flutter analyzer
   Future<bool> _checkAnalyzer() async {
     final result = await Process.run('flutter', ['analyze']);
@@ -122,6 +132,7 @@ class PreReleaseChecker {
     await _runCheck('Check code formatting', _checkFormatting);
     await _runCheck('Run analyzer', _checkAnalyzer);
     await _runCheck('Run tests', _checkTests);
+    await _runCheck('Run Android unit tests', _checkAndroidTests);
 
     // Release readiness
     await _runCheck('Check CHANGELOG has unreleased content', _checkChangelog);

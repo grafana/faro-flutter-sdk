@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix OOM crash in `ANRTracker` when capturing stack traces on low-memory Android devices (#174).
+
 ### Changed
 
 - Bump Android `compileSdkVersion` from 35 to 36 (aligned with Flutter default since May 2025).
+
+### Added
+
+- Android native unit test infrastructure (JUnit) with CI and pre-release script integration.
 
 ## [0.13.0] - 2026-04-09
 

@@ -185,6 +185,17 @@ flutter test --coverage
 flutter test test/src/models/trace_test.dart
 ```
 
+### Android Native Tests
+
+Android-specific code has JUnit tests in `android/src/test/java/`. Run them
+via Gradle from the example app:
+
+```bash
+cd example/android && ./gradlew :faro:testDebugUnitTest
+```
+
+These are also run by `dart tool/pre_release_check.dart` and CI.
+
 ### Test Structure
 
 ```dart

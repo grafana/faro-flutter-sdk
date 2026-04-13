@@ -11,7 +11,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -25,6 +24,8 @@ public class ANRTracker extends Thread {
     private static final String TAG = "ANRTracker";
     private static final long TIMEOUT = 5000L; // Time interval for checking ANR, in milliseconds
     private static final long CHECK_INTERVAL = 500L; // Time to wait between checks, in milliseconds
+    static final int MAX_STACK_FRAMES = 50;
+    static final int MAX_ANR_ENTRIES = 10;
     
     // Thread-safe list to store ANR information
     private static final List<String> anrList = Collections.synchronizedList(new ArrayList<>());
@@ -169,44 +170,65 @@ public class ANRTracker extends Thread {
      */
     private void handleAnrDetected() {
         try {
-            // Get the main thread's stack trace
             StackTraceElement[] stackTrace = mainThread.getStackTrace();
-            
-            // Build a readable stack trace
-            StringBuilder stackTraceStr = new StringBuilder();
-            for (StackTraceElement element : stackTrace) {
-                stackTraceStr.append(element.getClassName())
-                        .append(".")
-                        .append(element.getMethodName())
-                        .append("(")
-                        .append(element.getFileName())
-                        .append(":")
-                        .append(element.getLineNumber())
-                        .append(")\n");
-            }
-            
-            // Create JSON object with ANR information
+            String stackTraceStr = buildStackTraceString(
+                    stackTrace, MAX_STACK_FRAMES);
+
             JSONObject anrInfo = new JSONObject();
             try {
                 anrInfo.put("type", "ANR");
                 anrInfo.put("timestamp", System.currentTimeMillis());
-                anrInfo.put("stacktrace", stackTraceStr.toString());
-                
-                // Add duration estimate (at least TIMEOUT ms)
+                anrInfo.put("stacktrace", stackTraceStr);
                 anrInfo.put("duration", TIMEOUT);
             } catch (JSONException e) {
                 Log.e(TAG, "Error creating ANR JSON", e);
             }
-            
-            // Store the ANR information
+
             String anrData = anrInfo.toString();
             synchronized (anrList) {
+                if (anrList.size() >= MAX_ANR_ENTRIES) {
+                    anrList.remove(0);
+                }
                 anrList.add(anrData);
             }
-            
+
             Log.w(TAG, "ANR detected: " + stackTraceStr);
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "OOM while handling ANR", e);
         } catch (Exception e) {
             Log.e(TAG, "Error handling ANR", e);
         }
+    }
+
+    /**
+     * Builds a human-readable stack trace string from stack trace elements.
+     *
+     * @param stackTrace the stack trace elements to format
+     * @param maxFrames  maximum number of frames to include
+     * @return formatted stack trace string
+     */
+    @NonNull
+    static String buildStackTraceString(
+            @NonNull StackTraceElement[] stackTrace, int maxFrames) {
+        int limit = Math.min(stackTrace.length, maxFrames);
+        StringBuilder sb = new StringBuilder(limit * 80);
+        for (int i = 0; i < limit; i++) {
+            StackTraceElement element = stackTrace[i];
+            sb.append(element.getClassName())
+                    .append(".")
+                    .append(element.getMethodName())
+                    .append("(")
+                    .append(element.getFileName())
+                    .append(":")
+                    .append(element.getLineNumber())
+                    .append(")\n");
+        }
+        int truncated = stackTrace.length - limit;
+        if (truncated > 0) {
+            sb.append("... ")
+                    .append(truncated)
+                    .append(" more frames truncated\n");
+        }
+        return sb.toString();
     }
 }
