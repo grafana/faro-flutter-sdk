@@ -76,6 +76,10 @@ jobs:
         working-directory: example
         run: flutter analyze
 
+      - name: Run Android unit tests
+        working-directory: example/android
+        run: ./gradlew :faro:testDebugUnitTest
+
       - name: Build example app
         working-directory: example
         run: flutter build apk # Replace 'apk' with 'ios', 'web', etc., as needed

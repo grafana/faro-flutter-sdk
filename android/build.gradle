@@ -33,6 +33,10 @@ android {
         minSdkVersion 19
     }
 
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
     namespace 'com.grafana.faro'
 }
 
@@ -40,6 +44,7 @@ dependencies {
     implementation 'androidx.metrics:metrics-performance:1.0.0'
     implementation 'androidx.annotation:annotation-jvm:1.9.1'
 //    implementation 'androidx.annotation:annotation-jvm:1.8.0-beta02'
+    testImplementation 'junit:junit:4.13.2'
 }
 
 

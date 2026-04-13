@@ -80,6 +80,15 @@ dart format .                             # Format code
 flutter pub get                           # Install dependencies
 ```
 
+### Android Native Unit Tests
+
+Android-specific Java code (in `android/src/main/java/`) has JUnit tests in
+`android/src/test/java/`. Run them via Gradle from the example app:
+
+```bash
+cd example/android && ./gradlew :faro:testDebugUnitTest
+```
+
 ---
 
 ## Code Style Guidelines
@@ -223,7 +232,7 @@ See `example/lib/features/tracing/` for the complete pattern.
 
 ---
 
-## Cursor Cloud specific instructions
+## Development Environment
 
 ### Services overview
 
@@ -232,14 +241,6 @@ This is a client-side Flutter SDK with no server component. All unit tests run w
 ### Key commands
 
 Standard build/test commands are documented in the **Build/Test Commands** section above. Running `flutter pub get` at the workspace root also resolves `example/` dependencies (they share a workspace).
-
-### Flutter SDK
-
-Flutter is installed at `/opt/flutter`. The `PATH` is set in `~/.bashrc` to include `/opt/flutter/bin` and the bundled Dart SDK.
-
-### Android SDK
-
-The Android SDK is installed at `/opt/android-sdk`. The `ANDROID_HOME` env var and PATH additions are set in `~/.bashrc`. Flutter is already configured to use this SDK via `flutter config --android-sdk`.
 
 ### Example app configuration
 
@@ -253,10 +254,16 @@ A placeholder URL works for building/testing. The file is passed via `--dart-def
 
 ### Running the example app
 
-There is no Android emulator in this environment. To build the example APK:
+If an Android emulator or iOS simulator is available, run the example app directly:
 
 ```bash
-cd example && flutter build apk --dart-define-from-file api-config.json
+cd example && flutter run -t lib/main.dart --dart-define-from-file api-config.json
+```
+
+To build the example APK without running it (useful in headless/CI environments where no emulator is available):
+
+```bash
+cd example && flutter build apk -t lib/main.dart --dart-define-from-file api-config.json
 ```
 
 ### QA smoke-test overrides
@@ -293,3 +300,19 @@ If `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` are set, the example AP
 
 - `flutter pub get` in the root resolves both SDK and `example/` dependencies due to workspace configuration — no need to run it separately in `example/`.
 - The `example/pubspec.lock` is checked in but may show as modified after `flutter pub get` due to platform-specific dependency resolution differences. This is expected and should not be committed.
+
+---
+
+## Headless / CI Environment Notes
+
+These notes apply to the Cursor Cloud VM environment, where no display server or emulator is available.
+
+### Flutter SDK
+
+Flutter is installed at `/opt/flutter`. The `PATH` is set in `~/.bashrc` to include `/opt/flutter/bin` and the bundled Dart SDK.
+
+### Android SDK
+
+The Android SDK is installed at `/opt/android-sdk`. The `ANDROID_HOME` env var and PATH additions are set in `~/.bashrc`. Flutter is already configured to use this SDK via `flutter config --android-sdk`.
+
+No Android emulator is available in these environments. Use `flutter build apk` to verify compilation, or use BrowserStack for on-device testing (see above).
