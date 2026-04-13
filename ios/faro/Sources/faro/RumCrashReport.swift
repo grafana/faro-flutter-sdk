@@ -97,10 +97,10 @@ internal struct BinaryImageInfo {
     
     var jsonRepresentation: [String: Any] {
         return [
-            "uuid": uuid,
+            "uuid": uuid as Any,
             "imageName": imageName,
             "isSystemImage": isSystemImage,
-            "codeType": codeType?.architectureName,
+            "codeType": codeType?.architectureName as Any,
             "imageBaseAddress": imageBaseAddress,
             "imageSize": imageSize
             
@@ -125,7 +125,7 @@ internal struct StackFrame : Codable{
             "lineno":number,
             "colno":0,
             "filename": libraryName ?? "",
-            "function": "\(libraryBaseAddress) \(instructionPointer)"
+            "function": "\(libraryBaseAddress.map(String.init) ?? "nil") \(instructionPointer)"
         ]
     }
 }
