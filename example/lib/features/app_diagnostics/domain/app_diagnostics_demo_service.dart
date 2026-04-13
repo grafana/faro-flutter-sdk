@@ -32,7 +32,7 @@ class AppDiagnosticsDemoService {
     );
 
     Future<void>.delayed(const Duration(milliseconds: 10), () {
-      throw Exception('This is an Exception!');
+      throw Exception('This is an Exception! ${DateTime.now()}');
     });
   }
 
