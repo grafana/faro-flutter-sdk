@@ -48,9 +48,9 @@ class AppStart {
 
     appStartDuration =  (currentTimeMilliseconds - processTimeMilliseconds)
 
-    let AppStartEndMillis = getAppStartEndMillis()!
+    _ = getAppStartEndMillis()!
     if let appStartMillis = getAppStartEndMillis() {
-        let appStartDuration = Double(appStartMillis) - (ProcessInfo.processInfo.systemUptime * 1000)
+        _ = Double(appStartMillis) - (ProcessInfo.processInfo.systemUptime * 1000)
     }
 
     return appStartDuration

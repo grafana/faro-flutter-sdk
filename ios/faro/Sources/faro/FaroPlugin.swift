@@ -41,7 +41,7 @@ public class FaroPlugin: NSObject, FlutterPlugin {
         switch call.method {
         case "enableCrashReporter":
             do{
-                let crashReporter = try CrashReportingIntegration(crashReporterConfig: call.arguments as! [String: Any])
+                _ = try CrashReportingIntegration(crashReporterConfig: call.arguments as! [String: Any])
             } catch {
                 print("crash reporter not initialized")
             }
@@ -69,8 +69,8 @@ public class FaroPlugin: NSObject, FlutterPlugin {
             case "getMemoryUsage":
                 print("getMemoryUsage");
             var _:[String] = [];
-                var lastEventTime = CACurrentMediaTime();
-                var memory = getMemoryUsage()/1024
+                _ = CACurrentMediaTime();
+                let memory = getMemoryUsage()/1024
                 result( memory);
             default:
                 result(FlutterMethodNotImplemented);

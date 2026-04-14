@@ -75,7 +75,7 @@ class  CrashReportingIntegration {
         do {
             let jsonData = try JSONSerialization.data(withJSONObject: payload, options: [])
             
-            let jsonString = String(data: jsonData, encoding: .utf8)
+            _ = String(data: jsonData, encoding: .utf8)
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             

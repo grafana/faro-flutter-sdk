@@ -14,9 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bump Android `compileSdkVersion` from 35 to 36 (aligned with Flutter default since May 2025).
+- Reorganized iOS source files from `ios/Classes/` to `ios/faro/Sources/faro/` to support the SPM directory convention.
+- Bumped iOS deployment target from 11.0 to 13.0.
+- Updated `faro.podspec` metadata (homepage, author, license type, summary/description).
+- Fixed pre-existing Swift compiler warnings in iOS native code.
 
 ### Added
 
+- Swift Package Manager (SPM) support for the iOS plugin, enabling dependency resolution via SPM alongside existing CocoaPods support (#189, #35).
 - Android native unit test infrastructure (JUnit) with CI and pre-release script integration.
 
 ## [0.13.0] - 2026-04-09
