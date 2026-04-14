@@ -189,6 +189,18 @@ Future<void> main(List<String> args) async {
     await updateChangelog(newVersion.toString());
     await updateConstants(newVersion.toString());
 
+    // Resolve dependencies so example/pubspec.lock reflects the new version
+    stdout.writeln('Resolving dependencies...');
+    final pubGetResult = await Process.run(
+      'flutter',
+      ['pub', 'get'],
+      workingDirectory: Directory.current.path,
+    );
+    if (pubGetResult.exitCode != 0) {
+      stderr.writeln('Warning: flutter pub get failed:');
+      stderr.writeln(pubGetResult.stderr);
+    }
+
     stdout.writeln('Successfully updated version to $newVersion');
   } catch (e) {
     stderr.writeln('Error updating version: $e');

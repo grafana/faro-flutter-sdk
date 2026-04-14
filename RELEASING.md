@@ -52,9 +52,10 @@ As you develop new features or fix bugs, add entries to the `CHANGELOG.md` under
 
    This automatically:
 
-   - Updates version in `pubspec.yaml`, `ios/faro.podspec`, and `android/build.gradle`
-   - Converts `## Unreleased` → `## 0.3.4 (2025-01-22)` in `CHANGELOG.md`
-   - Creates a new empty `## Unreleased` section
+   - Updates version in `pubspec.yaml`, `ios/faro.podspec`, `android/build.gradle`, and `lib/src/util/constants.dart`
+   - Converts `## [Unreleased]` → `## [x.y.z] - YYYY-MM-DD` in `CHANGELOG.md`
+   - Creates a new empty `## [Unreleased]` section
+   - Runs `flutter pub get` to update `example/pubspec.lock`
 
 4. **Commit Version Bump Changes**
 

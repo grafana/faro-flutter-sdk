@@ -7,12 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-04-14
+
 ### Fixed
 
 - Fix OOM crash in `ANRTracker` when capturing stack traces on low-memory Android devices (#174).
 
 ### Changed
 
+- **SDK metadata improvements**: Updated SDK identification to align with Faro Web SDK patterns and improve backend analytics
+  - Changed SDK name from `'faro-flutter-sdk'` to `'faro-mobile-flutter'` to match naming convention discussed with Faro team
+  - Removed hardcoded version `'1.3.5'` workaround and now sends actual SDK version in `meta.sdk.version`
+  - Removed `integrations` field from SDK metadata (following Faro Web SDK pattern - this field provided no actionable insights)
+  - Removed unused `Integration` model class and its export from models barrel file
+  - Backend endpoint service now properly handles Flutter SDK payloads with correct version checking
+  - Enables better SDK version analytics and distribution tracking across different Faro implementations
 - Bump Android `compileSdkVersion` from 35 to 36 (aligned with Flutter default since May 2025).
 - Reorganized iOS source files from `ios/Classes/` to `ios/faro/Sources/faro/` to support the SPM directory convention.
 - Bumped iOS deployment target from 11.0 to 13.0.
@@ -145,16 +154,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ContextScope for span context lifetime control**: New `contextScope` parameter on `startSpan()` controls how long a span remains active in zone context for auto-assignment. `ContextScope.callback` (default) deactivates the span when the callback completes, preventing timer/stream callbacks from inheriting it. `ContextScope.zone` keeps the span active for the entire zone lifetime, useful when you want timer callbacks to be children of the parent span. (Resolves #105)
 
 - **Span.noParent sentinel**: New `Span.noParent` static constant allows explicitly starting a span with no parent, ignoring the active span in zone context. Useful for timer callbacks or event-driven scenarios where you want to start a fresh, independent trace. (Resolves #105)
-
-### Changed
-
-- **SDK metadata improvements**: Updated SDK identification to align with Faro Web SDK patterns and improve backend analytics
-  - Changed SDK name from `'faro-flutter-sdk'` to `'faro-mobile-flutter'` to match naming convention discussed with Faro team
-  - Removed hardcoded version `'1.3.5'` workaround and now sends actual SDK version (`0.9.0`) in `meta.sdk.version`
-  - Removed `integrations` field from SDK metadata (following Faro Web SDK pattern - this field provided no actionable insights)
-  - Removed unused `Integration` model class and its export from models barrel file
-  - Backend endpoint service now properly handles Flutter SDK payloads with correct version checking
-  - Enables better SDK version analytics and distribution tracking across different Faro implementations
 
 ### Fixed
 
