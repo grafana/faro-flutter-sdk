@@ -85,6 +85,8 @@ void main() {
                 .toString(),
             equals('1.2.3'));
         expect(
+            resource.attributes.get('app.version').toString(), equals('1.2.3'));
+        expect(
             resource.attributes
                 .get(otel_api.ResourceAttributes.serviceNamespace)
                 .toString(),
@@ -114,6 +116,8 @@ void main() {
             resource.attributes
                 .get(otel_api.ResourceAttributes.serviceVersion)
                 .toString(),
+            equals('unknown'));
+        expect(resource.attributes.get('app.version').toString(),
             equals('unknown'));
         expect(
             resource.attributes
@@ -150,11 +154,34 @@ void main() {
                 .get(otel_api.ResourceAttributes.serviceVersion)
                 .toString(),
             equals('unknown'));
+        expect(resource.attributes.get('app.version').toString(),
+            equals('unknown'));
         expect(
             resource.attributes
                 .get(otel_api.ResourceAttributes.serviceNamespace)
                 .toString(),
             equals('flutter_app'));
+      });
+
+      test('app.version should always mirror service.version', () {
+        // Arrange
+        when(() => mockMeta.app).thenReturn(mockApp);
+        when(() => mockMeta.session).thenReturn(null);
+        when(() => mockApp.name).thenReturn('TestApp');
+        when(() => mockApp.environment).thenReturn('production');
+        when(() => mockApp.version).thenReturn('9.9.9-beta');
+        when(() => mockApp.namespace).thenReturn('test.namespace');
+
+        // Act
+        final resource = factory.getTracerResource();
+
+        // Assert
+        final serviceVersion = resource.attributes
+            .get(otel_api.ResourceAttributes.serviceVersion)
+            .toString();
+        final appVersion = resource.attributes.get('app.version').toString();
+        expect(appVersion, equals(serviceVersion));
+        expect(appVersion, equals('9.9.9-beta'));
       });
 
       test('should include SDK telemetry attributes', () {
