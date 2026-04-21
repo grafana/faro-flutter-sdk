@@ -23,6 +23,14 @@ class DartOtelTracerResourcesFactory {
           otel_api.ResourceAttributes.serviceVersion,
           faro.meta.app?.version ?? unknownString,
         ),
+        // Additive duplicate of service.version under the `app.version` name
+        // so dashboards/metrics-generator setups that group or filter by
+        // `app_version` work without relying on `service_version`. The
+        // OTel-semconv `service.version` attribute above is intentionally kept.
+        otel_api.Attribute.fromString(
+          'app.version',
+          faro.meta.app?.version ?? unknownString,
+        ),
         otel_api.Attribute.fromString(
           otel_api.ResourceAttributes.serviceNamespace,
           faro.meta.app?.namespace ?? 'flutter_app',

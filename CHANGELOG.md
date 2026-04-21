@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Span resource attribute `app.version` (mirrors the existing `service.version` value). Lets dashboards and Tempo metrics-generator setups that group/filter by `app_version` work without relying on `service_version`. The OTel-semconv `service.version` attribute is unchanged.
+
 ## [0.14.0] - 2026-04-14
 
 ### Fixed
