@@ -52,16 +52,18 @@ void main() {
         verifyNever(() => mockPersistence.clearUser());
       });
 
-      test('applies user and clears stale data when persistUser is false',
-          () async {
-        const user = FaroUser(id: 'test-user');
+      test(
+        'applies user and clears stale data when persistUser is false',
+        () async {
+          const user = FaroUser(id: 'test-user');
 
-        await userManager.setUser(user, persistUser: false);
+          await userManager.setUser(user, persistUser: false);
 
-        expect(appliedUserJson?['id'], 'test-user');
-        verify(() => mockPersistence.clearUser()).called(1);
-        verifyNever(() => mockPersistence.saveUser(any()));
-      });
+          expect(appliedUserJson?['id'], 'test-user');
+          verify(() => mockPersistence.clearUser()).called(1);
+          verifyNever(() => mockPersistence.saveUser(any()));
+        },
+      );
 
       test('clears user when FaroUser.cleared() is passed', () async {
         // First set a user
@@ -173,20 +175,22 @@ void main() {
           verifyNever(() => mockPersistence.loadUser());
         });
 
-        test('clears persisted user when initialUser.cleared() is used',
-            () async {
-          const persistedUser = FaroUser(id: 'persisted-user');
-          when(() => mockPersistence.loadUser()).thenReturn(persistedUser);
+        test(
+          'clears persisted user when initialUser.cleared() is used',
+          () async {
+            const persistedUser = FaroUser(id: 'persisted-user');
+            when(() => mockPersistence.loadUser()).thenReturn(persistedUser);
 
-          await userManager.initialize(
-            initialUser: const FaroUser.cleared(),
-            persistUser: true,
-          );
+            await userManager.initialize(
+              initialUser: const FaroUser.cleared(),
+              persistUser: true,
+            );
 
-          // No user applied when cleared
-          expect(appliedUserJson, isNull);
-          verify(() => mockPersistence.clearUser()).called(1);
-        });
+            // No user applied when cleared
+            expect(appliedUserJson, isNull);
+            verify(() => mockPersistence.clearUser()).called(1);
+          },
+        );
 
         test('has no user when no persisted and no initialUser', () async {
           when(() => mockPersistence.loadUser()).thenReturn(null);

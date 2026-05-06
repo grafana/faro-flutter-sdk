@@ -1,14 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 /// Visual style used when rendering a demo log entry.
-enum DemoLogTone {
-  neutral,
-  info,
-  success,
-  warning,
-  error,
-  highlight,
-}
+enum DemoLogTone { neutral, info, success, warning, error, highlight }
 
 /// A timestamped entry shown in example feature log panels.
 class DemoLogEntry extends Equatable {

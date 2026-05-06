@@ -35,9 +35,10 @@ class SampledStatusBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isSessionSampled
-                        ? Colors.green.shade800
-                        : Colors.grey.shade700,
+                    color:
+                        isSessionSampled
+                            ? Colors.green.shade800
+                            : Colors.grey.shade700,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -47,9 +48,10 @@ class SampledStatusBanner extends StatelessWidget {
                       : 'No telemetry collected this session',
                   style: TextStyle(
                     fontSize: 12,
-                    color: isSessionSampled
-                        ? Colors.green.shade700
-                        : Colors.grey.shade600,
+                    color:
+                        isSessionSampled
+                            ? Colors.green.shade700
+                            : Colors.grey.shade600,
                   ),
                 ),
               ],

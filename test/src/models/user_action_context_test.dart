@@ -7,10 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('UserActionContext:', () {
     test('should round-trip JSON with id', () {
-      const context = UserActionContext(
-        name: 'checkout',
-        id: 'action-123',
-      );
+      const context = UserActionContext(name: 'checkout', id: 'action-123');
 
       final decoded = UserActionContext.fromJson(context.toJson());
 

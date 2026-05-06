@@ -3,11 +3,7 @@
 /// Mirrors the Faro Web SDK `UserAction` type used on transport payloads.
 class UserActionContext {
   /// Creates an action context for enriching telemetry items.
-  const UserActionContext({
-    required this.name,
-    this.id,
-    this.parentId,
-  });
+  const UserActionContext({required this.name, this.id, this.parentId});
 
   /// Creates an action context from a JSON map.
   factory UserActionContext.fromJson(Map<String, dynamic> json) {

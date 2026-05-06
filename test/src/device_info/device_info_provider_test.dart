@@ -30,18 +30,20 @@ void main() {
     mockIosDeviceInfo = MockIosDeviceInfo();
     mockPlatformInfoProvider = MockPlatformInfoProvider();
 
-    when(() => mockDeviceInfoPlugin.androidInfo).thenAnswer(
-      (_) async => mockAndroidDeviceInfo,
-    );
-    when(() => mockDeviceInfoPlugin.iosInfo).thenAnswer(
-      (_) async => mockIosDeviceInfo,
-    );
+    when(
+      () => mockDeviceInfoPlugin.androidInfo,
+    ).thenAnswer((_) async => mockAndroidDeviceInfo);
+    when(
+      () => mockDeviceInfoPlugin.iosInfo,
+    ).thenAnswer((_) async => mockIosDeviceInfo);
 
-    when(() => mockPlatformInfoProvider.dartVersion)
-        .thenReturn('Some-dart-version');
+    when(
+      () => mockPlatformInfoProvider.dartVersion,
+    ).thenReturn('Some-dart-version');
     when(() => mockPlatformInfoProvider.operatingSystem).thenReturn('Some-OS');
-    when(() => mockPlatformInfoProvider.operatingSystemVersion)
-        .thenReturn('Some-OS-version');
+    when(
+      () => mockPlatformInfoProvider.operatingSystemVersion,
+    ).thenReturn('Some-OS-version');
 
     sut = DeviceInfoProvider(
       deviceInfoPlugin: mockDeviceInfoPlugin,
@@ -58,8 +60,9 @@ void main() {
       when(() => mockAndroidBuildVersion.release).thenReturn('11');
       when(() => mockAndroidBuildVersion.sdkInt).thenReturn(30);
 
-      when(() => mockAndroidDeviceInfo.version)
-          .thenReturn(mockAndroidBuildVersion);
+      when(
+        () => mockAndroidDeviceInfo.version,
+      ).thenReturn(mockAndroidBuildVersion);
       when(() => mockAndroidDeviceInfo.manufacturer).thenReturn('Google');
       when(() => mockAndroidDeviceInfo.model).thenReturn('Pixel 4');
       when(() => mockAndroidDeviceInfo.brand).thenReturn('Google');
@@ -106,22 +109,24 @@ void main() {
       expect(deviceInfo.deviceIsPhysical, true);
     });
 
-    test('should return correct device info when not iOS and not Android',
-        () async {
-      when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
-      when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
+    test(
+      'should return correct device info when not iOS and not Android',
+      () async {
+        when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
+        when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
 
-      final deviceInfo = await sut.getDeviceInfo();
+        final deviceInfo = await sut.getDeviceInfo();
 
-      expect(deviceInfo.dartVersion, 'Some-dart-version');
-      expect(deviceInfo.deviceOs, 'Some-OS');
-      expect(deviceInfo.deviceOsVersion, 'Some-OS-version');
-      expect(deviceInfo.deviceOsDetail, 'unknown');
-      expect(deviceInfo.deviceManufacturer, 'unknown');
-      expect(deviceInfo.deviceModel, 'unknown');
-      expect(deviceInfo.deviceModelName, 'unknown');
-      expect(deviceInfo.deviceBrand, 'unknown');
-      expect(deviceInfo.deviceIsPhysical, true);
-    });
+        expect(deviceInfo.dartVersion, 'Some-dart-version');
+        expect(deviceInfo.deviceOs, 'Some-OS');
+        expect(deviceInfo.deviceOsVersion, 'Some-OS-version');
+        expect(deviceInfo.deviceOsDetail, 'unknown');
+        expect(deviceInfo.deviceManufacturer, 'unknown');
+        expect(deviceInfo.deviceModel, 'unknown');
+        expect(deviceInfo.deviceModelName, 'unknown');
+        expect(deviceInfo.deviceBrand, 'unknown');
+        expect(deviceInfo.deviceIsPhysical, true);
+      },
+    );
   });
 }

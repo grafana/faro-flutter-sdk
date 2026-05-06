@@ -25,10 +25,7 @@ class RestartWarningBanner extends StatelessWidget {
             child: Text(
               'Sampling setting changed! Restart the app to apply '
               '"${selectedSetting.displayName}".',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.orange.shade900,
-              ),
+              style: TextStyle(fontSize: 11, color: Colors.orange.shade900),
             ),
           ),
         ],

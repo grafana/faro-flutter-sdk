@@ -16,8 +16,8 @@ class UserActionsService {
   UserActionsService({
     required BatchTransportResolver transportResolver,
     required UserActionLifecycleControllerFactory lifecycleControllerFactory,
-  })  : _transportResolver = transportResolver,
-        _lifecycleControllerFactory = lifecycleControllerFactory;
+  }) : _transportResolver = transportResolver,
+       _lifecycleControllerFactory = lifecycleControllerFactory;
 
   final BatchTransportResolver _transportResolver;
   final UserActionLifecycleControllerFactory _lifecycleControllerFactory;
@@ -40,8 +40,10 @@ class UserActionsService {
     }
 
     if (_transportResolver() == null) {
-      log('Faro: Cannot start user action'
-          ' - Faro not initialized');
+      log(
+        'Faro: Cannot start user action'
+        ' - Faro not initialized',
+      );
       return null;
     }
 
@@ -62,9 +64,11 @@ class UserActionsService {
 
     _stateSubscription?.cancel();
     _stateSubscription = userAction.stateChanges
-        .where((state) =>
-            state == UserActionState.ended ||
-            state == UserActionState.cancelled)
+        .where(
+          (state) =>
+              state == UserActionState.ended ||
+              state == UserActionState.cancelled,
+        )
         .take(1)
         .listen((_) => _onActionTerminated(userAction));
 
@@ -120,7 +124,8 @@ class UserActionsService {
 final userActionsServiceProvider = Provider<UserActionsService>((pod) {
   return UserActionsService(
     transportResolver: pod.resolve(batchTransportResolverProvider),
-    lifecycleControllerFactory:
-        pod.resolve(userActionLifecycleControllerFactoryProvider),
+    lifecycleControllerFactory: pod.resolve(
+      userActionLifecycleControllerFactoryProvider,
+    ),
   );
 });

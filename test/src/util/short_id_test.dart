@@ -21,8 +21,11 @@ void main() {
       for (var i = 0; i < 100; i++) {
         final id = generateShortId();
         for (final char in id.split('')) {
-          expect(allowed.contains(char), isTrue,
-              reason: 'Unexpected character "$char" in ID "$id"');
+          expect(
+            allowed.contains(char),
+            isTrue,
+            reason: 'Unexpected character "$char" in ID "$id"',
+          );
         }
       }
     });

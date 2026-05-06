@@ -134,9 +134,9 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 });
 
 /// Provider for the sampling settings service.
-final samplingSettingsServiceProvider = Provider<SamplingSettingsService>(
-  (ref) {
-    final prefs = ref.watch(sharedPreferencesProvider);
-    return SamplingSettingsService(prefs: prefs);
-  },
-);
+final samplingSettingsServiceProvider = Provider<SamplingSettingsService>((
+  ref,
+) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return SamplingSettingsService(prefs: prefs);
+});

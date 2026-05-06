@@ -15,15 +15,17 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
 
   @override
   Future<Map<String, dynamic>?> getAppStart() async {
-    final appStart =
-        await methodChannel.invokeMapMethod<String, dynamic>('getAppStart');
+    final appStart = await methodChannel.invokeMapMethod<String, dynamic>(
+      'getAppStart',
+    );
     return appStart;
   }
 
   @override
   Future<Map<String, dynamic>?> getWarmStart() async {
-    final appStart =
-        await methodChannel.invokeMapMethod<String, dynamic>('getWarmStart');
+    final appStart = await methodChannel.invokeMapMethod<String, dynamic>(
+      'getWarmStart',
+    );
     return appStart;
   }
 
@@ -35,8 +37,9 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
 
   @override
   Future<double?> getRefreshRate() async {
-    final refreshRate =
-        await methodChannel.invokeMethod<double?>('getRefreshRate');
+    final refreshRate = await methodChannel.invokeMethod<double?>(
+      'getRefreshRate',
+    );
     return refreshRate;
   }
 
@@ -69,8 +72,9 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
 
   @override
   Future<List<String>?> getCrashReport() async {
-    final crashInfo =
-        await methodChannel.invokeListMethod<String>('getCrashReport');
+    final crashInfo = await methodChannel.invokeListMethod<String>(
+      'getCrashReport',
+    );
     return crashInfo;
   }
 }

@@ -6,12 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('TimestampExtension:', () {
     test(
-        'converts valid Unix epoch timestamp in milliseconds to ISO 8601 string',
-        () {
-      const timestamp = '1749080960296';
-      final result = timestamp.toHumanReadableTimestamp();
-      expect(result, '2025-06-04T23:49:20.296Z');
-    });
+      'converts valid Unix epoch timestamp in milliseconds to ISO 8601 string',
+      () {
+        const timestamp = '1749080960296';
+        final result = timestamp.toHumanReadableTimestamp();
+        expect(result, '2025-06-04T23:49:20.296Z');
+      },
+    );
 
     test('converts another valid timestamp correctly', () {
       const timestamp = '1744879144096';

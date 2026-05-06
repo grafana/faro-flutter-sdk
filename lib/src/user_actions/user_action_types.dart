@@ -3,27 +3,15 @@ import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/models/user_action_context.dart';
 
 /// Type of telemetry item being transported.
-enum TelemetryItemType {
-  event,
-  log,
-  exception,
-  measurement,
-  span,
-}
+enum TelemetryItemType { event, log, exception, measurement, span }
 
 /// Represents a telemetry item that can be buffered during a user action.
 class TelemetryItem {
-  TelemetryItem({
-    required this.type,
-    required this.payload,
-  });
+  TelemetryItem({required this.type, required this.payload});
 
   /// Creates a telemetry item from a SpanRecord.
   factory TelemetryItem.fromSpan(SpanRecord span) {
-    return TelemetryItem(
-      type: TelemetryItemType.span,
-      payload: span,
-    );
+    return TelemetryItem(type: TelemetryItemType.span, payload: span);
   }
 
   /// Creates a telemetry item from a Measurement.
@@ -36,26 +24,17 @@ class TelemetryItem {
 
   /// Creates a telemetry item from a FaroException.
   factory TelemetryItem.fromException(FaroException exception) {
-    return TelemetryItem(
-      type: TelemetryItemType.exception,
-      payload: exception,
-    );
+    return TelemetryItem(type: TelemetryItemType.exception, payload: exception);
   }
 
   /// Creates a telemetry item from an Event.
   factory TelemetryItem.fromEvent(Event event) {
-    return TelemetryItem(
-      type: TelemetryItemType.event,
-      payload: event,
-    );
+    return TelemetryItem(type: TelemetryItemType.event, payload: event);
   }
 
   /// Creates a telemetry item from a FaroLog.
   factory TelemetryItem.fromLog(FaroLog log) {
-    return TelemetryItem(
-      type: TelemetryItemType.log,
-      payload: log,
-    );
+    return TelemetryItem(type: TelemetryItemType.log, payload: log);
   }
 
   final TelemetryItemType type;

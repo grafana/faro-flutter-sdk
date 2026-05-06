@@ -87,10 +87,7 @@ void main() {
 
         // Beta user
         final betaMeta = Meta(
-          user: const FaroUser(
-            id: 'user-123',
-            attributes: {'role': 'beta'},
-          ),
+          user: const FaroUser(id: 'user-123', attributes: {'role': 'beta'}),
         );
         final betaContext = SamplingContext(meta: betaMeta);
         expect(sampling.resolve(betaContext), equals(1.0));

@@ -5,20 +5,20 @@ homepage: https://grafana.com/oss/faro/
 repository: https://github.com/grafana/faro-flutter-sdk
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
-  flutter: ">=3.0.0"
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.29.0"
 
 dependencies:
   connectivity_plus: ">=6.1.2 <8.0.0"
   dartypod: ^0.2.0
-  device_info_plus: ^12.3.0
+  device_info_plus: ">=12.3.0 <14.0.0"
   equatable: ^2.0.8
   fixnum: ^1.1.1
   flutter:
     sdk: flutter
   http: ^1.2.2
   opentelemetry: ^0.18.10
-  package_info_plus: ">=8.0.1 <10.0.0"
+  package_info_plus: ">=8.0.1 <11.0.0"
   path_provider: ^2.1.5
   plugin_platform_interface: ^2.0.2
   shared_preferences: ^2.3.3

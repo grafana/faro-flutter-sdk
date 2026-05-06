@@ -34,8 +34,10 @@ class TraceResourceSpans {
   }
 
   int numberSpans() {
-    return _scopeSpansMap.values
-        .fold(0, (total, spanScope) => total + spanScope.numberSpans);
+    return _scopeSpansMap.values.fold(
+      0,
+      (total, spanScope) => total + spanScope.numberSpans,
+    );
   }
 
   void resetSpans() {

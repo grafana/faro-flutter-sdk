@@ -27,20 +27,22 @@ void main() {
 
   group('SessionAttributesProvider:', () {
     test('should return correct attributes', () async {
-      when(() => mockDeviceInfoProvider.getDeviceInfo())
-          .thenAnswer((_) async => DeviceInfo(
-                dartVersion: 'Some-dart-version',
-                deviceOs: 'Some-OS',
-                deviceOsVersion: 'Some-OS-version',
-                deviceOsDetail: 'Some-OS-detail',
-                deviceManufacturer: 'Some-manufacturer',
-                deviceModel: 'Some-model',
-                deviceModelName: 'Some-model-name',
-                deviceBrand: 'Some-brand',
-                deviceIsPhysical: true,
-              ));
-      when(() => mockDeviceIdProvider.getDeviceId())
-          .thenAnswer((_) async => DeviceId('device-id'));
+      when(() => mockDeviceInfoProvider.getDeviceInfo()).thenAnswer(
+        (_) async => DeviceInfo(
+          dartVersion: 'Some-dart-version',
+          deviceOs: 'Some-OS',
+          deviceOsVersion: 'Some-OS-version',
+          deviceOsDetail: 'Some-OS-detail',
+          deviceManufacturer: 'Some-manufacturer',
+          deviceModel: 'Some-model',
+          deviceModelName: 'Some-model-name',
+          deviceBrand: 'Some-brand',
+          deviceIsPhysical: true,
+        ),
+      );
+      when(
+        () => mockDeviceIdProvider.getDeviceId(),
+      ).thenAnswer((_) async => DeviceId('device-id'));
 
       final attributes = await sut.getAttributes();
 

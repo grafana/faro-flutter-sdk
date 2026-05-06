@@ -10,9 +10,10 @@ class OnErrorIntegration {
     _defaultOnError = PlatformDispatcher.instance.onError;
     _onErrorIntegration = (exception, stackTrace) {
       Faro().pushError(
-          type: 'flutter_error',
-          value: exception.toString(),
-          stacktrace: stackTrace);
+        type: 'flutter_error',
+        value: exception.toString(),
+        stacktrace: stackTrace,
+      );
       if (_defaultOnError != null) {
         _defaultOnError?.call(exception, stackTrace);
       }

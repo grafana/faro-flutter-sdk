@@ -18,8 +18,10 @@ extension TimestampExtension on String {
 
     try {
       final timestampMs = int.parse(this);
-      final dateTime =
-          DateTime.fromMillisecondsSinceEpoch(timestampMs, isUtc: true);
+      final dateTime = DateTime.fromMillisecondsSinceEpoch(
+        timestampMs,
+        isUtc: true,
+      );
       return dateTime.toIso8601String();
     } catch (error) {
       return 'Invalid timestamp format';

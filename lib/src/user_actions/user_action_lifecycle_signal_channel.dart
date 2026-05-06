@@ -10,33 +10,19 @@ class UserActionLifecycleSignalChannel implements Disposable {
 
   Stream<UserActionSignal> get stream => _controller.stream;
 
-  void emitActivity({
-    required String source,
-  }) {
+  void emitActivity({required String source}) {
     _emit(UserActionSignal.activity(source: source));
   }
 
-  void emitPendingStart({
-    required String source,
-    required String operationId,
-  }) {
+  void emitPendingStart({required String source, required String operationId}) {
     _emit(
-      UserActionSignal.pendingStart(
-        source: source,
-        operationId: operationId,
-      ),
+      UserActionSignal.pendingStart(source: source, operationId: operationId),
     );
   }
 
-  void emitPendingEnd({
-    required String source,
-    required String operationId,
-  }) {
+  void emitPendingEnd({required String source, required String operationId}) {
     _emit(
-      UserActionSignal.pendingEnd(
-        source: source,
-        operationId: operationId,
-      ),
+      UserActionSignal.pendingEnd(source: source, operationId: operationId),
     );
   }
 
@@ -52,5 +38,5 @@ class UserActionLifecycleSignalChannel implements Disposable {
 
 final userActionLifecycleSignalChannelProvider =
     Provider<UserActionLifecycleSignalChannel>(
-  (pod) => UserActionLifecycleSignalChannel(),
-);
+      (pod) => UserActionLifecycleSignalChannel(),
+    );

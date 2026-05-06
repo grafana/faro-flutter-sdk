@@ -72,8 +72,9 @@ void main() {
 
         // Assert
         expect(result, equals(mockSpan));
-        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
-            .called(1);
+        verify(
+          () => mockParentSpanLookup.call(const Symbol('faroSpanContext')),
+        ).called(1);
       });
 
       test('should return null when no span exists in the zone', () {
@@ -85,8 +86,9 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
-            .called(1);
+        verify(
+          () => mockParentSpanLookup.call(const Symbol('faroSpanContext')),
+        ).called(1);
       });
 
       test('should return null when zone value is not a Span', () {
@@ -98,8 +100,9 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
-            .called(1);
+        verify(
+          () => mockParentSpanLookup.call(const Symbol('faroSpanContext')),
+        ).called(1);
       });
 
       test('should return null when zone value is another type of object', () {
@@ -111,122 +114,140 @@ void main() {
 
         // Assert
         expect(result, isNull);
-        verify(() => mockParentSpanLookup.call(const Symbol('faroSpanContext')))
-            .called(1);
+        verify(
+          () => mockParentSpanLookup.call(const Symbol('faroSpanContext')),
+        ).called(1);
       });
     });
 
     group('executeWithSpan:', () {
-      test('should execute callback with span and end span on success',
-          () async {
-        // Arrange
-        var callbackExecuted = false;
-        Span? receivedSpan;
-        const expectedResult = 'test-result';
+      test(
+        'should execute callback with span and end span on success',
+        () async {
+          // Arrange
+          var callbackExecuted = false;
+          Span? receivedSpan;
+          const expectedResult = 'test-result';
 
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act
-        final result = await faroZoneSpanManager.executeWithSpan<String>(
-          mockSpan,
-          (span) {
-            callbackExecuted = true;
-            receivedSpan = span;
-            return expectedResult;
-          },
-        );
+          // Act
+          final result = await faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) {
+              callbackExecuted = true;
+              receivedSpan = span;
+              return expectedResult;
+            },
+          );
 
-        // Assert
-        expect(result, equals(expectedResult));
-        expect(callbackExecuted, isTrue);
-        expect(receivedSpan, equals(mockSpan));
-        verify(() => mockSpan.end()).called(1);
-        verify(() => mockZoneRunner.call<String>(
+          // Assert
+          expect(result, equals(expectedResult));
+          expect(callbackExecuted, isTrue);
+          expect(receivedSpan, equals(mockSpan));
+          verify(() => mockSpan.end()).called(1);
+          verify(
+            () => mockZoneRunner.call<String>(
               any(),
-              any(that: predicate<Map<Object?, Object?>>((zoneValues) {
-                final holder = zoneValues[const Symbol('faroSpanContext')];
-                return holder is SpanContextHolder && holder.span == mockSpan;
-              })),
-            )).called(1);
-      });
-
-      test('should execute async callback with span and end span on success',
-          () async {
-        // Arrange
-        var callbackExecuted = false;
-        Span? receivedSpan;
-        const expectedResult = 'async-result';
-
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
-
-        // Act
-        final result = await faroZoneSpanManager.executeWithSpan<String>(
-          mockSpan,
-          (span) async {
-            callbackExecuted = true;
-            receivedSpan = span;
-            await Future<void>.delayed(Duration.zero); // Simulate async work
-            return expectedResult;
-          },
-        );
-
-        // Assert
-        expect(result, equals(expectedResult));
-        expect(callbackExecuted, isTrue);
-        expect(receivedSpan, equals(mockSpan));
-        verify(() => mockSpan.end()).called(1);
-      });
+              any(
+                that: predicate<Map<Object?, Object?>>((zoneValues) {
+                  final holder = zoneValues[const Symbol('faroSpanContext')];
+                  return holder is SpanContextHolder && holder.span == mockSpan;
+                }),
+              ),
+            ),
+          ).called(1);
+        },
+      );
 
       test(
-          'should handle exception, set span error status, record exception, and rethrow',
-          () async {
-        // Arrange
-        final testException = Exception('test-exception');
+        'should execute async callback with span and end span on success',
+        () async {
+          // Arrange
+          var callbackExecuted = false;
+          Span? receivedSpan;
+          const expectedResult = 'async-result';
 
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act & Assert
-        expect(
-          () async => faroZoneSpanManager.executeWithSpan<String>(
+          // Act
+          final result = await faroZoneSpanManager.executeWithSpan<String>(
             mockSpan,
-            (span) => throw testException,
-          ),
-          throwsA(equals(testException)),
-        );
+            (span) async {
+              callbackExecuted = true;
+              receivedSpan = span;
+              await Future<void>.delayed(Duration.zero); // Simulate async work
+              return expectedResult;
+            },
+          );
 
-        // Verify span error handling
-        verify(() => mockSpan.setStatus(
+          // Assert
+          expect(result, equals(expectedResult));
+          expect(callbackExecuted, isTrue);
+          expect(receivedSpan, equals(mockSpan));
+          verify(() => mockSpan.end()).called(1);
+        },
+      );
+
+      test(
+        'should handle exception, set span error status, record exception, and rethrow',
+        () async {
+          // Arrange
+          final testException = Exception('test-exception');
+
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          expect(
+            () async => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw testException,
+            ),
+            throwsA(equals(testException)),
+          );
+
+          // Verify span error handling
+          verify(
+            () => mockSpan.setStatus(
               SpanStatusCode.error,
               message: testException.toString(),
-            )).called(1);
-        verify(() => mockSpan.recordException(
+            ),
+          ).called(1);
+          verify(
+            () => mockSpan.recordException(
               testException,
               stackTrace: any(named: 'stackTrace'),
-            )).called(1);
-        verify(() => mockSpan.end()).called(1);
-      });
+            ),
+          ).called(1);
+          verify(() => mockSpan.end()).called(1);
+        },
+      );
 
       test('should ensure span is ended even if exception occurs', () async {
         // Arrange
         final testException = StateError('test-error');
 
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
           final callback =
               invocation.positionalArguments[0] as Future<String> Function();
           return callback();
@@ -246,44 +267,51 @@ void main() {
       });
 
       test(
-          'should handle error in span.end() gracefully (end exception masks original)',
-          () async {
-        // Arrange
-        final originalException = Exception('original-exception');
-        final endException = Exception('end-exception');
+        'should handle error in span.end() gracefully (end exception masks original)',
+        () async {
+          // Arrange
+          final originalException = Exception('original-exception');
+          final endException = Exception('end-exception');
 
-        when(() => mockSpan.end()).thenThrow(endException);
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+          when(() => mockSpan.end()).thenThrow(endException);
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act & Assert - The end exception will mask the original exception (standard Dart behavior)
-        expect(
-          () async => faroZoneSpanManager.executeWithSpan<String>(
-            mockSpan,
-            (span) => throw originalException,
-          ),
-          throwsA(equals(endException)),
-        );
+          // Act & Assert - The end exception will mask the original exception (standard Dart behavior)
+          expect(
+            () async => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw originalException,
+            ),
+            throwsA(equals(endException)),
+          );
 
-        verify(() => mockSpan.setStatus(
+          verify(
+            () => mockSpan.setStatus(
               SpanStatusCode.error,
               message: originalException.toString(),
-            )).called(1);
-        verify(() => mockSpan.recordException(
+            ),
+          ).called(1);
+          verify(
+            () => mockSpan.recordException(
               originalException,
               stackTrace: any(named: 'stackTrace'),
-            )).called(1);
-        verify(() => mockSpan.end()).called(1);
-      });
+            ),
+          ).called(1);
+          verify(() => mockSpan.end()).called(1);
+        },
+      );
 
       test('should pass zone values to zone runner', () async {
         // Arrange
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
           final callback =
               invocation.positionalArguments[0] as Future<String> Function();
           return callback();
@@ -296,141 +324,160 @@ void main() {
         );
 
         // Assert
-        verify(() => mockZoneRunner.call<String>(
-              any(),
-              any(that: predicate<Map<Object?, Object?>>((zoneValues) {
+        verify(
+          () => mockZoneRunner.call<String>(
+            any(),
+            any(
+              that: predicate<Map<Object?, Object?>>((zoneValues) {
                 final holder = zoneValues[const Symbol('faroSpanContext')];
                 return holder is SpanContextHolder && holder.span == mockSpan;
-              })),
-            )).called(1);
-      });
-
-      test('should set status to OK when statusHasBeenSet is false on success',
-          () async {
-        // Arrange
-        when(() => mockSpan.statusHasBeenSet).thenReturn(false);
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
-
-        // Act
-        await faroZoneSpanManager.executeWithSpan<String>(
-          mockSpan,
-          (span) => 'result',
-        );
-
-        // Assert
-        verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
+              }),
+            ),
+          ),
+        ).called(1);
       });
 
       test(
-          'should NOT set status to OK when statusHasBeenSet is true on success',
-          () async {
-        // Arrange
-        when(() => mockSpan.statusHasBeenSet).thenReturn(true);
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+        'should set status to OK when statusHasBeenSet is false on success',
+        () async {
+          // Arrange
+          when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act
-        await faroZoneSpanManager.executeWithSpan<String>(
-          mockSpan,
-          (span) => 'result',
-        );
-
-        // Assert
-        verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
-      });
-
-      test('should set status to ERROR when statusHasBeenSet is false on error',
-          () async {
-        // Arrange
-        final testException = Exception('test-exception');
-        when(() => mockSpan.statusHasBeenSet).thenReturn(false);
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
-
-        // Act & Assert
-        expect(
-          () async => faroZoneSpanManager.executeWithSpan<String>(
+          // Act
+          await faroZoneSpanManager.executeWithSpan<String>(
             mockSpan,
-            (span) => throw testException,
-          ),
-          throwsA(equals(testException)),
-        );
+            (span) => 'result',
+          );
 
-        // Verify span error handling
-        verify(() => mockSpan.setStatus(
-              SpanStatusCode.error,
-              message: testException.toString(),
-            )).called(1);
-      });
+          // Assert
+          verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
+        },
+      );
 
       test(
-          'should NOT set status to ERROR when statusHasBeenSet is true on error',
-          () async {
-        // Arrange
-        final testException = Exception('test-exception');
-        when(() => mockSpan.statusHasBeenSet).thenReturn(true);
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+        'should NOT set status to OK when statusHasBeenSet is true on success',
+        () async {
+          // Arrange
+          when(() => mockSpan.statusHasBeenSet).thenReturn(true);
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act & Assert
-        expect(
-          () async => faroZoneSpanManager.executeWithSpan<String>(
+          // Act
+          await faroZoneSpanManager.executeWithSpan<String>(
             mockSpan,
-            (span) => throw testException,
-          ),
-          throwsA(equals(testException)),
-        );
+            (span) => 'result',
+          );
 
-        // Verify span error handling is NOT called
-        verifyNever(() => mockSpan.setStatus(
+          // Assert
+          verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
+        },
+      );
+
+      test(
+        'should set status to ERROR when statusHasBeenSet is false on error',
+        () async {
+          // Arrange
+          final testException = Exception('test-exception');
+          when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          expect(
+            () async => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw testException,
+            ),
+            throwsA(equals(testException)),
+          );
+
+          // Verify span error handling
+          verify(
+            () => mockSpan.setStatus(
               SpanStatusCode.error,
               message: testException.toString(),
-            ));
-        // But exception is still recorded
-        verify(() => mockSpan.recordException(
+            ),
+          ).called(1);
+        },
+      );
+
+      test(
+        'should NOT set status to ERROR when statusHasBeenSet is true on error',
+        () async {
+          // Arrange
+          final testException = Exception('test-exception');
+          when(() => mockSpan.statusHasBeenSet).thenReturn(true);
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          expect(
+            () async => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw testException,
+            ),
+            throwsA(equals(testException)),
+          );
+
+          // Verify span error handling is NOT called
+          verifyNever(
+            () => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: testException.toString(),
+            ),
+          );
+          // But exception is still recorded
+          verify(
+            () => mockSpan.recordException(
               testException,
               stackTrace: any(named: 'stackTrace'),
-            )).called(1);
-      });
+            ),
+          ).called(1);
+        },
+      );
 
       test('should respect manually set status during success flow', () async {
         // Arrange
         var statusHasBeenSet = false;
-        when(() => mockSpan.statusHasBeenSet)
-            .thenAnswer((_) => statusHasBeenSet);
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
+        when(
+          () => mockSpan.statusHasBeenSet,
+        ).thenAnswer((_) => statusHasBeenSet);
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
           final callback =
               invocation.positionalArguments[0] as Future<String> Function();
           return callback();
         });
 
         // Act
-        await faroZoneSpanManager.executeWithSpan<String>(
-          mockSpan,
-          (span) {
-            // Simulate manually setting status during execution
-            statusHasBeenSet = true;
-            return 'result';
-          },
-        );
+        await faroZoneSpanManager.executeWithSpan<String>(mockSpan, (span) {
+          // Simulate manually setting status during execution
+          statusHasBeenSet = true;
+          return 'result';
+        });
 
         // Assert - should NOT have been called since statusHasBeenSet was true when checked
         verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
@@ -440,10 +487,12 @@ void main() {
         // Arrange
         final testException = Exception('test-exception');
         var statusHasBeenSet = false;
-        when(() => mockSpan.statusHasBeenSet)
-            .thenAnswer((_) => statusHasBeenSet);
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
+        when(
+          () => mockSpan.statusHasBeenSet,
+        ).thenAnswer((_) => statusHasBeenSet);
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
           final callback =
               invocation.positionalArguments[0] as Future<String> Function();
           return callback();
@@ -451,27 +500,29 @@ void main() {
 
         // Act & Assert
         expect(
-          () async => faroZoneSpanManager.executeWithSpan<String>(
-            mockSpan,
-            (span) {
-              // Simulate manually setting status during execution
-              statusHasBeenSet = true;
-              throw testException;
-            },
-          ),
+          () async =>
+              faroZoneSpanManager.executeWithSpan<String>(mockSpan, (span) {
+                // Simulate manually setting status during execution
+                statusHasBeenSet = true;
+                throw testException;
+              }),
           throwsA(equals(testException)),
         );
 
         // Assert - should NOT have been called since statusHasBeenSet was true when checked
-        verifyNever(() => mockSpan.setStatus(
-              SpanStatusCode.error,
-              message: testException.toString(),
-            ));
+        verifyNever(
+          () => mockSpan.setStatus(
+            SpanStatusCode.error,
+            message: testException.toString(),
+          ),
+        );
         // But exception should still be recorded
-        verify(() => mockSpan.recordException(
-              testException,
-              stackTrace: any(named: 'stackTrace'),
-            )).called(1);
+        verify(
+          () => mockSpan.recordException(
+            testException,
+            stackTrace: any(named: 'stackTrace'),
+          ),
+        ).called(1);
       });
     });
   });
@@ -491,33 +542,34 @@ void main() {
       expect(result, isA<FaroZoneSpanManager>());
     });
 
-    test('should create FaroZoneSpanManager that works with real Zone',
-        () async {
-      // Arrange
-      final spanManager = factory.create();
-      final mockSpan = MockSpan();
-      var callbackExecuted = false;
+    test(
+      'should create FaroZoneSpanManager that works with real Zone',
+      () async {
+        // Arrange
+        final spanManager = factory.create();
+        final mockSpan = MockSpan();
+        var callbackExecuted = false;
 
-      // Setup required stubs for the mock span
-      when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+        // Setup required stubs for the mock span
+        when(() => mockSpan.statusHasBeenSet).thenReturn(false);
 
-      // Act
-      final result = await spanManager.executeWithSpan<String>(
-        mockSpan,
-        (span) {
+        // Act
+        final result = await spanManager.executeWithSpan<String>(mockSpan, (
+          span,
+        ) {
           callbackExecuted = true;
           // Verify we can get the active span within the zone
           final activeSpan = spanManager.getActiveSpan();
           expect(activeSpan, equals(mockSpan));
           return 'zone-test-result';
-        },
-      );
+        });
 
-      // Assert
-      expect(result, equals('zone-test-result'));
-      expect(callbackExecuted, isTrue);
-      verify(mockSpan.end).called(1);
-    });
+        // Assert
+        expect(result, equals('zone-test-result'));
+        expect(callbackExecuted, isTrue);
+        verify(mockSpan.end).called(1);
+      },
+    );
 
     test('should return null for getActiveSpan when no zone context', () {
       // Arrange
@@ -584,21 +636,22 @@ void main() {
       });
 
       test(
-          'should still return span when holder uses ContextScope.zone and is active',
-          () {
-        // Arrange
-        final holder = SpanContextHolder(
-          span: mockSpan,
-          contextScope: ContextScope.zone,
-        );
-        when(() => mockParentSpanLookup.call(any())).thenReturn(holder);
+        'should still return span when holder uses ContextScope.zone and is active',
+        () {
+          // Arrange
+          final holder = SpanContextHolder(
+            span: mockSpan,
+            contextScope: ContextScope.zone,
+          );
+          when(() => mockParentSpanLookup.call(any())).thenReturn(holder);
 
-        // Act
-        final result = faroZoneSpanManager.getActiveSpan();
+          // Act
+          final result = faroZoneSpanManager.getActiveSpan();
 
-        // Assert
-        expect(result, equals(mockSpan));
-      });
+          // Assert
+          expect(result, equals(mockSpan));
+        },
+      );
     });
 
     group('executeWithSpan with ContextScope:', () {
@@ -622,58 +675,64 @@ void main() {
       });
 
       test(
-          'should pass SpanContextHolder to zone values instead of span directly',
-          () async {
-        // Arrange
-        SpanContextHolder? capturedHolder;
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final zoneValues =
-              invocation.positionalArguments[1] as Map<Object?, Object?>;
-          capturedHolder =
-              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+        'should pass SpanContextHolder to zone values instead of span directly',
+        () async {
+          // Arrange
+          SpanContextHolder? capturedHolder;
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final zoneValues =
+                invocation.positionalArguments[1] as Map<Object?, Object?>;
+            capturedHolder =
+                zoneValues[const Symbol('faroSpanContext')]
+                    as SpanContextHolder?;
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act
-        await faroZoneSpanManager.executeWithSpan<String>(
-          mockSpan,
-          (span) => 'result',
-        );
+          // Act
+          await faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => 'result',
+          );
 
-        // Assert
-        expect(capturedHolder, isNotNull);
-        expect(capturedHolder!.span, equals(mockSpan));
-      });
+          // Assert
+          expect(capturedHolder, isNotNull);
+          expect(capturedHolder!.span, equals(mockSpan));
+        },
+      );
 
       test(
-          'should deactivate holder after callback completes with ContextScope.callback (default)',
-          () async {
-        // Arrange
-        SpanContextHolder? capturedHolder;
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final zoneValues =
-              invocation.positionalArguments[1] as Map<Object?, Object?>;
-          capturedHolder =
-              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+        'should deactivate holder after callback completes with ContextScope.callback (default)',
+        () async {
+          // Arrange
+          SpanContextHolder? capturedHolder;
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final zoneValues =
+                invocation.positionalArguments[1] as Map<Object?, Object?>;
+            capturedHolder =
+                zoneValues[const Symbol('faroSpanContext')]
+                    as SpanContextHolder?;
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act
-        await faroZoneSpanManager.executeWithSpan<String>(
-          mockSpan,
-          (span) => 'result',
-        );
+          // Act
+          await faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => 'result',
+          );
 
-        // Assert - holder should be deactivated after callback completes
-        expect(capturedHolder, isNotNull);
-        expect(capturedHolder!.isActive, isFalse);
-      });
+          // Assert - holder should be deactivated after callback completes
+          expect(capturedHolder, isNotNull);
+          expect(capturedHolder!.isActive, isFalse);
+        },
+      );
 
       test('should deactivate holder AFTER span.end() is called', () async {
         // Arrange
@@ -683,8 +742,9 @@ void main() {
         when(() => mockSpan.end()).thenAnswer((_) {
           holderWasActiveWhenEndCalled = capturedHolder?.isActive;
         });
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
           final zoneValues =
               invocation.positionalArguments[1] as Map<Object?, Object?>;
           capturedHolder =
@@ -708,8 +768,9 @@ void main() {
       test('should NOT deactivate holder with ContextScope.zone', () async {
         // Arrange
         SpanContextHolder? capturedHolder;
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
           final zoneValues =
               invocation.positionalArguments[1] as Map<Object?, Object?>;
           capturedHolder =
@@ -735,8 +796,9 @@ void main() {
         // Arrange
         final testException = Exception('test-exception');
         SpanContextHolder? capturedHolder;
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
           final zoneValues =
               invocation.positionalArguments[1] as Map<Object?, Object?>;
           capturedHolder =
@@ -760,36 +822,40 @@ void main() {
         expect(capturedHolder!.isActive, isFalse);
       });
 
-      test('should NOT deactivate holder on exception with ContextScope.zone',
-          () async {
-        // Arrange
-        final testException = Exception('test-exception');
-        SpanContextHolder? capturedHolder;
-        when(() => mockZoneRunner.call<String>(any(), any()))
-            .thenAnswer((invocation) async {
-          final zoneValues =
-              invocation.positionalArguments[1] as Map<Object?, Object?>;
-          capturedHolder =
-              zoneValues[const Symbol('faroSpanContext')] as SpanContextHolder?;
-          final callback =
-              invocation.positionalArguments[0] as Future<String> Function();
-          return callback();
-        });
+      test(
+        'should NOT deactivate holder on exception with ContextScope.zone',
+        () async {
+          // Arrange
+          final testException = Exception('test-exception');
+          SpanContextHolder? capturedHolder;
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final zoneValues =
+                invocation.positionalArguments[1] as Map<Object?, Object?>;
+            capturedHolder =
+                zoneValues[const Symbol('faroSpanContext')]
+                    as SpanContextHolder?;
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
 
-        // Act & Assert
-        expect(
-          () async => faroZoneSpanManager.executeWithSpan<String>(
-            mockSpan,
-            (span) => throw testException,
-            contextScope: ContextScope.zone,
-          ),
-          throwsA(equals(testException)),
-        );
+          // Act & Assert
+          expect(
+            () async => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw testException,
+              contextScope: ContextScope.zone,
+            ),
+            throwsA(equals(testException)),
+          );
 
-        // Assert - holder should still be active with ContextScope.zone
-        expect(capturedHolder, isNotNull);
-        expect(capturedHolder!.isActive, isTrue);
-      });
+          // Assert - holder should still be active with ContextScope.zone
+          expect(capturedHolder, isNotNull);
+          expect(capturedHolder!.isActive, isTrue);
+        },
+      );
     });
   });
 
@@ -859,50 +925,55 @@ void main() {
     });
 
     test(
-        'ContextScope.callback: getActiveSpan returns null after callback completes',
-        () async {
-      // Arrange
-      Span? activeSpanDuringCallback;
-      Span? activeSpanAfterCallback;
-      final completer = Completer<void>();
+      'ContextScope.callback: getActiveSpan returns null after callback completes',
+      () async {
+        // Arrange
+        Span? activeSpanDuringCallback;
+        Span? activeSpanAfterCallback;
+        final completer = Completer<void>();
 
-      // Act
-      await spanManager.executeWithSpan<void>(
-        mockSpan,
-        (span) async {
-          activeSpanDuringCallback = spanManager.getActiveSpan();
+        // Act
+        await spanManager.executeWithSpan<void>(
+          mockSpan,
+          (span) async {
+            activeSpanDuringCallback = spanManager.getActiveSpan();
 
-          // Schedule a timer that will fire after the callback completes
-          Timer(Duration.zero, () {
-            activeSpanAfterCallback = spanManager.getActiveSpan();
-            completer.complete();
-          });
-        },
-        // Using default ContextScope.callback
-      );
+            // Schedule a timer that will fire after the callback completes
+            Timer(Duration.zero, () {
+              activeSpanAfterCallback = spanManager.getActiveSpan();
+              completer.complete();
+            });
+          },
+          // Using default ContextScope.callback
+        );
 
-      // Wait for the timer to fire
-      await completer.future;
+        // Wait for the timer to fire
+        await completer.future;
 
-      // Assert
-      expect(activeSpanDuringCallback, equals(mockSpan),
-          reason: 'Span should be active during callback');
-      expect(activeSpanAfterCallback, isNull,
-          reason: 'Span should be deactivated after callback completes');
-    });
+        // Assert
+        expect(
+          activeSpanDuringCallback,
+          equals(mockSpan),
+          reason: 'Span should be active during callback',
+        );
+        expect(
+          activeSpanAfterCallback,
+          isNull,
+          reason: 'Span should be deactivated after callback completes',
+        );
+      },
+    );
 
     test(
-        'ContextScope.zone: getActiveSpan returns span even after callback completes',
-        () async {
-      // Arrange
-      Span? activeSpanDuringCallback;
-      Span? activeSpanAfterCallback;
-      final completer = Completer<void>();
+      'ContextScope.zone: getActiveSpan returns span even after callback completes',
+      () async {
+        // Arrange
+        Span? activeSpanDuringCallback;
+        Span? activeSpanAfterCallback;
+        final completer = Completer<void>();
 
-      // Act
-      await spanManager.executeWithSpan<void>(
-        mockSpan,
-        (span) async {
+        // Act
+        await spanManager.executeWithSpan<void>(mockSpan, (span) async {
           activeSpanDuringCallback = spanManager.getActiveSpan();
 
           // Schedule a timer that will fire after the callback completes
@@ -910,19 +981,24 @@ void main() {
             activeSpanAfterCallback = spanManager.getActiveSpan();
             completer.complete();
           });
-        },
-        contextScope: ContextScope.zone,
-      );
+        }, contextScope: ContextScope.zone);
 
-      // Wait for the timer to fire
-      await completer.future;
+        // Wait for the timer to fire
+        await completer.future;
 
-      // Assert
-      expect(activeSpanDuringCallback, equals(mockSpan),
-          reason: 'Span should be active during callback');
-      expect(activeSpanAfterCallback, equals(mockSpan),
-          reason: 'Span should remain active with ContextScope.zone');
-    });
+        // Assert
+        expect(
+          activeSpanDuringCallback,
+          equals(mockSpan),
+          reason: 'Span should be active during callback',
+        );
+        expect(
+          activeSpanAfterCallback,
+          equals(mockSpan),
+          reason: 'Span should remain active with ContextScope.zone',
+        );
+      },
+    );
 
     test('nested spans work correctly with ContextScope.callback', () async {
       // Arrange
@@ -936,27 +1012,24 @@ void main() {
       Span? activeSpanAfterChild;
 
       // Act
-      await spanManager.executeWithSpan<void>(
-        parentSpan,
-        (parent) async {
-          activeSpanInParent = spanManager.getActiveSpan();
+      await spanManager.executeWithSpan<void>(parentSpan, (parent) async {
+        activeSpanInParent = spanManager.getActiveSpan();
 
-          await spanManager.executeWithSpan<void>(
-            childSpan,
-            (child) async {
-              activeSpanInChild = spanManager.getActiveSpan();
-            },
-          );
+        await spanManager.executeWithSpan<void>(childSpan, (child) async {
+          activeSpanInChild = spanManager.getActiveSpan();
+        });
 
-          activeSpanAfterChild = spanManager.getActiveSpan();
-        },
-      );
+        activeSpanAfterChild = spanManager.getActiveSpan();
+      });
 
       // Assert
       expect(activeSpanInParent, equals(parentSpan));
       expect(activeSpanInChild, equals(childSpan));
-      expect(activeSpanAfterChild, equals(parentSpan),
-          reason: 'After child completes, parent should be active again');
+      expect(
+        activeSpanAfterChild,
+        equals(parentSpan),
+        reason: 'After child completes, parent should be active again',
+      );
     });
   });
 }

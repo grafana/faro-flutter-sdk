@@ -49,24 +49,26 @@ void main() {
         expect(result, 'faro.tracing.fetch');
       });
 
-      test('returns "faro.tracing.fetch" for HTTP spans with both attributes',
-          () {
-        // Arrange
-        final mockSpan = MockReadOnlySpan();
-        final mockAttributes = MockAttributes();
-        when(() => mockSpan.name).thenReturn('HTTP GET');
-        when(() => mockSpan.attributes).thenReturn(mockAttributes);
-        when(() => mockAttributes.get('http.scheme')).thenReturn('https');
-        when(() => mockAttributes.get('http.method')).thenReturn('GET');
+      test(
+        'returns "faro.tracing.fetch" for HTTP spans with both attributes',
+        () {
+          // Arrange
+          final mockSpan = MockReadOnlySpan();
+          final mockAttributes = MockAttributes();
+          when(() => mockSpan.name).thenReturn('HTTP GET');
+          when(() => mockSpan.attributes).thenReturn(mockAttributes);
+          when(() => mockAttributes.get('http.scheme')).thenReturn('https');
+          when(() => mockAttributes.get('http.method')).thenReturn('GET');
 
-        final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
+          final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
 
-        // Act
-        final result = spanRecord.getFaroEventName();
+          // Act
+          final result = spanRecord.getFaroEventName();
 
-        // Assert
-        expect(result, 'faro.tracing.fetch');
-      });
+          // Assert
+          expect(result, 'faro.tracing.fetch');
+        },
+      );
 
       test('returns "span.{name}" for non-HTTP spans', () {
         // Arrange
@@ -169,8 +171,9 @@ void main() {
         final mockAttributes = MockAttributes();
         when(() => mockSpan.attributes).thenReturn(mockAttributes);
         when(() => mockAttributes.keys).thenReturn(['url', 'method', 'status']);
-        when(() => mockAttributes.get('url'))
-            .thenReturn('"https://example.com"');
+        when(
+          () => mockAttributes.get('url'),
+        ).thenReturn('"https://example.com"');
         when(() => mockAttributes.get('method')).thenReturn('GET');
         when(() => mockAttributes.get('status')).thenReturn('"200"');
         when(() => mockSpan.startTime).thenReturn(Int64(0));
@@ -255,10 +258,12 @@ void main() {
         when(() => mockSpan.attributes).thenReturn(mockAttributes);
         when(() => mockAttributes.keys).thenReturn(['test.key']);
         when(() => mockAttributes.get('test.key')).thenReturn('test.value');
-        when(() => mockSpan.startTime)
-            .thenReturn(Int64(1000000000)); // 1 second in nanoseconds
-        when(() => mockSpan.endTime)
-            .thenReturn(Int64(2500000000)); // 2.5 seconds in nanoseconds
+        when(
+          () => mockSpan.startTime,
+        ).thenReturn(Int64(1000000000)); // 1 second in nanoseconds
+        when(
+          () => mockSpan.endTime,
+        ).thenReturn(Int64(2500000000)); // 2.5 seconds in nanoseconds
 
         final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
 
@@ -267,7 +272,9 @@ void main() {
 
         // Assert
         expect(
-            result['duration_ns'], '1500000000'); // 1.5 seconds in nanoseconds
+          result['duration_ns'],
+          '1500000000',
+        ); // 1.5 seconds in nanoseconds
         expect(result['test.key'], 'test.value');
       });
 
@@ -363,10 +370,12 @@ void main() {
         when(() => mockSpan.attributes).thenReturn(mockAttributes);
         when(() => mockAttributes.keys).thenReturn(['test.key']);
         when(() => mockAttributes.get('test.key')).thenReturn('test.value');
-        when(() => mockSpan.startTime)
-            .thenReturn(Int64(2500000000)); // 2.5 seconds
-        when(() => mockSpan.endTime)
-            .thenReturn(Int64(1000000000)); // 1 second (before start time)
+        when(
+          () => mockSpan.startTime,
+        ).thenReturn(Int64(2500000000)); // 2.5 seconds
+        when(
+          () => mockSpan.endTime,
+        ).thenReturn(Int64(1000000000)); // 1 second (before start time)
 
         final spanRecord = SpanRecord(otelReadOnlySpan: mockSpan);
 

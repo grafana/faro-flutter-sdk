@@ -28,9 +28,9 @@ class BatchTransport {
     required Payload payload,
     required BatchConfig batchConfig,
     required List<BaseTransport> transports,
-  })  : _payload = payload,
-        _batchConfig = batchConfig,
-        _transports = transports {
+  }) : _payload = payload,
+       _batchConfig = batchConfig,
+       _transports = transports {
     if (_batchConfig.enabled) {
       _flushTimer = Timer.periodic(_batchConfig.sendTimeout, (_) {
         flush(_payload);

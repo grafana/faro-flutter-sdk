@@ -2,9 +2,8 @@ import 'dart:developer';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DataCollectionPolicy {
-  DataCollectionPolicy({
-    required SharedPreferences sharedPreferences,
-  }) : _sharedPreferences = sharedPreferences {
+  DataCollectionPolicy({required SharedPreferences sharedPreferences})
+    : _sharedPreferences = sharedPreferences {
     _initialize();
   }
 

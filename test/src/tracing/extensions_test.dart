@@ -6,9 +6,7 @@ void main() {
   group('IterableTraceAttributeX:', () {
     group('toTraceAttributes:', () {
       test('should preserve string attribute value', () {
-        final attributes = [
-          otel_api.Attribute.fromString('name', 'test'),
-        ];
+        final attributes = [otel_api.Attribute.fromString('name', 'test')];
 
         final result = attributes.toTraceAttributes();
 
@@ -19,9 +17,7 @@ void main() {
       });
 
       test('should preserve int attribute value', () {
-        final attributes = [
-          otel_api.Attribute.fromInt('count', 42),
-        ];
+        final attributes = [otel_api.Attribute.fromInt('count', 42)];
 
         final result = attributes.toTraceAttributes();
 
@@ -32,9 +28,7 @@ void main() {
       });
 
       test('should preserve double attribute value', () {
-        final attributes = [
-          otel_api.Attribute.fromDouble('duration', 3.14),
-        ];
+        final attributes = [otel_api.Attribute.fromDouble('duration', 3.14)];
 
         final result = attributes.toTraceAttributes();
 
@@ -45,9 +39,7 @@ void main() {
       });
 
       test('should preserve bool attribute value', () {
-        final attributes = [
-          otel_api.Attribute.fromBoolean('enabled', true),
-        ];
+        final attributes = [otel_api.Attribute.fromBoolean('enabled', true)];
 
         final result = attributes.toTraceAttributes();
 
@@ -87,9 +79,7 @@ void main() {
       });
 
       test('should handle negative int values', () {
-        final attributes = [
-          otel_api.Attribute.fromInt('offset', -10),
-        ];
+        final attributes = [otel_api.Attribute.fromInt('offset', -10)];
 
         final result = attributes.toTraceAttributes();
 

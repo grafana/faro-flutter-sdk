@@ -8,12 +8,15 @@ void main() {
     group('toJson', () {
       test('should preserve typed attribute values', () {
         // Arrange - create session with typed attributes
-        final session = Session('test-session-id', attributes: {
-          'string_attr': 'hello',
-          'int_attr': 42,
-          'double_attr': 3.14,
-          'bool_attr': true,
-        });
+        final session = Session(
+          'test-session-id',
+          attributes: {
+            'string_attr': 'hello',
+            'int_attr': 42,
+            'double_attr': 3.14,
+            'bool_attr': true,
+          },
+        );
 
         // Act
         final json = session.toJson();
@@ -26,28 +29,33 @@ void main() {
         expect(attributes['bool_attr'], equals(true));
       });
 
-      test('toFaroJson should stringify all attribute values for Faro protocol',
-          () {
-        // Arrange - create session with typed attributes
-        final session = Session('test-session-id', attributes: {
-          'string_attr': 'hello',
-          'int_attr': 42,
-          'double_attr': 3.14,
-          'bool_attr': true,
-          'null_attr': null,
-        });
+      test(
+        'toFaroJson should stringify all attribute values for Faro protocol',
+        () {
+          // Arrange - create session with typed attributes
+          final session = Session(
+            'test-session-id',
+            attributes: {
+              'string_attr': 'hello',
+              'int_attr': 42,
+              'double_attr': 3.14,
+              'bool_attr': true,
+              'null_attr': null,
+            },
+          );
 
-        // Act
-        final json = session.toFaroJson();
+          // Act
+          final json = session.toFaroJson();
 
-        // Assert - all values should be strings
-        final attributes = json['attributes'] as Map<String, dynamic>;
-        expect(attributes['string_attr'], equals('hello'));
-        expect(attributes['int_attr'], equals('42'));
-        expect(attributes['double_attr'], equals('3.14'));
-        expect(attributes['bool_attr'], equals('true'));
-        expect(attributes['null_attr'], equals(''));
-      });
+          // Assert - all values should be strings
+          final attributes = json['attributes'] as Map<String, dynamic>;
+          expect(attributes['string_attr'], equals('hello'));
+          expect(attributes['int_attr'], equals('42'));
+          expect(attributes['double_attr'], equals('3.14'));
+          expect(attributes['bool_attr'], equals('true'));
+          expect(attributes['null_attr'], equals(''));
+        },
+      );
 
       test('should include session id in JSON', () {
         final session = Session('my-session-id');

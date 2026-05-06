@@ -19,8 +19,9 @@ void main() {
     mockUuidProvider = MockUuidProvider();
 
     when(() => mockSharedPreferences.getString(any())).thenReturn(null);
-    when(() => mockSharedPreferences.setString(any(), any()))
-        .thenAnswer((_) async => true);
+    when(
+      () => mockSharedPreferences.setString(any(), any()),
+    ).thenAnswer((_) async => true);
 
     sut = DeviceIdProvider(
       sharedPreferences: mockSharedPreferences,
@@ -44,9 +45,9 @@ void main() {
 
     test('should return stored uuid when stored before', () async {
       const expectedUuid = 'stored-some-random-uuid';
-      when(() => mockSharedPreferences.getString(any())).thenReturn(
-        expectedUuid,
-      );
+      when(
+        () => mockSharedPreferences.getString(any()),
+      ).thenReturn(expectedUuid);
 
       final deviceId = await sut.getDeviceId();
 
@@ -56,18 +57,19 @@ void main() {
     });
 
     test(
-        'should return cached version of stored uuid when called a second time',
-        () async {
-      const expectedUuid = 'cached-stored-some-random-uuid';
-      when(() => mockSharedPreferences.getString(any())).thenReturn(
-        expectedUuid,
-      );
+      'should return cached version of stored uuid when called a second time',
+      () async {
+        const expectedUuid = 'cached-stored-some-random-uuid';
+        when(
+          () => mockSharedPreferences.getString(any()),
+        ).thenReturn(expectedUuid);
 
-      var deviceId = await sut.getDeviceId();
-      deviceId = await sut.getDeviceId();
+        var deviceId = await sut.getDeviceId();
+        deviceId = await sut.getDeviceId();
 
-      expect('$deviceId', expectedUuid);
-      verify(() => mockSharedPreferences.getString(any())).called(1);
-    });
+        expect('$deviceId', expectedUuid);
+        verify(() => mockSharedPreferences.getString(any())).called(1);
+      },
+    );
   });
 }

@@ -5,10 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Immutable UI state for the app diagnostics page.
 class AppDiagnosticsPageUiState extends Equatable {
-  const AppDiagnosticsPageUiState({
-    required this.log,
-    required this.isRunning,
-  });
+  const AppDiagnosticsPageUiState({required this.log, required this.isRunning});
 
   final List<DemoLogEntry> log;
   final bool isRunning;
@@ -43,24 +40,14 @@ class _AppDiagnosticsPageViewModel extends Notifier<AppDiagnosticsPageUiState>
   AppDiagnosticsPageUiState build() {
     _service = ref.watch(appDiagnosticsDemoServiceProvider);
 
-    return const AppDiagnosticsPageUiState(
-      log: [],
-      isRunning: false,
-    );
+    return const AppDiagnosticsPageUiState(log: [], isRunning: false);
   }
 
-  void _addLog(
-    String message, {
-    DemoLogTone tone = DemoLogTone.neutral,
-  }) {
+  void _addLog(String message, {DemoLogTone tone = DemoLogTone.neutral}) {
     state = state.copyWith(
       log: [
         ...state.log,
-        DemoLogEntry(
-          message: message,
-          timestamp: DateTime.now(),
-          tone: tone,
-        ),
+        DemoLogEntry(message: message, timestamp: DateTime.now(), tone: tone),
       ],
     );
   }
@@ -93,15 +80,17 @@ class _AppDiagnosticsPageViewModel extends Notifier<AppDiagnosticsPageUiState>
 
 final _viewModelProvider =
     NotifierProvider<_AppDiagnosticsPageViewModel, AppDiagnosticsPageUiState>(
-  _AppDiagnosticsPageViewModel.new,
-);
+      _AppDiagnosticsPageViewModel.new,
+    );
 
-final appDiagnosticsPageUiStateProvider =
-    Provider<AppDiagnosticsPageUiState>((ref) {
+final appDiagnosticsPageUiStateProvider = Provider<AppDiagnosticsPageUiState>((
+  ref,
+) {
   return ref.watch(_viewModelProvider);
 });
 
-final appDiagnosticsPageActionsProvider =
-    Provider<AppDiagnosticsPageActions>((ref) {
+final appDiagnosticsPageActionsProvider = Provider<AppDiagnosticsPageActions>((
+  ref,
+) {
   return ref.read(_viewModelProvider.notifier);
 });

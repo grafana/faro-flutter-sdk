@@ -184,9 +184,10 @@ class Faro {
     );
 
     // Make sampling decision (once per session)
-    _isSampled = SessionSamplingProviderFactory()
-        .create(sampling: optionsConfiguration.sampling, meta: meta)
-        .isSampled;
+    _isSampled =
+        SessionSamplingProviderFactory()
+            .create(sampling: optionsConfiguration.sampling, meta: meta)
+            .isSampled;
 
     if (!_isSampled) {
       log('Faro: Session not sampled. Telemetry will be dropped.');
@@ -203,14 +204,14 @@ class Faro {
 
     if (config?.transports == null) {
       Faro()._transports.add(
-            FaroTransport(
-              collectorUrl: optionsConfiguration.collectorUrl ?? '',
-              apiKey: optionsConfiguration.apiKey,
-              maxBufferLimit: config?.maxBufferLimit,
-              sessionId: meta.session?.id,
-              headers: optionsConfiguration.collectorHeaders,
-            ),
-          );
+        FaroTransport(
+          collectorUrl: optionsConfiguration.collectorUrl ?? '',
+          apiKey: optionsConfiguration.apiKey,
+          maxBufferLimit: config?.maxBufferLimit,
+          sessionId: meta.session?.id,
+          headers: optionsConfiguration.collectorHeaders,
+        ),
+      );
     } else {
       Faro()._transports.addAll(config?.transports ?? []);
     }
@@ -336,9 +337,10 @@ class Faro {
     'To clear, use setUser(FaroUser.cleared()).',
   )
   void setUserMeta({String? userId, String? userName, String? userEmail}) {
-    final user = (userId == null && userName == null && userEmail == null)
-        ? const FaroUser.cleared()
-        : FaroUser(id: userId, username: userName, email: userEmail);
+    final user =
+        (userId == null && userName == null && userEmail == null)
+            ? const FaroUser.cleared()
+            : FaroUser(id: userId, username: userName, email: userEmail);
     setUser(user);
   }
 

@@ -12,15 +12,8 @@ void main() {
     test('should wrap Meta object', () {
       final meta = Meta(
         session: Session('test-session-id', attributes: {'team': 'mobile'}),
-        app: App(
-          name: 'TestApp',
-          environment: 'production',
-          version: '1.0.0',
-        ),
-        user: const FaroUser(
-          id: 'user-123',
-          attributes: {'role': 'beta'},
-        ),
+        app: App(name: 'TestApp', environment: 'production', version: '1.0.0'),
+        user: const FaroUser(id: 'user-123', attributes: {'role': 'beta'}),
         sdk: Sdk('faro-mobile-flutter', '1.0.0'),
         view: ViewMeta('home'),
       );
@@ -56,11 +49,7 @@ void main() {
 
     test('should provide access to app environment', () {
       final meta = Meta(
-        app: App(
-          name: 'TestApp',
-          environment: 'production',
-          version: '1.0.0',
-        ),
+        app: App(name: 'TestApp', environment: 'production', version: '1.0.0'),
       );
 
       final context = SamplingContext(meta: meta);

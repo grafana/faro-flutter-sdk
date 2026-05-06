@@ -15,10 +15,13 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
       NativeIntegration.instance.setWarmStart();
     }
 
-    Faro().pushEvent('app_lifecycle_changed', attributes: {
-      'fromState': _previousState?.name ?? '',
-      'toState': state.name,
-    });
+    Faro().pushEvent(
+      'app_lifecycle_changed',
+      attributes: {
+        'fromState': _previousState?.name ?? '',
+        'toState': state.name,
+      },
+    );
     _previousState = state;
   }
 }
