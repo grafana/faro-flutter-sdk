@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Widened `device_info_plus` dependency to `>=12.3.0 <14.0.0`
+  (adds v13.x support).
+- Widened `package_info_plus` dependency to `>=8.0.1 <11.0.0`
+  (adds v10.x support).
+
 ## [0.14.0] - 2026-04-14
 
 ### Fixed
