@@ -75,6 +75,19 @@ See `lib/features/tracing/` for the reference implementation.
    flutter run --dart-define=FARO_COLLECTOR_URL=https://your-collector-url
    ```
 
+   ### Option 3: Helper scripts (Quick run)
+
+   For a faster CLI workflow, three helper scripts live in `tool/`:
+
+   ```bash
+   ./tool/list-devices.sh                      # connected devices + available emulators
+   ./tool/launch-emulator.sh <emulator-id>     # boot an emulator and wait for it
+   ./tool/run-example.sh -d <device-id>        # run the example app
+   ```
+
+   `run-example.sh` uses `example/api-config.json` and forwards any extra args
+   to `flutter run`, e.g. `./tool/run-example.sh -d emulator-5554 --release`.
+
 ## Features Demonstrated
 
 The example app showcases various Faro SDK features:
