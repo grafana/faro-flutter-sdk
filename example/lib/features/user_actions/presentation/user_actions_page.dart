@@ -61,18 +61,12 @@ class _UserActionsPageState extends ConsumerState<UserActionsPage> {
       appBar: AppBar(
         title: const Text('User Actions'),
         actions: [
-          TextButton(
-            onPressed: actions.clearLog,
-            child: const Text('Clear'),
-          ),
+          TextButton(onPressed: actions.clearLog, child: const Text('Clear')),
         ],
       ),
       body: Column(
         children: [
-          _StatusBanner(
-            actionName: _actionName,
-            actionState: _actionState,
-          ),
+          _StatusBanner(actionName: _actionName, actionState: _actionState),
           _ScenariosSection(
             isRunning: uiState.isRunning,
             actions: actions,
@@ -91,10 +85,7 @@ class _UserActionsPageState extends ConsumerState<UserActionsPage> {
 // =============================================================================
 
 class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({
-    required this.actionName,
-    required this.actionState,
-  });
+  const _StatusBanner({required this.actionName, required this.actionState});
 
   final String? actionName;
   final UserActionState? actionState;
@@ -129,10 +120,7 @@ class _StatusBanner extends StatelessWidget {
           Expanded(
             child: Text(
               _label,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: _color,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, color: _color),
             ),
           ),
         ],
@@ -176,9 +164,9 @@ class _ScenariosSection extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Text(details),
@@ -214,7 +202,8 @@ class _ScenariosSection extends StatelessWidget {
                   _showScenarioInfo(
                     context,
                     title: 'No follow-up (cancel)',
-                    details: '- Starts one user action.\n'
+                    details:
+                        '- Starts one user action.\n'
                         '- Emits no follow-up activity.\n'
                         '- After follow-up timeout, expected: '
                         'started -> cancelled.\n'
@@ -235,7 +224,8 @@ class _ScenariosSection extends StatelessWidget {
                   _showScenarioInfo(
                     context,
                     title: 'Concurrent start guard',
-                    details: '- Starts one primary user action.\n'
+                    details:
+                        '- Starts one primary user action.\n'
                         '- Immediately tries to start a second action.\n'
                         '- Expected while primary is active: second start returns null.\n'
                         '- Uses a short navigation pulse so primary ends (not cancelled).\n'
@@ -257,7 +247,8 @@ class _ScenariosSection extends StatelessWidget {
                   _showScenarioInfo(
                     context,
                     title: 'Fast view push+pop',
-                    details: '- Starts one user action.\n'
+                    details:
+                        '- Starts one user action.\n'
                         '- Triggers quick route push and pop.\n'
                         '- Navigation observer emits activity signals.\n'
                         '- Expected: started -> ended (no halted).',
@@ -277,7 +268,8 @@ class _ScenariosSection extends StatelessWidget {
                   _showScenarioInfo(
                     context,
                     title: 'Single HTTP (halt)',
-                    details: '- Starts one user action.\n'
+                    details:
+                        '- Starts one user action.\n'
                         '- Sends one request to /delay/3.\n'
                         '- Pending operation causes halt after follow-up.\n'
                         '- Expected: started -> halted -> ended.',
@@ -297,7 +289,8 @@ class _ScenariosSection extends StatelessWidget {
                   _showScenarioInfo(
                     context,
                     title: 'Parallel HTTP (1/2/3/6s)',
-                    details: '- Starts one user action.\n'
+                    details:
+                        '- Starts one user action.\n'
                         '- Wraps the whole flow in custom span '
                         '`ua.parallel_http.parent_span`.\n'
                         '- Fires 4 requests in parallel (1s, 2s, 3s, 6s).\n'
@@ -321,7 +314,8 @@ class _ScenariosSection extends StatelessWidget {
                   _showScenarioInfo(
                     context,
                     title: 'Mixed timing window',
-                    details: '- Emits these telemetry items immediately:\n'
+                    details:
+                        '- Emits these telemetry items immediately:\n'
                         '  event=`ua.pre_halt.event`, '
                         'log=`ua.pre_halt.log`, '
                         'error=`ua.pre_halt.error`.\n'
@@ -420,18 +414,19 @@ class _LogSection extends StatelessWidget {
     return Expanded(
       child: Container(
         color: Colors.grey.shade100,
-        child: log.isEmpty
-            ? const Center(
-                child: Text(
-                  'Run a scenario to see the action lifecycle log',
-                  style: TextStyle(color: Colors.grey),
+        child:
+            log.isEmpty
+                ? const Center(
+                  child: Text(
+                    'Run a scenario to see the action lifecycle log',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+                : ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: log.length,
+                  itemBuilder: (_, index) => _LogEntryRow(entry: log[index]),
                 ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(8),
-                itemCount: log.length,
-                itemBuilder: (_, index) => _LogEntryRow(entry: log[index]),
-              ),
       ),
     );
   }

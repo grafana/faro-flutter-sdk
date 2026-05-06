@@ -38,8 +38,9 @@ class QaConfig {
   static QaConfig fromEnvironment() {
     return parse(
       qaRunId: const String.fromEnvironment('FARO_QA_RUN_ID'),
-      qaInitialUserJson:
-          const String.fromEnvironment('FARO_QA_INITIAL_USER_JSON'),
+      qaInitialUserJson: const String.fromEnvironment(
+        'FARO_QA_INITIAL_USER_JSON',
+      ),
     );
   }
 
@@ -48,10 +49,7 @@ class QaConfig {
   /// Empty strings are treated as "not provided".
   /// Invalid JSON in [qaInitialUserJson] is silently ignored (returns
   /// a config with no initial user).
-  static QaConfig parse({
-    String qaRunId = '',
-    String qaInitialUserJson = '',
-  }) {
+  static QaConfig parse({String qaRunId = '', String qaInitialUserJson = ''}) {
     final runId = qaRunId.isNotEmpty ? qaRunId : null;
     final user = _parseUser(qaInitialUserJson);
     return QaConfig._(runId: runId, initialUser: user);
@@ -66,9 +64,10 @@ class QaConfig {
 
       return FaroUser(
         id: decoded['id'] is String ? decoded['id'] as String : null,
-        username: decoded['username'] is String
-            ? decoded['username'] as String
-            : null,
+        username:
+            decoded['username'] is String
+                ? decoded['username'] as String
+                : null,
         email: decoded['email'] is String ? decoded['email'] as String : null,
         attributes: _parseAttributes(decoded['attributes']),
       );

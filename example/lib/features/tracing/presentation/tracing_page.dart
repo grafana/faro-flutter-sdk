@@ -42,10 +42,7 @@ class TracingPage extends ConsumerWidget {
 // =============================================================================
 
 class _ButtonsSection extends StatelessWidget {
-  const _ButtonsSection({
-    required this.uiState,
-    required this.actions,
-  });
+  const _ButtonsSection({required this.uiState, required this.actions});
 
   final TracingPageUiState uiState;
   final TracingPageActions actions;
@@ -59,10 +56,7 @@ class _ButtonsSection extends StatelessWidget {
         children: [
           const Text(
             'Test Span Operations',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -164,21 +158,22 @@ class _LogSection extends StatelessWidget {
     return Expanded(
       child: Container(
         color: Colors.grey.shade100,
-        child: spanLog.isEmpty
-            ? const Center(
-                child: Text(
-                  'Run a span operation to see the log',
-                  style: TextStyle(color: Colors.grey),
+        child:
+            spanLog.isEmpty
+                ? const Center(
+                  child: Text(
+                    'Run a span operation to see the log',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+                : ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: spanLog.length,
+                  itemBuilder: (context, index) {
+                    final entry = spanLog[index];
+                    return _LogEntryRow(entry: entry);
+                  },
                 ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(8),
-                itemCount: spanLog.length,
-                itemBuilder: (context, index) {
-                  final entry = spanLog[index];
-                  return _LogEntryRow(entry: entry);
-                },
-              ),
       ),
     );
   }

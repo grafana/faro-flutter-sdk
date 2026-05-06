@@ -14,8 +14,9 @@ class WebViewHandoffService {
 
   static final WebViewHandoffService instance = WebViewHandoffService._();
 
-  static const _webViewDemoUrl =
-      String.fromEnvironment('FARO_WEBVIEW_DEMO_URL');
+  static const _webViewDemoUrl = String.fromEnvironment(
+    'FARO_WEBVIEW_DEMO_URL',
+  );
 
   /// Returns `true` when a demo URL has been configured.
   bool get isConfigured => _webViewDemoUrl.isNotEmpty;

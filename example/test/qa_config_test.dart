@@ -15,10 +15,7 @@ void main() {
     });
 
     test('returns empty config when QA vars are empty strings', () {
-      final config = QaConfig.parse(
-        qaRunId: '',
-        qaInitialUserJson: '',
-      );
+      final config = QaConfig.parse(qaRunId: '', qaInitialUserJson: '');
 
       expect(config.hasRunId, isFalse);
       expect(config.hasInitialUser, isFalse);
@@ -113,27 +110,21 @@ void main() {
       });
 
       test('returns null user for invalid JSON', () {
-        final config = QaConfig.parse(
-          qaInitialUserJson: 'not valid json {{{',
-        );
+        final config = QaConfig.parse(qaInitialUserJson: 'not valid json {{{');
 
         expect(config.hasInitialUser, isFalse);
         expect(config.initialUser, isNull);
       });
 
       test('returns null user for JSON array instead of object', () {
-        final config = QaConfig.parse(
-          qaInitialUserJson: '[1, 2, 3]',
-        );
+        final config = QaConfig.parse(qaInitialUserJson: '[1, 2, 3]');
 
         expect(config.hasInitialUser, isFalse);
         expect(config.initialUser, isNull);
       });
 
       test('returns null user for JSON string literal', () {
-        final config = QaConfig.parse(
-          qaInitialUserJson: '"just a string"',
-        );
+        final config = QaConfig.parse(qaInitialUserJson: '"just a string"');
 
         expect(config.hasInitialUser, isFalse);
         expect(config.initialUser, isNull);
@@ -158,10 +149,7 @@ void main() {
 
     group('combined', () {
       test('both run ID and user can be provided together', () {
-        final userJson = jsonEncode({
-          'id': 'qa-user',
-          'username': 'qa-bot',
-        });
+        final userJson = jsonEncode({'id': 'qa-user', 'username': 'qa-bot'});
 
         final config = QaConfig.parse(
           qaRunId: 'run-99',

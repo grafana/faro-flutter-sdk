@@ -1,10 +1,8 @@
 import 'package:faro_example/shared/models/demo_log_entry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-typedef AppDiagnosticsLogCallback = void Function(
-  String message, {
-  DemoLogTone tone,
-});
+typedef AppDiagnosticsLogCallback =
+    void Function(String message, {DemoLogTone tone});
 
 final appDiagnosticsDemoServiceProvider = Provider<AppDiagnosticsDemoService>(
   (ref) => const AppDiagnosticsDemoService(),

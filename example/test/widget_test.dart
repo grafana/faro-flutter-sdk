@@ -10,13 +10,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('features are grouped into dedicated destinations',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MyApp(),
-      ),
-    );
+  testWidgets('features are grouped into dedicated destinations', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: MyApp()));
 
     expect(find.text('Change Route'), findsOneWidget);
 
@@ -27,16 +24,10 @@ void main() {
     expect(find.text('Explore Telemetry'), findsOneWidget);
     expect(find.text('Custom Telemetry'), findsOneWidget);
     expect(find.text('Network Requests'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('WebView Tracing'),
-      200,
-    );
+    await tester.scrollUntilVisible(find.text('WebView Tracing'), 200);
     await tester.pumpAndSettle();
     expect(find.text('WebView Tracing'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('App Diagnostics'),
-      300,
-    );
+    await tester.scrollUntilVisible(find.text('App Diagnostics'), 300);
     await tester.pumpAndSettle();
     expect(find.text('Stress Runtime Behavior'), findsOneWidget);
     expect(find.text('App Diagnostics'), findsOneWidget);
@@ -44,13 +35,10 @@ void main() {
     expect(find.text('HTTP POST Request - success'), findsNothing);
   });
 
-  testWidgets('custom telemetry page is reachable from the catalog',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MyApp(),
-      ),
-    );
+  testWidgets('custom telemetry page is reachable from the catalog', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: MyApp()));
 
     await tester.tap(find.text('Change Route'));
     await tester.pumpAndSettle();
@@ -64,21 +52,15 @@ void main() {
     expect(find.textContaining('Data Collection'), findsOneWidget);
   });
 
-  testWidgets('webview tracing page is reachable from the catalog',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MyApp(),
-      ),
-    );
+  testWidgets('webview tracing page is reachable from the catalog', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: MyApp()));
 
     await tester.tap(find.text('Change Route'));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('WebView Tracing'),
-      200,
-    );
+    await tester.scrollUntilVisible(find.text('WebView Tracing'), 200);
     await tester.pumpAndSettle();
     await tester.tap(find.text('WebView Tracing'));
     await tester.pumpAndSettle();

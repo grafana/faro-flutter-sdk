@@ -7,10 +7,7 @@ abstract class TestUsers {
     id: 'user-123',
     username: 'john.doe',
     email: 'john.doe@example.com',
-    attributes: {
-      'role': 'user',
-      'department': 'design',
-    },
+    attributes: {'role': 'user', 'department': 'design'},
   );
 
   /// Jane Smith - an engineer with admin role.
@@ -18,9 +15,6 @@ abstract class TestUsers {
     id: 'user-456',
     username: 'jane.smith',
     email: 'jane.smith@example.com',
-    attributes: {
-      'role': 'admin',
-      'department': 'engineering',
-    },
+    attributes: {'role': 'admin', 'department': 'engineering'},
   );
 }

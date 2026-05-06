@@ -6,11 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 /// Callback for logging messages to the UI.
-typedef LogCallback = void Function(
-  String message, {
-  bool isError,
-  bool isHighlight,
-});
+typedef LogCallback =
+    void Function(String message, {bool isError, bool isHighlight});
 
 /// Callback invoked on each state-poll tick so the view model can capture
 /// intermediate state changes.
@@ -50,10 +47,7 @@ class UserActionsDemoService {
 
     await _pollUntilTerminal(run.action, log, onTick);
 
-    log(
-      'Final state: ${run.action.getState().name}',
-      isHighlight: true,
-    );
+    log('Final state: ${run.action.getState().name}', isHighlight: true);
   }
 
   // ---------------------------------------------------------------------------
@@ -98,10 +92,7 @@ class UserActionsDemoService {
     await Future<void>.delayed(const Duration(milliseconds: 350));
     await _pollUntilTerminal(run.action, log, onTick);
 
-    log(
-      'Final state: ${run.action.getState().name}',
-      isHighlight: true,
-    );
+    log('Final state: ${run.action.getState().name}', isHighlight: true);
   }
 
   // ---------------------------------------------------------------------------
@@ -183,10 +174,10 @@ class UserActionsDemoService {
           'Started custom parent span '
           '(traceId=${parentSpan.traceId}, spanId=${parentSpan.spanId})',
         );
-        parentSpan.addEvent('parallel_http.requests.started', attributes: {
-          'runId': run.runId,
-          'requestCount': 4,
-        });
+        parentSpan.addEvent(
+          'parallel_http.requests.started',
+          attributes: {'runId': run.runId, 'requestCount': 4},
+        );
 
         final requestFutures = <Future<void>>[
           _runHttpGet(
@@ -229,10 +220,13 @@ class UserActionsDemoService {
         await Faro().startSpan<void>(
           'ua.parallel_http.late_span',
           (lateSpan) {
-            lateSpan.addEvent('parallel_http.late_span.created', attributes: {
-              'runId': run.runId,
-              'actionStateAtCreation': stateAtLateSpan.name,
-            });
+            lateSpan.addEvent(
+              'parallel_http.late_span.created',
+              attributes: {
+                'runId': run.runId,
+                'actionStateAtCreation': stateAtLateSpan.name,
+              },
+            );
             log(
               'Created late span (spanId=${lateSpan.spanId}) while '
               'action state=${stateAtLateSpan.name}.',
@@ -247,14 +241,12 @@ class UserActionsDemoService {
 
         await Future.wait(requestFutures);
 
-        parentSpan.addEvent('parallel_http.requests.completed', attributes: {
-          'runId': run.runId,
-        });
+        parentSpan.addEvent(
+          'parallel_http.requests.completed',
+          attributes: {'runId': run.runId},
+        );
       },
-      attributes: {
-        'scenario': 'parallel_http',
-        'runId': run.runId,
-      },
+      attributes: {'scenario': 'parallel_http', 'runId': run.runId},
     );
     onTick();
 
@@ -289,15 +281,10 @@ class UserActionsDemoService {
       return;
     }
 
-    log(
-      'Emitting pre-halt telemetry + fast navigation + long HTTP request.',
-    );
+    log('Emitting pre-halt telemetry + fast navigation + long HTTP request.');
     onTick();
 
-    Faro().pushEvent(
-      'ua.pre_halt.event',
-      attributes: {'runId': run.runId},
-    );
+    Faro().pushEvent('ua.pre_halt.event', attributes: {'runId': run.runId});
     Faro().pushLog(
       'ua.pre_halt.log',
       level: LogLevel.debug,
@@ -319,10 +306,7 @@ class UserActionsDemoService {
     onTick();
 
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    Faro().pushEvent(
-      'ua.post_halt.event',
-      attributes: {'runId': run.runId},
-    );
+    Faro().pushEvent('ua.post_halt.event', attributes: {'runId': run.runId});
     Faro().pushLog(
       'ua.post_halt.log',
       level: LogLevel.warn,
@@ -339,10 +323,7 @@ class UserActionsDemoService {
     await requestFuture;
     await _pollUntilTerminal(run.action, log, onTick);
 
-    log(
-      'Final state: ${run.action.getState().name}',
-      isHighlight: true,
-    );
+    log('Final state: ${run.action.getState().name}', isHighlight: true);
     log(
       'Grafana hint: query runId=${run.runId} and compare '
       'ua.pre_halt.* vs ua.post_halt.* action linkage.',
@@ -423,8 +404,10 @@ class UserActionsDemoService {
     );
 
     await _pollUntilTerminal(run.action, log, onTick);
-    log('Primary final state: ${run.action.getState().name}',
-        isHighlight: true);
+    log(
+      'Primary final state: ${run.action.getState().name}',
+      isHighlight: true,
+    );
 
     final startAfterTermination = Faro().startUserAction(
       'ua-concurrent-after-release',
@@ -494,8 +477,10 @@ class UserActionsDemoService {
     );
 
     if (action == null) {
-      log('Could not start. Another user action is already active.',
-          isError: true);
+      log(
+        'Could not start. Another user action is already active.',
+        isError: true,
+      );
       return null;
     }
 
@@ -595,10 +580,7 @@ class UserActionsDemoService {
 }
 
 class _ScenarioRun {
-  const _ScenarioRun({
-    required this.action,
-    required this.runId,
-  });
+  const _ScenarioRun({required this.action, required this.runId});
 
   final UserActionHandle action;
   final String runId;

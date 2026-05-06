@@ -16,10 +16,7 @@ class NetworkRequestsPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Network Requests'),
         actions: [
-          TextButton(
-            onPressed: actions.clearLog,
-            child: const Text('Clear'),
-          ),
+          TextButton(onPressed: actions.clearLog, child: const Text('Clear')),
         ],
       ),
       body: Column(
@@ -31,10 +28,7 @@ class NetworkRequestsPage extends ConsumerWidget {
               children: [
                 const Text(
                   'HTTP tracking demos',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 const Text(

@@ -12,10 +12,7 @@ import 'auto_pop_page.dart';
 
 /// Immutable UI state for the User Actions demo page.
 class UserActionsPageUiState extends Equatable {
-  const UserActionsPageUiState({
-    required this.log,
-    required this.isRunning,
-  });
+  const UserActionsPageUiState({required this.log, required this.isRunning});
 
   final List<ActionLogEntry> log;
   final bool isRunning;
@@ -74,10 +71,7 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
   @override
   UserActionsPageUiState build() {
     _service = ref.watch(userActionsDemoServiceProvider);
-    return const UserActionsPageUiState(
-      log: [],
-      isRunning: false,
-    );
+    return const UserActionsPageUiState(log: [], isRunning: false);
   }
 
   // ---------------------------------------------------------------------------
@@ -105,10 +99,7 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
   void _noop() {}
 
   Future<void> _run(
-    Future<void> Function(
-      LogCallback log,
-      StatePollCallback onTick,
-    ) operation,
+    Future<void> Function(LogCallback log, StatePollCallback onTick) operation,
   ) async {
     state = state.copyWith(isRunning: true);
     try {
@@ -142,11 +133,12 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
         navigator: navigator,
         route: MaterialPageRoute(
           settings: const RouteSettings(name: '/ua-fast-nav'),
-          builder: (_) => const AutoPopPage(
-            title: 'Fast View Transition',
-            description: 'Generating push/pop view signals.',
-            autoPopDelay: Duration(milliseconds: 40),
-          ),
+          builder:
+              (_) => const AutoPopPage(
+                title: 'Fast View Transition',
+                description: 'Generating push/pop view signals.',
+                autoPopDelay: Duration(milliseconds: 40),
+              ),
         ),
       );
     } finally {
@@ -174,11 +166,12 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
         navigator: navigator,
         route: MaterialPageRoute(
           settings: const RouteSettings(name: '/ua-mixed-nav'),
-          builder: (_) => const AutoPopPage(
-            title: 'Mixed Timing Navigation',
-            description: 'Fast view change while HTTP is in-flight.',
-            autoPopDelay: Duration(milliseconds: 60),
-          ),
+          builder:
+              (_) => const AutoPopPage(
+                title: 'Mixed Timing Navigation',
+                description: 'Fast view change while HTTP is in-flight.',
+                autoPopDelay: Duration(milliseconds: 60),
+              ),
         ),
       );
     } finally {
@@ -197,11 +190,12 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
         routeFactory: () {
           return MaterialPageRoute(
             settings: const RouteSettings(name: '/ua-concurrent-nav'),
-            builder: (_) => const AutoPopPage(
-              title: 'Concurrent Guard Navigation',
-              description: 'Small view pulse to mark activity.',
-              autoPopDelay: Duration(milliseconds: 40),
-            ),
+            builder:
+                (_) => const AutoPopPage(
+                  title: 'Concurrent Guard Navigation',
+                  description: 'Small view pulse to mark activity.',
+                  autoPopDelay: Duration(milliseconds: 40),
+                ),
           );
         },
       );
@@ -217,8 +211,8 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
 
 final _viewModelProvider =
     NotifierProvider<_UserActionsPageViewModel, UserActionsPageUiState>(
-  _UserActionsPageViewModel.new,
-);
+      _UserActionsPageViewModel.new,
+    );
 
 /// Watch this to rebuild when UI state changes.
 final userActionsPageUiStateProvider = Provider<UserActionsPageUiState>((ref) {

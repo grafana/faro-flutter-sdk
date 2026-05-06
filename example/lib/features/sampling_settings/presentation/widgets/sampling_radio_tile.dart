@@ -12,10 +12,7 @@ class SamplingRadioTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return RadioListTile<SamplingSetting>(
       title: Text(setting.displayName),
-      subtitle: Text(
-        setting.subtitle,
-        style: const TextStyle(fontSize: 11),
-      ),
+      subtitle: Text(setting.subtitle, style: const TextStyle(fontSize: 11)),
       value: setting,
       contentPadding: EdgeInsets.zero,
       dense: true,
