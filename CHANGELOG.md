@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Raised the declared Dart SDK lower bound to `>=3.7.0` and Flutter lower
+  bound to `>=3.29.0` to match the effective `device_info_plus` dependency
+  floor.
 - Widened `device_info_plus` dependency to `>=12.3.0 <14.0.0`
   (adds v13.x support).
 - Widened `package_info_plus` dependency to `>=8.0.1 <11.0.0`

@@ -119,7 +119,7 @@ class OfflineTransport extends BaseTransport {
         }
 
         if (_maxCacheDuration != null &&
-            currentTime - timestamp > _maxCacheDuration!.inMilliseconds) {
+            currentTime - timestamp > _maxCacheDuration.inMilliseconds) {
           continue;
         }
         final sendSuccess = await _sendCachedData(payload);

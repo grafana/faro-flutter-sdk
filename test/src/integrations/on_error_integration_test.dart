@@ -30,7 +30,7 @@ void main() {
   });
 
   test('call method sets up error integration correctly', () {
-    when(() => mockPlatformDispatcher.onError).thenReturn((_, __) => true);
+    when(() => mockPlatformDispatcher.onError).thenReturn((_, _) => true);
 
     final result = onErrorIntegration.isOnErrorSupported();
 
@@ -58,7 +58,7 @@ void main() {
   });
 
   test('isOnErrorSupported returns true when onError is supported', () {
-    when(() => mockPlatformDispatcher.onError).thenReturn((_, __) => true);
+    when(() => mockPlatformDispatcher.onError).thenReturn((_, _) => true);
 
     final result = onErrorIntegration.isOnErrorSupported();
 
