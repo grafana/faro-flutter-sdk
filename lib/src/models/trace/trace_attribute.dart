@@ -3,11 +3,9 @@
 /// Each attribute has a key and a typed value that can be a string, int,
 /// double, or bool. This follows the OTLP specification for attribute values.
 class TraceAttribute {
-  TraceAttribute({
-    required String key,
-    required TraceAttributeValue value,
-  })  : _key = key,
-        _value = value;
+  TraceAttribute({required String key, required TraceAttributeValue value})
+    : _key = key,
+      _value = value;
 
   TraceAttribute.fromJson(dynamic json) {
     if (json['key'] != null) {
@@ -46,39 +44,39 @@ class TraceAttributeValue {
   ///
   /// This is the legacy constructor maintained for backward compatibility.
   TraceAttributeValue({required String stringValue})
-      : _stringValue = stringValue,
-        _intValue = null,
-        _doubleValue = null,
-        _boolValue = null;
+    : _stringValue = stringValue,
+      _intValue = null,
+      _doubleValue = null,
+      _boolValue = null;
 
   /// Creates a TraceAttributeValue with a string value.
   TraceAttributeValue.string(String value)
-      : _stringValue = value,
-        _intValue = null,
-        _doubleValue = null,
-        _boolValue = null;
+    : _stringValue = value,
+      _intValue = null,
+      _doubleValue = null,
+      _boolValue = null;
 
   /// Creates a TraceAttributeValue with an integer value.
   TraceAttributeValue.int(int value)
-      : _stringValue = null,
-        _intValue = value,
-        _doubleValue = null,
-        _boolValue = null;
+    : _stringValue = null,
+      _intValue = value,
+      _doubleValue = null,
+      _boolValue = null;
 
   /// Creates a TraceAttributeValue with a double value.
   TraceAttributeValue.double(double value)
-      : _stringValue = null,
-        _intValue = null,
-        _doubleValue = value,
-        _boolValue = null;
+    : _stringValue = null,
+      _intValue = null,
+      _doubleValue = value,
+      _boolValue = null;
 
   /// Creates a TraceAttributeValue with a boolean value.
   // ignore: avoid_positional_boolean_parameters
   TraceAttributeValue.bool(bool value)
-      : _stringValue = null,
-        _intValue = null,
-        _doubleValue = null,
-        _boolValue = value;
+    : _stringValue = null,
+      _intValue = null,
+      _doubleValue = null,
+      _boolValue = value;
 
   /// Creates a TraceAttributeValue from a dynamic value.
   ///
@@ -108,10 +106,10 @@ class TraceAttributeValue {
   /// Supports deserializing any of the typed value fields:
   /// `stringValue`, `intValue`, `doubleValue`, `boolValue`.
   TraceAttributeValue.fromJson(dynamic json)
-      : _stringValue = json['stringValue'] as String?,
-        _intValue = json['intValue'] as int?,
-        _doubleValue = _parseDouble(json['doubleValue']),
-        _boolValue = json['boolValue'] as bool?;
+    : _stringValue = json['stringValue'] as String?,
+      _intValue = json['intValue'] as int?,
+      _doubleValue = _parseDouble(json['doubleValue']),
+      _boolValue = json['boolValue'] as bool?;
 
   final String? _stringValue;
   final int? _intValue;

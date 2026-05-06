@@ -6,10 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('Measurement:', () {
     test('should create a measurement with valid values', () {
-      final measurement = Measurement(
-        {'cpu': 50.0, 'memory': 100.0},
-        'device',
-      );
+      final measurement = Measurement({'cpu': 50.0, 'memory': 100.0}, 'device');
 
       expect(measurement.values, isNotNull);
       expect(measurement.values!['cpu'], 50.0);
@@ -19,10 +16,7 @@ void main() {
     });
 
     test('should handle null values', () {
-      final measurement = Measurement(
-        null,
-        'device',
-      );
+      final measurement = Measurement(null, 'device');
 
       expect(measurement.values, isNotNull);
       expect(measurement.values, <String, dynamic>{});
@@ -31,15 +25,12 @@ void main() {
     });
 
     test('should ignore infinity and NaN values', () {
-      final measurement = Measurement(
-        {
-          'infinity': double.infinity,
-          'negativeInfinity': double.negativeInfinity,
-          'nan': double.nan,
-          'valid': 42.0,
-        },
-        'device',
-      );
+      final measurement = Measurement({
+        'infinity': double.infinity,
+        'negativeInfinity': double.negativeInfinity,
+        'nan': double.nan,
+        'valid': 42.0,
+      }, 'device');
 
       expect(measurement.values, isNotNull);
       // Infinity, negative infinity, and NaN values should be ignored
@@ -51,13 +42,10 @@ void main() {
     });
 
     test('should handle very large finite double values correctly', () {
-      final measurement = Measurement(
-        {
-          'largeValue': double.maxFinite,
-          'smallValue': double.minPositive,
-        },
-        'device',
-      );
+      final measurement = Measurement({
+        'largeValue': double.maxFinite,
+        'smallValue': double.minPositive,
+      }, 'device');
 
       expect(measurement.values, isNotNull);
       expect(measurement.values!['largeValue'], double.maxFinite);
@@ -66,30 +54,26 @@ void main() {
 
     test('should handle non-encodable objects that are not numeric types', () {
       // Create a custom class that will fail JSON encoding
-      final measurement = Measurement(
-        {
-          'nonEncodableObject': _JsonUnencodableObject(),
-          'regularInt': 42,
-        },
-        'device',
-      );
+      final measurement = Measurement({
+        'nonEncodableObject': _JsonUnencodableObject(),
+        'regularInt': 42,
+      }, 'device');
 
       expect(measurement.values, isNotNull);
       expect(
-          measurement.values!['nonEncodableObject'], 'JsonUnencodableObject');
+        measurement.values!['nonEncodableObject'],
+        'JsonUnencodableObject',
+      );
       expect(measurement.values!['regularInt'], 42);
     });
 
     test('should convert non-encodable objects to string representation', () {
       // Create a class that cannot be JSON encoded
       final nonEncodable = _NonEncodable();
-      final measurement = Measurement(
-        {
-          'nonEncodable': nonEncodable,
-          'valid': 42.0,
-        },
-        'device',
-      );
+      final measurement = Measurement({
+        'nonEncodable': nonEncodable,
+        'valid': 42.0,
+      }, 'device');
 
       expect(measurement.values, isNotNull);
       expect(measurement.values!['nonEncodable'], 'NonEncodable object');
@@ -97,15 +81,12 @@ void main() {
     });
 
     test('toJson output should be JSON encodable', () {
-      final measurement = Measurement(
-        {
-          'infinity': double.infinity,
-          'negativeInfinity': double.negativeInfinity,
-          'nan': double.nan,
-          'valid': 42.0,
-        },
-        'device',
-      );
+      final measurement = Measurement({
+        'infinity': double.infinity,
+        'negativeInfinity': double.negativeInfinity,
+        'nan': double.nan,
+        'valid': 42.0,
+      }, 'device');
 
       final json = measurement.toJson();
 

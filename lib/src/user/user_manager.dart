@@ -30,9 +30,9 @@ class UserManager {
     required UserPersistence? persistence,
     required OnUserMetaApplied onUserMetaApplied,
     required OnPushEvent onPushEvent,
-  })  : _persistence = persistence,
-        _onUserMetaApplied = onUserMetaApplied,
-        _onPushEvent = onPushEvent;
+  }) : _persistence = persistence,
+       _onUserMetaApplied = onUserMetaApplied,
+       _onPushEvent = onPushEvent;
 
   final UserPersistence? _persistence;
   final OnUserMetaApplied _onUserMetaApplied;

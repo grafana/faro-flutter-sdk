@@ -44,11 +44,9 @@ void main() {
 
     test('isEmpty returns false when exceptions is not empty', () {
       final payload = Payload(Meta());
-      payload.exceptions.add(FaroException(
-        'test_type',
-        'test_value',
-        {'frames': <String>[]},
-      ));
+      payload.exceptions.add(
+        FaroException('test_type', 'test_value', {'frames': <String>[]}),
+      );
       expect(payload.isEmpty(), false);
     });
 

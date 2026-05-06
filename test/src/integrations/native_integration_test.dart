@@ -20,8 +20,9 @@ void main() {
     nativeIntegration = NativeIntegration();
 
     when(() => mockFaro.nativeChannel).thenReturn(mockNativeChannel);
-    when(() => mockNativeChannel.getMemoryUsage())
-        .thenAnswer((_) async => 50.0);
+    when(
+      () => mockNativeChannel.getMemoryUsage(),
+    ).thenAnswer((_) async => 50.0);
     when(() => mockNativeChannel.initRefreshRate()).thenAnswer((_) async {});
 
     Faro.instance = mockFaro;

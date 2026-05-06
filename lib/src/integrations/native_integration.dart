@@ -55,9 +55,10 @@ class NativeIntegration {
     try {
       final appStart = await Faro().nativeChannel?.getAppStart();
       if (appStart != null) {
-        Faro().pushMeasurement(
-            {'appStartDuration': appStart['appStartDuration'], 'coldStart': 1},
-            'app_startup');
+        Faro().pushMeasurement({
+          'appStartDuration': appStart['appStartDuration'],
+          'coldStart': 1,
+        }, 'app_startup');
       }
     } catch (error) {
       log('Error getting app start metrics: $error');
@@ -75,9 +76,10 @@ class NativeIntegration {
       final warmStartDuration =
           DateTime.now().millisecondsSinceEpoch - warmStart;
       if (warmStartDuration > 0) {
-        Faro().pushMeasurement(
-            {'appStartDuration': warmStartDuration, 'coldStart': 0},
-            'app_startup');
+        Faro().pushMeasurement({
+          'appStartDuration': warmStartDuration,
+          'coldStart': 0,
+        }, 'app_startup');
       }
     } catch (error) {
       log('Error getting warm start metrics: $error');
@@ -185,8 +187,9 @@ class NativeIntegration {
 
           case 'onSlowFrames':
             if (call.arguments != null) {
-              Faro().pushMeasurement(
-                  {'slow_frames': call.arguments}, 'app_frames_rate');
+              Faro().pushMeasurement({
+                'slow_frames': call.arguments,
+              }, 'app_frames_rate');
             }
             break;
         }

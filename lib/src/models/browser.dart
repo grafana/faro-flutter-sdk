@@ -1,8 +1,14 @@
 // ignore_for_file: avoid_positional_boolean_parameters
 
 class Browser {
-  Browser(this.name, this.version, this.os, this.userAgent, this.language,
-      this.mobile);
+  Browser(
+    this.name,
+    this.version,
+    this.os,
+    this.userAgent,
+    this.language,
+    this.mobile,
+  );
 
   Browser.fromJson(dynamic json) {
     name = json['name'];

@@ -35,12 +35,8 @@ class FaroUser extends Equatable {
   ///
   /// Use [attributes] to attach arbitrary key-value metadata to the user.
   /// All attribute values must be strings.
-  const FaroUser({
-    this.id,
-    this.username,
-    this.email,
-    this.attributes,
-  }) : _isCleared = false;
+  const FaroUser({this.id, this.username, this.email, this.attributes})
+    : _isCleared = false;
 
   /// Creates a sentinel value that explicitly clears any persisted user.
   ///
@@ -52,11 +48,11 @@ class FaroUser extends Equatable {
   /// - Testing scenarios
   /// - Apps that detect the user was logged out externally
   const FaroUser.cleared()
-      : id = null,
-        username = null,
-        email = null,
-        attributes = null,
-        _isCleared = true;
+    : id = null,
+      username = null,
+      email = null,
+      attributes = null,
+      _isCleared = true;
 
   /// Creates a [FaroUser] from a JSON map.
   factory FaroUser.fromJson(Map<String, dynamic> json) {
@@ -64,9 +60,10 @@ class FaroUser extends Equatable {
       id: json['id'] as String?,
       username: json['username'] as String?,
       email: json['email'] as String?,
-      attributes: json['attributes'] != null
-          ? Map<String, String>.from(json['attributes'] as Map)
-          : null,
+      attributes:
+          json['attributes'] != null
+              ? Map<String, String>.from(json['attributes'] as Map)
+              : null,
     );
   }
 

@@ -11,19 +11,13 @@ void main() {
   group('UserAction:', () {
     group('initialization:', () {
       test('should initialize with correct default values', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'pointerdown',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'pointerdown');
 
         expect(action.name, equals('test-action'));
         expect(action.trigger, equals('pointerdown'));
         expect(action.id, isNotEmpty);
         expect(action.id.length, equals(10));
-        expect(
-          action.importance,
-          equals(UserActionConstants.importanceNormal),
-        );
+        expect(action.importance, equals(UserActionConstants.importanceNormal));
         expect(action.attributes, isNull);
         expect(action.getState(), equals(UserActionState.started));
         expect(action.startTime, greaterThan(0));
@@ -61,20 +55,11 @@ void main() {
       });
 
       test('should generate unique IDs for different instances', () {
-        final action1 = UserAction(
-          name: 'action1',
-          trigger: 'test',
-        );
+        final action1 = UserAction(name: 'action1', trigger: 'test');
 
-        final action2 = UserAction(
-          name: 'action2',
-          trigger: 'test',
-        );
+        final action2 = UserAction(name: 'action2', trigger: 'test');
 
-        final action3 = UserAction(
-          name: 'action3',
-          trigger: 'test',
-        );
+        final action3 = UserAction(name: 'action3', trigger: 'test');
 
         expect(action1.id, isNot(equals(action2.id)));
         expect(action1.id, isNot(equals(action3.id)));
@@ -88,10 +73,7 @@ void main() {
 
     group('state machine:', () {
       test('should start in started state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         expect(action.getState(), equals(UserActionState.started));
 
@@ -99,10 +81,7 @@ void main() {
       });
 
       test('should transition from started to halted', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.halt();
 
@@ -112,10 +91,7 @@ void main() {
       });
 
       test('should not transition to halted if not in started state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.end();
         expect(action.getState(), equals(UserActionState.ended));
@@ -127,43 +103,28 @@ void main() {
       });
 
       test('should transition from started to cancelled', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.cancel();
 
-        expect(
-          action.getState(),
-          equals(UserActionState.cancelled),
-        );
+        expect(action.getState(), equals(UserActionState.cancelled));
 
         action.dispose();
       });
 
       test('should transition from halted to cancelled', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.halt();
         action.cancel();
 
-        expect(
-          action.getState(),
-          equals(UserActionState.cancelled),
-        );
+        expect(action.getState(), equals(UserActionState.cancelled));
 
         action.dispose();
       });
 
       test('should not transition to cancelled if already ended', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.end();
         expect(action.getState(), equals(UserActionState.ended));
@@ -175,10 +136,7 @@ void main() {
       });
 
       test('should transition from started to ended', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.end();
 
@@ -188,10 +146,7 @@ void main() {
       });
 
       test('should transition from halted to ended', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.halt();
         action.end();
@@ -202,22 +157,13 @@ void main() {
       });
 
       test('should not transition to ended if already cancelled', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.cancel();
-        expect(
-          action.getState(),
-          equals(UserActionState.cancelled),
-        );
+        expect(action.getState(), equals(UserActionState.cancelled));
 
         action.end();
-        expect(
-          action.getState(),
-          equals(UserActionState.cancelled),
-        );
+        expect(action.getState(), equals(UserActionState.cancelled));
 
         action.dispose();
       });
@@ -225,10 +171,7 @@ void main() {
 
     group('state change notifications:', () {
       test('should emit state changes on stateChanges stream', () async {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final states = <UserActionState>[];
         final subscription = action.stateChanges.listen(states.add);
@@ -238,20 +181,14 @@ void main() {
 
         await Future<void>.delayed(Duration.zero);
 
-        expect(
-          states,
-          equals([UserActionState.halted, UserActionState.ended]),
-        );
+        expect(states, equals([UserActionState.halted, UserActionState.ended]));
 
         await subscription.cancel();
         action.dispose();
       });
 
       test('should emit cancelled state on cancel', () async {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final states = <UserActionState>[];
         final subscription = action.stateChanges.listen(states.add);
@@ -267,10 +204,7 @@ void main() {
       });
 
       test('should support multiple subscribers', () async {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final states1 = <UserActionState>[];
         final states2 = <UserActionState>[];
@@ -292,10 +226,7 @@ void main() {
 
     group('item buffering:', () {
       test('should buffer event in started state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final event = Event('test-event');
         final item = TelemetryItem.fromEvent(event);
@@ -308,10 +239,7 @@ void main() {
       });
 
       test('should buffer log in started state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final log = FaroLog('test log');
         final item = TelemetryItem.fromLog(log);
@@ -324,10 +252,7 @@ void main() {
       });
 
       test('should buffer exception in started state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final exception = FaroException('TestException', 'test', {});
         final item = TelemetryItem.fromException(exception);
@@ -340,10 +265,7 @@ void main() {
       });
 
       test('should not buffer in halted state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.halt();
 
@@ -358,10 +280,7 @@ void main() {
       });
 
       test('should not buffer in ended state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.end();
 
@@ -376,10 +295,7 @@ void main() {
       });
 
       test('should not buffer in cancelled state', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.cancel();
 
@@ -394,10 +310,7 @@ void main() {
       });
 
       test('should buffer multiple items', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final event1 = Event('event1');
         final event2 = Event('event2');
@@ -418,13 +331,9 @@ void main() {
     });
 
     group('cancel behavior:', () {
-      test(
-          'should make buffered items available without enrichment'
+      test('should make buffered items available without enrichment'
           ' on cancel', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final event = Event('test-event');
         final log = FaroLog('test log');
@@ -446,13 +355,9 @@ void main() {
         action.dispose();
       });
 
-      test(
-          'should not produce pending items multiple times if'
+      test('should not produce pending items multiple times if'
           ' cancelled twice', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final event = Event('test-event');
         action.addItem(TelemetryItem.fromEvent(event));
@@ -470,10 +375,7 @@ void main() {
       });
 
       test('should handle empty buffer on cancel', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.cancel();
 
@@ -485,13 +387,9 @@ void main() {
     });
 
     group('end behavior:', () {
-      test(
-          'should make buffered items available with enrichment'
+      test('should make buffered items available with enrichment'
           ' on end', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final event = Event('test-event');
         final log = FaroLog('test log');
@@ -552,22 +450,10 @@ void main() {
           actionEvent.attributes!['userActionImportance'],
           equals(UserActionConstants.importanceCritical),
         );
-        expect(
-          actionEvent.attributes!['product'],
-          equals('premium'),
-        );
-        expect(
-          actionEvent.attributes!['userActionStartTime'],
-          isNotNull,
-        );
-        expect(
-          actionEvent.attributes!['userActionEndTime'],
-          isNotNull,
-        );
-        expect(
-          actionEvent.attributes!['userActionDuration'],
-          isNotNull,
-        );
+        expect(actionEvent.attributes!['product'], equals('premium'));
+        expect(actionEvent.attributes!['userActionStartTime'], isNotNull);
+        expect(actionEvent.attributes!['userActionEndTime'], isNotNull);
+        expect(actionEvent.attributes!['userActionDuration'], isNotNull);
 
         expect(actionEvent.action, isNotNull);
         expect(actionEvent.action!.id, equals(action.id));
@@ -577,10 +463,7 @@ void main() {
       });
 
       test('should calculate duration correctly', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final startTime = action.startTime;
 
@@ -604,10 +487,7 @@ void main() {
       });
 
       test('should handle empty buffer on end', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.end();
 
@@ -624,10 +504,7 @@ void main() {
       });
 
       test('should handle all telemetry types', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final event = Event('test-event');
         final log = FaroLog('test log');
@@ -649,20 +526,14 @@ void main() {
         expect(items[0].type, equals(TelemetryItemType.event));
         expect(items[1].type, equals(TelemetryItemType.log));
         expect(items[2].type, equals(TelemetryItemType.exception));
-        expect(
-          items[3].type,
-          equals(TelemetryItemType.measurement),
-        );
+        expect(items[3].type, equals(TelemetryItemType.measurement));
         expect(items[4].type, equals(TelemetryItemType.event));
 
         action.dispose();
       });
 
       test('should not enrich measurements with action context', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final measurement = Measurement({'value': 42}, 'test');
         action.addItem(TelemetryItem.fromMeasurement(measurement));
@@ -682,10 +553,7 @@ void main() {
 
     group('takePendingItems:', () {
       test('should return empty list when called before end/cancel', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final items = action.takePendingItems();
         expect(items, isEmpty);
@@ -694,10 +562,7 @@ void main() {
       });
 
       test('should return empty list on second call', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.addItem(TelemetryItem.fromEvent(Event('e1')));
         action.end();
@@ -714,10 +579,7 @@ void main() {
 
     group('dispose:', () {
       test('should close state controller on dispose', () async {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final states = <UserActionState>[];
         final subscription = action.stateChanges.listen(states.add);
@@ -728,10 +590,7 @@ void main() {
       });
 
       test('should not crash if disposed multiple times', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         expect(() {
           action.dispose();
@@ -742,10 +601,7 @@ void main() {
 
     group('edge cases:', () {
       test('should handle actions with no buffered items', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.halt();
         action.end();
@@ -762,10 +618,7 @@ void main() {
       });
 
       test('should handle rapid state transitions', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         action.halt();
         action.halt(); // No-op
@@ -778,10 +631,7 @@ void main() {
       });
 
       test('should preserve item order during flush', () {
-        final action = UserAction(
-          name: 'test-action',
-          trigger: 'test',
-        );
+        final action = UserAction(name: 'test-action', trigger: 'test');
 
         final log1 = FaroLog('log 1');
         final log2 = FaroLog('log 2');
@@ -797,18 +647,9 @@ void main() {
         // 3 logs + 1 summary event
         expect(items.length, equals(4));
 
-        expect(
-          (items[0].asLog!).message,
-          equals('log 1'),
-        );
-        expect(
-          (items[1].asLog!).message,
-          equals('log 2'),
-        );
-        expect(
-          (items[2].asLog!).message,
-          equals('log 3'),
-        );
+        expect((items[0].asLog!).message, equals('log 1'));
+        expect((items[1].asLog!).message, equals('log 2'));
+        expect((items[2].asLog!).message, equals('log 3'));
 
         action.dispose();
       });

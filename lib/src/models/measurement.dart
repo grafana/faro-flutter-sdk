@@ -26,7 +26,9 @@ class Measurement {
       missingFields.add('timestamp');
     }
     if (missingFields.isNotEmpty) {
-      log('Dropping measurement with missing required fields: ${missingFields.join(', ')}');
+      log(
+        'Dropping measurement with missing required fields: ${missingFields.join(', ')}',
+      );
       return null;
     }
     return Measurement.fromJson(json);
@@ -52,12 +54,16 @@ class Measurement {
             // Don't add this key to sanitizedValues
           } else {
             // This shouldn't happen for regular doubles, but just in case
-            log('Sanitizing unexpected non-encodable double for key "$key": $value');
+            log(
+              'Sanitizing unexpected non-encodable double for key "$key": $value',
+            );
             sanitizedValues[key] = 0.0;
           }
         } else {
           // For non-numeric types that can't be encoded, convert to string representation
-          log('Converting non-encodable value for key "$key" of type ${value.runtimeType} to string');
+          log(
+            'Converting non-encodable value for key "$key" of type ${value.runtimeType} to string',
+          );
           sanitizedValues[key] = value.toString();
         }
       }

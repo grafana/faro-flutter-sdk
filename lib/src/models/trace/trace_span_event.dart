@@ -7,10 +7,10 @@ class TraceSpanEvent {
     required Int64 timeUnixNano,
     required int droppedAttributesCount,
     required List<TraceAttribute> attributes,
-  })  : _name = name,
-        _timeUnixNano = timeUnixNano.toString(),
-        _droppedAttributesCount = droppedAttributesCount,
-        _attributes = attributes;
+  }) : _name = name,
+       _timeUnixNano = timeUnixNano.toString(),
+       _droppedAttributesCount = droppedAttributesCount,
+       _attributes = attributes;
 
   TraceSpanEvent.fromJson(dynamic json) {
     if (json['name'] != null) {

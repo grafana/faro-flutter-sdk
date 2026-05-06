@@ -28,11 +28,11 @@ class FaroConfig {
     this.initialUser,
     this.persistUser = true,
     this.sampling,
-  })  : assert(appName.isNotEmpty, 'appName cannot be empty'),
-        assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
-        assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
-        assert(maxBufferLimit > 0, 'maxBufferLimit must be greater than 0'),
-        batchConfig = batchConfig ?? BatchConfig();
+  }) : assert(appName.isNotEmpty, 'appName cannot be empty'),
+       assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
+       assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
+       assert(maxBufferLimit > 0, 'maxBufferLimit must be greater than 0'),
+       batchConfig = batchConfig ?? BatchConfig();
   final String appName;
   final String appEnv;
   final String apiKey;

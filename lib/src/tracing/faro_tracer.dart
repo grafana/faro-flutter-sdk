@@ -14,9 +14,9 @@ class FaroTracer {
     required otel_api.Tracer otelTracer,
     required FaroZoneSpanManager faroZoneSpanManager,
     required SessionIdProvider sessionIdProvider,
-  })  : _otelTracer = otelTracer,
-        _faroZoneSpanManager = faroZoneSpanManager,
-        _sessionIdProvider = sessionIdProvider;
+  }) : _otelTracer = otelTracer,
+       _faroZoneSpanManager = faroZoneSpanManager,
+       _sessionIdProvider = sessionIdProvider;
 
   final otel_api.Tracer _otelTracer;
   final FaroZoneSpanManager _faroZoneSpanManager;
@@ -95,9 +95,10 @@ class FaroTracer {
       'session_id': sessionId,
       'session.id': sessionId,
     };
-    final otelAttributes = allAttributes.entries.map((entry) {
-      return _createOtelAttribute(entry.key, entry.value);
-    }).toList();
+    final otelAttributes =
+        allAttributes.entries.map((entry) {
+          return _createOtelAttribute(entry.key, entry.value);
+        }).toList();
 
     final otelSpan = _otelTracer.startSpan(
       name,
@@ -152,9 +153,7 @@ class FaroTracerFactory {
       processors: [faroSpanProcessor],
     );
     otel_api.registerGlobalTracerProvider(provider);
-    final otelTracer = provider.getTracer(
-      'flutter-faro-instrumentation',
-    );
+    final otelTracer = provider.getTracer('flutter-faro-instrumentation');
 
     final faroZoneSpanManager = FaroZoneSpanManagerFactory().create();
     final sessionIdProvider = SessionIdProviderFactory().create();

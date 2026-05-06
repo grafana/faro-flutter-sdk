@@ -73,10 +73,7 @@ void main() {
 
         final result = bridge.instrumentedUrl(url);
 
-        expect(
-          result.queryParameters.containsKey('session.parent_id'),
-          isTrue,
-        );
+        expect(result.queryParameters.containsKey('session.parent_id'), isTrue);
         final parentId = result.queryParameters['session.parent_id']!;
         expect(parentId, isNotEmpty);
         expect(parentId, equals(faro.meta.session?.id));
@@ -160,10 +157,7 @@ void main() {
         final bridge = FaroWebViewBridge();
         final url = Uri.parse(testUrl);
 
-        final result = bridge.instrumentedUrl(
-          url,
-          spanName: 'CustomWebView',
-        );
+        final result = bridge.instrumentedUrl(url, spanName: 'CustomWebView');
 
         expect(result.queryParameters.containsKey('traceparent'), isTrue);
       });
@@ -179,16 +173,18 @@ void main() {
           appName: 'MyWebApp',
         );
 
-        final captured = verify(
-          () => mockTransport.send(captureAny()),
-        ).captured;
+        final captured =
+            verify(() => mockTransport.send(captureAny())).captured;
         expect(captured, isNotEmpty);
 
         final payload = captured.last as Map<String, dynamic>;
         final events = payload['events'] as List<dynamic>;
-        final linkedEvent = events.firstWhere(
-          (e) => (e as Map<String, dynamic>)['name'] == 'session.linked',
-        ) as Map<String, dynamic>;
+        final linkedEvent =
+            events.firstWhere(
+                  (e) =>
+                      (e as Map<String, dynamic>)['name'] == 'session.linked',
+                )
+                as Map<String, dynamic>;
 
         expect(linkedEvent, isNotNull);
         final attributes = linkedEvent['attributes'] as Map<String, dynamic>?;
@@ -202,16 +198,18 @@ void main() {
 
         bridge.linkChildSession(sessionId: 'web-session-456');
 
-        final captured = verify(
-          () => mockTransport.send(captureAny()),
-        ).captured;
+        final captured =
+            verify(() => mockTransport.send(captureAny())).captured;
         expect(captured, isNotEmpty);
 
         final payload = captured.last as Map<String, dynamic>;
         final events = payload['events'] as List<dynamic>;
-        final linkedEvent = events.firstWhere(
-          (e) => (e as Map<String, dynamic>)['name'] == 'session.linked',
-        ) as Map<String, dynamic>;
+        final linkedEvent =
+            events.firstWhere(
+                  (e) =>
+                      (e as Map<String, dynamic>)['name'] == 'session.linked',
+                )
+                as Map<String, dynamic>;
 
         expect(linkedEvent, isNotNull);
         final attributes = linkedEvent['attributes'] as Map<String, dynamic>?;

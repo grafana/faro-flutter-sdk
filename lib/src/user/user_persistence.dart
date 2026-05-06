@@ -10,9 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// it can be restored on the next app start, ensuring early telemetry
 /// events include user identification.
 class UserPersistence {
-  UserPersistence({
-    required SharedPreferences sharedPreferences,
-  }) : _sharedPreferences = sharedPreferences;
+  UserPersistence({required SharedPreferences sharedPreferences})
+    : _sharedPreferences = sharedPreferences;
 
   final SharedPreferences _sharedPreferences;
   static const String _userDataKey = 'faro_persisted_user';

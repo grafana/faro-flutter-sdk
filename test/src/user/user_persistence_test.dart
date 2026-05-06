@@ -20,15 +20,17 @@ void main() {
   group('UserPersistence:', () {
     group('loadUser:', () {
       test('should return null when no user is stored', () {
-        when(() => mockSharedPreferences.getString('faro_persisted_user'))
-            .thenReturn(null);
+        when(
+          () => mockSharedPreferences.getString('faro_persisted_user'),
+        ).thenReturn(null);
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
         final result = sut.loadUser();
 
         expect(result, isNull);
-        verify(() => mockSharedPreferences.getString('faro_persisted_user'))
-            .called(1);
+        verify(
+          () => mockSharedPreferences.getString('faro_persisted_user'),
+        ).called(1);
       });
 
       test('should return persisted user when stored', () {
@@ -37,8 +39,9 @@ void main() {
           'username': 'john.doe',
           'email': 'john@example.com',
         };
-        when(() => mockSharedPreferences.getString('faro_persisted_user'))
-            .thenReturn(json.encode(userData));
+        when(
+          () => mockSharedPreferences.getString('faro_persisted_user'),
+        ).thenReturn(json.encode(userData));
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
         final result = sut.loadUser();
@@ -50,8 +53,9 @@ void main() {
       });
 
       test('should return null when JSON is invalid', () {
-        when(() => mockSharedPreferences.getString('faro_persisted_user'))
-            .thenReturn('invalid json');
+        when(
+          () => mockSharedPreferences.getString('faro_persisted_user'),
+        ).thenReturn('invalid json');
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
         final result = sut.loadUser();
@@ -60,8 +64,9 @@ void main() {
       });
 
       test('should handle errors gracefully', () {
-        when(() => mockSharedPreferences.getString('faro_persisted_user'))
-            .thenThrow(Exception('Storage error'));
+        when(
+          () => mockSharedPreferences.getString('faro_persisted_user'),
+        ).thenThrow(Exception('Storage error'));
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
         final result = sut.loadUser();
@@ -72,8 +77,9 @@ void main() {
 
     group('saveUser:', () {
       test('should persist user data', () async {
-        when(() => mockSharedPreferences.setString(any(), any()))
-            .thenAnswer((_) async => true);
+        when(
+          () => mockSharedPreferences.setString(any(), any()),
+        ).thenAnswer((_) async => true);
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
         const user = FaroUser(
@@ -84,10 +90,14 @@ void main() {
 
         await sut.saveUser(user);
 
-        final captured = verify(
-          () => mockSharedPreferences.setString(
-              'faro_persisted_user', captureAny()),
-        ).captured.single as String;
+        final captured =
+            verify(
+                  () => mockSharedPreferences.setString(
+                    'faro_persisted_user',
+                    captureAny(),
+                  ),
+                ).captured.single
+                as String;
 
         final savedData = json.decode(captured) as Map<String, dynamic>;
         expect(savedData['id'], 'user-123');
@@ -96,34 +106,39 @@ void main() {
       });
 
       test('should clear user when null is passed', () async {
-        when(() => mockSharedPreferences.remove(any()))
-            .thenAnswer((_) async => true);
+        when(
+          () => mockSharedPreferences.remove(any()),
+        ).thenAnswer((_) async => true);
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
 
         await sut.saveUser(null);
 
-        verify(() => mockSharedPreferences.remove('faro_persisted_user'))
-            .called(1);
+        verify(
+          () => mockSharedPreferences.remove('faro_persisted_user'),
+        ).called(1);
         verifyNever(() => mockSharedPreferences.setString(any(), any()));
       });
 
       test('should clear user when cleared user is passed', () async {
-        when(() => mockSharedPreferences.remove(any()))
-            .thenAnswer((_) async => true);
+        when(
+          () => mockSharedPreferences.remove(any()),
+        ).thenAnswer((_) async => true);
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
 
         await sut.saveUser(const FaroUser.cleared());
 
-        verify(() => mockSharedPreferences.remove('faro_persisted_user'))
-            .called(1);
+        verify(
+          () => mockSharedPreferences.remove('faro_persisted_user'),
+        ).called(1);
         verifyNever(() => mockSharedPreferences.setString(any(), any()));
       });
 
       test('should handle errors gracefully', () async {
-        when(() => mockSharedPreferences.setString(any(), any()))
-            .thenThrow(Exception('Storage error'));
+        when(
+          () => mockSharedPreferences.setString(any(), any()),
+        ).thenThrow(Exception('Storage error'));
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
 
@@ -134,20 +149,23 @@ void main() {
 
     group('clearUser:', () {
       test('should remove persisted user data', () async {
-        when(() => mockSharedPreferences.remove(any()))
-            .thenAnswer((_) async => true);
+        when(
+          () => mockSharedPreferences.remove(any()),
+        ).thenAnswer((_) async => true);
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
 
         await sut.clearUser();
 
-        verify(() => mockSharedPreferences.remove('faro_persisted_user'))
-            .called(1);
+        verify(
+          () => mockSharedPreferences.remove('faro_persisted_user'),
+        ).called(1);
       });
 
       test('should handle errors gracefully', () async {
-        when(() => mockSharedPreferences.remove(any()))
-            .thenThrow(Exception('Storage error'));
+        when(
+          () => mockSharedPreferences.remove(any()),
+        ).thenThrow(Exception('Storage error'));
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
 
@@ -158,8 +176,9 @@ void main() {
 
     group('hasPersistedUser:', () {
       test('should return true when user data exists', () {
-        when(() => mockSharedPreferences.containsKey('faro_persisted_user'))
-            .thenReturn(true);
+        when(
+          () => mockSharedPreferences.containsKey('faro_persisted_user'),
+        ).thenReturn(true);
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
 
@@ -167,8 +186,9 @@ void main() {
       });
 
       test('should return false when no user data exists', () {
-        when(() => mockSharedPreferences.containsKey('faro_persisted_user'))
-            .thenReturn(false);
+        when(
+          () => mockSharedPreferences.containsKey('faro_persisted_user'),
+        ).thenReturn(false);
 
         sut = UserPersistence(sharedPreferences: mockSharedPreferences);
 

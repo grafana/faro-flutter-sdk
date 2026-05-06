@@ -18,11 +18,7 @@ void main() {
     setUp(() {
       testMeta = Meta(
         session: Session('test-session'),
-        app: App(
-          name: 'TestApp',
-          environment: 'production',
-          version: '1.0.0',
-        ),
+        app: App(name: 'TestApp', environment: 'production', version: '1.0.0'),
       );
     });
 
@@ -186,11 +182,7 @@ void main() {
       RandomValueProviderFactory().reset();
       testMeta = Meta(
         session: Session('test-session'),
-        app: App(
-          name: 'TestApp',
-          environment: 'production',
-          version: '1.0.0',
-        ),
+        app: App(name: 'TestApp', environment: 'production', version: '1.0.0'),
       );
     });
 
@@ -241,9 +233,7 @@ void main() {
     });
 
     test('should work when sampling is not provided (defaults to 100%)', () {
-      final provider = sut.create(
-        meta: testMeta,
-      );
+      final provider = sut.create(meta: testMeta);
 
       // With default sampling (1.0), should always be sampled
       expect(provider.isSampled, isTrue);

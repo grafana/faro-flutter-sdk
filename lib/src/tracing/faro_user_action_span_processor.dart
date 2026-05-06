@@ -26,9 +26,9 @@ class FaroUserActionSpanProcessor implements otel_sdk.SpanProcessor {
     required otel_sdk.SpanProcessor delegate,
     required ActiveUserActionResolver activeUserActionResolver,
     required UserActionLifecycleSignalChannel lifecycleSignalChannel,
-  })  : _delegate = delegate,
-        _activeUserActionResolver = activeUserActionResolver,
-        _lifecycleSignalChannel = lifecycleSignalChannel;
+  }) : _delegate = delegate,
+       _activeUserActionResolver = activeUserActionResolver,
+       _lifecycleSignalChannel = lifecycleSignalChannel;
 
   final otel_sdk.SpanProcessor _delegate;
   final ActiveUserActionResolver _activeUserActionResolver;
@@ -39,8 +39,9 @@ class FaroUserActionSpanProcessor implements otel_sdk.SpanProcessor {
 
   @override
   void onStart(otel_sdk.ReadWriteSpan span, otel_api.Context parentContext) {
-    final pendingMarkerValue =
-        span.attributes.get(UserActionConstants.pendingOperationKey);
+    final pendingMarkerValue = span.attributes.get(
+      UserActionConstants.pendingOperationKey,
+    );
     if (_isPendingOperationMarkerEnabled(pendingMarkerValue)) {
       final operationId = span.spanContext.spanId.toString();
       _pendingOperationSpanIds.add(operationId);
@@ -101,8 +102,9 @@ class FaroUserActionSpanProcessor implements otel_sdk.SpanProcessor {
 final faroSpanProcessorProvider = Provider<otel_sdk.SpanProcessor>((pod) {
   final exporter = FaroExporterFactory().create();
   final userActionsService = pod.resolve(userActionsServiceProvider);
-  final lifecycleSignalChannel =
-      pod.resolve(userActionLifecycleSignalChannelProvider);
+  final lifecycleSignalChannel = pod.resolve(
+    userActionLifecycleSignalChannelProvider,
+  );
   return FaroUserActionSpanProcessor(
     delegate: otel_sdk.SimpleSpanProcessor(exporter),
     activeUserActionResolver: userActionsService.getActiveUserAction,

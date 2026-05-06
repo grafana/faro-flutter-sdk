@@ -33,8 +33,9 @@ void main() {
 
       when(() => mockHttpClientRequest.method).thenReturn('GET');
       when(() => mockHttpClientRequest.headers).thenReturn(mockRequestHeaders);
-      when(() => mockHttpClientRequest.uri)
-          .thenReturn(Uri.parse('http://example.com/path'));
+      when(
+        () => mockHttpClientRequest.uri,
+      ).thenReturn(Uri.parse('http://example.com/path'));
       when(() => mockRequestHeaders.add(any(), any())).thenReturn(null);
 
       client = FaroHttpTrackingClient(
@@ -50,8 +51,9 @@ void main() {
       );
 
       final url = Uri.parse('http://example.com/path');
-      when(() => mockHttpClient.openUrl('GET', url))
-          .thenAnswer((_) async => mockHttpClientRequest);
+      when(
+        () => mockHttpClient.openUrl('GET', url),
+      ).thenAnswer((_) async => mockHttpClientRequest);
 
       final request = await client.openUrl('GET', url);
 
@@ -63,8 +65,9 @@ void main() {
       trackingFilter.configure(collectorUrl: null, ignoreUrls: null);
 
       final url = Uri.parse('http://example.com/path');
-      when(() => mockHttpClient.openUrl('GET', url))
-          .thenAnswer((_) async => mockHttpClientRequest);
+      when(
+        () => mockHttpClient.openUrl('GET', url),
+      ).thenAnswer((_) async => mockHttpClientRequest);
 
       final request = await client.openUrl('GET', url);
       await Future<void>.delayed(Duration.zero);
@@ -76,8 +79,9 @@ void main() {
       trackingFilter.configure(collectorUrl: null, ignoreUrls: null);
 
       final url = Uri.parse('http://example.com/path');
-      when(() => mockHttpClient.openUrl('GET', url))
-          .thenThrow(const SocketException('boom'));
+      when(
+        () => mockHttpClient.openUrl('GET', url),
+      ).thenThrow(const SocketException('boom'));
 
       await expectLater(
         () => client.openUrl('GET', url),
@@ -105,8 +109,9 @@ void main() {
       when(() => mockSpan.spanId).thenReturn('span-id');
       when(() => mockSpan.traceparent).thenReturn('00-trace-id-span-id-01');
       when(() => mockHttpClientRequest.method).thenReturn('GET');
-      when(() => mockHttpClientRequest.uri)
-          .thenReturn(Uri.parse('http://example.com/path'));
+      when(
+        () => mockHttpClientRequest.uri,
+      ).thenReturn(Uri.parse('http://example.com/path'));
       when(() => mockHttpClientRequest.contentLength).thenReturn(42);
       when(() => mockHttpClientRequest.headers).thenReturn(mockRequestHeaders);
 
@@ -117,11 +122,13 @@ void main() {
     });
 
     test('close should end span on success when response completes', () async {
-      when(() => mockHttpClientRequest.close())
-          .thenAnswer((_) async => mockHttpClientResponse);
+      when(
+        () => mockHttpClientRequest.close(),
+      ).thenAnswer((_) async => mockHttpClientResponse);
       when(() => mockHttpClientResponse.statusCode).thenReturn(200);
-      when(() => mockHttpClientResponse.headers)
-          .thenReturn(mockResponseHeaders);
+      when(
+        () => mockHttpClientResponse.headers,
+      ).thenReturn(mockResponseHeaders);
       when(() => mockResponseHeaders.contentLength).thenReturn(128);
       when(() => mockResponseHeaders.contentType).thenReturn(null);
       when(
@@ -148,13 +155,11 @@ void main() {
     });
 
     test('close should end span on error', () async {
-      when(() => mockHttpClientRequest.close())
-          .thenThrow(const SocketException('close failed'));
+      when(
+        () => mockHttpClientRequest.close(),
+      ).thenThrow(const SocketException('close failed'));
 
-      await expectLater(
-        trackedRequest.close,
-        throwsA(isA<Exception>()),
-      );
+      await expectLater(trackedRequest.close, throwsA(isA<Exception>()));
       await Future<void>.delayed(Duration.zero);
 
       verify(
@@ -167,11 +172,13 @@ void main() {
     });
 
     test('done should wrap response and end span on completion', () async {
-      when(() => mockHttpClientRequest.done)
-          .thenAnswer((_) async => mockHttpClientResponse);
+      when(
+        () => mockHttpClientRequest.done,
+      ).thenAnswer((_) async => mockHttpClientResponse);
       when(() => mockHttpClientResponse.statusCode).thenReturn(200);
-      when(() => mockHttpClientResponse.headers)
-          .thenReturn(mockResponseHeaders);
+      when(
+        () => mockHttpClientResponse.headers,
+      ).thenReturn(mockResponseHeaders);
       when(() => mockResponseHeaders.contentLength).thenReturn(128);
       when(() => mockResponseHeaders.contentType).thenReturn(null);
       when(
@@ -212,8 +219,9 @@ void main() {
           message: any(named: 'message'),
         ),
       ).called(1);
-      verify(() => mockSpan.recordException(error, stackTrace: stackTrace))
-          .called(1);
+      verify(
+        () => mockSpan.recordException(error, stackTrace: stackTrace),
+      ).called(1);
       verify(() => mockSpan.end()).called(1);
     });
   });
@@ -239,15 +247,18 @@ void main() {
       when(() => mockSpan.spanId).thenReturn('span-id');
       when(() => mockSpan.traceparent).thenReturn('00-trace-id-span-id-01');
       when(() => mockHttpClientRequest.method).thenReturn('GET');
-      when(() => mockHttpClientRequest.uri)
-          .thenReturn(Uri.parse('http://example.com/path'));
+      when(
+        () => mockHttpClientRequest.uri,
+      ).thenReturn(Uri.parse('http://example.com/path'));
       when(() => mockHttpClientRequest.contentLength).thenReturn(42);
       when(() => mockHttpClientRequest.headers).thenReturn(mockRequestHeaders);
-      when(() => mockHttpClientRequest.close())
-          .thenAnswer((_) async => mockHttpClientResponse);
+      when(
+        () => mockHttpClientRequest.close(),
+      ).thenAnswer((_) async => mockHttpClientResponse);
       when(() => mockHttpClientResponse.statusCode).thenReturn(200);
-      when(() => mockHttpClientResponse.headers)
-          .thenReturn(mockResponseHeaders);
+      when(
+        () => mockHttpClientResponse.headers,
+      ).thenReturn(mockResponseHeaders);
       when(() => mockResponseHeaders.contentLength).thenReturn(128);
       when(() => mockResponseHeaders.contentType).thenReturn(null);
       when(
@@ -305,41 +316,42 @@ void main() {
 
       subscription.onError(errors.add);
 
-      responseStreamController.addError(
-        StateError('boom'),
-        StackTrace.current,
-      );
+      responseStreamController.addError(StateError('boom'), StackTrace.current);
       await Future<void>.delayed(Duration.zero);
 
-      verify(() => mockSpan.setStatus(
-            SpanStatusCode.error,
-            message: any(named: 'message'),
-          )).called(1);
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
       verify(() => mockSpan.end()).called(1);
       expect(errors, hasLength(1));
     });
 
-    test('replacing onError with two-arg handler should forward both args',
-        () async {
-      final response = await trackedRequest.close();
-      final errors = <Object>[];
-      final traces = <StackTrace>[];
-      // ignore: cancel_subscriptions
-      final subscription = response.listen((_) {});
+    test(
+      'replacing onError with two-arg handler should forward both args',
+      () async {
+        final response = await trackedRequest.close();
+        final errors = <Object>[];
+        final traces = <StackTrace>[];
+        // ignore: cancel_subscriptions
+        final subscription = response.listen((_) {});
 
-      subscription.onError((Object e, StackTrace st) {
-        errors.add(e);
-        traces.add(st);
-      });
+        subscription.onError((Object e, StackTrace st) {
+          errors.add(e);
+          traces.add(st);
+        });
 
-      final testTrace = StackTrace.current;
-      responseStreamController.addError(StateError('boom'), testTrace);
-      await Future<void>.delayed(Duration.zero);
+        final testTrace = StackTrace.current;
+        responseStreamController.addError(StateError('boom'), testTrace);
+        await Future<void>.delayed(Duration.zero);
 
-      verify(() => mockSpan.end()).called(1);
-      expect(errors, hasLength(1));
-      expect(traces, hasLength(1));
-    });
+        verify(() => mockSpan.end()).called(1);
+        expect(errors, hasLength(1));
+        expect(traces, hasLength(1));
+      },
+    );
 
     test('replacing onDone with null should still end span', () async {
       final response = await trackedRequest.close();
@@ -357,17 +369,11 @@ void main() {
     test('replacing onError with null should still end span', () async {
       final response = await trackedRequest.close();
       // ignore: cancel_subscriptions
-      final subscription = response.listen(
-        (_) {},
-        onError: (Object e) {},
-      );
+      final subscription = response.listen((_) {}, onError: (Object e) {});
 
       subscription.onError(null);
 
-      responseStreamController.addError(
-        StateError('boom'),
-        StackTrace.current,
-      );
+      responseStreamController.addError(StateError('boom'), StackTrace.current);
       await Future<void>.delayed(Duration.zero);
 
       verify(() => mockSpan.end()).called(1);
@@ -393,16 +399,15 @@ void main() {
 
       final future = subscription.asFuture<void>();
 
-      responseStreamController.addError(
-        StateError('boom'),
-        StackTrace.current,
-      );
+      responseStreamController.addError(StateError('boom'), StackTrace.current);
 
       await expectLater(future, throwsA(isA<StateError>()));
-      verify(() => mockSpan.setStatus(
-            SpanStatusCode.error,
-            message: any(named: 'message'),
-          )).called(1);
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
       verify(() => mockSpan.end()).called(1);
     });
   });

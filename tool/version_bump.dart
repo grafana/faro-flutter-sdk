@@ -1,11 +1,7 @@
 import 'dart:io';
 
 /// Version bump types
-enum BumpType {
-  patch,
-  minor,
-  major,
-}
+enum BumpType { patch, minor, major }
 
 /// Represents a semantic version
 class Version {
@@ -84,17 +80,15 @@ Future<void> updateChangelog(String version) async {
 
   // Get current date
   final now = DateTime.now();
-  final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+  final dateStr =
+      '${now.year}-${now.month.toString().padLeft(2, '0')}-'
       '${now.day.toString().padLeft(2, '0')}';
 
   // Replace "## [Unreleased]" with version and date, then add new Unreleased
-  final updated = content.replaceFirst(
-    '## [Unreleased]',
-    '''
+  final updated = content.replaceFirst('## [Unreleased]', '''
 ## [Unreleased]
 
-## [$version] - $dateStr''',
-  );
+## [$version] - $dateStr''');
 
   // If there was no "[Unreleased]" section, add the version at the top
   // after the header
@@ -160,7 +154,8 @@ Future<void> main(List<String> args) async {
       break;
     default:
       stderr.writeln(
-          'Invalid bump type: $bumpTypeStr. Must be patch, minor, or major');
+        'Invalid bump type: $bumpTypeStr. Must be patch, minor, or major',
+      );
       exit(1);
   }
 
@@ -168,8 +163,9 @@ Future<void> main(List<String> args) async {
     // Read current version from pubspec
     final pubspecFile = File('pubspec.yaml');
     final pubspecContent = await pubspecFile.readAsString();
-    final versionMatch =
-        RegExp(r'version: (\d+\.\d+\.\d+)').firstMatch(pubspecContent);
+    final versionMatch = RegExp(
+      r'version: (\d+\.\d+\.\d+)',
+    ).firstMatch(pubspecContent);
 
     if (versionMatch == null) {
       stderr.writeln('Could not find version in pubspec.yaml');
@@ -191,11 +187,10 @@ Future<void> main(List<String> args) async {
 
     // Resolve dependencies so example/pubspec.lock reflects the new version
     stdout.writeln('Resolving dependencies...');
-    final pubGetResult = await Process.run(
-      'flutter',
-      ['pub', 'get'],
-      workingDirectory: Directory.current.path,
-    );
+    final pubGetResult = await Process.run('flutter', [
+      'pub',
+      'get',
+    ], workingDirectory: Directory.current.path);
     if (pubGetResult.exitCode != 0) {
       stderr.writeln('Warning: flutter pub get failed:');
       stderr.writeln(pubGetResult.stderr);

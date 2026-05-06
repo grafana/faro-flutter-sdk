@@ -9,7 +9,7 @@ import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 class FaroExporter implements otel_sdk.SpanExporter {
   FaroExporter({required TelemetryRouter telemetryRouter})
-      : _telemetryRouter = telemetryRouter;
+    : _telemetryRouter = telemetryRouter;
 
   final TelemetryRouter _telemetryRouter;
   var _isShutdown = false;
@@ -57,10 +57,7 @@ class FaroExporter implements otel_sdk.SpanExporter {
         );
       }
 
-      _telemetryRouter.ingest(
-        TelemetryItem.fromEvent(event),
-        skipBuffer: true,
-      );
+      _telemetryRouter.ingest(TelemetryItem.fromEvent(event), skipBuffer: true);
       _telemetryRouter.ingest(TelemetryItem.fromSpan(spanRecord));
     }
   }
@@ -68,8 +65,6 @@ class FaroExporter implements otel_sdk.SpanExporter {
 
 class FaroExporterFactory {
   FaroExporter create() {
-    return FaroExporter(
-      telemetryRouter: pod.resolve(telemetryRouterProvider),
-    );
+    return FaroExporter(telemetryRouter: pod.resolve(telemetryRouterProvider));
   }
 }

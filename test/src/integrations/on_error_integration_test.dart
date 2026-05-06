@@ -25,8 +25,9 @@ void main() {
 
   setUp(() {
     mockPlatformDispatcher = MockPlatformDispatcher();
-    onErrorIntegration =
-        OnErrorIntegration(platformDispatcher: mockPlatformDispatcher);
+    onErrorIntegration = OnErrorIntegration(
+      platformDispatcher: mockPlatformDispatcher,
+    );
   });
 
   test('call method sets up error integration correctly', () {
@@ -38,11 +39,12 @@ void main() {
   });
 
   test('isOnErrorSupported returns false when onError is not supported', () {
-    when(() => mockPlatformDispatcher.onError)
-        .thenThrow(NoSuchMethodError.withInvocation(
-      mockPlatformDispatcher,
-      Invocation.getter(#onError),
-    ));
+    when(() => mockPlatformDispatcher.onError).thenThrow(
+      NoSuchMethodError.withInvocation(
+        mockPlatformDispatcher,
+        Invocation.getter(#onError),
+      ),
+    );
 
     final result = onErrorIntegration.isOnErrorSupported();
 

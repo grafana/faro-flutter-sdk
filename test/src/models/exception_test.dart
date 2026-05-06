@@ -40,12 +40,9 @@ void main() {
     });
 
     test('should create a FaroException with null context', () {
-      final exception = FaroException(
-        'error_type',
-        'Error message',
-        {'frames': '[]'},
-        context: null,
-      );
+      final exception = FaroException('error_type', 'Error message', {
+        'frames': '[]',
+      }, context: null);
 
       expect(exception.type, equals('error_type'));
       expect(exception.value, equals('Error message'));

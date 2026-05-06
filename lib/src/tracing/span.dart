@@ -68,8 +68,8 @@ class InternalSpan implements Span {
   InternalSpan._({
     required otel_api.Span otelSpan,
     required otel_api.Context context,
-  })  : _otelSpan = otelSpan,
-        _context = context;
+  }) : _otelSpan = otelSpan,
+       _context = context;
 
   final otel_api.Span _otelSpan;
   final otel_api.Context _context;
@@ -85,8 +85,9 @@ class InternalSpan implements Span {
 
   @override
   String get traceparent {
-    final traceFlags =
-        _otelSpan.spanContext.traceFlags.toRadixString(16).padLeft(2, '0');
+    final traceFlags = _otelSpan.spanContext.traceFlags
+        .toRadixString(16)
+        .padLeft(2, '0');
     return '00-$traceId-$spanId-$traceFlags';
   }
 
@@ -141,8 +142,10 @@ class InternalSpan implements Span {
 
   @override
   void recordException(dynamic exception, {StackTrace? stackTrace}) {
-    _otelSpan.recordException(exception,
-        stackTrace: stackTrace ?? StackTrace.current);
+    _otelSpan.recordException(
+      exception,
+      stackTrace: stackTrace ?? StackTrace.current,
+    );
   }
 
   @override
@@ -153,7 +156,8 @@ class InternalSpan implements Span {
 
   /// Converts a map of typed attributes to OpenTelemetry Attributes.
   List<otel_api.Attribute> _convertToOtelAttributes(
-      Map<String, Object> attributes) {
+    Map<String, Object> attributes,
+  ) {
     return attributes.entries.map((entry) {
       return _createOtelAttribute(entry.key, entry.value);
     }).toList();

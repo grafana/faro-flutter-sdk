@@ -97,16 +97,12 @@ void main() {
       final attrList = json['attributes'] as List;
 
       // Find test_int attribute
-      final testIntAttr = attrList.firstWhere(
-        (a) => a['key'] == 'test_int',
-      );
+      final testIntAttr = attrList.firstWhere((a) => a['key'] == 'test_int');
       expect(testIntAttr['value']['intValue'], equals(42));
       expect(testIntAttr['value'].containsKey('stringValue'), isFalse);
 
       // Find test_bool attribute
-      final testBoolAttr = attrList.firstWhere(
-        (a) => a['key'] == 'test_bool',
-      );
+      final testBoolAttr = attrList.firstWhere((a) => a['key'] == 'test_bool');
       expect(testBoolAttr['value']['boolValue'], equals(true));
       expect(testBoolAttr['value'].containsKey('stringValue'), isFalse);
 

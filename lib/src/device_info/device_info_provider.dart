@@ -6,8 +6,8 @@ class DeviceInfoProvider {
   DeviceInfoProvider({
     required DeviceInfoPlugin deviceInfoPlugin,
     required PlatformInfoProvider platformInfoProvider,
-  })  : _deviceInfoPlugin = deviceInfoPlugin,
-        _platformInfoProvider = platformInfoProvider;
+  }) : _deviceInfoPlugin = deviceInfoPlugin,
+       _platformInfoProvider = platformInfoProvider;
 
   final DeviceInfoPlugin _deviceInfoPlugin;
   final PlatformInfoProvider _platformInfoProvider;

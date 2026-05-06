@@ -24,9 +24,11 @@ void main() {
           'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
       for (var i = 0; i < sut.sessionId.length; i++) {
-        expect(validChars.contains(sut.sessionId[i]), isTrue,
-            reason:
-                'Character "${sut.sessionId[i]}" at position $i is not valid');
+        expect(
+          validChars.contains(sut.sessionId[i]),
+          isTrue,
+          reason: 'Character "${sut.sessionId[i]}" at position $i is not valid',
+        );
       }
     });
 
@@ -56,8 +58,11 @@ void main() {
         final sessionId = sut.sessionId;
 
         // Check pattern: exactly 10 alphanumeric characters
-        expect(RegExp(r'^[a-zA-Z0-9]{10}$').hasMatch(sessionId), isTrue,
-            reason: 'Session ID "$sessionId" does not match expected pattern');
+        expect(
+          RegExp(r'^[a-zA-Z0-9]{10}$').hasMatch(sessionId),
+          isTrue,
+          reason: 'Session ID "$sessionId" does not match expected pattern',
+        );
       }
     });
   });
@@ -77,14 +82,15 @@ void main() {
     });
 
     test(
-        'should return the same instance on multiple calls (singleton behavior)',
-        () {
-      final provider1 = sut.create();
-      final provider2 = sut.create();
+      'should return the same instance on multiple calls (singleton behavior)',
+      () {
+        final provider1 = sut.create();
+        final provider2 = sut.create();
 
-      expect(identical(provider1, provider2), isTrue);
-      expect(provider1.sessionId, equals(provider2.sessionId));
-    });
+        expect(identical(provider1, provider2), isTrue);
+        expect(provider1.sessionId, equals(provider2.sessionId));
+      },
+    );
 
     test('should return same instance across different factory instances', () {
       final factory1 = SessionIdProviderFactory();
@@ -98,27 +104,27 @@ void main() {
     });
 
     test(
-        'should maintain singleton state after multiple factory instantiations',
-        () {
-      final factory1 = SessionIdProviderFactory();
-      final provider1 = factory1.create();
+      'should maintain singleton state after multiple factory instantiations',
+      () {
+        final factory1 = SessionIdProviderFactory();
+        final provider1 = factory1.create();
 
-      final factory2 = SessionIdProviderFactory();
-      final provider2 = factory2.create();
+        final factory2 = SessionIdProviderFactory();
+        final provider2 = factory2.create();
 
-      final factory3 = SessionIdProviderFactory();
-      final provider3 = factory3.create();
+        final factory3 = SessionIdProviderFactory();
+        final provider3 = factory3.create();
 
-      expect(identical(provider1, provider2), isTrue);
-      expect(identical(provider2, provider3), isTrue);
-      expect(provider1.sessionId, equals(provider2.sessionId));
-      expect(provider2.sessionId, equals(provider3.sessionId));
-    });
+        expect(identical(provider1, provider2), isTrue);
+        expect(identical(provider2, provider3), isTrue);
+        expect(provider1.sessionId, equals(provider2.sessionId));
+        expect(provider2.sessionId, equals(provider3.sessionId));
+      },
+    );
   });
 
   group('SessionIdProvider _generateSessionID static method:', () {
-    test('should generate different IDs when called directly multiple times',
-        () {
+    test('should generate different IDs when called directly multiple times', () {
       // We can't call the private method directly, but we can test its behavior
       // through multiple SessionIdProvider instantiations
       final ids = <String>{};
@@ -130,8 +136,11 @@ void main() {
       }
 
       // All IDs should be unique (set size should equal number of generated IDs)
-      expect(ids.length, equals(20),
-          reason: 'Generated session IDs are not sufficiently random');
+      expect(
+        ids.length,
+        equals(20),
+        reason: 'Generated session IDs are not sufficiently random',
+      );
     });
 
     test('should generate IDs with good distribution of characters', () {
@@ -148,9 +157,11 @@ void main() {
       }
 
       // Should have used multiple different characters (not just a few)
-      expect(characterCounts.keys.length, greaterThan(10),
-          reason:
-              'Session ID generation should use a good variety of characters');
+      expect(
+        characterCounts.keys.length,
+        greaterThan(10),
+        reason: 'Session ID generation should use a good variety of characters',
+      );
     });
   });
 }

@@ -82,7 +82,9 @@ class FaroException {
       missingFields.add('timestamp');
     }
     if (missingFields.isNotEmpty) {
-      log('Dropping exception with missing required fields: ${missingFields.join(', ')}');
+      log(
+        'Dropping exception with missing required fields: ${missingFields.join(', ')}',
+      );
       return null;
     }
 
@@ -134,9 +136,14 @@ class FaroException {
           "${regExpMatch?.namedGroup("module")}:${regExpMatch?.namedGroup("filename")}";
       final lineno = regExpMatch?.namedGroup('lineno');
       final colno = regExpMatch?.namedGroup('colno');
-      parsedStackFrames.add(StackFrames(filename, sf[sf.length - 2],
-              int.parse(lineno ?? '0'), int.parse(colno ?? '0'))
-          .toJson());
+      parsedStackFrames.add(
+        StackFrames(
+          filename,
+          sf[sf.length - 2],
+          int.parse(lineno ?? '0'),
+          int.parse(colno ?? '0'),
+        ).toJson(),
+      );
     }
     return parsedStackFrames;
   }

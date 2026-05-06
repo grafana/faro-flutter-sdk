@@ -21,10 +21,10 @@ class UserActionUiActivityMonitor {
     required UserActionHandle? Function() activeUserActionResolver,
     required SchedulerBinding schedulerBinding,
     required WidgetsBinding widgetsBinding,
-  })  : _lifecycleSignalChannel = lifecycleSignalChannel,
-        _activeUserActionResolver = activeUserActionResolver,
-        _schedulerBinding = schedulerBinding,
-        _widgetsBinding = widgetsBinding;
+  }) : _lifecycleSignalChannel = lifecycleSignalChannel,
+       _activeUserActionResolver = activeUserActionResolver,
+       _schedulerBinding = schedulerBinding,
+       _widgetsBinding = widgetsBinding;
 
   final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
   final UserActionHandle? Function() _activeUserActionResolver;
@@ -187,12 +187,14 @@ class UserActionUiActivityMonitor {
 
 final userActionUiActivityMonitorProvider =
     Provider<UserActionUiActivityMonitor>((pod) {
-  final signalChannel = pod.resolve(userActionLifecycleSignalChannelProvider);
-  final userActionsService = pod.resolve(userActionsServiceProvider);
-  return UserActionUiActivityMonitor(
-    lifecycleSignalChannel: signalChannel,
-    activeUserActionResolver: userActionsService.getActiveUserAction,
-    schedulerBinding: SchedulerBinding.instance,
-    widgetsBinding: WidgetsBinding.instance,
-  );
-});
+      final signalChannel = pod.resolve(
+        userActionLifecycleSignalChannelProvider,
+      );
+      final userActionsService = pod.resolve(userActionsServiceProvider);
+      return UserActionUiActivityMonitor(
+        lifecycleSignalChannel: signalChannel,
+        activeUserActionResolver: userActionsService.getActiveUserAction,
+        schedulerBinding: SchedulerBinding.instance,
+        widgetsBinding: WidgetsBinding.instance,
+      );
+    });

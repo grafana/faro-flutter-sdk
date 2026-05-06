@@ -33,10 +33,10 @@ class UserAction implements UserActionHandle {
     this.attributes,
     this.trigger = UserActionConstants.apiCallTrigger,
     this.importance = UserActionConstants.importanceNormal,
-  })  : id = generateShortId(),
-        startTime = DateTime.now().millisecondsSinceEpoch,
-        _state = UserActionState.started,
-        _stateController = StreamController<UserActionState>.broadcast();
+  }) : id = generateShortId(),
+       startTime = DateTime.now().millisecondsSinceEpoch,
+       _state = UserActionState.started,
+       _stateController = StreamController<UserActionState>.broadcast();
 
   /// Unique identifier for this action (8-character short ID).
   @override

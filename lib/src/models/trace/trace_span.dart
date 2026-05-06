@@ -18,18 +18,18 @@ class TraceSpan {
     required List<TraceSpanEvent> events,
     required int droppedEventsCount,
     required List<TraceSpanLink> links,
-  })  : _traceId = traceId,
-        _spanId = spanId,
-        _parentSpanId = parentSpanId,
-        _name = name,
-        _kind = kind,
-        _startTimeUnixNano = startTimeUnixNano.toString(),
-        _endTimeUnixNano = endTimeUnixNano.toString(),
-        _attributes = attributes,
-        _status = status,
-        _events = events,
-        _droppedEventsCount = droppedEventsCount,
-        _links = links;
+  }) : _traceId = traceId,
+       _spanId = spanId,
+       _parentSpanId = parentSpanId,
+       _name = name,
+       _kind = kind,
+       _startTimeUnixNano = startTimeUnixNano.toString(),
+       _endTimeUnixNano = endTimeUnixNano.toString(),
+       _attributes = attributes,
+       _status = status,
+       _events = events,
+       _droppedEventsCount = droppedEventsCount,
+       _links = links;
 
   TraceSpan.fromJson(dynamic json) {
     if (json['traceId'] != null) {

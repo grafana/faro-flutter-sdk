@@ -15,7 +15,8 @@ class FaroHttpOverrides extends HttpOverrides {
 
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    final innerClient = existingOverrides?.createHttpClient(context) ??
+    final innerClient =
+        existingOverrides?.createHttpClient(context) ??
         super.createHttpClient(context);
     return FaroHttpTrackingClient(
       innerClient,
@@ -88,15 +89,9 @@ class FaroHttpTrackingClient implements HttpClient {
     try {
       // ignore: close_sinks
       final request = await innerClient.openUrl(method, url);
-      return FaroTrackingHttpClientRequest(
-        request,
-        httpSpan: httpSpan,
-      );
+      return FaroTrackingHttpClientRequest(request, httpSpan: httpSpan);
     } catch (error, stackTrace) {
-      httpSpan.setStatus(
-        SpanStatusCode.error,
-        message: error.toString(),
-      );
+      httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
       httpSpan.recordException(error, stackTrace: stackTrace);
       httpSpan.end();
       rethrow;
@@ -105,10 +100,13 @@ class FaroHttpTrackingClient implements HttpClient {
 
   @override
   set connectionFactory(
-          Future<ConnectionTask<Socket>> Function(
-                  Uri url, String? proxyHost, int? proxyPort)?
-              f) =>
-      innerClient.connectionFactory = f;
+    Future<ConnectionTask<Socket>> Function(
+      Uri url,
+      String? proxyHost,
+      int? proxyPort,
+    )?
+    f,
+  ) => innerClient.connectionFactory = f;
 
   @override
   set keyLog(void Function(String line)? callback) =>
@@ -143,33 +141,38 @@ class FaroHttpTrackingClient implements HttpClient {
 
   @override
   void addCredentials(
-      Uri url, String realm, HttpClientCredentials credentials) {
+    Uri url,
+    String realm,
+    HttpClientCredentials credentials,
+  ) {
     innerClient.addCredentials(url, realm, credentials);
   }
 
   @override
   void addProxyCredentials(
-      String host, int port, String realm, HttpClientCredentials credentials) {
+    String host,
+    int port,
+    String realm,
+    HttpClientCredentials credentials,
+  ) {
     innerClient.addProxyCredentials(host, port, realm, credentials);
   }
 
   @override
   set authenticate(
-          Future<bool> Function(Uri url, String scheme, String? realm)? f) =>
-      innerClient.authenticate = f;
+    Future<bool> Function(Uri url, String scheme, String? realm)? f,
+  ) => innerClient.authenticate = f;
 
   @override
   set authenticateProxy(
-          Future<bool> Function(
-                  String host, int port, String scheme, String? realm)?
-              f) =>
-      innerClient.authenticateProxy = f;
+    Future<bool> Function(String host, int port, String scheme, String? realm)?
+    f,
+  ) => innerClient.authenticateProxy = f;
 
   @override
   set badCertificateCallback(
-          bool Function(X509Certificate cert, String host, int port)?
-              callback) =>
-      innerClient.badCertificateCallback = callback;
+    bool Function(X509Certificate cert, String host, int port)? callback,
+  ) => innerClient.badCertificateCallback = callback;
 
   @override
   void close({bool force = false}) {
@@ -227,10 +230,8 @@ class FaroHttpTrackingClient implements HttpClient {
 }
 
 class FaroTrackingHttpClientRequest implements HttpClientRequest {
-  FaroTrackingHttpClientRequest(
-    this.innerContext, {
-    required Span httpSpan,
-  }) : _httpSpan = httpSpan {
+  FaroTrackingHttpClientRequest(this.innerContext, {required Span httpSpan})
+    : _httpSpan = httpSpan {
     innerContext.headers.add('traceparent', _httpSpan.traceparent);
   }
 
@@ -246,14 +247,8 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     _httpSpan.end();
   }
 
-  void _recordOperationError(
-    Object error, [
-    StackTrace? stackTrace,
-  ]) {
-    _httpSpan.setStatus(
-      SpanStatusCode.error,
-      message: error.toString(),
-    );
+  void _recordOperationError(Object error, [StackTrace? stackTrace]) {
+    _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
     _httpSpan.recordException(error, stackTrace: stackTrace);
   }
 
@@ -403,8 +398,8 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
     this.userAttributes, {
     required void Function() onFinish,
     required void Function(Object error, StackTrace stackTrace) onStreamError,
-  })  : _onFinish = onFinish,
-        _onStreamError = onStreamError;
+  }) : _onFinish = onFinish,
+       _onStreamError = onStreamError;
   final HttpClientResponse innerResponse;
   final Map<String, Object?> userAttributes;
   final void Function() _onFinish;
@@ -421,8 +416,12 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
   }
 
   @override
-  StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
     return _FaroResponseSubscription(
       innerResponse.listen(
         onData,
@@ -491,8 +490,11 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
   String get reasonPhrase => innerResponse.reasonPhrase;
 
   @override
-  Future<HttpClientResponse> redirect(
-      [String? method, Uri? url, bool? followLoops]) {
+  Future<HttpClientResponse> redirect([
+    String? method,
+    Uri? url,
+    bool? followLoops,
+  ]) {
     return innerResponse.redirect(method, url, followLoops);
   }
 
@@ -508,8 +510,8 @@ class _FaroResponseSubscription implements StreamSubscription<List<int>> {
     this._inner, {
     required void Function() onCancel,
     required void Function(Object error, StackTrace stackTrace) onStreamError,
-  })  : _onCancel = onCancel,
-        _onStreamError = onStreamError;
+  }) : _onCancel = onCancel,
+       _onStreamError = onStreamError;
 
   final StreamSubscription<List<int>> _inner;
   final void Function() _onCancel;

@@ -108,12 +108,14 @@ extension SpanLinkListX on List<otel_api.SpanLink> {
   List<TraceSpanLink> toTraceSpanLinksList() {
     final links = <TraceSpanLink>[];
     for (final link in this) {
-      links.add(TraceSpanLink(
-        traceId: link.context.traceId.toString(),
-        spanId: link.context.spanId.toString(),
-        traceState: link.context.traceState.toString(),
-        attributes: link.attributes.toTraceAttributes(),
-      ));
+      links.add(
+        TraceSpanLink(
+          traceId: link.context.traceId.toString(),
+          spanId: link.context.spanId.toString(),
+          traceState: link.context.traceState.toString(),
+          attributes: link.attributes.toTraceAttributes(),
+        ),
+      );
     }
     return links;
   }

@@ -5,9 +5,8 @@ import 'package:faro/src/tracing/extensions.dart';
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 class SpanRecord {
-  SpanRecord({
-    required otel_sdk.ReadOnlySpan otelReadOnlySpan,
-  }) : _otelReadOnlySpan = otelReadOnlySpan;
+  SpanRecord({required otel_sdk.ReadOnlySpan otelReadOnlySpan})
+    : _otelReadOnlySpan = otelReadOnlySpan;
 
   final otel_sdk.ReadOnlySpan _otelReadOnlySpan;
 
