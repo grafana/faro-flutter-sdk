@@ -448,6 +448,13 @@ class Faro {
   ///   - [ContextScope.callback] (default): Deactivated when callback completes.
   ///   - [ContextScope.zone]: Stays active for timers/streams in the zone.
   ///   See [ContextScope] for detailed examples.
+  /// - [spanExceptionReporter]: Optional callback invoked when the body throws
+  ///   an exception. Use this to control how the error is recorded on the span
+  ///   (e.g., record a custom event, set custom attributes). When provided,
+  ///   the default `recordException` and `setStatus(error)` are skipped.
+  ///   **Important**: The exception is always rethrown regardless of this
+  ///   callback. Do NOT call `span.end()` inside this callback — the framework
+  ///   manages span lifecycle automatically.
   ///
   /// **Example - Basic usage:**
   /// ```dart
@@ -480,6 +487,22 @@ class Faro {
   /// rootSpan.end();
   /// ```
   ///
+  /// **Example - Custom exception reporting:**
+  /// ```dart
+  /// await Faro().startSpan(
+  ///   'payment',
+  ///   (span) async {
+  ///     span.setAttribute('payment.id', paymentId);
+  ///     await processPayment();
+  ///   },
+  ///   spanExceptionReporter: (span, error, stackTrace) {
+  ///     span.setStatus(SpanStatusCode.error, message: 'Payment failed');
+  ///     span.setAttribute('payment.error_code', getErrorCode(error));
+  ///     span.recordException(error, stackTrace: stackTrace);
+  ///   },
+  /// );
+  /// ```
+  ///
   /// See also:
   /// - [startSpanManual] for manual span lifecycle management
   /// - [ContextScope] for timer/stream context behavior
@@ -490,6 +513,7 @@ class Faro {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
     ContextScope contextScope = ContextScope.callback,
+    SpanExceptionReporter? spanExceptionReporter,
   }) async {
     return _tracer.startSpan(
       name,
@@ -497,6 +521,7 @@ class Faro {
       attributes: attributes,
       parentSpan: parentSpan,
       contextScope: contextScope,
+      spanExceptionReporter: spanExceptionReporter,
     );
   }
 

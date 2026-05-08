@@ -40,6 +40,7 @@ class FaroTracer {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
     ContextScope contextScope = ContextScope.callback,
+    SpanExceptionReporter? spanExceptionReporter,
   }) async {
     final span = _createAndStartSpan(
       name: name,
@@ -50,6 +51,7 @@ class FaroTracer {
       span,
       body,
       contextScope: contextScope,
+      spanExceptionReporter: spanExceptionReporter,
     );
   }
 

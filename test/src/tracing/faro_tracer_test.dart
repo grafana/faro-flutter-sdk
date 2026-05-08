@@ -76,6 +76,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: any(named: 'spanExceptionReporter'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -108,6 +109,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: any(named: 'spanExceptionReporter'),
           ),
         ).called(1);
       });
@@ -132,6 +134,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: any(named: 'spanExceptionReporter'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -184,6 +187,7 @@ void main() {
               any(),
               any(),
               contextScope: any(named: 'contextScope'),
+              spanExceptionReporter: any(named: 'spanExceptionReporter'),
             ),
           ).thenAnswer((invocation) async {
             final body = invocation.positionalArguments[1] as Function;
@@ -218,6 +222,95 @@ void main() {
           expect(attributeMap['session.id'], 'test-session-id');
         },
       );
+
+      test('should thread spanExceptionReporter to executeWithSpan', () async {
+        // Arrange
+        const spanName = 'test-span';
+        void reporter(Span span, Object error, StackTrace stackTrace) {}
+
+        when(
+          () => mockOtelTracer.startSpan(
+            any(),
+            context: any(named: 'context'),
+            kind: any(named: 'kind'),
+            attributes: any(named: 'attributes'),
+          ),
+        ).thenReturn(mockOtelSpan);
+        when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
+        when(
+          () => mockFaroZoneSpanManager.executeWithSpan<String>(
+            any(),
+            any(),
+            contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+          ),
+        ).thenAnswer((invocation) async {
+          final body = invocation.positionalArguments[1] as Function;
+          final span = invocation.positionalArguments[0] as Span;
+          return await body(span);
+        });
+
+        // Act
+        await faroTracer.startSpan<String>(
+          spanName,
+          (span) => 'result',
+          spanExceptionReporter: reporter,
+        );
+
+        // Assert
+        verify(
+          () => mockFaroZoneSpanManager.executeWithSpan<String>(
+            any(),
+            any(),
+            contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: reporter,
+          ),
+        ).called(1);
+      });
+
+      test('should pass null spanExceptionReporter by default', () async {
+        // Arrange
+        const spanName = 'test-span';
+
+        when(
+          () => mockOtelTracer.startSpan(
+            any(),
+            context: any(named: 'context'),
+            kind: any(named: 'kind'),
+            attributes: any(named: 'attributes'),
+          ),
+        ).thenReturn(mockOtelSpan);
+        when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
+        when(
+          () => mockFaroZoneSpanManager.executeWithSpan<String>(
+            any(),
+            any(),
+            contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+          ),
+        ).thenAnswer((invocation) async {
+          final body = invocation.positionalArguments[1] as Function;
+          final span = invocation.positionalArguments[0] as Span;
+          return await body(span);
+        });
+
+        // Act
+        await faroTracer.startSpan<String>(spanName, (span) => 'result');
+
+        // Assert
+        final captured =
+            verify(
+              () => mockFaroZoneSpanManager.executeWithSpan<String>(
+                any(),
+                any(),
+                contextScope: any(named: 'contextScope'),
+                spanExceptionReporter: captureAny(
+                  named: 'spanExceptionReporter',
+                ),
+              ),
+            ).captured;
+        expect(captured.single, isNull);
+      });
     });
 
     group('startSpanManual:', () {
@@ -387,6 +480,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: any(named: 'spanExceptionReporter'),
           ),
         ).thenAnswer((invocation) async {
           capturedScope =
@@ -425,6 +519,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            spanExceptionReporter: any(named: 'spanExceptionReporter'),
           ),
         ).thenAnswer((invocation) async {
           capturedScope =
