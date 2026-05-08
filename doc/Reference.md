@@ -628,6 +628,65 @@ final results = await Future.wait(futures);
 rootSpan.end(); // Don't forget to end the manual span
 ```
 
+### Custom Span Error Handling
+
+By default, when the body passed to `startSpan` throws, the SDK automatically:
+- Sets the span status to error with `span.setStatus(SpanStatusCode.error)`
+- Records the exception with `span.recordException(error, stackTrace: stackTrace)`
+- Rethrows the exception
+
+You can override this behaviour using the `spanExceptionReporter` callback or by
+recording exceptions manually inside the body.
+
+**Option 1: Custom reporter callback**
+
+Use `spanExceptionReporter` when you want to control exactly how the error is
+recorded on the span — for example, to add custom attributes or record a
+structured event instead of the raw exception:
+
+```dart
+await Faro().startSpan(
+  'checkout',
+  (span) async {
+    await processCheckout();
+  },
+  spanExceptionReporter: (span, error, stackTrace) {
+    // Custom error recording — default setStatus/recordException are skipped
+    span.setStatus(SpanStatusCode.error, message: 'Checkout failed');
+    span.setAttribute('checkout.error_type', error.runtimeType.toString());
+    span.recordException(error, stackTrace: stackTrace);
+  },
+);
+```
+
+> **Note**: The exception is always rethrown regardless of the callback. The
+> callback controls span-level error recording, not application-level error
+> handling. Do NOT call `span.end()` inside the callback — the framework
+> manages span lifecycle automatically.
+
+**Option 2: Manual exception recording inside the body**
+
+If you want to record the exception with custom context inside the body and
+prevent the SDK from recording it again, call `span.recordException()` yourself.
+The SDK detects this via `span.exceptionHasBeenRecorded` and skips its own
+recording:
+
+```dart
+await Faro().startSpan(
+  'checkout',
+  (span) async {
+    try {
+      await processCheckout();
+    } catch (error, stackTrace) {
+      // Record exception with custom context before the SDK catch block runs
+      span.setAttribute('checkout.step', 'payment');
+      span.recordException(error, stackTrace: stackTrace);
+      rethrow; // SDK sees exceptionHasBeenRecorded=true, skips its own recording
+    }
+  },
+);
+```
+
 ### Manual Span Control
 
 Use `startSpanManual()` when you need precise control over span lifecycle:
@@ -760,6 +819,9 @@ span.setStatus(SpanStatusCode.error, message: 'Something went wrong');
 // Record exceptions
 span.recordException(exception, stackTrace: stackTrace);
 
+// Check if an exception was already recorded (set by recordException)
+span.exceptionHasBeenRecorded; // bool — true after recordException is called
+
 // Access the W3C traceparent header value (for custom trace propagation)
 final traceparent = span.traceparent;
 // e.g. '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'
@@ -772,6 +834,9 @@ final traceparent = span.traceparent;
 - **Automatic Session Tracking**: All spans include session IDs for correlation
 - **Zone-based Context**: Proper parent-child relationships across async boundaries
 - **Error Handling**: Automatic span status updates when exceptions occur
+- **Custom Error Handling**: Control how exceptions are recorded on spans via
+  the `spanExceptionReporter` callback or use `exceptionHasBeenRecorded` to
+  prevent duplicate recording
 - **Typed Attributes**: Add business context with preserved types (int, double, bool, String) — enables numeric querying and bucketing in Grafana
 - **Event Logging**: Record important events within span timelines with typed attributes
 
