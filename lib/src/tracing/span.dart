@@ -252,12 +252,7 @@ class _NoParentSpan implements Span {
   bool get statusHasBeenSet => throw UnsupportedError(_errorMessage);
 
   @override
-  bool get exceptionHasBeenRecorded =>
-      throw UnsupportedError(
-        'Span.noParent.exceptionHasBeenRecorded: '
-        'sentinel cannot track exceptions. '
-        'Use a real span created via startSpan() or startSpanManual().',
-      );
+  bool get exceptionHasBeenRecorded => throw UnsupportedError(_errorMessage);
 
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) =>
