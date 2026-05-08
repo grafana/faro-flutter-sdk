@@ -74,6 +74,7 @@ class FaroZoneSpanManager {
     Span span,
     FutureOr<T> Function(Span) body, {
     ContextScope contextScope = ContextScope.callback,
+    SpanExceptionReporter? spanExceptionReporter,
   }) async {
     final spanContextHolder = SpanContextHolder(
       span: span,
@@ -88,10 +89,20 @@ class FaroZoneSpanManager {
         }
         return result;
       } catch (error, stackTrace) {
-        if (!span.statusHasBeenSet) {
-          span.setStatus(SpanStatusCode.error, message: error.toString());
+        if (spanExceptionReporter != null) {
+          try {
+            spanExceptionReporter(span, error, stackTrace);
+          } catch (_) {
+            // Preserve original exception — don't let callback errors mask it
+          }
+        } else {
+          if (!span.statusHasBeenSet) {
+            span.setStatus(SpanStatusCode.error, message: error.toString());
+          }
+          if (!span.exceptionHasBeenRecorded) {
+            span.recordException(error, stackTrace: stackTrace);
+          }
         }
-        span.recordException(error, stackTrace: stackTrace);
         rethrow;
       } finally {
         span.end();

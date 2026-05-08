@@ -51,6 +51,7 @@ void main() {
       // Stub the status getter to return a default value
       when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
       when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+      when(() => mockSpan.exceptionHasBeenRecorded).thenReturn(false);
 
       faroZoneSpanManager = FaroZoneSpanManager(
         parentSpanLookup: mockParentSpanLookup.call,
@@ -524,6 +525,236 @@ void main() {
           ),
         ).called(1);
       });
+
+      test(
+        'default path records exception when exception flag is false',
+        () async {
+          // Arrange
+          final testException = Exception('test error');
+          when(() => mockSpan.exceptionHasBeenRecorded).thenReturn(false);
+          when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          await expectLater(
+            () => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw testException,
+            ),
+            throwsA(same(testException)),
+          );
+
+          verify(
+            () => mockSpan.recordException(
+              testException,
+              stackTrace: any(named: 'stackTrace'),
+            ),
+          ).called(1);
+          verify(
+            () => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: testException.toString(),
+            ),
+          ).called(1);
+        },
+      );
+
+      test(
+        'guard path does not record exception when exception flag is true',
+        () async {
+          // Arrange
+          final testException = Exception('test error');
+          when(() => mockSpan.exceptionHasBeenRecorded).thenReturn(true);
+          when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          await expectLater(
+            () => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw testException,
+            ),
+            throwsA(same(testException)),
+          );
+
+          verifyNever(
+            () => mockSpan.recordException(
+              any<dynamic>(),
+              stackTrace: any(named: 'stackTrace'),
+            ),
+          );
+          verify(
+            () => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: testException.toString(),
+            ),
+          ).called(1);
+        },
+      );
+
+      test(
+        'callback path calls spanExceptionReporter with correct arguments',
+        () async {
+          // Arrange
+          final testException = Exception('test error');
+          late StackTrace expectedStackTrace;
+          Span? reportedSpan;
+          Object? reportedError;
+          StackTrace? reportedStackTrace;
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          await expectLater(
+            () => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) {
+                expectedStackTrace = StackTrace.current;
+                Error.throwWithStackTrace(testException, expectedStackTrace);
+              },
+              spanExceptionReporter: (span, error, stackTrace) {
+                reportedSpan = span;
+                reportedError = error;
+                reportedStackTrace = stackTrace;
+              },
+            ),
+            throwsA(same(testException)),
+          );
+
+          expect(reportedSpan, same(mockSpan));
+          expect(reportedError, same(testException));
+          expect(reportedStackTrace, same(expectedStackTrace));
+        },
+      );
+
+      test(
+        'callback path does not call default setStatus and recordException',
+        () async {
+          // Arrange
+          final testException = Exception('test error');
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          await expectLater(
+            () => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw testException,
+              spanExceptionReporter: (span, error, stackTrace) {},
+            ),
+            throwsA(same(testException)),
+          );
+
+          verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
+          verifyNever(
+            () => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: testException.toString(),
+            ),
+          );
+          verifyNever(
+            () => mockSpan.recordException(
+              any<dynamic>(),
+              stackTrace: any(named: 'stackTrace'),
+            ),
+          );
+        },
+      );
+
+      test('callback path still rethrows the original exception', () async {
+        // Arrange
+        final testException = Exception('original');
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act & Assert
+        await expectLater(
+          () => faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => throw testException,
+            spanExceptionReporter: (span, error, stackTrace) {},
+          ),
+          throwsA(same(testException)),
+        );
+      });
+
+      test('callback path still ends the span in finally', () async {
+        // Arrange
+        final testException = Exception('test error');
+        when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+          invocation,
+        ) async {
+          final callback =
+              invocation.positionalArguments[0] as Future<String> Function();
+          return callback();
+        });
+
+        // Act & Assert
+        await expectLater(
+          () => faroZoneSpanManager.executeWithSpan<String>(
+            mockSpan,
+            (span) => throw testException,
+            spanExceptionReporter: (span, error, stackTrace) {},
+          ),
+          throwsA(same(testException)),
+        );
+
+        verify(() => mockSpan.end()).called(1);
+      });
+
+      test(
+        'callback safety preserves original exception when reporter throws',
+        () async {
+          // Arrange
+          final originalException = Exception('original error');
+          when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
+            invocation,
+          ) async {
+            final callback =
+                invocation.positionalArguments[0] as Future<String> Function();
+            return callback();
+          });
+
+          // Act & Assert
+          await expectLater(
+            () => faroZoneSpanManager.executeWithSpan<String>(
+              mockSpan,
+              (span) => throw originalException,
+              spanExceptionReporter: (span, error, stackTrace) {
+                throw ArgumentError('callback bug');
+              },
+            ),
+            throwsA(same(originalException)),
+          );
+        },
+      );
     });
   });
 
@@ -552,6 +783,7 @@ void main() {
 
         // Setup required stubs for the mock span
         when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+        when(() => mockSpan.exceptionHasBeenRecorded).thenReturn(false);
 
         // Act
         final result = await spanManager.executeWithSpan<String>(mockSpan, (
@@ -597,6 +829,7 @@ void main() {
 
         when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
         when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+        when(() => mockSpan.exceptionHasBeenRecorded).thenReturn(false);
 
         faroZoneSpanManager = FaroZoneSpanManager(
           parentSpanLookup: mockParentSpanLookup.call,
@@ -667,6 +900,7 @@ void main() {
 
         when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
         when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+        when(() => mockSpan.exceptionHasBeenRecorded).thenReturn(false);
 
         faroZoneSpanManager = FaroZoneSpanManager(
           parentSpanLookup: mockParentSpanLookup.call,
@@ -922,6 +1156,7 @@ void main() {
       spanManager = FaroZoneSpanManagerFactory().create();
       mockSpan = MockSpan();
       when(() => mockSpan.statusHasBeenSet).thenReturn(false);
+      when(() => mockSpan.exceptionHasBeenRecorded).thenReturn(false);
     });
 
     test(
@@ -1005,7 +1240,9 @@ void main() {
       final parentSpan = MockSpan();
       final childSpan = MockSpan();
       when(() => parentSpan.statusHasBeenSet).thenReturn(false);
+      when(() => parentSpan.exceptionHasBeenRecorded).thenReturn(false);
       when(() => childSpan.statusHasBeenSet).thenReturn(false);
+      when(() => childSpan.exceptionHasBeenRecorded).thenReturn(false);
 
       Span? activeSpanInParent;
       Span? activeSpanInChild;
