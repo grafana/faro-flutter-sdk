@@ -50,6 +50,16 @@ void main() {
       );
     });
 
+    test(
+      'should throw UnsupportedError when exceptionHasBeenRecorded is accessed',
+      () {
+        expect(
+          () => Span.noParent.exceptionHasBeenRecorded,
+          throwsA(isA<UnsupportedError>()),
+        );
+      },
+    );
+
     test('should throw UnsupportedError when setStatus is called', () {
       expect(
         () => Span.noParent.setStatus(SpanStatusCode.ok),
@@ -171,6 +181,40 @@ void main() {
           '00-00000000000000000000000000000001-0000000000000001-00',
         );
       });
+    });
+
+    group('exceptionHasBeenRecorded:', () {
+      test('starts as false before any exception is recorded', () {
+        final span = createSpan();
+
+        expect(span.exceptionHasBeenRecorded, isFalse);
+      });
+
+      test('becomes true after recordException is called', () {
+        final span = createSpan();
+
+        span.recordException(Exception('test'), stackTrace: StackTrace.current);
+
+        expect(span.exceptionHasBeenRecorded, isTrue);
+      });
+
+      test(
+        'remains true after multiple recordException calls (idempotent)',
+        () {
+          final span = createSpan();
+
+          span.recordException(
+            Exception('first'),
+            stackTrace: StackTrace.current,
+          );
+          span.recordException(
+            Exception('second'),
+            stackTrace: StackTrace.current,
+          );
+
+          expect(span.exceptionHasBeenRecorded, isTrue);
+        },
+      );
     });
 
     group('setAttributes with typed values:', () {

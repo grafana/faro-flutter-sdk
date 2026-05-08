@@ -2,6 +2,9 @@ import 'package:faro/src/tracing/extensions.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
+typedef SpanExceptionReporter =
+    void Function(Span span, Object error, StackTrace stackTrace);
+
 /// Represents a span in a distributed trace.
 ///
 /// Spans are used to track operations and can contain attributes, events,
@@ -39,6 +42,7 @@ abstract class Span {
   bool get wasEnded;
   SpanStatusCode get status;
   bool get statusHasBeenSet;
+  bool get exceptionHasBeenRecorded;
 
   void setStatus(SpanStatusCode statusCode, {String? message});
 
@@ -112,6 +116,11 @@ class InternalSpan implements Span {
   @override
   bool get statusHasBeenSet => _statusHasBeenSet;
 
+  bool _exceptionHasBeenRecorded = false;
+
+  @override
+  bool get exceptionHasBeenRecorded => _exceptionHasBeenRecorded;
+
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) {
     if (message != null) {
@@ -142,6 +151,7 @@ class InternalSpan implements Span {
 
   @override
   void recordException(dynamic exception, {StackTrace? stackTrace}) {
+    _exceptionHasBeenRecorded = true;
     _otelSpan.recordException(
       exception,
       stackTrace: stackTrace ?? StackTrace.current,
@@ -240,6 +250,14 @@ class _NoParentSpan implements Span {
 
   @override
   bool get statusHasBeenSet => throw UnsupportedError(_errorMessage);
+
+  @override
+  bool get exceptionHasBeenRecorded =>
+      throw UnsupportedError(
+        'Span.noParent.exceptionHasBeenRecorded: '
+        'sentinel cannot track exceptions. '
+        'Use a real span created via startSpan() or startSpanManual().',
+      );
 
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) =>
