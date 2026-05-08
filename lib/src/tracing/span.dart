@@ -42,7 +42,6 @@ abstract class Span {
   bool get wasEnded;
   SpanStatusCode get status;
   bool get statusHasBeenSet;
-  bool get exceptionHasBeenRecorded;
 
   void setStatus(SpanStatusCode statusCode, {String? message});
 
@@ -116,11 +115,6 @@ class InternalSpan implements Span {
   @override
   bool get statusHasBeenSet => _statusHasBeenSet;
 
-  bool _exceptionHasBeenRecorded = false;
-
-  @override
-  bool get exceptionHasBeenRecorded => _exceptionHasBeenRecorded;
-
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) {
     if (message != null) {
@@ -151,7 +145,6 @@ class InternalSpan implements Span {
 
   @override
   void recordException(dynamic exception, {StackTrace? stackTrace}) {
-    _exceptionHasBeenRecorded = true;
     _otelSpan.recordException(
       exception,
       stackTrace: stackTrace ?? StackTrace.current,
@@ -250,9 +243,6 @@ class _NoParentSpan implements Span {
 
   @override
   bool get statusHasBeenSet => throw UnsupportedError(_errorMessage);
-
-  @override
-  bool get exceptionHasBeenRecorded => throw UnsupportedError(_errorMessage);
 
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) =>

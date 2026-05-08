@@ -99,9 +99,7 @@ class FaroZoneSpanManager {
           if (!span.statusHasBeenSet) {
             span.setStatus(SpanStatusCode.error, message: error.toString());
           }
-          if (!span.exceptionHasBeenRecorded) {
-            span.recordException(error, stackTrace: stackTrace);
-          }
+          span.recordException(error, stackTrace: stackTrace);
         }
         rethrow;
       } finally {
