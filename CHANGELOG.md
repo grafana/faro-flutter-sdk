@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Span exception handling control**: Added `exceptionHasBeenRecorded` flag on
+  `Span` to prevent duplicate exception recording when users call
+  `span.recordException()` inside the `startSpan` body, and
+  `spanExceptionReporter` optional callback on `startSpan()` for custom
+  span-level error handling. Exceptions are always rethrown — the callback
+  controls how the error is recorded on the span, not application-level error
+  handling.
+
 ## [0.15.0] - 2026-05-07
 
 ### Changed
