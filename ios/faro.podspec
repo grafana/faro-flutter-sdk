@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'faro'
-  s.version          = '0.15.0'
+  s.version          = '0.16.0'
   s.summary          = 'Grafana Faro SDK for Flutter - mobile observability and real user monitoring.'
   s.description      = <<-DESC
 Grafana Faro SDK for Flutter applications. Monitor your Flutter app with ease
