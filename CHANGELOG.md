@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Span exception handling control**: Added `spanExceptionReporter` optional
-  callback on `startSpan()` for custom span-level error handling. Exceptions
-  are always rethrown — the callback controls how the error is recorded on
-  the span, not application-level error handling.
+- **Span exception handling control**: Added `SpanExceptionOptions` for
+  controlling how exceptions are recorded on spans. Configurable globally
+  via `FaroConfig.spanExceptionOptions` or per-span via the
+  `exceptionOptions` parameter of `startSpan()`. Includes
+  `ExceptionSanitizer` callback for PII-safe error recording and boolean
+  flags (`recordException`, `setStatusOnException`) for selective control.
 
 ## [0.15.0] - 2026-05-07
 

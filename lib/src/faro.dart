@@ -21,6 +21,7 @@ import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
@@ -448,13 +449,9 @@ class Faro {
   ///   - [ContextScope.callback] (default): Deactivated when callback completes.
   ///   - [ContextScope.zone]: Stays active for timers/streams in the zone.
   ///   See [ContextScope] for detailed examples.
-  /// - [spanExceptionReporter]: Optional callback invoked when the body throws
-  ///   an exception. Use this to control how the error is recorded on the span
-  ///   (e.g., record a custom event, set custom attributes). When provided,
-  ///   the default `recordException` and `setStatus(error)` are skipped.
-  ///   **Important**: The exception is always rethrown regardless of this
-  ///   callback. Do NOT call `span.end()` inside this callback — the framework
-  ///   manages span lifecycle automatically.
+  /// - [exceptionOptions]: Controls how exceptions are recorded on the span.
+  ///   Overrides global [FaroConfig.spanExceptionOptions] for this span.
+  ///   See [SpanExceptionOptions] for details.
   ///
   /// **Example - Basic usage:**
   /// ```dart
@@ -487,7 +484,7 @@ class Faro {
   /// rootSpan.end();
   /// ```
   ///
-  /// **Example - Custom exception reporting:**
+  /// **Example - Custom exception sanitization:**
   /// ```dart
   /// await Faro().startSpan(
   ///   'payment',
@@ -495,11 +492,15 @@ class Faro {
   ///     span.setAttribute('payment.id', paymentId);
   ///     await processPayment();
   ///   },
-  ///   spanExceptionReporter: (span, error, stackTrace) {
-  ///     span.setStatus(SpanStatusCode.error, message: 'Payment failed');
-  ///     span.setAttribute('payment.error_code', getErrorCode(error));
-  ///     span.recordException(error, stackTrace: stackTrace);
-  ///   },
+  ///   exceptionOptions: SpanExceptionOptions(
+  ///     exceptionSanitizer: (error, stackTrace) {
+  ///       return SanitizedSpanException(
+  ///         type: error.runtimeType.toString(),
+  ///         message: 'Payment failed',
+  ///         statusDescription: 'Payment processing error',
+  ///       );
+  ///     },
+  ///   ),
   /// );
   /// ```
   ///
@@ -513,15 +514,17 @@ class Faro {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
     ContextScope contextScope = ContextScope.callback,
-    SpanExceptionReporter? spanExceptionReporter,
+    SpanExceptionOptions? exceptionOptions,
   }) async {
+    final effectiveOptions =
+        exceptionOptions ?? config?.spanExceptionOptions;
     return _tracer.startSpan(
       name,
       body,
       attributes: attributes,
       parentSpan: parentSpan,
       contextScope: contextScope,
-      spanExceptionReporter: spanExceptionReporter,
+      exceptionOptions: effectiveOptions,
     );
   }
 

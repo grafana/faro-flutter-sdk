@@ -2,9 +2,6 @@ import 'package:faro/src/tracing/extensions.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
-typedef SpanExceptionReporter =
-    void Function(Span span, Object error, StackTrace stackTrace);
-
 /// Represents a span in a distributed trace.
 ///
 /// Spans are used to track operations and can contain attributes, events,

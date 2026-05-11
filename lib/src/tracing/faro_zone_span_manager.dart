@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 
 export 'package:faro/src/tracing/span.dart' show ContextScope;
 
@@ -74,7 +75,7 @@ class FaroZoneSpanManager {
     Span span,
     FutureOr<T> Function(Span) body, {
     ContextScope contextScope = ContextScope.callback,
-    SpanExceptionReporter? spanExceptionReporter,
+    SpanExceptionOptions? exceptionOptions,
   }) async {
     final spanContextHolder = SpanContextHolder(
       span: span,
@@ -89,17 +90,43 @@ class FaroZoneSpanManager {
         }
         return result;
       } catch (error, stackTrace) {
-        if (spanExceptionReporter != null) {
+        final shouldSetStatus =
+            exceptionOptions?.setStatusOnException ?? true;
+        final shouldRecord = exceptionOptions?.recordException ?? true;
+        final sanitizer = exceptionOptions?.exceptionSanitizer;
+
+        if (sanitizer != null) {
           try {
-            spanExceptionReporter(span, error, stackTrace);
+            final sanitized = sanitizer(error, stackTrace);
+            if (shouldSetStatus && !span.statusHasBeenSet) {
+              span.setStatus(
+                SpanStatusCode.error,
+                message:
+                    sanitized.statusDescription ?? sanitized.message,
+              );
+            }
+            if (shouldRecord) {
+              span.addEvent('exception', attributes: {
+                'exception.type': sanitized.type,
+                'exception.message': sanitized.message,
+                if (sanitized.stackTrace != null)
+                  'exception.stacktrace':
+                      sanitized.stackTrace.toString(),
+              });
+            }
           } catch (_) {
-            // Preserve original exception — don't let callback errors mask it
+            // Preserve original exception if sanitizer fails
           }
         } else {
-          if (!span.statusHasBeenSet) {
-            span.setStatus(SpanStatusCode.error, message: error.toString());
+          if (shouldSetStatus && !span.statusHasBeenSet) {
+            span.setStatus(
+              SpanStatusCode.error,
+              message: error.toString(),
+            );
           }
-          span.recordException(error, stackTrace: stackTrace);
+          if (shouldRecord) {
+            span.recordException(error, stackTrace: stackTrace);
+          }
         }
         rethrow;
       } finally {

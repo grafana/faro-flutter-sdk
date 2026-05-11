@@ -4,6 +4,7 @@ import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
@@ -76,7 +77,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -109,7 +110,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).called(1);
       });
@@ -134,7 +135,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -187,7 +188,7 @@ void main() {
               any(),
               any(),
               contextScope: any(named: 'contextScope'),
-              spanExceptionReporter: any(named: 'spanExceptionReporter'),
+              exceptionOptions: any(named: 'exceptionOptions'),
             ),
           ).thenAnswer((invocation) async {
             final body = invocation.positionalArguments[1] as Function;
@@ -223,10 +224,10 @@ void main() {
         },
       );
 
-      test('should thread spanExceptionReporter to executeWithSpan', () async {
+      test('should thread exceptionOptions to executeWithSpan', () async {
         // Arrange
         const spanName = 'test-span';
-        void reporter(Span span, Object error, StackTrace stackTrace) {}
+        const options = SpanExceptionOptions(recordException: false);
 
         when(
           () => mockOtelTracer.startSpan(
@@ -242,7 +243,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -254,7 +255,7 @@ void main() {
         await faroTracer.startSpan<String>(
           spanName,
           (span) => 'result',
-          spanExceptionReporter: reporter,
+          exceptionOptions: options,
         );
 
         // Assert
@@ -263,12 +264,12 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: reporter,
+            exceptionOptions: options,
           ),
         ).called(1);
       });
 
-      test('should pass null spanExceptionReporter by default', () async {
+      test('should pass null exceptionOptions by default', () async {
         // Arrange
         const spanName = 'test-span';
 
@@ -286,7 +287,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -304,8 +305,8 @@ void main() {
                 any(),
                 any(),
                 contextScope: any(named: 'contextScope'),
-                spanExceptionReporter: captureAny(
-                  named: 'spanExceptionReporter',
+                exceptionOptions: captureAny(
+                  named: 'exceptionOptions',
                 ),
               ),
             ).captured;
@@ -480,7 +481,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           capturedScope =
@@ -519,7 +520,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
-            spanExceptionReporter: any(named: 'spanExceptionReporter'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           capturedScope =

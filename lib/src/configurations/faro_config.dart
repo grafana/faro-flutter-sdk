@@ -1,6 +1,7 @@
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/sampling.dart';
 import 'package:faro/src/models/faro_user.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 
 class FaroConfig {
@@ -28,6 +29,7 @@ class FaroConfig {
     this.initialUser,
     this.persistUser = true,
     this.sampling,
+    this.spanExceptionOptions,
   }) : assert(appName.isNotEmpty, 'appName cannot be empty'),
        assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
        assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
@@ -118,4 +120,31 @@ class FaroConfig {
   /// )
   /// ```
   final Sampling? sampling;
+
+  /// Global span exception handling options.
+  ///
+  /// Controls how exceptions thrown from `startSpan` bodies are recorded.
+  /// Can be overridden per-span via the `exceptionOptions` parameter of
+  /// `startSpan()`.
+  ///
+  /// If not provided, the SDK uses default behavior: automatically record
+  /// exceptions and set span status to error.
+  ///
+  /// Example:
+  /// ```dart
+  /// FaroConfig(
+  ///   spanExceptionOptions: SpanExceptionOptions(
+  ///     recordException: true,
+  ///     setStatusOnException: true,
+  ///     exceptionSanitizer: (error, stackTrace) {
+  ///       return SanitizedSpanException(
+  ///         type: error.runtimeType.toString(),
+  ///         message: 'Sanitized error',
+  ///         statusDescription: 'Operation failed',
+  ///       );
+  ///     },
+  ///   ),
+  /// )
+  /// ```
+  final SpanExceptionOptions? spanExceptionOptions;
 }

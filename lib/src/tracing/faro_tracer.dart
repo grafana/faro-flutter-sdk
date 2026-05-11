@@ -6,6 +6,7 @@ import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
 import 'package:faro/src/tracing/faro_user_action_span_processor.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
 import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
@@ -40,7 +41,7 @@ class FaroTracer {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
     ContextScope contextScope = ContextScope.callback,
-    SpanExceptionReporter? spanExceptionReporter,
+    SpanExceptionOptions? exceptionOptions,
   }) async {
     final span = _createAndStartSpan(
       name: name,
@@ -51,7 +52,7 @@ class FaroTracer {
       span,
       body,
       contextScope: contextScope,
-      spanExceptionReporter: spanExceptionReporter,
+      exceptionOptions: exceptionOptions,
     );
   }
 

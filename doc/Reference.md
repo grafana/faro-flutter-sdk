@@ -635,31 +635,79 @@ By default, when the body passed to `startSpan` throws, the SDK automatically:
 - Records the exception with `span.recordException(error, stackTrace: stackTrace)`
 - Rethrows the exception
 
-You can override this behaviour using the `spanExceptionReporter`.
+You can customize this behaviour using `SpanExceptionOptions`, either globally
+via `FaroConfig` or per-span:
 
-Therefore, use `spanExceptionReporter` when you want to control exactly how the error is
-recorded on the span — for example, to add custom attributes or record a
-structured event instead of the raw exception:
+**Global configuration:**
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    appName: 'MyApp',
+    appEnv: 'production',
+    apiKey: 'key',
+    collectorUrl: 'https://...',
+    spanExceptionOptions: SpanExceptionOptions(
+      recordException: true,
+      setStatusOnException: true,
+      exceptionSanitizer: (error, stackTrace) {
+        return SanitizedSpanException(
+          type: error.runtimeType.toString(),
+          message: 'Sanitized error',
+          statusDescription: 'Operation failed',
+        );
+      },
+    ),
+  ),
+  appRunner: () => runApp(MyApp()),
+);
+```
+
+**Per-span override:**
 
 ```dart
 await Faro().startSpan(
   'checkout',
-  (span) async {
-    await processCheckout();
-  },
-  spanExceptionReporter: (span, error, stackTrace) {
-    // Custom error recording — default setStatus/recordException are skipped
-    span.setStatus(SpanStatusCode.error, message: 'Checkout failed');
-    span.setAttribute('checkout.error_type', error.runtimeType.toString());
-    span.recordException(error, stackTrace: stackTrace);
-  },
+  (span) async => processCheckout(),
+  exceptionOptions: SpanExceptionOptions(
+    recordException: true,
+    setStatusOnException: true,
+    exceptionSanitizer: (error, stackTrace) {
+      return SanitizedSpanException(
+        type: error.runtimeType.toString(),
+        message: 'Checkout failed',
+        stackTrace: null,
+        statusDescription: 'Checkout failed',
+      );
+    },
+  ),
 );
 ```
 
-> **Note**: The exception is always rethrown regardless of the callback. The
-> callback controls span-level error recording, not application-level error
-> handling. Do NOT call `span.end()` inside the callback — the framework
-> manages span lifecycle automatically.
+**Disable all automatic error handling:**
+
+```dart
+await Faro().startSpan(
+  'my-operation',
+  (span) async {
+    try {
+      await riskyOperation();
+    } catch (error, stackTrace) {
+      // Handle errors manually
+      span.setStatus(SpanStatusCode.error, message: 'Custom message');
+      span.recordException(error, stackTrace: stackTrace);
+      rethrow;
+    }
+  },
+  exceptionOptions: const SpanExceptionOptions(
+    recordException: false,
+    setStatusOnException: false,
+  ),
+);
+```
+
+> **Note**: The exception is always rethrown regardless of options. The options
+> control span-level error recording, not application-level error handling.
 
 ### Manual Span Control
 
@@ -806,7 +854,8 @@ final traceparent = span.traceparent;
 - **Zone-based Context**: Proper parent-child relationships across async boundaries
 - **Error Handling**: Automatic span status updates when exceptions occur
 - **Custom Error Handling**: Control how exceptions are recorded on spans via
-  the `spanExceptionReporter` callback
+  `SpanExceptionOptions` — configure globally or per-span with sanitization,
+  selective recording, and status control
 - **Typed Attributes**: Add business context with preserved types (int, double, bool, String) — enables numeric querying and bucketing in Grafana
 - **Event Logging**: Record important events within span timelines with typed attributes
 
