@@ -26,7 +26,10 @@ void main() {
 
         expect(merged.recordException, isFalse);
         expect(merged.setStatusOnException, isTrue);
-        expect(merged.exceptionSanitizer, same(globalOptions.exceptionSanitizer));
+        expect(
+          merged.exceptionSanitizer,
+          same(globalOptions.exceptionSanitizer),
+        );
       });
 
       test('per-span sanitizer replaces global sanitizer', () {
@@ -53,8 +56,9 @@ void main() {
       });
 
       test('all-defaults merge', () {
-        final merged =
-            const SpanExceptionOptions().mergeWith(const SpanExceptionOptions());
+        final merged = const SpanExceptionOptions().mergeWith(
+          const SpanExceptionOptions(),
+        );
 
         expect(merged.recordException, isTrue);
         expect(merged.setStatusOnException, isTrue);

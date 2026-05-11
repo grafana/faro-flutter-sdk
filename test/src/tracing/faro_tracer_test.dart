@@ -305,9 +305,7 @@ void main() {
                 any(),
                 any(),
                 contextScope: any(named: 'contextScope'),
-                exceptionOptions: captureAny(
-                  named: 'exceptionOptions',
-                ),
+                exceptionOptions: captureAny(named: 'exceptionOptions'),
               ),
             ).captured;
         expect(captured.single, isNull);
