@@ -710,7 +710,7 @@ void main() {
               },
               exceptionOptions: SpanExceptionOptions(
                 exceptionSanitizer: (error, stackTrace) {
-                  return SanitizedSpanException(
+                  return const SanitizedSpanException(
                     type: 'Exception',
                     message: 'Operation failed',
                     statusDescription: 'Sanitized error',

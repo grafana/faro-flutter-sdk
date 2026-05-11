@@ -33,18 +33,25 @@ void main() {
       });
 
       test('per-span sanitizer replaces global sanitizer', () {
-        final globalSanitizer = (Object error, StackTrace stackTrace) {
+        SanitizedSpanException globalSanitizer(
+          Object error,
+          StackTrace stackTrace,
+        ) {
           return const SanitizedSpanException(
             type: 'Exception',
             message: 'global',
           );
-        };
-        final overrideSanitizer = (Object error, StackTrace stackTrace) {
+        }
+
+        SanitizedSpanException overrideSanitizer(
+          Object error,
+          StackTrace stackTrace,
+        ) {
           return const SanitizedSpanException(
             type: 'Exception',
             message: 'override',
           );
-        };
+        }
 
         final merged = SpanExceptionOptions(
           exceptionSanitizer: globalSanitizer,
@@ -66,18 +73,25 @@ void main() {
       });
 
       test('full override', () {
-        final globalSanitizer = (Object error, StackTrace stackTrace) {
+        SanitizedSpanException globalSanitizer(
+          Object error,
+          StackTrace stackTrace,
+        ) {
           return const SanitizedSpanException(
             type: 'Exception',
             message: 'global',
           );
-        };
-        final overrideSanitizer = (Object error, StackTrace stackTrace) {
+        }
+
+        SanitizedSpanException overrideSanitizer(
+          Object error,
+          StackTrace stackTrace,
+        ) {
           return const SanitizedSpanException(
             type: 'Exception',
             message: 'override',
           );
-        };
+        }
 
         final merged = SpanExceptionOptions(
           recordException: false,
