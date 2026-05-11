@@ -2,32 +2,44 @@
 ///
 /// Can be configured globally via [FaroConfig.spanExceptionOptions]
 /// or per-span via the `exceptionOptions` parameter of `startSpan()`.
-/// Per-span options override global configuration.
+/// Per-span options are merged over global configuration.
 class SpanExceptionOptions {
   /// Creates span exception options.
   ///
-  /// All parameters default to the SDK's standard behavior:
+  /// Omitted parameters inherit from global configuration when these options
+  /// are used as a per-span override. Without global configuration, omitted
+  /// parameters default to the SDK's standard behavior:
   /// - [recordException]: `true` — auto-record exceptions on the span
   /// - [setStatusOnException]: `true` — auto-set span status to error
   /// - [exceptionSanitizer]: `null` — record the raw exception as-is
   const SpanExceptionOptions({
-    this.recordException = true,
-    this.setStatusOnException = true,
+    bool? recordException,
+    bool? setStatusOnException,
     this.exceptionSanitizer,
-  });
+  }) : _recordException = recordException,
+       _setStatusOnException = setStatusOnException;
+
+  /// SDK default span exception behavior.
+  static const defaults = SpanExceptionOptions(
+    recordException: true,
+    setStatusOnException: true,
+  );
+
+  final bool? _recordException;
+  final bool? _setStatusOnException;
 
   /// Whether the SDK should automatically record the exception on the span.
   ///
   /// When `true` (default), the SDK calls `span.recordException()`.
   /// When `false`, the SDK skips automatic exception recording.
-  final bool recordException;
+  bool get recordException => _recordException ?? true;
 
   /// Whether the SDK should automatically set the span status to error.
   ///
   /// When `true` (default), the SDK calls
   /// `span.setStatus(SpanStatusCode.error)`.
   /// When `false`, the SDK skips automatic status updates on exception.
-  final bool setStatusOnException;
+  bool get setStatusOnException => _setStatusOnException ?? true;
 
   /// Optional callback to sanitize exception data before recording.
   ///
@@ -38,16 +50,36 @@ class SpanExceptionOptions {
   /// The sanitizer is only invoked when [recordException] or
   /// [setStatusOnException] is `true`.
   final ExceptionSanitizer? exceptionSanitizer;
+
+  /// Returns a new options object with [overrides] applied field-by-field.
+  ///
+  /// This allows a per-span override like
+  /// `SpanExceptionOptions(recordException: false)` to keep a globally
+  /// configured [exceptionSanitizer] while changing only one flag.
+  ///
+  /// Note: passing `exceptionSanitizer: null` in [overrides] is
+  /// indistinguishable from not setting it — to intentionally clear a global
+  /// sanitizer, use separate configuration.
+  SpanExceptionOptions mergeWith(SpanExceptionOptions? overrides) {
+    if (overrides == null) {
+      return this;
+    }
+
+    return SpanExceptionOptions(
+      recordException: overrides._recordException ?? _recordException,
+      setStatusOnException:
+          overrides._setStatusOnException ?? _setStatusOnException,
+      exceptionSanitizer: overrides.exceptionSanitizer ?? exceptionSanitizer,
+    );
+  }
 }
 
 /// Callback that transforms a raw exception into sanitized span data.
 ///
 /// Used by [SpanExceptionOptions.exceptionSanitizer] to control what
 /// exception information is recorded on the span.
-typedef ExceptionSanitizer = SanitizedSpanException Function(
-  Object error,
-  StackTrace stackTrace,
-);
+typedef ExceptionSanitizer =
+    SanitizedSpanException Function(Object error, StackTrace stackTrace);
 
 /// Sanitized exception data to record on a span.
 ///

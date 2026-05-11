@@ -450,7 +450,9 @@ class Faro {
   ///   - [ContextScope.zone]: Stays active for timers/streams in the zone.
   ///   See [ContextScope] for detailed examples.
   /// - [exceptionOptions]: Controls how exceptions are recorded on the span.
-  ///   Overrides global [FaroConfig.spanExceptionOptions] for this span.
+  ///   Merged with global [FaroConfig.spanExceptionOptions]. Only explicitly
+  ///   set fields override the global values; omitted fields inherit from
+  ///   global config.
   ///   See [SpanExceptionOptions] for details.
   ///
   /// **Example - Basic usage:**
@@ -516,8 +518,9 @@ class Faro {
     ContextScope contextScope = ContextScope.callback,
     SpanExceptionOptions? exceptionOptions,
   }) async {
-    final effectiveOptions =
-        exceptionOptions ?? config?.spanExceptionOptions;
+    final effectiveOptions = (config?.spanExceptionOptions ??
+            SpanExceptionOptions.defaults)
+        .mergeWith(exceptionOptions);
     return _tracer.startSpan(
       name,
       body,

@@ -722,7 +722,6 @@ void main() {
                   return SanitizedSpanException(
                     type: 'Exception',
                     message: 'Operation failed',
-                    stackTrace: stackTrace,
                     statusDescription: 'Sanitized error',
                   );
                 },
@@ -737,12 +736,15 @@ void main() {
               message: 'Sanitized error',
             ),
           ).called(1);
-          verify(
+          final captured = verify(
             () => mockSpan.addEvent(
               'exception',
-              attributes: any(named: 'attributes'),
+              attributes: captureAny(named: 'attributes'),
             ),
-          ).called(1);
+          ).captured.single as Map<String, Object>;
+          expect(captured['exception.type'], 'Exception');
+          expect(captured['exception.message'], 'Operation failed');
+          expect(captured, isNot(contains('exception.stacktrace')));
           // Should NOT call recordException directly
           verifyNever(
             () => mockSpan.recordException(
@@ -798,6 +800,7 @@ void main() {
         () async {
           // Arrange
           final originalException = Exception('original error');
+          when(() => mockSpan.statusHasBeenSet).thenReturn(false);
           when(() => mockZoneRunner.call<String>(any(), any())).thenAnswer((
             invocation,
           ) async {
@@ -819,6 +822,12 @@ void main() {
             ),
             throwsA(same(originalException)),
           );
+          verify(
+            () => mockSpan.setStatus(
+              SpanStatusCode.error,
+              message: 'exception sanitizer failed',
+            ),
+          ).called(1);
         },
       );
 

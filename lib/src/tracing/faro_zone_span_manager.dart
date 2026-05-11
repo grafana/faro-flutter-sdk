@@ -90,8 +90,7 @@ class FaroZoneSpanManager {
         }
         return result;
       } catch (error, stackTrace) {
-        final shouldSetStatus =
-            exceptionOptions?.setStatusOnException ?? true;
+        final shouldSetStatus = exceptionOptions?.setStatusOnException ?? true;
         final shouldRecord = exceptionOptions?.recordException ?? true;
         final sanitizer = exceptionOptions?.exceptionSanitizer;
 
@@ -101,28 +100,34 @@ class FaroZoneSpanManager {
             if (shouldSetStatus && !span.statusHasBeenSet) {
               span.setStatus(
                 SpanStatusCode.error,
-                message:
-                    sanitized.statusDescription ?? sanitized.message,
+                message: sanitized.statusDescription ?? sanitized.message,
               );
             }
             if (shouldRecord) {
-              span.addEvent('exception', attributes: {
-                'exception.type': sanitized.type,
-                'exception.message': sanitized.message,
-                if (sanitized.stackTrace != null)
-                  'exception.stacktrace':
-                      sanitized.stackTrace.toString(),
-              });
+              span.addEvent(
+                'exception',
+                attributes: {
+                  'exception.type': sanitized.type,
+                  'exception.message': sanitized.message,
+                  if (sanitized.stackTrace != null)
+                    'exception.stacktrace': sanitized.stackTrace.toString(),
+                },
+              );
             }
           } catch (_) {
-            // Preserve original exception if sanitizer fails
+            // Preserve original exception if sanitizer fails.
+            // Still mark the span as failed so it is not silently
+            // reported as successful.
+            if (shouldSetStatus && !span.statusHasBeenSet) {
+              span.setStatus(
+                SpanStatusCode.error,
+                message: 'exception sanitizer failed',
+              );
+            }
           }
         } else {
           if (shouldSetStatus && !span.statusHasBeenSet) {
-            span.setStatus(
-              SpanStatusCode.error,
-              message: error.toString(),
-            );
+            span.setStatus(SpanStatusCode.error, message: error.toString());
           }
           if (shouldRecord) {
             span.recordException(error, stackTrace: stackTrace);

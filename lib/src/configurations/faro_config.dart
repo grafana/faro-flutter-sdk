@@ -29,7 +29,7 @@ class FaroConfig {
     this.initialUser,
     this.persistUser = true,
     this.sampling,
-    this.spanExceptionOptions,
+    this.spanExceptionOptions = SpanExceptionOptions.defaults,
   }) : assert(appName.isNotEmpty, 'appName cannot be empty'),
        assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
        assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
@@ -124,11 +124,11 @@ class FaroConfig {
   /// Global span exception handling options.
   ///
   /// Controls how exceptions thrown from `startSpan` bodies are recorded.
-  /// Can be overridden per-span via the `exceptionOptions` parameter of
-  /// `startSpan()`.
+  /// Defaults to [SpanExceptionOptions.defaults].
   ///
-  /// If not provided, the SDK uses default behavior: automatically record
-  /// exceptions and set span status to error.
+  /// Per-span options passed to `startSpan()` are merged field-by-field over
+  /// this global configuration — omitted per-span fields inherit from here.
+  /// See [SpanExceptionOptions.mergeWith] for merge semantics.
   ///
   /// Example:
   /// ```dart
@@ -146,5 +146,5 @@ class FaroConfig {
   ///   ),
   /// )
   /// ```
-  final SpanExceptionOptions? spanExceptionOptions;
+  final SpanExceptionOptions spanExceptionOptions;
 }

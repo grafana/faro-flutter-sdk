@@ -636,7 +636,9 @@ By default, when the body passed to `startSpan` throws, the SDK automatically:
 - Rethrows the exception
 
 You can customize this behaviour using `SpanExceptionOptions`, either globally
-via `FaroConfig` or per-span:
+via `FaroConfig` or per-span. Per-span options are **merged** with global
+configuration — only the fields you explicitly set in a per-span call override
+the global values; omitted fields inherit from the global config:
 
 **Global configuration:**
 
@@ -663,26 +665,23 @@ Faro().runApp(
 );
 ```
 
-**Per-span override:**
+**Per-span override (merged with global):**
 
 ```dart
+// Global config has exceptionSanitizer configured.
+// This per-span override only changes recordException — the sanitizer
+// is inherited from global config automatically.
 await Faro().startSpan(
   'checkout',
   (span) async => processCheckout(),
-  exceptionOptions: SpanExceptionOptions(
-    recordException: true,
-    setStatusOnException: true,
-    exceptionSanitizer: (error, stackTrace) {
-      return SanitizedSpanException(
-        type: error.runtimeType.toString(),
-        message: 'Checkout failed',
-        stackTrace: null,
-        statusDescription: 'Checkout failed',
-      );
-    },
-  ),
+  exceptionOptions: const SpanExceptionOptions(recordException: false),
 );
 ```
+
+Note: per-span cannot explicitly clear a globally-configured
+`exceptionSanitizer` — passing `exceptionSanitizer: null` is indistinguishable
+from not setting it. To disable sanitization for a span, configure separate
+per-span options or update the global config.
 
 **Disable all automatic error handling:**
 
@@ -708,6 +707,14 @@ await Faro().startSpan(
 
 > **Note**: The exception is always rethrown regardless of options. The options
 > control span-level error recording, not application-level error handling.
+
+**Sanitizer failure handling:**
+
+> If the `exceptionSanitizer` callback throws, the SDK swallows the sanitizer
+> error silently (to prevent it from masking the original exception), but still
+> marks the span status as error with a generic description (`'exception
+> sanitizer failed'`). No exception details are recorded to prevent PII
+> leakage.
 
 ### Manual Span Control
 
