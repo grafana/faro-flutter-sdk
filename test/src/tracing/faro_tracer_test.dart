@@ -4,6 +4,7 @@ import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:opentelemetry/api.dart' as otel_api;
@@ -76,6 +77,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -108,6 +110,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).called(1);
       });
@@ -132,6 +135,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           final body = invocation.positionalArguments[1] as Function;
@@ -184,6 +188,7 @@ void main() {
               any(),
               any(),
               contextScope: any(named: 'contextScope'),
+              exceptionOptions: any(named: 'exceptionOptions'),
             ),
           ).thenAnswer((invocation) async {
             final body = invocation.positionalArguments[1] as Function;
@@ -218,6 +223,93 @@ void main() {
           expect(attributeMap['session.id'], 'test-session-id');
         },
       );
+
+      test('should thread exceptionOptions to executeWithSpan', () async {
+        // Arrange
+        const spanName = 'test-span';
+        const options = SpanExceptionOptions(recordException: false);
+
+        when(
+          () => mockOtelTracer.startSpan(
+            any(),
+            context: any(named: 'context'),
+            kind: any(named: 'kind'),
+            attributes: any(named: 'attributes'),
+          ),
+        ).thenReturn(mockOtelSpan);
+        when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
+        when(
+          () => mockFaroZoneSpanManager.executeWithSpan<String>(
+            any(),
+            any(),
+            contextScope: any(named: 'contextScope'),
+            exceptionOptions: any(named: 'exceptionOptions'),
+          ),
+        ).thenAnswer((invocation) async {
+          final body = invocation.positionalArguments[1] as Function;
+          final span = invocation.positionalArguments[0] as Span;
+          return await body(span);
+        });
+
+        // Act
+        await faroTracer.startSpan<String>(
+          spanName,
+          (span) => 'result',
+          exceptionOptions: options,
+        );
+
+        // Assert
+        verify(
+          () => mockFaroZoneSpanManager.executeWithSpan<String>(
+            any(),
+            any(),
+            contextScope: any(named: 'contextScope'),
+            exceptionOptions: options,
+          ),
+        ).called(1);
+      });
+
+      test('should pass null exceptionOptions by default', () async {
+        // Arrange
+        const spanName = 'test-span';
+
+        when(
+          () => mockOtelTracer.startSpan(
+            any(),
+            context: any(named: 'context'),
+            kind: any(named: 'kind'),
+            attributes: any(named: 'attributes'),
+          ),
+        ).thenReturn(mockOtelSpan);
+        when(() => mockFaroZoneSpanManager.getActiveSpan()).thenReturn(null);
+        when(
+          () => mockFaroZoneSpanManager.executeWithSpan<String>(
+            any(),
+            any(),
+            contextScope: any(named: 'contextScope'),
+            exceptionOptions: any(named: 'exceptionOptions'),
+          ),
+        ).thenAnswer((invocation) async {
+          final body = invocation.positionalArguments[1] as Function;
+          final span = invocation.positionalArguments[0] as Span;
+          return await body(span);
+        });
+
+        // Act
+        await faroTracer.startSpan<String>(spanName, (span) => 'result');
+
+        // Assert
+        final captured =
+            verify(
+              () => mockFaroZoneSpanManager.executeWithSpan<String>(
+                any(),
+                any(),
+                contextScope: any(named: 'contextScope'),
+                exceptionOptions: captureAny(named: 'exceptionOptions'),
+              ),
+            ).captured;
+        expect(captured.single, isNull);
+      });
     });
 
     group('startSpanManual:', () {
@@ -387,6 +479,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           capturedScope =
@@ -425,6 +518,7 @@ void main() {
             any(),
             any(),
             contextScope: any(named: 'contextScope'),
+            exceptionOptions: any(named: 'exceptionOptions'),
           ),
         ).thenAnswer((invocation) async {
           capturedScope =

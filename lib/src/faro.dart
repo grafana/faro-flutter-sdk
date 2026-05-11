@@ -21,6 +21,7 @@ import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
@@ -448,6 +449,11 @@ class Faro {
   ///   - [ContextScope.callback] (default): Deactivated when callback completes.
   ///   - [ContextScope.zone]: Stays active for timers/streams in the zone.
   ///   See [ContextScope] for detailed examples.
+  /// - [exceptionOptions]: Controls how exceptions are recorded on the span.
+  ///   Merged with global [FaroConfig.spanExceptionOptions]. Only explicitly
+  ///   set fields override the global values; omitted fields inherit from
+  ///   global config.
+  ///   See [SpanExceptionOptions] for details.
   ///
   /// **Example - Basic usage:**
   /// ```dart
@@ -480,6 +486,26 @@ class Faro {
   /// rootSpan.end();
   /// ```
   ///
+  /// **Example - Custom exception sanitization:**
+  /// ```dart
+  /// await Faro().startSpan(
+  ///   'payment',
+  ///   (span) async {
+  ///     span.setAttribute('payment.id', paymentId);
+  ///     await processPayment();
+  ///   },
+  ///   exceptionOptions: SpanExceptionOptions(
+  ///     exceptionSanitizer: (error, stackTrace) {
+  ///       return SanitizedSpanException(
+  ///         type: error.runtimeType.toString(),
+  ///         message: 'Payment failed',
+  ///         statusDescription: 'Payment processing error',
+  ///       );
+  ///     },
+  ///   ),
+  /// );
+  /// ```
+  ///
   /// See also:
   /// - [startSpanManual] for manual span lifecycle management
   /// - [ContextScope] for timer/stream context behavior
@@ -490,13 +516,18 @@ class Faro {
     Map<String, Object> attributes = const {},
     Span? parentSpan,
     ContextScope contextScope = ContextScope.callback,
+    SpanExceptionOptions? exceptionOptions,
   }) async {
+    final effectiveOptions = (config?.spanExceptionOptions ??
+            SpanExceptionOptions.defaults)
+        .mergeWith(exceptionOptions);
     return _tracer.startSpan(
       name,
       body,
       attributes: attributes,
       parentSpan: parentSpan,
       contextScope: contextScope,
+      exceptionOptions: effectiveOptions,
     );
   }
 

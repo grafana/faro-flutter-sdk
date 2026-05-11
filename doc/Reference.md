@@ -628,6 +628,94 @@ final results = await Future.wait(futures);
 rootSpan.end(); // Don't forget to end the manual span
 ```
 
+### Custom Span Error Handling
+
+By default, when the body passed to `startSpan` throws, the SDK automatically:
+- Sets the span status to error with `span.setStatus(SpanStatusCode.error)`
+- Records the exception with `span.recordException(error, stackTrace: stackTrace)`
+- Rethrows the exception
+
+You can customize this behaviour using `SpanExceptionOptions`, either globally
+via `FaroConfig` or per-span. Per-span options are **merged** with global
+configuration — only the fields you explicitly set in a per-span call override
+the global values; omitted fields inherit from the global config:
+
+**Global configuration:**
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    appName: 'MyApp',
+    appEnv: 'production',
+    apiKey: 'key',
+    collectorUrl: 'https://...',
+    spanExceptionOptions: SpanExceptionOptions(
+      recordException: true,
+      setStatusOnException: true,
+      exceptionSanitizer: (error, stackTrace) {
+        return SanitizedSpanException(
+          type: error.runtimeType.toString(),
+          message: 'Sanitized error',
+          statusDescription: 'Operation failed',
+        );
+      },
+    ),
+  ),
+  appRunner: () => runApp(MyApp()),
+);
+```
+
+**Per-span override (merged with global):**
+
+```dart
+// Global config has exceptionSanitizer configured.
+// This per-span override only changes recordException — the sanitizer
+// is inherited from global config automatically.
+await Faro().startSpan(
+  'checkout',
+  (span) async => processCheckout(),
+  exceptionOptions: const SpanExceptionOptions(recordException: false),
+);
+```
+
+Note: per-span cannot explicitly clear a globally-configured
+`exceptionSanitizer` — passing `exceptionSanitizer: null` is indistinguishable
+from not setting it. To disable sanitization for a span, configure separate
+per-span options or update the global config.
+
+**Disable all automatic error handling:**
+
+```dart
+await Faro().startSpan(
+  'my-operation',
+  (span) async {
+    try {
+      await riskyOperation();
+    } catch (error, stackTrace) {
+      // Handle errors manually
+      span.setStatus(SpanStatusCode.error, message: 'Custom message');
+      span.recordException(error, stackTrace: stackTrace);
+      rethrow;
+    }
+  },
+  exceptionOptions: const SpanExceptionOptions(
+    recordException: false,
+    setStatusOnException: false,
+  ),
+);
+```
+
+> **Note**: The exception is always rethrown regardless of options. The options
+> control span-level error recording, not application-level error handling.
+
+**Sanitizer failure handling:**
+
+> If the `exceptionSanitizer` callback throws, the SDK swallows the sanitizer
+> error silently (to prevent it from masking the original exception), but still
+> marks the span status as error with a generic description (`'exception
+> sanitizer failed'`). No exception details are recorded to prevent PII
+> leakage.
+
 ### Manual Span Control
 
 Use `startSpanManual()` when you need precise control over span lifecycle:
@@ -772,6 +860,9 @@ final traceparent = span.traceparent;
 - **Automatic Session Tracking**: All spans include session IDs for correlation
 - **Zone-based Context**: Proper parent-child relationships across async boundaries
 - **Error Handling**: Automatic span status updates when exceptions occur
+- **Custom Error Handling**: Control how exceptions are recorded on spans via
+  `SpanExceptionOptions` — configure globally or per-span with sanitization,
+  selective recording, and status control
 - **Typed Attributes**: Add business context with preserved types (int, double, bool, String) — enables numeric querying and bucketing in Grafana
 - **Event Logging**: Record important events within span timelines with typed attributes
 

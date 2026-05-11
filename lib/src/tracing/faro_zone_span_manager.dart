@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/tracing/span_exception_options.dart';
 
 export 'package:faro/src/tracing/span.dart' show ContextScope;
 
@@ -74,6 +75,7 @@ class FaroZoneSpanManager {
     Span span,
     FutureOr<T> Function(Span) body, {
     ContextScope contextScope = ContextScope.callback,
+    SpanExceptionOptions? exceptionOptions,
   }) async {
     final spanContextHolder = SpanContextHolder(
       span: span,
@@ -88,10 +90,49 @@ class FaroZoneSpanManager {
         }
         return result;
       } catch (error, stackTrace) {
-        if (!span.statusHasBeenSet) {
-          span.setStatus(SpanStatusCode.error, message: error.toString());
+        final shouldSetStatus = exceptionOptions?.setStatusOnException ?? true;
+        final shouldRecord = exceptionOptions?.recordException ?? true;
+        final sanitizer = exceptionOptions?.exceptionSanitizer;
+
+        if (sanitizer != null) {
+          try {
+            final sanitized = sanitizer(error, stackTrace);
+            if (shouldSetStatus && !span.statusHasBeenSet) {
+              span.setStatus(
+                SpanStatusCode.error,
+                message: sanitized.statusDescription ?? sanitized.message,
+              );
+            }
+            if (shouldRecord) {
+              span.addEvent(
+                'exception',
+                attributes: {
+                  'exception.type': sanitized.type,
+                  'exception.message': sanitized.message,
+                  if (sanitized.stackTrace != null)
+                    'exception.stacktrace': sanitized.stackTrace.toString(),
+                },
+              );
+            }
+          } catch (_) {
+            // Preserve original exception if sanitizer fails.
+            // Still mark the span as failed so it is not silently
+            // reported as successful.
+            if (shouldSetStatus && !span.statusHasBeenSet) {
+              span.setStatus(
+                SpanStatusCode.error,
+                message: 'exception sanitizer failed',
+              );
+            }
+          }
+        } else {
+          if (shouldSetStatus && !span.statusHasBeenSet) {
+            span.setStatus(SpanStatusCode.error, message: error.toString());
+          }
+          if (shouldRecord) {
+            span.recordException(error, stackTrace: stackTrace);
+          }
         }
-        span.recordException(error, stackTrace: stackTrace);
         rethrow;
       } finally {
         span.end();

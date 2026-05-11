@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Span exception handling control**: Added `SpanExceptionOptions` for
+  controlling how exceptions are recorded on spans. Configurable globally
+  via `FaroConfig.spanExceptionOptions` or per-span via the
+  `exceptionOptions` parameter of `startSpan()`. Includes
+  `ExceptionSanitizer` callback for PII-safe error recording and boolean
+  flags (`recordException`, `setStatusOnException`) for selective control.
+  Per-span options are merged field-by-field over the global config —
+  omitted fields inherit from global configuration. If the sanitizer
+  callback throws, the span is marked as failed with a generic status
+  description to avoid leaking PII.
+
 ## [0.15.0] - 2026-05-07
 
 ### Changed
