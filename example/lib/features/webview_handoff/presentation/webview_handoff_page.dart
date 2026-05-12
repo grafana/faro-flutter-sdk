@@ -125,7 +125,7 @@ class _MissingConfigCard extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               '1. Start the React demo:\n'
-              '   cd example/webview_demo && npm run dev\n\n'
+              '   cd example/webview_demo && yarn dev\n\n'
               '2. Add FARO_WEBVIEW_DEMO_URL to api-config.json:\n'
               '   Android emulator: http://10.0.2.2:5173\n'
               '   iOS simulator: http://localhost:5173',

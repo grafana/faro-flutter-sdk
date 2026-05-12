@@ -6,7 +6,7 @@ final webViewHandoffServiceProvider = Provider<WebViewHandoffService>((ref) {
 
 /// Provides the base URL for the WebView tracing demo.
 ///
-/// The React demo app is expected to run externally (e.g. `npm run dev`).
+/// The React demo app is expected to run externally (e.g. `yarn dev`).
 /// Pass its URL via the `FARO_WEBVIEW_DEMO_URL` dart-define key in
 /// `api-config.json`.
 class WebViewHandoffService {
@@ -27,7 +27,7 @@ class WebViewHandoffService {
       throw StateError(
         'FARO_WEBVIEW_DEMO_URL is not set. '
         'Add it to api-config.json and run the React demo with '
-        '`npm run dev` from example/webview_demo/.',
+        '`yarn dev` from example/webview_demo/.',
       );
     }
     return Uri.parse(_webViewDemoUrl);

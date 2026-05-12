@@ -149,7 +149,7 @@ class _LoadErrorHint extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Make sure the React dev server is running:\n'
-              '  cd example/webview_demo && npm run dev\n\n'
+              '  cd example/webview_demo && yarn dev\n\n'
               'And verify that FARO_WEBVIEW_DEMO_URL in '
               'api-config.json points to the correct address\n'
               '(e.g. http://10.0.2.2:5173 for Android emulator).',
