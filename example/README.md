@@ -210,9 +210,9 @@ completing the bidirectional link.
 
    ```bash
    cd example/webview_demo
-   npm install
+   yarn install
    cp .env.example .env   # edit with your Faro Web collector URL
-   npm run dev
+   yarn dev
    ```
 
 2. Add `FARO_WEBVIEW_DEMO_URL` to your `api-config.json`:

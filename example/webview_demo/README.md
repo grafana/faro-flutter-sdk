@@ -9,9 +9,9 @@ cross-boundary distributed tracing.
 ## Quick start
 
 ```bash
-npm install
+yarn install
 cp .env.example .env    # edit with your Faro Web collector URL
-npm run dev
+yarn dev
 ```
 
 The dev server starts on `http://localhost:5173` (all interfaces).
