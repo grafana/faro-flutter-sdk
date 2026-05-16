@@ -18,9 +18,7 @@ class SpanRecord {
 
   TraceResource getResource() {
     final attrs = _otelReadOnlySpan.resource?.attributes;
-    return TraceResource(
-      attributes: attrs?.toTraceAttributes() ?? const [],
-    );
+    return TraceResource(attributes: attrs?.toTraceAttributes() ?? const []);
   }
 
   TraceScope getScope() {

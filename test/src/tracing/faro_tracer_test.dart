@@ -83,9 +83,7 @@ void main() {
     });
 
     Map<String, Object> capturedAttributesAsMap(otel.Attributes attrs) {
-      return {
-        for (final attr in attrs.toList()) attr.key: attr.value,
-      };
+      return {for (final attr in attrs.toList()) attr.key: attr.value};
     }
 
     void stubStartSpan() {
@@ -174,14 +172,15 @@ void main() {
 
         await faroTracer.startSpan<String>(spanName, (span) => 'result');
 
-        final captured = verify(
-          () => mockOtelTracer.startSpan(
-            spanName,
-            context: any(named: 'context'),
-            kind: otel.SpanKind.client,
-            attributes: captureAny(named: 'attributes'),
-          ),
-        ).captured;
+        final captured =
+            verify(
+              () => mockOtelTracer.startSpan(
+                spanName,
+                context: any(named: 'context'),
+                kind: otel.SpanKind.client,
+                attributes: captureAny(named: 'attributes'),
+              ),
+            ).captured;
         final attrs = captured.single as otel.Attributes;
         final attributeMap = capturedAttributesAsMap(attrs);
         expect(attributeMap['session_id'], sessionId);
@@ -218,14 +217,15 @@ void main() {
             attributes: customAttributes,
           );
 
-          final captured = verify(
-            () => mockOtelTracer.startSpan(
-              spanName,
-              context: any(named: 'context'),
-              kind: otel.SpanKind.client,
-              attributes: captureAny(named: 'attributes'),
-            ),
-          ).captured;
+          final captured =
+              verify(
+                () => mockOtelTracer.startSpan(
+                  spanName,
+                  context: any(named: 'context'),
+                  kind: otel.SpanKind.client,
+                  attributes: captureAny(named: 'attributes'),
+                ),
+              ).captured;
           final attrs = captured.single as otel.Attributes;
           final attributeMap = capturedAttributesAsMap(attrs);
           expect(attributeMap['custom.key1'], 'value1');
@@ -290,14 +290,15 @@ void main() {
 
         await faroTracer.startSpan<String>(spanName, (span) => 'result');
 
-        final captured = verify(
-          () => mockFaroZoneSpanManager.executeWithSpan<String>(
-            any(),
-            any(),
-            contextScope: any(named: 'contextScope'),
-            exceptionOptions: captureAny(named: 'exceptionOptions'),
-          ),
-        ).captured;
+        final captured =
+            verify(
+              () => mockFaroZoneSpanManager.executeWithSpan<String>(
+                any(),
+                any(),
+                contextScope: any(named: 'contextScope'),
+                exceptionOptions: captureAny(named: 'exceptionOptions'),
+              ),
+            ).captured;
         expect(captured.single, isNull);
       });
     });
@@ -335,14 +336,15 @@ void main() {
 
         faroTracer.startSpanManual(spanName, attributes: customAttributes);
 
-        final captured = verify(
-          () => mockOtelTracer.startSpan(
-            spanName,
-            context: any(named: 'context'),
-            kind: otel.SpanKind.client,
-            attributes: captureAny(named: 'attributes'),
-          ),
-        ).captured;
+        final captured =
+            verify(
+              () => mockOtelTracer.startSpan(
+                spanName,
+                context: any(named: 'context'),
+                kind: otel.SpanKind.client,
+                attributes: captureAny(named: 'attributes'),
+              ),
+            ).captured;
         final attrs = captured.single as otel.Attributes;
         final attributeMap = capturedAttributesAsMap(attrs);
         expect(attributeMap['manual.key'], 'manual.value');
@@ -387,14 +389,15 @@ void main() {
 
           faroTracer.startSpanManual(spanName);
 
-          final captured = verify(
-            () => mockOtelTracer.startSpan(
-              spanName,
-              context: any(named: 'context'),
-              kind: otel.SpanKind.client,
-              attributes: captureAny(named: 'attributes'),
-            ),
-          ).captured;
+          final captured =
+              verify(
+                () => mockOtelTracer.startSpan(
+                  spanName,
+                  context: any(named: 'context'),
+                  kind: otel.SpanKind.client,
+                  attributes: captureAny(named: 'attributes'),
+                ),
+              ).captured;
           final attrs = captured.single as otel.Attributes;
           final attributeMap = capturedAttributesAsMap(attrs);
           expect(attributeMap['session_id'], sessionId);
@@ -462,28 +465,31 @@ void main() {
     });
 
     group('Span.noParent:', () {
-      test('should create span without parent when Span.noParent is passed', () {
-        const spanName = 'no-parent-span';
-        final mockActiveSpan = MockSpan();
+      test(
+        'should create span without parent when Span.noParent is passed',
+        () {
+          const spanName = 'no-parent-span';
+          final mockActiveSpan = MockSpan();
 
-        stubStartSpan();
-        when(
-          () => mockFaroZoneSpanManager.getActiveSpan(),
-        ).thenReturn(mockActiveSpan);
+          stubStartSpan();
+          when(
+            () => mockFaroZoneSpanManager.getActiveSpan(),
+          ).thenReturn(mockActiveSpan);
 
-        faroTracer.startSpanManual(spanName, parentSpan: Span.noParent);
+          faroTracer.startSpanManual(spanName, parentSpan: Span.noParent);
 
-        verifyNever(() => mockFaroZoneSpanManager.getActiveSpan());
+          verifyNever(() => mockFaroZoneSpanManager.getActiveSpan());
 
-        verify(
-          () => mockOtelTracer.startSpan(
-            spanName,
-            context: any(named: 'context'),
-            kind: otel.SpanKind.client,
-            attributes: any(named: 'attributes'),
-          ),
-        ).called(1);
-      });
+          verify(
+            () => mockOtelTracer.startSpan(
+              spanName,
+              context: any(named: 'context'),
+              kind: otel.SpanKind.client,
+              attributes: any(named: 'attributes'),
+            ),
+          ).called(1);
+        },
+      );
 
       test('should ignore active span when Span.noParent is passed even if '
           'active span exists', () {
@@ -517,6 +523,27 @@ void main() {
           verify(() => mockFaroZoneSpanManager.getActiveSpan()).called(1);
         },
       );
+    });
+  });
+
+  group('FaroTracerFactory:', () {
+    setUp(FaroTracerFactory.reset);
+    tearDown(FaroTracerFactory.reset);
+
+    test('create() returns a working tracer even when OTel has not been '
+        'initialized (e.g. when Faro.init has not run)', () {
+      // Regression test: callers like FaroHttpTrackingClient call
+      // Faro().startSpanManual without first calling Faro().init(),
+      // e.g. in their own unit tests. The factory must degrade to a
+      // no-op API tracer rather than throwing a cast error from
+      // OTel.tracerProvider.
+      // Note: this test relies on no other test having called
+      // FaroOtelBootstrap.initialize without a matching reset.
+      final tracer = FaroTracerFactory().create();
+      final span = tracer.startSpanManual('preinit-span');
+      expect(span, isNotNull);
+      expect(span.traceId, isNotEmpty);
+      span.end();
     });
   });
 }

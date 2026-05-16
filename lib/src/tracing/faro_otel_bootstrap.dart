@@ -28,10 +28,9 @@ class FaroOtelBootstrap {
       return;
     }
 
-    final resourceAttrs = DartOtelTracerResourcesFactory()
-        .getTracerResourceAttributes();
-    final serviceName =
-        resourceAttrs['service.name'] as String? ?? 'unknown';
+    final resourceAttrs =
+        DartOtelTracerResourcesFactory().getTracerResourceAttributes();
+    final serviceName = resourceAttrs['service.name'] as String? ?? 'unknown';
     final serviceVersion =
         resourceAttrs['service.version'] as String? ?? 'unknown';
 

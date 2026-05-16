@@ -7,12 +7,18 @@ class DartOtelTracerResourcesFactory {
     final faro = Faro();
     const unknownString = 'unknown';
 
+    String orUnknown(String? value, [String fallback = unknownString]) {
+      if (value == null || value.isEmpty) return fallback;
+      return value;
+    }
+
     final attributes = <String, Object>{
-      // App info
-      'service.name': faro.meta.app?.name ?? unknownString,
-      'deployment.environment': faro.meta.app?.environment ?? unknownString,
-      'service.version': faro.meta.app?.version ?? unknownString,
-      'service.namespace': faro.meta.app?.namespace ?? 'flutter_app',
+      // App info — dartastic rejects empty strings for service.name and
+      // friends, so treat empty values the same as null.
+      'service.name': orUnknown(faro.meta.app?.name),
+      'deployment.environment': orUnknown(faro.meta.app?.environment),
+      'service.version': orUnknown(faro.meta.app?.version),
+      'service.namespace': orUnknown(faro.meta.app?.namespace, 'flutter_app'),
 
       // Otel info
       'telemetry.sdk.name': FaroConstants.sdkName,

@@ -43,9 +43,8 @@ void main() {
   }) {
     final span = tracer.startSpan(
       name,
-      attributes: attributes.isEmpty
-          ? null
-          : otel.OTel.attributesFromMap(attributes),
+      attributes:
+          attributes.isEmpty ? null : otel.OTel.attributesFromMap(attributes),
     );
     if (duration != null) {
       // Best-effort: real wall-clock duration in test.
@@ -85,10 +84,7 @@ void main() {
         () {
           final span = makeEndedSpan(
             'HTTP GET',
-            attributes: const {
-              'http.scheme': 'https',
-              'http.method': 'GET',
-            },
+            attributes: const {'http.scheme': 'https', 'http.method': 'GET'},
           );
           final spanRecord = SpanRecord(otelReadOnlySpan: span);
 
@@ -188,11 +184,7 @@ void main() {
       test('includes all original attributes plus duration', () {
         final span = makeEndedSpan(
           'test',
-          attributes: const {
-            'attr1': 'value1',
-            'attr2': 42,
-            'attr3': true,
-          },
+          attributes: const {'attr1': 'value1', 'attr2': 42, 'attr3': true},
         );
         final spanRecord = SpanRecord(otelReadOnlySpan: span);
 
