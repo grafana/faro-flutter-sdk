@@ -1,12 +1,12 @@
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/tracing/extensions.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:opentelemetry/api.dart' as otel_api;
 
 void main() {
   group('IterableTraceAttributeX:', () {
     group('toTraceAttributes:', () {
       test('should preserve string attribute value', () {
-        final attributes = [otel_api.Attribute.fromString('name', 'test')];
+        final attributes = [otel.OTelAPI.attributeString('name', 'test')];
 
         final result = attributes.toTraceAttributes();
 
@@ -17,7 +17,7 @@ void main() {
       });
 
       test('should preserve int attribute value', () {
-        final attributes = [otel_api.Attribute.fromInt('count', 42)];
+        final attributes = [otel.OTelAPI.attributeInt('count', 42)];
 
         final result = attributes.toTraceAttributes();
 
@@ -28,7 +28,7 @@ void main() {
       });
 
       test('should preserve double attribute value', () {
-        final attributes = [otel_api.Attribute.fromDouble('duration', 3.14)];
+        final attributes = [otel.OTelAPI.attributeDouble('duration', 3.14)];
 
         final result = attributes.toTraceAttributes();
 
@@ -39,7 +39,7 @@ void main() {
       });
 
       test('should preserve bool attribute value', () {
-        final attributes = [otel_api.Attribute.fromBoolean('enabled', true)];
+        final attributes = [otel.OTelAPI.attributeBool('enabled', true)];
 
         final result = attributes.toTraceAttributes();
 
@@ -50,11 +50,11 @@ void main() {
       });
 
       test('should preserve mixed attribute types', () {
-        final attributes = [
-          otel_api.Attribute.fromString('name', 'test'),
-          otel_api.Attribute.fromInt('count', 100),
-          otel_api.Attribute.fromDouble('score', 99.5),
-          otel_api.Attribute.fromBoolean('active', false),
+        final attributes = <otel.Attribute<Object>>[
+          otel.OTelAPI.attributeString('name', 'test'),
+          otel.OTelAPI.attributeInt('count', 100),
+          otel.OTelAPI.attributeDouble('score', 99.5),
+          otel.OTelAPI.attributeBool('active', false),
         ];
 
         final result = attributes.toTraceAttributes();
@@ -79,7 +79,7 @@ void main() {
       });
 
       test('should handle negative int values', () {
-        final attributes = [otel_api.Attribute.fromInt('offset', -10)];
+        final attributes = [otel.OTelAPI.attributeInt('offset', -10)];
 
         final result = attributes.toTraceAttributes();
 
@@ -88,10 +88,10 @@ void main() {
       });
 
       test('should handle zero values', () {
-        final attributes = [
-          otel_api.Attribute.fromInt('zero_int', 0),
+        final attributes = <otel.Attribute<Object>>[
+          otel.OTelAPI.attributeInt('zero_int', 0),
           // ignore: prefer_int_literals
-          otel_api.Attribute.fromDouble('zero_double', 0.0),
+          otel.OTelAPI.attributeDouble('zero_double', 0.0),
         ];
 
         final result = attributes.toTraceAttributes();
@@ -101,7 +101,7 @@ void main() {
       });
 
       test('should handle empty list', () {
-        final attributes = <otel_api.Attribute>[];
+        final attributes = <otel.Attribute<Object>>[];
 
         final result = attributes.toTraceAttributes();
 
@@ -111,8 +111,8 @@ void main() {
       test('should convert list values to string (unsupported in OTLP)', () {
         // List values are not directly supported in our TraceAttributeValue
         // They should be converted to string representation
-        final attributes = [
-          otel_api.Attribute.fromStringList('tags', ['a', 'b', 'c']),
+        final attributes = <otel.Attribute<Object>>[
+          otel.OTelAPI.attributeStringList('tags', ['a', 'b', 'c']),
         ];
 
         final result = attributes.toTraceAttributes();

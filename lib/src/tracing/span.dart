@@ -1,6 +1,5 @@
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/tracing/extensions.dart';
-import 'package:opentelemetry/api.dart' as otel_api;
-import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 /// Represents a span in a distributed trace.
 ///
@@ -66,16 +65,16 @@ abstract class Span {
 
 class InternalSpan implements Span {
   InternalSpan._({
-    required otel_api.Span otelSpan,
-    required otel_api.Context context,
+    required otel.APISpan otelSpan,
+    required otel.Context context,
   }) : _otelSpan = otelSpan,
        _context = context;
 
-  final otel_api.Span _otelSpan;
-  final otel_api.Context _context;
+  final otel.APISpan _otelSpan;
+  final otel.Context _context;
 
-  otel_api.Span get otelSpan => _otelSpan;
-  otel_api.Context get context => _context;
+  otel.APISpan get otelSpan => _otelSpan;
+  otel.Context get context => _context;
 
   @override
   String get traceId => _otelSpan.spanContext.traceId.toString();
@@ -85,7 +84,7 @@ class InternalSpan implements Span {
 
   @override
   String get traceparent {
-    final traceFlags = _otelSpan.spanContext.traceFlags
+    final traceFlags = _otelSpan.spanContext.traceFlags.asByte
         .toRadixString(16)
         .padLeft(2, '0');
     return '00-$traceId-$spanId-$traceFlags';
@@ -94,15 +93,15 @@ class InternalSpan implements Span {
   bool _wasEnded = false;
 
   @override
-  bool get wasEnded => _wasEnded;
+  bool get wasEnded => _wasEnded || _otelSpan.isEnded;
 
   SpanStatusCode _statusCode = SpanStatusCode.unset;
 
   @override
   SpanStatusCode get status {
-    if (otelSpan is otel_sdk.ReadWriteSpan) {
-      final otelSdkSpan = otelSpan as otel_sdk.ReadWriteSpan;
-      return otelSdkSpan.status.toSpanStatusCode();
+    final otelStatus = _otelSpan.status;
+    if (otelStatus != otel.SpanStatusCode.Unset) {
+      return otelStatus.toSpanStatusCode();
     }
     return _statusCode;
   }
@@ -114,30 +113,37 @@ class InternalSpan implements Span {
 
   @override
   void setStatus(SpanStatusCode statusCode, {String? message}) {
-    if (message != null) {
-      _otelSpan.setStatus(statusCode.toOtelStatusCode(), message);
-    } else {
-      _otelSpan.setStatus(statusCode.toOtelStatusCode());
-    }
+    _otelSpan.setStatus(statusCode.toOtelStatusCode(), message);
     _statusCode = statusCode;
     _statusHasBeenSet = true;
   }
 
   @override
   void addEvent(String message, {Map<String, Object> attributes = const {}}) {
-    final listAttributes = _convertToOtelAttributes(attributes);
-    _otelSpan.addEvent(message, attributes: listAttributes);
+    final eventAttributes =
+        attributes.isEmpty ? null : otel.OTel.attributesFromMap(attributes);
+    _otelSpan.addEventNow(message, eventAttributes);
   }
 
   @override
   void setAttributes(Map<String, Object> attributes) {
-    final listAttributes = _convertToOtelAttributes(attributes);
-    _otelSpan.setAttributes(listAttributes);
+    if (attributes.isEmpty) return;
+    _otelSpan.addAttributes(otel.OTel.attributesFromMap(attributes));
   }
 
   @override
   void setAttribute(String key, Object value) {
-    _otelSpan.setAttribute(_createOtelAttribute(key, value));
+    if (value is String) {
+      _otelSpan.setStringAttribute<String>(key, value);
+    } else if (value is bool) {
+      _otelSpan.setBoolAttribute(key, value);
+    } else if (value is int) {
+      _otelSpan.setIntAttribute(key, value);
+    } else if (value is double) {
+      _otelSpan.setDoubleAttribute(key, value);
+    } else {
+      _otelSpan.setStringAttribute<String>(key, value.toString());
+    }
   }
 
   @override
@@ -153,35 +159,10 @@ class InternalSpan implements Span {
     _wasEnded = true;
     _otelSpan.end();
   }
-
-  /// Converts a map of typed attributes to OpenTelemetry Attributes.
-  List<otel_api.Attribute> _convertToOtelAttributes(
-    Map<String, Object> attributes,
-  ) {
-    return attributes.entries.map((entry) {
-      return _createOtelAttribute(entry.key, entry.value);
-    }).toList();
-  }
-
-  /// Creates an OpenTelemetry Attribute from a typed value.
-  otel_api.Attribute _createOtelAttribute(String key, Object value) {
-    if (value is String) {
-      return otel_api.Attribute.fromString(key, value);
-    } else if (value is int) {
-      return otel_api.Attribute.fromInt(key, value);
-    } else if (value is double) {
-      return otel_api.Attribute.fromDouble(key, value);
-    } else if (value is bool) {
-      return otel_api.Attribute.fromBoolean(key, value);
-    } else {
-      // Fallback: convert to string for unsupported types
-      return otel_api.Attribute.fromString(key, value.toString());
-    }
-  }
 }
 
 class SpanProvider {
-  Span getSpan(otel_api.Span otelSpan, otel_api.Context context) {
+  Span getSpan(otel.APISpan otelSpan, otel.Context context) {
     return InternalSpan._(otelSpan: otelSpan, context: context);
   }
 }
@@ -196,19 +177,6 @@ enum SpanStatusCode {
   /// The operation has been validated by an Application developers or
   /// Operator to have completed successfully.
   ok,
-}
-
-extension StatusCodeX on SpanStatusCode {
-  otel_api.StatusCode toOtelStatusCode() {
-    switch (this) {
-      case SpanStatusCode.unset:
-        return otel_api.StatusCode.unset;
-      case SpanStatusCode.error:
-        return otel_api.StatusCode.error;
-      case SpanStatusCode.ok:
-        return otel_api.StatusCode.ok;
-    }
-  }
 }
 
 /// Private sentinel class for [Span.noParent].
