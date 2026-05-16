@@ -1,25 +1,21 @@
 import 'dart:async';
 
-import 'package:faro/src/core/pod.dart';
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/session/session_id_provider.dart';
-import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
-import 'package:faro/src/tracing/faro_user_action_span_processor.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
-import 'package:opentelemetry/api.dart' as otel_api;
-import 'package:opentelemetry/sdk.dart' as otel_sdk;
 
 class FaroTracer {
   FaroTracer({
-    required otel_api.Tracer otelTracer,
+    required otel.APITracer otelTracer,
     required FaroZoneSpanManager faroZoneSpanManager,
     required SessionIdProvider sessionIdProvider,
   }) : _otelTracer = otelTracer,
        _faroZoneSpanManager = faroZoneSpanManager,
        _sessionIdProvider = sessionIdProvider;
 
-  final otel_api.Tracer _otelTracer;
+  final otel.APITracer _otelTracer;
   final FaroZoneSpanManager _faroZoneSpanManager;
   final SessionIdProvider _sessionIdProvider;
 
@@ -84,10 +80,9 @@ class FaroTracer {
   }) {
     final resolvedParentSpan = _resolveParentSpan(parentSpan);
 
-    var context = otel_api.Context.current;
+    var context = otel.Context.current;
     if (resolvedParentSpan != null && resolvedParentSpan is InternalSpan) {
-      context = otel_api.contextWithSpan(
-        resolvedParentSpan.context,
+      context = resolvedParentSpan.context.withSpan(
         resolvedParentSpan.otelSpan,
       );
     }
@@ -98,16 +93,12 @@ class FaroTracer {
       'session_id': sessionId,
       'session.id': sessionId,
     };
-    final otelAttributes =
-        allAttributes.entries.map((entry) {
-          return _createOtelAttribute(entry.key, entry.value);
-        }).toList();
 
     final otelSpan = _otelTracer.startSpan(
       name,
       context: context,
-      kind: otel_api.SpanKind.client,
-      attributes: otelAttributes,
+      kind: otel.SpanKind.client,
+      attributes: otel.OTel.attributesFromMap(allAttributes),
     );
 
     return SpanProvider().getSpan(otelSpan, context);
@@ -123,41 +114,28 @@ class FaroTracer {
     }
     return parentSpan ?? getActiveSpan();
   }
-
-  /// Creates an OpenTelemetry Attribute from a typed value.
-  otel_api.Attribute _createOtelAttribute(String key, Object value) {
-    if (value is String) {
-      return otel_api.Attribute.fromString(key, value);
-    } else if (value is int) {
-      return otel_api.Attribute.fromInt(key, value);
-    } else if (value is double) {
-      return otel_api.Attribute.fromDouble(key, value);
-    } else if (value is bool) {
-      return otel_api.Attribute.fromBoolean(key, value);
-    } else {
-      // Fallback: convert to string for unsupported types
-      return otel_api.Attribute.fromString(key, value.toString());
-    }
-  }
 }
 
 class FaroTracerFactory {
   static FaroTracer? _faroTracer;
 
+  /// Resets the cached tracer. Visible for testing.
+  static void reset() {
+    _faroTracer = null;
+  }
+
   FaroTracer create() {
-    if (_faroTracer != null) {
-      return _faroTracer!;
+    final cached = _faroTracer;
+    if (cached != null) {
+      return cached;
     }
 
-    final resource = DartOtelTracerResourcesFactory().getTracerResource();
-    final faroSpanProcessor = pod.resolve(faroSpanProcessorProvider);
-    final provider = otel_sdk.TracerProviderBase(
-      resource: resource,
-      processors: [faroSpanProcessor],
+    // Use OTelAPI directly so we degrade to a no-op tracer if the Faro
+    // bootstrap (which calls OTel.initialize) hasn't run yet — e.g. when
+    // FaroHttpTrackingClient is used in unit tests that never call Faro.init.
+    final otelTracer = otel.OTelAPI.tracerProvider().getTracer(
+      'flutter-faro-instrumentation',
     );
-    otel_api.registerGlobalTracerProvider(provider);
-    final otelTracer = provider.getTracer('flutter-faro-instrumentation');
-
     final faroZoneSpanManager = FaroZoneSpanManagerFactory().create();
     final sessionIdProvider = SessionIdProviderFactory().create();
 

@@ -7,7 +7,6 @@ import 'package:faro/src/models/models.dart';
 import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:opentelemetry/api.dart' as otel_api;
 
 class MockMeta extends Mock implements Meta {}
 
@@ -44,19 +43,13 @@ void main() {
       mockApp = MockApp();
       mockSession = MockSession();
 
-      // Set up the Faro singleton with mocked meta
       Faro().meta = mockMeta;
     });
 
-    tearDown(() {
-      // No need to reset Faro.instance - tests use the same instance
-    });
-
-    group('getTracerResource', () {
+    group('getTracerResourceAttributes', () {
       test(
         'should create resource with app information when all app data is present',
         () {
-          // Arrange
           when(() => mockMeta.app).thenReturn(mockApp);
           when(() => mockMeta.session).thenReturn(null);
           when(() => mockApp.name).thenReturn('TestApp');
@@ -64,77 +57,29 @@ void main() {
           when(() => mockApp.version).thenReturn('1.2.3');
           when(() => mockApp.namespace).thenReturn('test.namespace');
 
-          // Act
-          final resource = factory.getTracerResource();
+          final attrs = factory.getTracerResourceAttributes();
 
-          // Assert
-          expect(resource, isNotNull);
-          expect(resource.attributes.keys, isNotEmpty);
-
-          expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceName)
-                .toString(),
-            equals('TestApp'),
-          );
-          expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.deploymentEnvironment)
-                .toString(),
-            equals('production'),
-          );
-          expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceVersion)
-                .toString(),
-            equals('1.2.3'),
-          );
-          expect(
-            resource.attributes
-                .get(otel_api.ResourceAttributes.serviceNamespace)
-                .toString(),
-            equals('test.namespace'),
-          );
+          expect(attrs, isNotEmpty);
+          expect(attrs['service.name'], equals('TestApp'));
+          expect(attrs['deployment.environment'], equals('production'));
+          expect(attrs['service.version'], equals('1.2.3'));
+          expect(attrs['service.namespace'], equals('test.namespace'));
         },
       );
 
       test('should use default values when app data is null', () {
-        // Arrange
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(null);
 
-        // Act
-        final resource = factory.getTracerResource();
+        final attrs = factory.getTracerResourceAttributes();
 
-        // Assert
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.serviceName)
-              .toString(),
-          equals('unknown'),
-        );
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.deploymentEnvironment)
-              .toString(),
-          equals('unknown'),
-        );
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.serviceVersion)
-              .toString(),
-          equals('unknown'),
-        );
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.serviceNamespace)
-              .toString(),
-          equals('flutter_app'),
-        );
+        expect(attrs['service.name'], equals('unknown'));
+        expect(attrs['deployment.environment'], equals('unknown'));
+        expect(attrs['service.version'], equals('unknown'));
+        expect(attrs['service.namespace'], equals('flutter_app'));
       });
 
       test('should use default values when individual app fields are null', () {
-        // Arrange
         when(() => mockMeta.app).thenReturn(mockApp);
         when(() => mockMeta.session).thenReturn(null);
         when(() => mockApp.name).thenReturn(null);
@@ -142,65 +87,30 @@ void main() {
         when(() => mockApp.version).thenReturn(null);
         when(() => mockApp.namespace).thenReturn(null);
 
-        // Act
-        final resource = factory.getTracerResource();
+        final attrs = factory.getTracerResourceAttributes();
 
-        // Assert
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.serviceName)
-              .toString(),
-          equals('unknown'),
-        );
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.deploymentEnvironment)
-              .toString(),
-          equals('unknown'),
-        );
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.serviceVersion)
-              .toString(),
-          equals('unknown'),
-        );
-        expect(
-          resource.attributes
-              .get(otel_api.ResourceAttributes.serviceNamespace)
-              .toString(),
-          equals('flutter_app'),
-        );
+        expect(attrs['service.name'], equals('unknown'));
+        expect(attrs['deployment.environment'], equals('unknown'));
+        expect(attrs['service.version'], equals('unknown'));
+        expect(attrs['service.namespace'], equals('flutter_app'));
       });
 
       test('should include SDK telemetry attributes', () {
-        // Arrange
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(null);
 
-        // Act
-        final resource = factory.getTracerResource();
+        final attrs = factory.getTracerResourceAttributes();
 
-        // Assert
+        expect(attrs['telemetry.sdk.name'], equals('faro-mobile-flutter'));
+        expect(attrs['telemetry.sdk.language'], equals('dart'));
         expect(
-          resource.attributes.get('telemetry.sdk.name').toString(),
-          equals('faro-mobile-flutter'),
-        );
-        expect(
-          resource.attributes.get('telemetry.sdk.language').toString(),
-          equals('dart'),
-        );
-        expect(
-          resource.attributes.get('telemetry.sdk.version').toString(),
+          attrs['telemetry.sdk.version'],
           equals(_getPackageVersionFromPubspec()),
         );
-        expect(
-          resource.attributes.get('telemetry.sdk.platform').toString(),
-          equals('flutter'),
-        );
+        expect(attrs['telemetry.sdk.platform'], equals('flutter'));
       });
 
       test('should include session attributes when session exists', () {
-        // Arrange
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(mockSession);
         when(() => mockSession.attributes).thenReturn({
@@ -209,40 +119,24 @@ void main() {
           'custom_attr': 'value',
         });
 
-        // Act
-        final resource = factory.getTracerResource();
+        final attrs = factory.getTracerResourceAttributes();
 
-        // Assert
-        expect(
-          resource.attributes.get('session_id').toString(),
-          equals('12345'),
-        );
-        expect(
-          resource.attributes.get('user_id').toString(),
-          equals('user123'),
-        );
-        expect(
-          resource.attributes.get('custom_attr').toString(),
-          equals('value'),
-        );
+        expect(attrs['session_id'], equals('12345'));
+        expect(attrs['user_id'], equals('user123'));
+        expect(attrs['custom_attr'], equals('value'));
       });
 
       test('should handle empty session attributes', () {
-        // Arrange
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(mockSession);
         when(() => mockSession.attributes).thenReturn(<String, dynamic>{});
 
-        // Act
-        final resource = factory.getTracerResource();
+        final attrs = factory.getTracerResourceAttributes();
 
-        // Assert - should not throw and should still include other attributes
-        expect(resource, isNotNull);
-        expect(resource.attributes.keys, isNotEmpty);
+        expect(attrs, isNotEmpty);
       });
 
       test('should preserve typed session attributes', () {
-        // Arrange
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(mockSession);
         when(() => mockSession.attributes).thenReturn({
@@ -254,47 +148,35 @@ void main() {
           'object': {'nested': 'value'},
         });
 
-        // Act
-        final resource = factory.getTracerResource();
+        final attrs = factory.getTracerResourceAttributes();
 
-        // Assert - typed values are preserved, not stringified
-        final stringAttr = resource.attributes.get('string_value');
-        expect(stringAttr, isNotNull);
-        expect(stringAttr.toString(), equals('hello'));
+        expect(attrs['string_value'], equals('hello'));
+        expect(attrs['string_value'], isA<String>());
 
-        final intAttr = resource.attributes.get('int_value');
-        expect(intAttr, isNotNull);
-        expect(intAttr.toString(), equals('42'));
+        expect(attrs['int_value'], equals(42));
+        expect(attrs['int_value'], isA<int>());
 
-        final doubleAttr = resource.attributes.get('double_value');
-        expect(doubleAttr, isNotNull);
-        expect(doubleAttr.toString(), equals('3.14'));
+        expect(attrs['double_value'], equals(3.14));
+        expect(attrs['double_value'], isA<double>());
 
-        final boolAttr = resource.attributes.get('bool_value');
-        expect(boolAttr, isNotNull);
-        expect(boolAttr.toString(), equals('true'));
+        expect(attrs['bool_value'], equals(true));
+        expect(attrs['bool_value'], isA<bool>());
 
-        // Null and object values fall back to string representation
-        expect(resource.attributes.get('null_value').toString(), equals(''));
-        expect(
-          resource.attributes.get('object').toString(),
-          equals('{nested: value}'),
-        );
+        // Null is skipped entirely.
+        expect(attrs.containsKey('null_value'), isFalse);
+
+        // Non-primitive falls back to string representation.
+        expect(attrs['object'], equals('{nested: value}'));
       });
 
       test('should handle null session', () {
-        // Arrange
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(null);
 
-        // Act
-        final resource = factory.getTracerResource();
+        final attrs = factory.getTracerResourceAttributes();
 
-        // Assert - should not throw and should still include other attributes
-        expect(resource, isNotNull);
-        expect(resource.attributes.keys, isNotEmpty);
-        // Should not have any session attributes
-        expect(resource.attributes.get('session_id'), isNull);
+        expect(attrs, isNotEmpty);
+        expect(attrs.containsKey('session_id'), isFalse);
       });
     });
   });

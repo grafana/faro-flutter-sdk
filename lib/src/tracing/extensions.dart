@@ -1,122 +1,114 @@
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/models/trace/trace_attribute.dart';
 import 'package:faro/src/models/trace/trace_span_event.dart';
 import 'package:faro/src/models/trace/trace_span_link.dart';
-import 'package:faro/src/models/trace/trace_span_status.dart';
 import 'package:faro/src/tracing/span.dart';
-import 'package:opentelemetry/api.dart' as otel_api;
-import 'package:opentelemetry/sdk.dart' as otel_sdk;
+import 'package:fixnum/fixnum.dart';
 
-extension TraceAttributesX on otel_sdk.Attributes {
+extension TraceAttributesX on otel.Attributes {
   List<TraceAttribute> toTraceAttributes() {
-    final attributes = <TraceAttribute>[];
-    for (final key in keys) {
-      attributes.add(
-        TraceAttribute(
-          key: key,
-          value: TraceAttributeValue.fromDynamic(get(key)),
-        ),
+    return toList().map((attribute) {
+      return TraceAttribute(
+        key: attribute.key,
+        value: TraceAttributeValue.fromDynamic(attribute.value),
       );
-    }
-    return attributes;
+    }).toList();
   }
 }
 
-extension IterableTraceAttributeX on Iterable<otel_api.Attribute> {
+extension IterableTraceAttributeX on Iterable<otel.Attribute<Object>> {
   List<TraceAttribute> toTraceAttributes() {
-    final traceAttributes = <TraceAttribute>[];
-    for (final attribute in this) {
-      traceAttributes.add(
-        TraceAttribute(
-          key: attribute.key,
-          value: TraceAttributeValue.fromDynamic(attribute.value),
-        ),
+    return map((attribute) {
+      return TraceAttribute(
+        key: attribute.key,
+        value: TraceAttributeValue.fromDynamic(attribute.value),
       );
-    }
-    return traceAttributes;
+    }).toList();
   }
 }
 
-extension SpanKindX on otel_api.SpanKind {
+extension SpanKindX on otel.SpanKind {
   int toCode() {
     switch (this) {
-      case otel_api.SpanKind.internal:
+      case otel.SpanKind.internal:
         return 1;
-      case otel_api.SpanKind.server:
+      case otel.SpanKind.server:
         return 2;
-      case otel_api.SpanKind.client:
+      case otel.SpanKind.client:
         return 3;
-      case otel_api.SpanKind.producer:
+      case otel.SpanKind.producer:
         return 4;
-      case otel_api.SpanKind.consumer:
+      case otel.SpanKind.consumer:
         return 5;
     }
   }
 }
 
-extension SpanStatusX on otel_api.SpanStatus {
-  TraceSpanStatus get toTraceSpanStatus {
-    return TraceSpanStatus(
-      code: code.toCode(),
-      message: description.isNotEmpty ? description : null,
-    );
+extension OtelSpanStatusCodeX on otel.SpanStatusCode {
+  int toCode() {
+    switch (this) {
+      case otel.SpanStatusCode.Unset:
+        return 0;
+      case otel.SpanStatusCode.Ok:
+        return 1;
+      case otel.SpanStatusCode.Error:
+        return 2;
+    }
   }
 
   SpanStatusCode toSpanStatusCode() {
-    switch (code) {
-      case otel_api.StatusCode.unset:
+    switch (this) {
+      case otel.SpanStatusCode.Unset:
         return SpanStatusCode.unset;
-      case otel_api.StatusCode.ok:
+      case otel.SpanStatusCode.Ok:
         return SpanStatusCode.ok;
-      case otel_api.StatusCode.error:
+      case otel.SpanStatusCode.Error:
         return SpanStatusCode.error;
     }
   }
 }
 
-extension StatusCodeX on otel_api.StatusCode {
-  int toCode() {
+extension FaroSpanStatusCodeX on SpanStatusCode {
+  otel.SpanStatusCode toOtelStatusCode() {
     switch (this) {
-      case otel_api.StatusCode.unset:
-        return 0;
-      case otel_api.StatusCode.ok:
-        return 1;
-      case otel_api.StatusCode.error:
-        return 2;
+      case SpanStatusCode.unset:
+        return otel.SpanStatusCode.Unset;
+      case SpanStatusCode.error:
+        return otel.SpanStatusCode.Error;
+      case SpanStatusCode.ok:
+        return otel.SpanStatusCode.Ok;
     }
   }
 }
 
-extension SpanEventListX on List<otel_api.SpanEvent> {
+extension SpanEventListX on List<otel.SpanEvent> {
   List<TraceSpanEvent> toTraceSpanEventsList() {
-    final events = <TraceSpanEvent>[];
-    for (final event in this) {
-      events.add(
-        TraceSpanEvent(
-          name: event.name,
-          timeUnixNano: event.timestamp,
-          droppedAttributesCount: event.droppedAttributesCount,
-          attributes: event.attributes.toTraceAttributes(),
-        ),
+    return map((event) {
+      return TraceSpanEvent(
+        name: event.name,
+        timeUnixNano: dateTimeToUnixNano(event.timestamp),
+        droppedAttributesCount: 0,
+        attributes: event.attributes?.toTraceAttributes() ?? const [],
       );
-    }
-
-    return events;
+    }).toList();
   }
 }
 
-extension SpanLinkListX on List<otel_api.SpanLink> {
+extension SpanLinkListX on List<otel.SpanLink> {
   List<TraceSpanLink> toTraceSpanLinksList() {
-    final links = <TraceSpanLink>[];
-    for (final link in this) {
-      links.add(
-        TraceSpanLink(
-          traceId: link.context.traceId.toString(),
-          spanId: link.context.spanId.toString(),
-          traceState: link.context.traceState.toString(),
-          attributes: link.attributes.toTraceAttributes(),
-        ),
+    return map((link) {
+      return TraceSpanLink(
+        traceId: link.spanContext.traceId.toString(),
+        spanId: link.spanContext.spanId.toString(),
+        traceState: link.spanContext.traceState?.toString() ?? '',
+        attributes: link.attributes.toTraceAttributes(),
       );
-    }
-    return links;
+    }).toList();
   }
+}
+
+/// Converts a [DateTime] to nanoseconds since the Unix epoch.
+Int64 dateTimeToUnixNano(DateTime? timestamp) {
+  if (timestamp == null) return Int64();
+  return Int64(timestamp.microsecondsSinceEpoch) * Int64(1000);
 }
