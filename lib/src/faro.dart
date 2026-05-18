@@ -19,6 +19,7 @@ import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
+import 'package:faro/src/tracing/faro_otel_bootstrap.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
@@ -236,6 +237,7 @@ class Faro {
         setSendUsageInterval: optionsConfiguration.fetchVitalsInterval,
       );
     }
+    await FaroOtelBootstrap.initialize();
     _instance.pushEvent('session_start');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NativeIntegration.instance.getAppStart();

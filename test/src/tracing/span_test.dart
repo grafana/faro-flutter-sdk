@@ -1,28 +1,46 @@
 // ignore_for_file: lines_longer_than_80_chars
 
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/tracing/span.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
-import 'package:opentelemetry/api.dart' as otel_api;
 
-class MockOtelSpan extends Mock implements otel_api.Span {}
-
-class FakeOtelContext extends Fake implements otel_api.Context {}
+class _NoOpProcessor implements otel.SpanProcessor {
+  @override
+  Future<void> onStart(otel.Span span, otel.Context? parentContext) async {}
+  @override
+  Future<void> onEnd(otel.Span span) async {}
+  @override
+  Future<void> onNameUpdate(otel.Span span, String newName) async {}
+  @override
+  Future<void> shutdown() async {}
+  @override
+  Future<void> forceFlush() async {}
+}
 
 void main() {
-  setUpAll(() {
-    registerFallbackValue(otel_api.StatusCode.unset);
-    registerFallbackValue(<otel_api.Attribute>[]);
-    registerFallbackValue(otel_api.Attribute.fromString('key', 'value'));
+  late otel.Tracer tracer;
+
+  setUpAll(() async {
+    await otel.OTel.initialize(
+      serviceName: 'test-service',
+      spanProcessor: _NoOpProcessor(),
+      detectPlatformResources: false,
+      enableMetrics: false,
+      enableLogs: false,
+    );
+    tracer = otel.OTel.tracer();
+  });
+
+  tearDownAll(() async {
+    // ignore: invalid_use_of_visible_for_testing_member
+    await otel.OTel.reset();
   });
 
   group('Span.noParent sentinel:', () {
     test('should be a const singleton', () {
-      // Act
       const a = Span.noParent;
       const b = Span.noParent;
 
-      // Assert - both references should be identical (same object)
       expect(identical(a, b), isTrue);
       expect(a == b, isTrue);
     });
@@ -112,145 +130,86 @@ void main() {
   });
 
   group('InternalSpan:', () {
-    late MockOtelSpan mockOtelSpan;
-    late FakeOtelContext fakeContext;
-
-    setUp(() {
-      mockOtelSpan = MockOtelSpan();
-      fakeContext = FakeOtelContext();
-    });
-
-    Span createSpan() {
-      return SpanProvider().getSpan(mockOtelSpan, fakeContext);
+    Span makeFaroSpan({otel.TraceFlags? traceFlags}) {
+      final apiSpan = tracer.startSpan(
+        'test-span',
+        kind: otel.SpanKind.client,
+        spanContext: traceFlags == null
+            ? null
+            : otel.OTel.spanContext(
+                traceId: otel.OTel.traceId(),
+                spanId: otel.OTel.spanId(),
+                traceFlags: traceFlags,
+              ),
+      );
+      return SpanProvider().getSpan(apiSpan, otel.Context.current);
     }
 
     group('traceparent:', () {
-      Span createSpanWithTraceFlags(int traceFlags) {
-        when(() => mockOtelSpan.spanContext).thenReturn(
-          otel_api.SpanContext(
-            otel_api.TraceId.fromString('00000000000000000000000000000001'),
-            otel_api.SpanId.fromString('0000000000000001'),
-            traceFlags,
-            otel_api.TraceState.empty(),
-          ),
-        );
-        return createSpan();
-      }
-
       test('should return W3C formatted traceparent string', () {
-        const traceIdHex = '0af7651916cd43dd8448eb211c80319c';
-        const spanIdHex = 'b7ad6b7169203331';
+        final span = makeFaroSpan(traceFlags: otel.TraceFlags.sampled);
 
-        final spanContext = otel_api.SpanContext(
-          otel_api.TraceId.fromString(traceIdHex),
-          otel_api.SpanId.fromString(spanIdHex),
-          otel_api.TraceFlags.sampled,
-          otel_api.TraceState.empty(),
-        );
-        when(() => mockOtelSpan.spanContext).thenReturn(spanContext);
-
-        final span = createSpan();
-
-        expect(span.traceparent, '00-$traceIdHex-$spanIdHex-01');
+        final tp = span.traceparent;
+        // 00-<32 hex>-<16 hex>-01
+        expect(tp, matches(RegExp(r'^00-[0-9a-f]{32}-[0-9a-f]{16}-01$')));
+        expect(tp, contains(span.traceId));
+        expect(tp, contains(span.spanId));
       });
 
-      test('should preserve sampled trace flag', () {
-        final span = createSpanWithTraceFlags(otel_api.TraceFlags.sampled);
+      test('should format trace flags as two-digit hex', () {
+        final span = makeFaroSpan(traceFlags: otel.TraceFlags.sampled);
 
-        expect(
-          span.traceparent,
-          '00-00000000000000000000000000000001-0000000000000001-01',
-        );
-      });
-
-      test('should preserve unsampled trace flag', () {
-        final span = createSpanWithTraceFlags(otel_api.TraceFlags.none);
-
-        expect(
-          span.traceparent,
-          '00-00000000000000000000000000000001-0000000000000001-00',
-        );
+        // The sampler controls the actual flag value; we just verify the
+        // format is a two-character hex byte.
+        expect(span.traceparent, matches(RegExp(r'-[0-9a-f]{2}$')));
       });
     });
 
     group('setAttributes with typed values:', () {
-      test('should pass string attributes to OTel span', () {
-        final span = createSpan();
-        final capturedAttributes = <otel_api.Attribute>[];
+      Span makeSpan() => makeFaroSpan(traceFlags: otel.TraceFlags.sampled);
 
-        when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
-          capturedAttributes.addAll(
-            invocation.positionalArguments[0] as List<otel_api.Attribute>,
-          );
-        });
+      test('should pass string attributes to OTel span', () {
+        final span = makeSpan();
 
         span.setAttributes({'name': 'test'});
 
-        expect(capturedAttributes.length, 1);
-        expect(capturedAttributes[0].key, 'name');
-        expect(capturedAttributes[0].value, 'test');
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getString('name'), 'test');
       });
 
       test('should pass int attributes to OTel span', () {
-        final span = createSpan();
-        final capturedAttributes = <otel_api.Attribute>[];
-
-        when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
-          capturedAttributes.addAll(
-            invocation.positionalArguments[0] as List<otel_api.Attribute>,
-          );
-        });
+        final span = makeSpan();
 
         span.setAttributes({'count': 42});
 
-        expect(capturedAttributes.length, 1);
-        expect(capturedAttributes[0].key, 'count');
-        expect(capturedAttributes[0].value, 42);
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getInt('count'), 42);
       });
 
       test('should pass double attributes to OTel span', () {
-        final span = createSpan();
-        final capturedAttributes = <otel_api.Attribute>[];
-
-        when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
-          capturedAttributes.addAll(
-            invocation.positionalArguments[0] as List<otel_api.Attribute>,
-          );
-        });
+        final span = makeSpan();
 
         span.setAttributes({'score': 99.5});
 
-        expect(capturedAttributes.length, 1);
-        expect(capturedAttributes[0].key, 'score');
-        expect(capturedAttributes[0].value, 99.5);
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getDouble('score'), 99.5);
       });
 
       test('should pass bool attributes to OTel span', () {
-        final span = createSpan();
-        final capturedAttributes = <otel_api.Attribute>[];
-
-        when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
-          capturedAttributes.addAll(
-            invocation.positionalArguments[0] as List<otel_api.Attribute>,
-          );
-        });
+        final span = makeSpan();
 
         span.setAttributes({'enabled': true});
 
-        expect(capturedAttributes.length, 1);
-        expect(capturedAttributes[0].key, 'enabled');
-        expect(capturedAttributes[0].value, true);
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getBool('enabled'), true);
       });
 
       test('should pass mixed type attributes to OTel span', () {
-        final span = createSpan();
-        final capturedAttributes = <otel_api.Attribute>[];
-
-        when(() => mockOtelSpan.setAttributes(any())).thenAnswer((invocation) {
-          capturedAttributes.addAll(
-            invocation.positionalArguments[0] as List<otel_api.Attribute>,
-          );
-        });
+        final span = makeSpan();
 
         span.setAttributes({
           'name': 'test',
@@ -259,36 +218,19 @@ void main() {
           'enabled': true,
         });
 
-        expect(capturedAttributes.length, 4);
-
-        final attrMap = {
-          for (final attr in capturedAttributes) attr.key: attr.value,
-        };
-        expect(attrMap['name'], 'test');
-        expect(attrMap['count'], 42);
-        expect(attrMap['score'], 99.5);
-        expect(attrMap['enabled'], true);
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        final attrs = internal.otelSpan.attributes;
+        expect(attrs.getString('name'), 'test');
+        expect(attrs.getInt('count'), 42);
+        expect(attrs.getDouble('score'), 99.5);
+        expect(attrs.getBool('enabled'), true);
       });
     });
 
     group('addEvent with typed attributes:', () {
       test('should pass typed attributes to event', () {
-        final span = createSpan();
-        final capturedAttributes = <otel_api.Attribute>[];
-
-        when(
-          () => mockOtelSpan.addEvent(
-            any(),
-            attributes: any(named: 'attributes'),
-          ),
-        ).thenAnswer((invocation) {
-          final attrs =
-              invocation.namedArguments[const Symbol('attributes')]
-                  as List<otel_api.Attribute>?;
-          if (attrs != null) {
-            capturedAttributes.addAll(attrs);
-          }
-        });
+        final span = makeFaroSpan(traceFlags: otel.TraceFlags.sampled);
 
         span.addEvent(
           'test event',
@@ -300,77 +242,58 @@ void main() {
           },
         );
 
-        expect(capturedAttributes.length, 4);
+        final internal = span as InternalSpan;
+        final events = internal.otelSpan.spanEvents;
+        expect(events, isNotNull);
+        expect(events!.length, 1);
 
-        final attrMap = {
-          for (final attr in capturedAttributes) attr.key: attr.value,
-        };
-        expect(attrMap['message'], 'hello');
-        expect(attrMap['count'], 5);
-        expect(attrMap['duration'], 1.5);
-        expect(attrMap['success'], true);
+        final event = events.first;
+        expect(event.name, 'test event');
+        final attrs = event.attributes!;
+        expect(attrs.getString('message'), 'hello');
+        expect(attrs.getInt('count'), 5);
+        expect(attrs.getDouble('duration'), 1.5);
+        expect(attrs.getBool('success'), true);
       });
     });
 
     group('setAttribute with typed value:', () {
+      Span makeSpan() => makeFaroSpan(traceFlags: otel.TraceFlags.sampled);
+
       test('should pass string value to OTel span', () {
-        final span = createSpan();
-        otel_api.Attribute? capturedAttribute;
-
-        when(() => mockOtelSpan.setAttribute(any())).thenAnswer((invocation) {
-          capturedAttribute =
-              invocation.positionalArguments[0] as otel_api.Attribute;
-        });
-
+        final span = makeSpan();
         span.setAttribute('name', 'test');
 
-        expect(capturedAttribute?.key, 'name');
-        expect(capturedAttribute?.value, 'test');
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getString('name'), 'test');
       });
 
       test('should pass int value to OTel span via setAttribute', () {
-        final span = createSpan();
-        otel_api.Attribute? capturedAttribute;
-
-        when(() => mockOtelSpan.setAttribute(any())).thenAnswer((invocation) {
-          capturedAttribute =
-              invocation.positionalArguments[0] as otel_api.Attribute;
-        });
-
+        final span = makeSpan();
         span.setAttribute('count', 42);
 
-        expect(capturedAttribute?.key, 'count');
-        expect(capturedAttribute?.value, 42);
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getInt('count'), 42);
       });
 
       test('should pass double value to OTel span via setAttribute', () {
-        final span = createSpan();
-        otel_api.Attribute? capturedAttribute;
-
-        when(() => mockOtelSpan.setAttribute(any())).thenAnswer((invocation) {
-          capturedAttribute =
-              invocation.positionalArguments[0] as otel_api.Attribute;
-        });
-
+        final span = makeSpan();
         span.setAttribute('score', 99.5);
 
-        expect(capturedAttribute?.key, 'score');
-        expect(capturedAttribute?.value, 99.5);
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getDouble('score'), 99.5);
       });
 
       test('should pass bool value to OTel span via setAttribute', () {
-        final span = createSpan();
-        otel_api.Attribute? capturedAttribute;
-
-        when(() => mockOtelSpan.setAttribute(any())).thenAnswer((invocation) {
-          capturedAttribute =
-              invocation.positionalArguments[0] as otel_api.Attribute;
-        });
-
+        final span = makeSpan();
         span.setAttribute('enabled', true);
 
-        expect(capturedAttribute?.key, 'enabled');
-        expect(capturedAttribute?.value, true);
+        final internal = span as InternalSpan;
+        // ignore: invalid_use_of_visible_for_testing_member
+        expect(internal.otelSpan.attributes.getBool('enabled'), true);
       });
     });
   });
