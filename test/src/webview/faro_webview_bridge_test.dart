@@ -16,7 +16,7 @@ void main() {
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    Faro.resetForTesting();
+    await Faro.resetForTesting();
     BatchTransportFactory().reset();
     SharedPreferences.setMockInitialValues({});
 
@@ -46,8 +46,8 @@ void main() {
     clearInteractions(mockTransport);
   });
 
-  tearDown(() {
-    Faro.resetForTesting();
+  tearDown(() async {
+    await Faro.resetForTesting();
     BatchTransportFactory().reset();
   });
 

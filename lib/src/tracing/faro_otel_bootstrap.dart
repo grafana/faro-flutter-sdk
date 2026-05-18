@@ -3,6 +3,7 @@ import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/tracing/dart_otel_tracer_resources_factory.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/faro_user_action_span_processor.dart';
+import 'package:faro/src/util/constants.dart';
 
 /// Initializes the underlying OpenTelemetry SDK for Faro.
 ///
@@ -28,6 +29,8 @@ class FaroOtelBootstrap {
       return;
     }
 
+    _resetApiOnlyFactoryIfNeeded();
+
     final resourceAttrs =
         DartOtelTracerResourcesFactory().getTracerResourceAttributes();
     final serviceName = resourceAttrs['service.name'] as String? ?? 'unknown';
@@ -39,9 +42,12 @@ class FaroOtelBootstrap {
     await otel.OTel.initialize(
       serviceName: serviceName,
       serviceVersion: serviceVersion,
-      tracerName: 'flutter-faro-instrumentation',
+      tracerName: FaroConstants.sdkName,
+      tracerVersion: FaroConstants.sdkVersion,
       spanProcessor: processor,
-      resourceAttributes: otel.OTel.attributesFromMap(resourceAttrs),
+      resourceAttributes: otel.OTel.attributesFromMap(
+        _additionalResourceAttributes(resourceAttrs),
+      ),
       enableMetrics: false,
       enableLogs: false,
       detectPlatformResources: false,
@@ -53,11 +59,29 @@ class FaroOtelBootstrap {
 
   /// Resets bootstrap state for tests. Awaits a full OTel shutdown.
   static Future<void> resetForTesting() async {
-    if (_initialized) {
+    if (_initialized || otel.OTelFactory.otelFactory != null) {
       // ignore: invalid_use_of_visible_for_testing_member
       await otel.OTel.reset();
     }
     FaroTracerFactory.reset();
     _initialized = false;
+  }
+
+  static void _resetApiOnlyFactoryIfNeeded() {
+    final factory = otel.OTelFactory.otelFactory;
+    if (factory is otel.OTelAPIFactory) {
+      // A pre-init Faro tracer can create dartastic's API-only no-op factory.
+      // Clear it so the real SDK bootstrap below can install the SDK factory.
+      // ignore: invalid_use_of_visible_for_testing_member
+      otel.OTelAPI.reset();
+    }
+  }
+
+  static Map<String, Object> _additionalResourceAttributes(
+    Map<String, Object> resourceAttrs,
+  ) {
+    return Map<String, Object>.of(resourceAttrs)
+      ..remove('service.name')
+      ..remove('service.version');
   }
 }

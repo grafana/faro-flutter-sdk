@@ -5,6 +5,7 @@ import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
+import 'package:faro/src/util/constants.dart';
 
 class FaroTracer {
   FaroTracer({
@@ -134,7 +135,8 @@ class FaroTracerFactory {
     // bootstrap (which calls OTel.initialize) hasn't run yet — e.g. when
     // FaroHttpTrackingClient is used in unit tests that never call Faro.init.
     final otelTracer = otel.OTelAPI.tracerProvider().getTracer(
-      'flutter-faro-instrumentation',
+      FaroConstants.sdkName,
+      version: FaroConstants.sdkVersion,
     );
     final faroZoneSpanManager = FaroZoneSpanManagerFactory().create();
     final sessionIdProvider = SessionIdProviderFactory().create();

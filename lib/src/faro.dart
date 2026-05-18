@@ -56,8 +56,9 @@ class Faro {
   static set instance(Faro instance) => _instance = instance;
 
   @visibleForTesting
-  static void resetForTesting() {
+  static Future<void> resetForTesting() async {
     _instance._tearDownForReset();
+    await FaroOtelBootstrap.resetForTesting();
     _instance = Faro._();
   }
 
