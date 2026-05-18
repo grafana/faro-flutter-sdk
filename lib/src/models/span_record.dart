@@ -28,19 +28,20 @@ class SpanRecord {
 
   TraceSpan getSpan() {
     final parentSpanContext = _otelReadOnlySpan.parentSpanContext;
+    final parentSpanId =
+        parentSpanContext != null && parentSpanContext.isValid
+            ? parentSpanContext.spanId.toString()
+            : null;
+
     return TraceSpan(
       traceId: _otelReadOnlySpan.spanContext.traceId.toString(),
       spanId: _otelReadOnlySpan.spanContext.spanId.toString(),
-      parentSpanId:
-          (parentSpanContext != null && parentSpanContext.isValid)
-              ? parentSpanContext.spanId.toString()
-              : null,
+      parentSpanId: parentSpanId,
       name: _otelReadOnlySpan.name,
       kind: _otelReadOnlySpan.kind.toCode(),
       startTimeUnixNano: dateTimeToUnixNano(_otelReadOnlySpan.startTime),
       endTimeUnixNano: dateTimeToUnixNano(_otelReadOnlySpan.endTime),
-      // ignore: invalid_use_of_visible_for_testing_member
-      attributes: _otelReadOnlySpan.attributes.toTraceAttributes(),
+      attributes: _spanAttributes.toTraceAttributes(),
       events: _otelReadOnlySpan.spanEvents?.toTraceSpanEventsList() ?? const [],
       droppedEventsCount: 0,
       links: _otelReadOnlySpan.spanLinks?.toTraceSpanLinksList() ?? const [],
@@ -60,8 +61,7 @@ class SpanRecord {
 
   Map<String, String> getFaroEventAttributes() {
     final faroEventAttributes = <String, String>{};
-    // ignore: invalid_use_of_visible_for_testing_member
-    for (final attribute in _otelReadOnlySpan.attributes.toList()) {
+    for (final attribute in _spanAttributes.toList()) {
       final value = attribute.value.toString();
       faroEventAttributes[attribute.key] = _sanitizeAttributeValue(value);
     }
@@ -96,8 +96,7 @@ class SpanRecord {
   }
 
   String getFaroEventName() {
-    // ignore: invalid_use_of_visible_for_testing_member
-    final attributes = _otelReadOnlySpan.attributes;
+    final attributes = _spanAttributes;
     final httpScheme = attributes.getString('http.scheme');
     final httpMethod = attributes.getString('http.method');
 
@@ -109,5 +108,12 @@ class SpanRecord {
     } else {
       return 'span.${name()}';
     }
+  }
+
+  otel.Attributes get _spanAttributes {
+    // Dartastic currently marks span attribute reads as testing-only. Faro
+    // needs them here because this class serializes ended spans for export.
+    // ignore: invalid_use_of_visible_for_testing_member
+    return _otelReadOnlySpan.attributes;
   }
 }

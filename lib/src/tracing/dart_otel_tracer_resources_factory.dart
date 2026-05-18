@@ -1,4 +1,3 @@
-import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/util/constants.dart';
 
@@ -44,12 +43,5 @@ class DartOtelTracerResourcesFactory {
     }
 
     return attributes;
-  }
-
-  /// Builds a [Resource] from the Faro meta. Requires [OTel.initialize] to have
-  /// been called first.
-  Resource getTracerResource() {
-    final attrs = OTel.attributesFromMap(getTracerResourceAttributes());
-    return OTel.resource(attrs);
   }
 }

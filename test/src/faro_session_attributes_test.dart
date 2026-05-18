@@ -45,9 +45,9 @@ void main() {
       registerFallbackValue(Meta());
     });
 
-    setUp(() {
+    setUp(() async {
       TestWidgetsFlutterBinding.ensureInitialized();
-      Faro.resetForTesting();
+      await Faro.resetForTesting();
 
       // Reset the BatchTransportFactory singleton state
       BatchTransportFactory().reset();
@@ -94,8 +94,8 @@ void main() {
       when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
     });
 
-    tearDown(() {
-      Faro.resetForTesting();
+    tearDown(() async {
+      await Faro.resetForTesting();
 
       // Clean up the singleton state after each test
       BatchTransportFactory().reset();

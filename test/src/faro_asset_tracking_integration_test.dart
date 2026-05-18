@@ -50,9 +50,9 @@ void main() {
     registerFallbackValue(<String, dynamic>{});
   });
 
-  setUp(() {
+  setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    Faro.resetForTesting();
+    await Faro.resetForTesting();
     BatchTransportFactory().reset();
     SharedPreferences.setMockInitialValues(<String, Object>{});
     PackageInfo.setMockInitialValues(
@@ -75,8 +75,8 @@ void main() {
     );
   });
 
-  tearDown(() {
-    Faro.resetForTesting();
+  tearDown(() async {
+    await Faro.resetForTesting();
     pod.removeOverride(rootAssetBundleProvider);
     BatchTransportFactory().reset();
   });

@@ -38,15 +38,19 @@ class _NoOpProcessor implements otel.SpanProcessor {
   Future<void> forceFlush() async {}
 }
 
+Future<void> _initializeOtelForTest() async {
+  await otel.OTel.initialize(
+    serviceName: 'test-service',
+    spanProcessor: _NoOpProcessor(),
+    detectPlatformResources: false,
+    enableMetrics: false,
+    enableLogs: false,
+  );
+}
+
 void main() {
   setUpAll(() async {
-    await otel.OTel.initialize(
-      serviceName: 'test-service',
-      spanProcessor: _NoOpProcessor(),
-      detectPlatformResources: false,
-      enableMetrics: false,
-      enableLogs: false,
-    );
+    await _initializeOtelForTest();
 
     registerFallbackValue(FakeOtelContext());
     registerFallbackValue(otel.SpanKind.client);
@@ -531,14 +535,23 @@ void main() {
     tearDown(FaroTracerFactory.reset);
 
     test('create() returns a working tracer even when OTel has not been '
-        'initialized (e.g. when Faro.init has not run)', () {
+        'initialized (e.g. when Faro.init has not run)', () async {
       // Regression test: callers like FaroHttpTrackingClient call
       // Faro().startSpanManual without first calling Faro().init(),
       // e.g. in their own unit tests. The factory must degrade to a
       // no-op API tracer rather than throwing a cast error from
       // OTel.tracerProvider.
-      // Note: this test relies on no other test having called
-      // FaroOtelBootstrap.initialize without a matching reset.
+      // ignore: invalid_use_of_visible_for_testing_member
+      await otel.OTel.reset();
+      addTearDown(() async {
+        // The pre-init call below installs Dartastic's API-only factory.
+        // Reset it before restoring the SDK factory for any later tests.
+        // ignore: invalid_use_of_visible_for_testing_member
+        await otel.OTel.reset();
+        await _initializeOtelForTest();
+      });
+      FaroTracerFactory.reset();
+
       final tracer = FaroTracerFactory().create();
       final span = tracer.startSpanManual('preinit-span');
       expect(span, isNotNull);

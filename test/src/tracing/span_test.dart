@@ -258,6 +258,27 @@ void main() {
       });
     });
 
+    group('recordException:', () {
+      test('should record an exception event on the OTel span', () {
+        final span = makeFaroSpan(traceFlags: otel.TraceFlags.sampled);
+        final stackTrace = StackTrace.current;
+
+        span.recordException(Exception('boom'), stackTrace: stackTrace);
+
+        final internal = span as InternalSpan;
+        final events = internal.otelSpan.spanEvents;
+        expect(events, isNotNull);
+        expect(events, hasLength(1));
+
+        final event = events!.single;
+        expect(event.name, 'exception');
+        final attrs = event.attributes!;
+        expect(attrs.getString('exception.type'), contains('Exception'));
+        expect(attrs.getString('exception.message'), 'Exception: boom');
+        expect(attrs.getString('exception.stacktrace'), stackTrace.toString());
+      });
+    });
+
     group('setAttribute with typed value:', () {
       Span makeSpan() => makeFaroSpan(traceFlags: otel.TraceFlags.sampled);
 

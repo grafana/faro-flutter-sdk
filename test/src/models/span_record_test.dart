@@ -39,20 +39,12 @@ void main() {
   otel.Span makeEndedSpan(
     String name, {
     Map<String, Object> attributes = const {},
-    Duration? duration,
   }) {
     final span = tracer.startSpan(
       name,
       attributes:
           attributes.isEmpty ? null : otel.OTel.attributesFromMap(attributes),
     );
-    if (duration != null) {
-      // Best-effort: real wall-clock duration in test.
-      // We can't deterministically force startTime/endTime, but we ensure
-      // endTime is at least `duration` after startTime via a delay isn't
-      // practical in a unit test; instead, we just end the span and trust
-      // wall-clock has advanced (the span will report a non-zero duration).
-    }
     span.end();
     return span;
   }
@@ -179,6 +171,21 @@ void main() {
         final durationNs = int.parse(result['duration_ns']!);
         expect(durationNs, greaterThanOrEqualTo(0));
         expect(result['test.key'], 'test.value');
+      });
+
+      test('calculates duration from span start and end timestamps', () {
+        final span = makeEndedSpan('test');
+        final spanRecord = SpanRecord(otelReadOnlySpan: span);
+        final endTime = span.endTime;
+        expect(endTime, isNotNull);
+
+        final result = spanRecord.getFaroEventAttributes();
+
+        final expectedDurationNs =
+            (endTime!.microsecondsSinceEpoch -
+                span.startTime.microsecondsSinceEpoch) *
+            1000;
+        expect(result['duration_ns'], expectedDurationNs.toString());
       });
 
       test('includes all original attributes plus duration', () {

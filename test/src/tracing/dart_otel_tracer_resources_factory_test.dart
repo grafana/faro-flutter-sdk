@@ -95,6 +95,25 @@ void main() {
         expect(attrs['service.namespace'], equals('flutter_app'));
       });
 
+      test(
+        'should use default values when individual app fields are empty',
+        () {
+          when(() => mockMeta.app).thenReturn(mockApp);
+          when(() => mockMeta.session).thenReturn(null);
+          when(() => mockApp.name).thenReturn('');
+          when(() => mockApp.environment).thenReturn('');
+          when(() => mockApp.version).thenReturn('');
+          when(() => mockApp.namespace).thenReturn('');
+
+          final attrs = factory.getTracerResourceAttributes();
+
+          expect(attrs['service.name'], equals('unknown'));
+          expect(attrs['deployment.environment'], equals('unknown'));
+          expect(attrs['service.version'], equals('unknown'));
+          expect(attrs['service.namespace'], equals('flutter_app'));
+        },
+      );
+
       test('should include SDK telemetry attributes', () {
         when(() => mockMeta.app).thenReturn(null);
         when(() => mockMeta.session).thenReturn(null);
