@@ -81,9 +81,8 @@ void main() {
   otel.Span newSpan({Map<String, Object>? attributes}) {
     final span = tracer.startSpan(
       'test-span',
-      attributes: attributes == null
-          ? null
-          : otel.OTel.attributesFromMap(attributes),
+      attributes:
+          attributes == null ? null : otel.OTel.attributesFromMap(attributes),
     );
     return span;
   }
@@ -103,11 +102,15 @@ void main() {
         await processor.onStart(span, null);
 
         // ignore: invalid_use_of_visible_for_testing_member
-        expect(span.attributes.getString('faro.action.user.name'),
-            equals('checkout'));
+        expect(
+          span.attributes.getString('faro.action.user.name'),
+          equals('checkout'),
+        );
         // ignore: invalid_use_of_visible_for_testing_member
-        expect(span.attributes.getString('faro.action.user.parentId'),
-            equals(action.id));
+        expect(
+          span.attributes.getString('faro.action.user.parentId'),
+          equals(action.id),
+        );
 
         action.dispose();
         span.end();
@@ -131,25 +134,27 @@ void main() {
         span.end();
       });
 
-      test('should NOT set attributes when action is in halted state',
-          () async {
-        final action = UserAction(name: 'checkout')..halt();
+      test(
+        'should NOT set attributes when action is in halted state',
+        () async {
+          final action = UserAction(name: 'checkout')..halt();
 
-        final processor = FaroUserActionSpanProcessor(
-          delegate: recordingDelegate,
-          activeUserActionResolver: () => action,
-          lifecycleSignalChannel: lifecycleSignalChannel,
-        );
+          final processor = FaroUserActionSpanProcessor(
+            delegate: recordingDelegate,
+            activeUserActionResolver: () => action,
+            lifecycleSignalChannel: lifecycleSignalChannel,
+          );
 
-        final span = newSpan();
-        await processor.onStart(span, null);
+          final span = newSpan();
+          await processor.onStart(span, null);
 
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(span.attributes.getString('faro.action.user.name'), isNull);
+          // ignore: invalid_use_of_visible_for_testing_member
+          expect(span.attributes.getString('faro.action.user.name'), isNull);
 
-        action.dispose();
-        span.end();
-      });
+          action.dispose();
+          span.end();
+        },
+      );
 
       test('should NOT set attributes when action is in ended state', () async {
         final action = UserAction(name: 'checkout')..end();
@@ -170,25 +175,27 @@ void main() {
         span.end();
       });
 
-      test('should NOT set attributes when action is in cancelled state',
-          () async {
-        final action = UserAction(name: 'checkout')..cancel();
+      test(
+        'should NOT set attributes when action is in cancelled state',
+        () async {
+          final action = UserAction(name: 'checkout')..cancel();
 
-        final processor = FaroUserActionSpanProcessor(
-          delegate: recordingDelegate,
-          activeUserActionResolver: () => action,
-          lifecycleSignalChannel: lifecycleSignalChannel,
-        );
+          final processor = FaroUserActionSpanProcessor(
+            delegate: recordingDelegate,
+            activeUserActionResolver: () => action,
+            lifecycleSignalChannel: lifecycleSignalChannel,
+          );
 
-        final span = newSpan();
-        await processor.onStart(span, null);
+          final span = newSpan();
+          await processor.onStart(span, null);
 
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(span.attributes.getString('faro.action.user.name'), isNull);
+          // ignore: invalid_use_of_visible_for_testing_member
+          expect(span.attributes.getString('faro.action.user.name'), isNull);
 
-        action.dispose();
-        span.end();
-      });
+          action.dispose();
+          span.end();
+        },
+      );
 
       test('should always delegate onStart to wrapped processor', () async {
         final processor = FaroUserActionSpanProcessor(

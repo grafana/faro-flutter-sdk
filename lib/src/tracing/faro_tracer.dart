@@ -82,8 +82,9 @@ class FaroTracer {
 
     var context = otel.Context.current;
     if (resolvedParentSpan != null && resolvedParentSpan is InternalSpan) {
-      context = resolvedParentSpan.context
-          .withSpan(resolvedParentSpan.otelSpan);
+      context = resolvedParentSpan.context.withSpan(
+        resolvedParentSpan.otelSpan,
+      );
     }
 
     final sessionId = _sessionIdProvider.sessionId;
@@ -132,8 +133,9 @@ class FaroTracerFactory {
     // Use OTelAPI directly so we degrade to a no-op tracer if the Faro
     // bootstrap (which calls OTel.initialize) hasn't run yet — e.g. when
     // FaroHttpTrackingClient is used in unit tests that never call Faro.init.
-    final otelTracer = otel.OTelAPI.tracerProvider()
-        .getTracer('flutter-faro-instrumentation');
+    final otelTracer = otel.OTelAPI.tracerProvider().getTracer(
+      'flutter-faro-instrumentation',
+    );
     final faroZoneSpanManager = FaroZoneSpanManagerFactory().create();
     final sessionIdProvider = SessionIdProviderFactory().create();
 
