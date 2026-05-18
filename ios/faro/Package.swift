@@ -15,7 +15,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/microsoft/plcrashreporter.git",
-            from: "1.12.0"
+            from: "1.12.2"
         ),
     ],
     targets: [
