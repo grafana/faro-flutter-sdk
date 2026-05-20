@@ -152,6 +152,7 @@ class InternalSpan implements Span {
     _otelSpan.recordException(
       exception,
       stackTrace: stackTrace ?? StackTrace.current,
+      escaped: true,
     );
   }
 

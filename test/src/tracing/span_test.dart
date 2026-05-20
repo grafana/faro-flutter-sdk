@@ -275,6 +275,7 @@ void main() {
         expect(attrs.getString('exception.type'), contains('Exception'));
         expect(attrs.getString('exception.message'), 'Exception: boom');
         expect(attrs.getString('exception.stacktrace'), stackTrace.toString());
+        expect(attrs.getBool('exception.escaped'), isTrue);
       });
     });
 
