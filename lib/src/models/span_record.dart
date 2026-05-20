@@ -3,6 +3,7 @@ import 'package:faro/src/models/trace/trace_resource.dart';
 import 'package:faro/src/models/trace/trace_scope_spans.dart';
 import 'package:faro/src/models/trace/trace_span.dart';
 import 'package:faro/src/models/trace/trace_span_status.dart';
+import 'package:faro/src/tracing/dartastic_span_access.dart';
 import 'package:faro/src/tracing/extensions.dart';
 import 'package:fixnum/fixnum.dart';
 
@@ -32,6 +33,12 @@ class SpanRecord {
         parentSpanContext != null && parentSpanContext.isValid
             ? parentSpanContext.spanId.toString()
             : null;
+    final endTime = _otelReadOnlySpan.endTime;
+    final statusDescription = _otelReadOnlySpan.statusDescription;
+    final statusMessage =
+        statusDescription == null || statusDescription.isEmpty
+            ? null
+            : statusDescription;
 
     return TraceSpan(
       traceId: _otelReadOnlySpan.spanContext.traceId.toString(),
@@ -40,14 +47,14 @@ class SpanRecord {
       name: _otelReadOnlySpan.name,
       kind: _otelReadOnlySpan.kind.toCode(),
       startTimeUnixNano: dateTimeToUnixNano(_otelReadOnlySpan.startTime),
-      endTimeUnixNano: dateTimeToUnixNano(_otelReadOnlySpan.endTime),
+      endTimeUnixNano: endTime == null ? null : dateTimeToUnixNano(endTime),
       attributes: _spanAttributes.toTraceAttributes(),
       events: _otelReadOnlySpan.spanEvents?.toTraceSpanEventsList() ?? const [],
       droppedEventsCount: 0,
       links: _otelReadOnlySpan.spanLinks?.toTraceSpanLinksList() ?? const [],
       status: TraceSpanStatus(
         code: _otelReadOnlySpan.status.toCode(),
-        message: _otelReadOnlySpan.statusDescription,
+        message: statusMessage,
       ),
     );
   }
@@ -111,9 +118,6 @@ class SpanRecord {
   }
 
   otel.Attributes get _spanAttributes {
-    // Dartastic currently marks span attribute reads as testing-only. Faro
-    // needs them here because this class serializes ended spans for export.
-    // ignore: invalid_use_of_visible_for_testing_member
-    return _otelReadOnlySpan.attributes;
+    return dartasticSpanAttributes(_otelReadOnlySpan);
   }
 }

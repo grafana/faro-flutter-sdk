@@ -8,14 +8,13 @@ import 'package:faro/src/util/constants.dart';
 /// Initializes the underlying OpenTelemetry SDK for Faro.
 ///
 /// The OpenTelemetry SDK is process-global; we only call [otel.OTel.initialize]
-/// once per process. On subsequent [initialize] calls (e.g. after
-/// [Faro.resetForTesting] in tests) we keep the existing OTel singleton and
-/// only rebuild the [FaroTracer] wrapper, which picks up updated session/app
-/// metadata at span-creation time via Faro's session-id provider.
+/// once per process. Repeated [initialize] calls keep the existing OTel
+/// singleton and only rebuild the [FaroTracer] wrapper, which picks up updated
+/// session/app metadata at span-creation time via Faro's session-id provider.
 ///
 /// Resource attributes (service.name, etc.) are captured at the first
-/// initialize call. Tests that need to assert against changed resource
-/// attributes can await [resetForTesting] before re-initializing.
+/// initialize call. Tests can await [resetForTesting] to shut down OTel and
+/// allow the next [initialize] call to build a fresh singleton.
 class FaroOtelBootstrap {
   static bool _initialized = false;
 

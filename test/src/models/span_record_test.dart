@@ -112,6 +112,44 @@ void main() {
       });
     });
 
+    group('getSpan:', () {
+      test('omits endTimeUnixNano for an unended span', () {
+        final span = tracer.startSpan('open');
+        final spanRecord = SpanRecord(otelReadOnlySpan: span);
+
+        final result = spanRecord.getSpan().toJson();
+
+        expect(result.containsKey('endTimeUnixNano'), isFalse);
+
+        span.end();
+      });
+
+      test('omits empty status description', () {
+        final span = makeEndedSpan('default-status');
+        final spanRecord = SpanRecord(otelReadOnlySpan: span);
+
+        final status = spanRecord.getSpan().toJson()['status'];
+
+        expect(status, isA<Map<String, dynamic>>());
+        expect((status as Map<String, dynamic>).containsKey('message'), false);
+      });
+
+      test('keeps non-empty status description', () {
+        final span = tracer.startSpan('error-status');
+        span.setStatus(otel.SpanStatusCode.Error, 'failed deliberately');
+        span.end();
+        final spanRecord = SpanRecord(otelReadOnlySpan: span);
+
+        final status = spanRecord.getSpan().toJson()['status'];
+
+        expect(status, isA<Map<String, dynamic>>());
+        expect(
+          (status as Map<String, dynamic>)['message'],
+          'failed deliberately',
+        );
+      });
+    });
+
     group('getFaroEventAttributes:', () {
       test('sanitizes attribute values by removing surrounding quotes', () {
         final span = makeEndedSpan(

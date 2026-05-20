@@ -79,7 +79,7 @@ class FaroWebViewBridge {
       'session.linked',
       attributes: {
         'session.child_id': sessionId,
-        if (appName != null) 'session.child_app': appName,
+        'session.child_app': ?appName,
       },
     );
   }

@@ -1,5 +1,6 @@
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:dartypod/dartypod.dart';
+import 'package:faro/src/tracing/dartastic_span_access.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
 import 'package:faro/src/user_actions/constants.dart';
 import 'package:faro/src/user_actions/user_action_handle.dart';
@@ -38,10 +39,9 @@ class FaroUserActionSpanProcessor implements otel.SpanProcessor {
 
   @override
   Future<void> onStart(otel.Span span, otel.Context? parentContext) async {
-    // ignore: invalid_use_of_visible_for_testing_member
-    final pendingMarkerValue = span.attributes.getBool(
-      UserActionConstants.pendingOperationKey,
-    );
+    final pendingMarkerValue = dartasticSpanAttributes(
+      span,
+    ).getBool(UserActionConstants.pendingOperationKey);
     if (_isPendingOperationMarkerEnabled(pendingMarkerValue)) {
       final operationId = span.spanContext.spanId.toString();
       _pendingOperationSpanIds.add(operationId);
