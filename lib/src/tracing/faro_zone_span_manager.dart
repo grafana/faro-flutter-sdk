@@ -149,9 +149,8 @@ class FaroZoneSpanManagerFactory {
   FaroZoneSpanManager create() {
     return FaroZoneSpanManager(
       parentSpanLookup: (key) => Zone.current[key],
-      zoneRunner:
-          <T>(callback, zoneValues) =>
-              runZoned(callback, zoneValues: zoneValues),
+      zoneRunner: <T>(callback, zoneValues) =>
+          runZoned(callback, zoneValues: zoneValues),
     );
   }
 }

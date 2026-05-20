@@ -133,12 +133,11 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
         navigator: navigator,
         route: MaterialPageRoute(
           settings: const RouteSettings(name: '/ua-fast-nav'),
-          builder:
-              (_) => const AutoPopPage(
-                title: 'Fast View Transition',
-                description: 'Generating push/pop view signals.',
-                autoPopDelay: Duration(milliseconds: 40),
-              ),
+          builder: (_) => const AutoPopPage(
+            title: 'Fast View Transition',
+            description: 'Generating push/pop view signals.',
+            autoPopDelay: Duration(milliseconds: 40),
+          ),
         ),
       );
     } finally {
@@ -166,12 +165,11 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
         navigator: navigator,
         route: MaterialPageRoute(
           settings: const RouteSettings(name: '/ua-mixed-nav'),
-          builder:
-              (_) => const AutoPopPage(
-                title: 'Mixed Timing Navigation',
-                description: 'Fast view change while HTTP is in-flight.',
-                autoPopDelay: Duration(milliseconds: 60),
-              ),
+          builder: (_) => const AutoPopPage(
+            title: 'Mixed Timing Navigation',
+            description: 'Fast view change while HTTP is in-flight.',
+            autoPopDelay: Duration(milliseconds: 60),
+          ),
         ),
       );
     } finally {
@@ -190,12 +188,11 @@ class _UserActionsPageViewModel extends Notifier<UserActionsPageUiState>
         routeFactory: () {
           return MaterialPageRoute(
             settings: const RouteSettings(name: '/ua-concurrent-nav'),
-            builder:
-                (_) => const AutoPopPage(
-                  title: 'Concurrent Guard Navigation',
-                  description: 'Small view pulse to mark activity.',
-                  autoPopDelay: Duration(milliseconds: 40),
-                ),
+            builder: (_) => const AutoPopPage(
+              title: 'Concurrent Guard Navigation',
+              description: 'Small view pulse to mark activity.',
+              autoPopDelay: Duration(milliseconds: 40),
+            ),
           );
         },
       );

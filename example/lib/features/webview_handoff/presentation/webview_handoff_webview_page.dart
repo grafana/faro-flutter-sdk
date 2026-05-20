@@ -41,39 +41,38 @@ class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
     _bridge = FaroWebViewBridge();
     final instrumentedUrl = _bridge.instrumentedUrl(widget.url);
 
-    _controller =
-        WebViewController()
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          // The React app calls window.HandoffBridge.postMessage(json) to
-          // send login results back to Flutter.
-          ..addJavaScriptChannel(
-            'HandoffBridge',
-            onMessageReceived: _handleBridgeMessage,
-          )
-          ..setNavigationDelegate(
-            NavigationDelegate(
-              onPageStarted: (url) {
-                if (!mounted) return;
-                setState(() {
-                  _status = 'Loading\u2026';
-                  _hasLoadError = false;
-                });
-              },
-              onPageFinished: (url) {
-                if (!mounted) return;
-                setState(() => _status = 'Loaded');
-              },
-              onWebResourceError: (error) {
-                if (!mounted) return;
-                if (error.isForMainFrame != true) return;
-                setState(() {
-                  _status = 'Failed to load';
-                  _hasLoadError = true;
-                });
-              },
-            ),
-          )
-          ..loadRequest(instrumentedUrl);
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // The React app calls window.HandoffBridge.postMessage(json) to
+      // send login results back to Flutter.
+      ..addJavaScriptChannel(
+        'HandoffBridge',
+        onMessageReceived: _handleBridgeMessage,
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            if (!mounted) return;
+            setState(() {
+              _status = 'Loading\u2026';
+              _hasLoadError = false;
+            });
+          },
+          onPageFinished: (url) {
+            if (!mounted) return;
+            setState(() => _status = 'Loaded');
+          },
+          onWebResourceError: (error) {
+            if (!mounted) return;
+            if (error.isForMainFrame != true) return;
+            setState(() {
+              _status = 'Failed to load';
+              _hasLoadError = true;
+            });
+          },
+        ),
+      )
+      ..loadRequest(instrumentedUrl);
   }
 
   @override
@@ -117,10 +116,9 @@ class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
             ),
           ),
           Expanded(
-            child:
-                _hasLoadError
-                    ? const _LoadErrorHint()
-                    : WebViewWidget(controller: _controller),
+            child: _hasLoadError
+                ? const _LoadErrorHint()
+                : WebViewWidget(controller: _controller),
           ),
         ],
       ),

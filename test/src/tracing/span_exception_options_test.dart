@@ -53,11 +53,10 @@ void main() {
           );
         }
 
-        final merged = SpanExceptionOptions(
-          exceptionSanitizer: globalSanitizer,
-        ).mergeWith(
-          SpanExceptionOptions(exceptionSanitizer: overrideSanitizer),
-        );
+        final merged = SpanExceptionOptions(exceptionSanitizer: globalSanitizer)
+            .mergeWith(
+              SpanExceptionOptions(exceptionSanitizer: overrideSanitizer),
+            );
 
         expect(merged.exceptionSanitizer, same(overrideSanitizer));
       });
@@ -93,17 +92,18 @@ void main() {
           );
         }
 
-        final merged = SpanExceptionOptions(
-          recordException: false,
-          setStatusOnException: false,
-          exceptionSanitizer: globalSanitizer,
-        ).mergeWith(
-          SpanExceptionOptions(
-            recordException: true,
-            setStatusOnException: true,
-            exceptionSanitizer: overrideSanitizer,
-          ),
-        );
+        final merged =
+            SpanExceptionOptions(
+              recordException: false,
+              setStatusOnException: false,
+              exceptionSanitizer: globalSanitizer,
+            ).mergeWith(
+              SpanExceptionOptions(
+                recordException: true,
+                setStatusOnException: true,
+                exceptionSanitizer: overrideSanitizer,
+              ),
+            );
 
         expect(merged.recordException, isTrue);
         expect(merged.setStatusOnException, isTrue);

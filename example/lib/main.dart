@@ -58,10 +58,9 @@ void main() async {
     if (qaConfig.hasRunId) 'qa_run_id': qaConfig.runId!,
   };
 
-  final initialUser =
-      qaConfig.hasInitialUser
-          ? qaConfig.initialUser
-          : userSettingsService.initialUser;
+  final initialUser = qaConfig.hasInitialUser
+      ? qaConfig.initialUser
+      : userSettingsService.initialUser;
 
   Faro().transports.add(
     OfflineTransport(maxCacheDuration: const Duration(days: 3)),

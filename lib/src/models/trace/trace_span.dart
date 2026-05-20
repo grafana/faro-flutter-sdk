@@ -24,7 +24,7 @@ class TraceSpan {
        _name = name,
        _kind = kind,
        _startTimeUnixNano = startTimeUnixNano.toString(),
-       _endTimeUnixNano = endTimeUnixNano.toString(),
+       _endTimeUnixNano = endTimeUnixNano?.toString(),
        _attributes = attributes,
        _status = status,
        _events = events,

@@ -103,10 +103,11 @@ class OfflineTransport extends BaseTransport {
       final failedLines = <String>[];
       final currentTime = DateTime.now().millisecondsSinceEpoch;
 
-      await for (final line in file
-          .openRead()
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())) {
+      await for (final line
+          in file
+              .openRead()
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
         if (line.trim().isEmpty) continue;
 
         final logJson = _parseJsonSafely(line);

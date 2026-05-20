@@ -1,11 +1,14 @@
+import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
+import 'package:faro/src/util/constants.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -47,9 +50,9 @@ void main() {
       registerFallbackValue(Meta());
     });
 
-    setUp(() {
+    setUp(() async {
       TestWidgetsFlutterBinding.ensureInitialized();
-      Faro.resetForTesting();
+      await Faro.resetForTesting();
 
       // Reset the BatchTransportFactory singleton state
       BatchTransportFactory().reset();
@@ -96,8 +99,8 @@ void main() {
       when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
     });
 
-    tearDown(() {
-      Faro.resetForTesting();
+    tearDown(() async {
+      await Faro.resetForTesting();
 
       // Clean up the singleton state after each test
       BatchTransportFactory().reset();
@@ -123,6 +126,60 @@ void main() {
       expect(app?.version, rumConfig.appVersion);
       expect(app?.environment, rumConfig.appEnv);
       verify(() => mockBatchTransport.addEvent(any())).called(1);
+    });
+
+    test('pre-init no-op tracing does not prevent later init', () async {
+      Faro().startSpanManual('preinit-span').end();
+
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        ),
+      );
+
+      final app = Faro().meta.app;
+      expect(app?.name, appName);
+      verify(() => mockBatchTransport.addEvent(any())).called(1);
+    });
+
+    test('resetForTesting clears OpenTelemetry global state', () async {
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        ),
+      );
+      expect(otel.OTelFactory.otelFactory, isNotNull);
+
+      await Faro.resetForTesting();
+
+      expect(otel.OTelFactory.otelFactory, isNull);
+    });
+
+    test('uses Faro instrumentation scope for spans', () async {
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        ),
+      );
+
+      final span = Faro().startSpanManual('scope-test') as InternalSpan;
+      addTearDown(span.end);
+
+      final instrumentationScope = span.otelSpan.instrumentationScope;
+      expect(instrumentationScope.name, FaroConstants.sdkName);
+      expect(instrumentationScope.version, FaroConstants.sdkVersion);
     });
 
     test('subsequent init calls are ignored', () async {

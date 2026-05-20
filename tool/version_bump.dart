@@ -98,7 +98,8 @@ Future<void> updateChangelog(String version) async {
     if (unreleasedIndex != -1) {
       final beforeUnreleased = content.substring(0, unreleasedIndex);
       final afterUnreleased = content.substring(unreleasedIndex);
-      final newEntry = '''
+      final newEntry =
+          '''
 $beforeUnreleased## [Unreleased]
 
 ## [$version] - $dateStr
@@ -107,7 +108,8 @@ $afterUnreleased''';
       await file.writeAsString(newEntry);
     } else {
       // Fallback: add at the beginning if no Unreleased section found
-      final newEntry = '''
+      final newEntry =
+          '''
 ## [Unreleased]
 
 ## [$version] - $dateStr

@@ -27,10 +27,9 @@ class WebViewHandoffPage extends ConsumerWidget {
           ],
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed:
-                uiState.isConfigured
-                    ? () => _openWebView(context, actions)
-                    : null,
+            onPressed: uiState.isConfigured
+                ? () => _openWebView(context, actions)
+                : null,
             icon: const Icon(Icons.open_in_new),
             label: const Text('Open React demo in WebView'),
           ),

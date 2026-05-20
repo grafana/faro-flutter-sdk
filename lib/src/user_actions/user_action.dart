@@ -161,7 +161,7 @@ class UserAction implements UserActionHandle {
         'userActionDuration': duration.toString(),
         'userActionTrigger': trigger,
         'userActionImportance': importance,
-        if (attributes != null) ...attributes!,
+        ...?attributes,
       },
     );
     event.action = UserActionContext(name: name, id: id);

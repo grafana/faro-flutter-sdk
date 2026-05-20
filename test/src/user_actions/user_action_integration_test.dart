@@ -35,9 +35,9 @@ void main() {
     await Future<void>.delayed(actionSettleDelay);
   }
 
-  setUp(() {
+  setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    Faro.resetForTesting();
+    await Faro.resetForTesting();
     BatchTransportFactory().reset();
 
     // Mock SharedPreferences
@@ -66,7 +66,7 @@ void main() {
 
   tearDown(() async {
     await completeActiveAction(source: 'test.teardown');
-    Faro.resetForTesting();
+    await Faro.resetForTesting();
     BatchTransportFactory().reset();
   });
 
@@ -367,8 +367,9 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
 
         // Find the user action event
-        final captured =
-            verify(() => mockTransport.send(captureAny())).captured;
+        final captured = verify(
+          () => mockTransport.send(captureAny()),
+        ).captured;
         expect(captured, isNotEmpty);
 
         var foundUserActionEvent = false;

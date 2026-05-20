@@ -17,22 +17,21 @@ class DemoLogSection extends StatelessWidget {
     return Expanded(
       child: Container(
         color: Colors.grey.shade100,
-        child:
-            entries.isEmpty
-                ? Center(
-                  child: Text(
-                    emptyMessage,
-                    style: const TextStyle(color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-                : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    return _DemoLogEntryRow(entry: entries[index]);
-                  },
+        child: entries.isEmpty
+            ? Center(
+                child: Text(
+                  emptyMessage,
+                  style: const TextStyle(color: Colors.grey),
+                  textAlign: TextAlign.center,
                 ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(8),
+                itemCount: entries.length,
+                itemBuilder: (context, index) {
+                  return _DemoLogEntryRow(entry: entries[index]);
+                },
+              ),
       ),
     );
   }
