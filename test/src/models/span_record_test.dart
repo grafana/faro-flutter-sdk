@@ -42,8 +42,9 @@ void main() {
   }) {
     final span = tracer.startSpan(
       name,
-      attributes:
-          attributes.isEmpty ? null : otel.OTel.attributesFromMap(attributes),
+      attributes: attributes.isEmpty
+          ? null
+          : otel.OTel.attributesFromMap(attributes),
     );
     span.end();
     return span;

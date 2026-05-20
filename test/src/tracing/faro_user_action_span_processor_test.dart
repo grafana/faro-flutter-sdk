@@ -81,8 +81,9 @@ void main() {
   otel.Span newSpan({Map<String, Object>? attributes}) {
     final span = tracer.startSpan(
       'test-span',
-      attributes:
-          attributes == null ? null : otel.OTel.attributesFromMap(attributes),
+      attributes: attributes == null
+          ? null
+          : otel.OTel.attributesFromMap(attributes),
     );
     return span;
   }

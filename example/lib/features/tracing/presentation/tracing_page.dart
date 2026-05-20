@@ -158,22 +158,21 @@ class _LogSection extends StatelessWidget {
     return Expanded(
       child: Container(
         color: Colors.grey.shade100,
-        child:
-            spanLog.isEmpty
-                ? const Center(
-                  child: Text(
-                    'Run a span operation to see the log',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-                : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: spanLog.length,
-                  itemBuilder: (context, index) {
-                    final entry = spanLog[index];
-                    return _LogEntryRow(entry: entry);
-                  },
+        child: spanLog.isEmpty
+            ? const Center(
+                child: Text(
+                  'Run a span operation to see the log',
+                  style: TextStyle(color: Colors.grey),
                 ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(8),
+                itemCount: spanLog.length,
+                itemBuilder: (context, index) {
+                  final entry = spanLog[index];
+                  return _LogEntryRow(entry: entry);
+                },
+              ),
       ),
     );
   }

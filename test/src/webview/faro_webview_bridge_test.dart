@@ -173,8 +173,9 @@ void main() {
           appName: 'MyWebApp',
         );
 
-        final captured =
-            verify(() => mockTransport.send(captureAny())).captured;
+        final captured = verify(
+          () => mockTransport.send(captureAny()),
+        ).captured;
         expect(captured, isNotEmpty);
 
         final payload = captured.last as Map<String, dynamic>;
@@ -198,8 +199,9 @@ void main() {
 
         bridge.linkChildSession(sessionId: 'web-session-456');
 
-        final captured =
-            verify(() => mockTransport.send(captureAny())).captured;
+        final captured = verify(
+          () => mockTransport.send(captureAny()),
+        ).captured;
         expect(captured, isNotEmpty);
 
         final payload = captured.last as Map<String, dynamic>;

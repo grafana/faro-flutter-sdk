@@ -120,10 +120,11 @@ class _SamplingSettingsPageViewModel
 // Providers
 // =============================================================================
 
-final _samplingSettingsPageViewModelProvider = NotifierProvider<
-  _SamplingSettingsPageViewModel,
-  SamplingSettingsPageUiState
->(_SamplingSettingsPageViewModel.new);
+final _samplingSettingsPageViewModelProvider =
+    NotifierProvider<
+      _SamplingSettingsPageViewModel,
+      SamplingSettingsPageUiState
+    >(_SamplingSettingsPageViewModel.new);
 
 /// Provider for the sampling settings page UI state.
 ///

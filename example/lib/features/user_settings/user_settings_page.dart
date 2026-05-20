@@ -116,10 +116,9 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
               _currentUserDisplay,
               style: TextStyle(
                 fontSize: 16,
-                color:
-                    _currentUserDisplay == 'Not set'
-                        ? Colors.grey
-                        : Colors.green,
+                color: _currentUserDisplay == 'Not set'
+                    ? Colors.grey
+                    : Colors.green,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -255,19 +254,18 @@ class _UserSettingsPageState extends State<UserSettingsPage> {
                 }
               },
               child: Column(
-                children:
-                    InitialUserSetting.values.map((setting) {
-                      return RadioListTile<InitialUserSetting>(
-                        title: Text(setting.displayName),
-                        subtitle: Text(
-                          setting.subtitle,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        value: setting,
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                      );
-                    }).toList(),
+                children: InitialUserSetting.values.map((setting) {
+                  return RadioListTile<InitialUserSetting>(
+                    title: Text(setting.displayName),
+                    subtitle: Text(
+                      setting.subtitle,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    value: setting,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  );
+                }).toList(),
               ),
             ),
             const SizedBox(height: 8),

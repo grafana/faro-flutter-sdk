@@ -12,8 +12,9 @@ class CustomTelemetryPage extends ConsumerWidget {
     final uiState = ref.watch(customTelemetryPageUiStateProvider);
     final actions = ref.watch(customTelemetryPageActionsProvider);
 
-    final dataCollectionColor =
-        uiState.isDataCollectionEnabled ? Colors.green : Colors.orange;
+    final dataCollectionColor = uiState.isDataCollectionEnabled
+        ? Colors.green
+        : Colors.orange;
 
     return Scaffold(
       appBar: AppBar(
@@ -108,14 +109,12 @@ class CustomTelemetryPage extends ConsumerWidget {
                       onPressed: actions.emitEvent,
                     ),
                     _TelemetryButton(
-                      label:
-                          uiState.isDataCollectionEnabled
-                              ? 'Disable Data Collection'
-                              : 'Enable Data Collection',
-                      icon:
-                          uiState.isDataCollectionEnabled
-                              ? Icons.toggle_on
-                              : Icons.toggle_off,
+                      label: uiState.isDataCollectionEnabled
+                          ? 'Disable Data Collection'
+                          : 'Enable Data Collection',
+                      icon: uiState.isDataCollectionEnabled
+                          ? Icons.toggle_on
+                          : Icons.toggle_off,
                       onPressed: actions.toggleDataCollection,
                     ),
                   ],

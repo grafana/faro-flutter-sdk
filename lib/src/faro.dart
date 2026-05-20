@@ -152,8 +152,8 @@ class Faro {
 
     _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
 
-    final attributesProvider =
-        await SessionAttributesProviderFactory().create();
+    final attributesProvider = await SessionAttributesProviderFactory()
+        .create();
     final customAttributes = optionsConfiguration.sessionAttributes ?? {};
     final defaultAttributes = await attributesProvider.getAttributes();
     // Merge custom attributes first, then default attributes
@@ -187,10 +187,9 @@ class Faro {
     );
 
     // Make sampling decision (once per session)
-    _isSampled =
-        SessionSamplingProviderFactory()
-            .create(sampling: optionsConfiguration.sampling, meta: meta)
-            .isSampled;
+    _isSampled = SessionSamplingProviderFactory()
+        .create(sampling: optionsConfiguration.sampling, meta: meta)
+        .isSampled;
 
     if (!_isSampled) {
       log('Faro: Session not sampled. Telemetry will be dropped.');
@@ -341,10 +340,9 @@ class Faro {
     'To clear, use setUser(FaroUser.cleared()).',
   )
   void setUserMeta({String? userId, String? userName, String? userEmail}) {
-    final user =
-        (userId == null && userName == null && userEmail == null)
-            ? const FaroUser.cleared()
-            : FaroUser(id: userId, username: userName, email: userEmail);
+    final user = (userId == null && userName == null && userEmail == null)
+        ? const FaroUser.cleared()
+        : FaroUser(id: userId, username: userName, email: userEmail);
     setUser(user);
   }
 
@@ -521,9 +519,9 @@ class Faro {
     ContextScope contextScope = ContextScope.callback,
     SpanExceptionOptions? exceptionOptions,
   }) async {
-    final effectiveOptions = (config?.spanExceptionOptions ??
-            SpanExceptionOptions.defaults)
-        .mergeWith(exceptionOptions);
+    final effectiveOptions =
+        (config?.spanExceptionOptions ?? SpanExceptionOptions.defaults)
+            .mergeWith(exceptionOptions);
     return _tracer.startSpan(
       name,
       body,

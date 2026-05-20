@@ -72,13 +72,12 @@ void main() {
         final exporter = FaroExporter(telemetryRouter: mockRouter);
         await exporter.export([span]);
 
-        final captured =
-            verify(
-              () => mockRouter.ingest(
-                captureAny(),
-                skipBuffer: any(named: 'skipBuffer'),
-              ),
-            ).captured;
+        final captured = verify(
+          () => mockRouter.ingest(
+            captureAny(),
+            skipBuffer: any(named: 'skipBuffer'),
+          ),
+        ).captured;
 
         expect(captured, hasLength(2));
 
@@ -110,13 +109,12 @@ void main() {
         final exporter = FaroExporter(telemetryRouter: mockRouter);
         await exporter.export([span]);
 
-        final captured =
-            verify(
-              () => mockRouter.ingest(
-                captureAny(),
-                skipBuffer: any(named: 'skipBuffer'),
-              ),
-            ).captured;
+        final captured = verify(
+          () => mockRouter.ingest(
+            captureAny(),
+            skipBuffer: any(named: 'skipBuffer'),
+          ),
+        ).captured;
 
         final eventItem = captured[0] as TelemetryItem;
         final event = eventItem.asEvent!;
@@ -131,13 +129,12 @@ void main() {
         final exporter = FaroExporter(telemetryRouter: mockRouter);
         await exporter.export([span]);
 
-        final captured =
-            verify(
-              () => mockRouter.ingest(
-                captureAny(),
-                skipBuffer: any(named: 'skipBuffer'),
-              ),
-            ).captured;
+        final captured = verify(
+          () => mockRouter.ingest(
+            captureAny(),
+            skipBuffer: any(named: 'skipBuffer'),
+          ),
+        ).captured;
 
         final eventItem = captured[0] as TelemetryItem;
         final event = eventItem.asEvent!;

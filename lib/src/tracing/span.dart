@@ -120,8 +120,9 @@ class InternalSpan implements Span {
 
   @override
   void addEvent(String message, {Map<String, Object> attributes = const {}}) {
-    final eventAttributes =
-        attributes.isEmpty ? null : otel.OTel.attributesFromMap(attributes);
+    final eventAttributes = attributes.isEmpty
+        ? null
+        : otel.OTel.attributesFromMap(attributes);
     _otelSpan.addEventNow(message, eventAttributes);
   }
 

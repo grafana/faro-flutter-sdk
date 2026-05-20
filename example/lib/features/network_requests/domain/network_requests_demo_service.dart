@@ -73,10 +73,12 @@ class NetworkRequestsDemoService {
       final response = await request();
       final isFailure = response.statusCode >= 400;
       final matchedExpectation = isFailure == expectedFailure;
-      final tone =
-          matchedExpectation ? DemoLogTone.success : DemoLogTone.warning;
-      final expectationLabel =
-          expectedFailure ? 'expected failure' : 'expected success';
+      final tone = matchedExpectation
+          ? DemoLogTone.success
+          : DemoLogTone.warning;
+      final expectationLabel = expectedFailure
+          ? 'expected failure'
+          : 'expected success';
 
       log(
         '$label -> status ${response.statusCode} ($expectationLabel)',

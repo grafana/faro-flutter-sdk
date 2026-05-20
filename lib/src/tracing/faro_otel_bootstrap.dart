@@ -30,8 +30,8 @@ class FaroOtelBootstrap {
 
     _resetApiOnlyFactoryIfNeeded();
 
-    final resourceAttrs =
-        DartOtelTracerResourcesFactory().getTracerResourceAttributes();
+    final resourceAttrs = DartOtelTracerResourcesFactory()
+        .getTracerResourceAttributes();
     final serviceName = resourceAttrs['service.name'] as String? ?? 'unknown';
     final serviceVersion =
         resourceAttrs['service.version'] as String? ?? 'unknown';

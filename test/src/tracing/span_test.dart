@@ -134,14 +134,13 @@ void main() {
       final apiSpan = tracer.startSpan(
         'test-span',
         kind: otel.SpanKind.client,
-        spanContext:
-            traceFlags == null
-                ? null
-                : otel.OTel.spanContext(
-                  traceId: otel.OTel.traceId(),
-                  spanId: otel.OTel.spanId(),
-                  traceFlags: traceFlags,
-                ),
+        spanContext: traceFlags == null
+            ? null
+            : otel.OTel.spanContext(
+                traceId: otel.OTel.traceId(),
+                spanId: otel.OTel.spanId(),
+                traceFlags: traceFlags,
+              ),
       );
       return SpanProvider().getSpan(apiSpan, otel.Context.current);
     }

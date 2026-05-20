@@ -34,11 +34,10 @@ Future<String?> getPreviousTag() async {
     return null;
   }
 
-  final tags =
-      (result.stdout as String)
-          .split('\n')
-          .where((t) => t.trim().isNotEmpty && t.startsWith('v'))
-          .toList();
+  final tags = (result.stdout as String)
+      .split('\n')
+      .where((t) => t.trim().isNotEmpty && t.startsWith('v'))
+      .toList();
 
   return tags.isNotEmpty ? tags.first : null;
 }
@@ -207,7 +206,8 @@ Future<String?> enrichWithAI(String changelog, String version) async {
       'messages': [
         {
           'role': 'system',
-          'content': '''
+          'content':
+              '''
 You are writing GitHub release notes for the Grafana Faro Flutter SDK (pub.dev package: faro), a mobile observability SDK for Flutter applications.
 
 Transform raw CHANGELOG content into polished, user-friendly GitHub release notes.

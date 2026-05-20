@@ -29,16 +29,14 @@ class SpanRecord {
 
   TraceSpan getSpan() {
     final parentSpanContext = _otelReadOnlySpan.parentSpanContext;
-    final parentSpanId =
-        parentSpanContext != null && parentSpanContext.isValid
-            ? parentSpanContext.spanId.toString()
-            : null;
+    final parentSpanId = parentSpanContext != null && parentSpanContext.isValid
+        ? parentSpanContext.spanId.toString()
+        : null;
     final endTime = _otelReadOnlySpan.endTime;
     final statusDescription = _otelReadOnlySpan.statusDescription;
-    final statusMessage =
-        statusDescription == null || statusDescription.isEmpty
-            ? null
-            : statusDescription;
+    final statusMessage = statusDescription == null || statusDescription.isEmpty
+        ? null
+        : statusDescription;
 
     return TraceSpan(
       traceId: _otelReadOnlySpan.spanContext.traceId.toString(),

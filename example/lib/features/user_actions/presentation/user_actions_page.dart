@@ -414,19 +414,18 @@ class _LogSection extends StatelessWidget {
     return Expanded(
       child: Container(
         color: Colors.grey.shade100,
-        child:
-            log.isEmpty
-                ? const Center(
-                  child: Text(
-                    'Run a scenario to see the action lifecycle log',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-                : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: log.length,
-                  itemBuilder: (_, index) => _LogEntryRow(entry: log[index]),
+        child: log.isEmpty
+            ? const Center(
+                child: Text(
+                  'Run a scenario to see the action lifecycle log',
+                  style: TextStyle(color: Colors.grey),
                 ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(8),
+                itemCount: log.length,
+                itemBuilder: (_, index) => _LogEntryRow(entry: log[index]),
+              ),
       ),
     );
   }
@@ -470,8 +469,9 @@ class _LogEntryRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 color: textColor,
-                fontWeight:
-                    entry.isHighlight ? FontWeight.bold : FontWeight.normal,
+                fontWeight: entry.isHighlight
+                    ? FontWeight.bold
+                    : FontWeight.normal,
                 fontFamily: 'monospace',
               ),
             ),

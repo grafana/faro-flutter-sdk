@@ -60,10 +60,9 @@ class FaroUser extends Equatable {
       id: json['id'] as String?,
       username: json['username'] as String?,
       email: json['email'] as String?,
-      attributes:
-          json['attributes'] != null
-              ? Map<String, String>.from(json['attributes'] as Map)
-              : null,
+      attributes: json['attributes'] != null
+          ? Map<String, String>.from(json['attributes'] as Map)
+          : null,
     );
   }
 
