@@ -1,0 +1,81 @@
+name: OSV-Scanner
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+  schedule:
+    - cron: '0 6 * * MON'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve-pub-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+
+      - name: Resolve SDK dependencies
+        run: flutter pub get
+
+      - name: Resolve example dependencies
+        working-directory: example
+        run: flutter pub get
+
+      - name: Upload resolved pub lockfiles
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: pub-lockfiles
+          path: |
+            pubspec.lock
+            example/pubspec.lock
+          if-no-files-found: error
+          retention-days: 1
+
+  scan-pr:
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    needs: resolve-pub-dependencies
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.3.8
+    with:
+      download-artifact: pub-lockfiles
+      scan-args: |-
+        --lockfile=pub:pubspec.lock
+        --lockfile=pub:example/pubspec.lock
+
+  scan-scheduled:
+    if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+    needs: resolve-pub-dependencies
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8
+    with:
+      download-artifact: pub-lockfiles
+      scan-args: |-
+        --lockfile=pub:pubspec.lock
+        --lockfile=pub:example/pubspec.lock
