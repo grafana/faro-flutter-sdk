@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CI**: Attest SLSA build provenance for the published pub.dev archive.
+  Inlined the `dart-lang/setup-dart` reusable publish workflow so we can
+  download the canonical archive pub.dev serves and attest those bytes via
+  `actions/attest-build-provenance`. Consumers can verify with
+  `gh attestation verify <tarball> --repo grafana/faro-flutter-sdk`.
+
 ## [0.16.0] - 2026-05-11
 
 ### Added

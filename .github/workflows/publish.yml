@@ -7,8 +7,94 @@ on:
 
 jobs:
   publish:
+    name: Publish to pub.dev
+    environment: pub.dev
+    runs-on: ubuntu-latest
     permissions:
-      id-token: write # Required for OIDC authentication
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
-    with:
-      environment: pub.dev
+      id-token: write # pub.dev OIDC + Sigstore signing for attest-build-provenance
+      attestations: write # publish to GitHub attestations API
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # The dart-lang/setup-dart action provisions the OIDC token that
+      # `dart pub publish` uses for pub.dev's trusted-publisher flow.
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@e51d8e571e22473a2ddebf0ef8a2123f0ab2c02c # v1.7.2
+
+      # The dart binary from a Flutter SDK can publish both Flutter and
+      # pure-Dart packages; matches what the dart-lang/setup-dart reusable
+      # workflow used before we inlined this job.
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Publish - dry run
+        run: dart pub publish --dry-run
+
+      - name: Publish to pub.dev
+        run: dart pub publish -f
+
+      # `dart pub publish` builds the archive in memory and uploads it; there
+      # is no stable local path we can attest. After pub.dev has processed
+      # the upload, download the canonical archive pub.dev serves and attest
+      # those bytes. Consumers who fetch the package via `pub` get byte-
+      # identical content and can verify the attestation with
+      # `gh attestation verify <tarball> --repo grafana/faro-flutter-sdk`.
+      - name: Read package metadata
+        id: pkg
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          name=$(awk '/^name:/ { print $2; exit }' pubspec.yaml | tr -d '\r')
+          version="${REF_NAME#v}"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch published archive from pub.dev
+        id: fetch
+        shell: bash
+        env:
+          NAME: ${{ steps.pkg.outputs.name }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          # pub.dev is eventually consistent — poll until the new version is
+          # queryable. Typical propagation is well under a minute.
+          api_url="https://pub.dev/api/packages/${NAME}/versions/${VERSION}"
+          archive_url=""
+          expected_sha=""
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            response=$(curl -fsSL "$api_url" || echo "")
+            archive_url=$(echo "$response" | jq -r '.archive_url // empty')
+            expected_sha=$(echo "$response" | jq -r '.archive_sha256 // empty')
+            if [ -n "$archive_url" ]; then
+              break
+            fi
+            echo "::notice::pub.dev has not surfaced ${NAME}@${VERSION} yet (attempt ${attempt}/12); sleeping 10s"
+            sleep 10
+          done
+          if [ -z "$archive_url" ]; then
+            echo "::error::pub.dev did not surface ${NAME}@${VERSION} within ~2 minutes; published but unattested"
+            exit 1
+          fi
+          curl -fsSL -o package.tar.gz "$archive_url"
+          actual_sha=$(sha256sum package.tar.gz | awk '{print $1}')
+          if [ "$expected_sha" != "$actual_sha" ]; then
+            echo "::error::sha256 mismatch: pub.dev reports ${expected_sha}, downloaded ${actual_sha}"
+            exit 1
+          fi
+          echo "tarball=package.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: Attest provenance for pub.dev archive
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: ${{ steps.fetch.outputs.tarball }}
