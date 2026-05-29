@@ -1,0 +1,34 @@
+name: "Setup Flutter"
+description: "Sets up the Flutter SDK version pinned in .fvmrc"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Read Flutter version from .fvmrc
+      id: fvm
+      shell: bash
+      run: |
+        flutter_version="$(jq -r '.flutter // empty' .fvmrc)"
+        if [ -z "$flutter_version" ]; then
+          echo "::error::Could not read Flutter version from .fvmrc"
+          exit 1
+        fi
+
+        tool_versions_flutter="$(awk '$1 == "flutter" {print $2}' .tool-versions)"
+        if [ -n "$tool_versions_flutter" ] && [ "$tool_versions_flutter" != "$flutter_version" ]; then
+          echo "::error::Flutter version mismatch: .fvmrc has $flutter_version but .tool-versions has $tool_versions_flutter"
+          exit 1
+        fi
+
+        echo "version=$flutter_version" >> "$GITHUB_OUTPUT"
+        echo "Using Flutter $flutter_version from .fvmrc"
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      with:
+        flutter-version: ${{ steps.fvm.outputs.version }}
+        channel: stable
+
+    - name: Flutter version check
+      shell: bash
+      run: flutter --version
