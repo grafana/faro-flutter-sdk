@@ -24,7 +24,7 @@ jobs:
       # The dart-lang/setup-dart action provisions the OIDC token that
       # `dart pub publish` uses for pub.dev's trusted-publisher flow.
       - name: Setup Dart SDK
-        uses: dart-lang/setup-dart@e51d8e571e22473a2ddebf0ef8a2123f0ab2c02c # v1.7.2
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
 
       # The dart binary from a Flutter SDK can publish both Flutter and
       # pure-Dart packages; matches what the dart-lang/setup-dart reusable
