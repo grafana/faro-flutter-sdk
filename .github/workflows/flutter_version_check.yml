@@ -1,0 +1,130 @@
+name: Check Flutter Version Updates
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Weekly on Monday at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-flutter-updates:
+    name: Check Flutter updates
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Read current Flutter version
+        id: current
+        run: |
+          current="$(jq -r '.flutter // empty' .fvmrc)"
+          if [ -z "$current" ]; then
+            echo "::error::Could not read Flutter version from .fvmrc"
+            exit 1
+          fi
+
+          tool_versions_flutter="$(awk '$1 == "flutter" {print $2}' .tool-versions)"
+          if [ "$tool_versions_flutter" != "$current" ]; then
+            echo "::error::Flutter version mismatch: .fvmrc has $current but .tool-versions has $tool_versions_flutter"
+            exit 1
+          fi
+
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+          echo "Current Flutter version: $current"
+
+      - name: Fetch latest eligible Flutter version
+        id: latest
+        env:
+          CURRENT_VERSION: ${{ steps.current.outputs.version }}
+        run: |
+          releases="$(curl -sf https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json)"
+          if [ -z "$releases" ]; then
+            echo "::error::Failed to fetch Flutter releases"
+            exit 1
+          fi
+
+          cooldown_cutoff="$(date -u -d "7 days ago" +%Y-%m-%dT%H:%M:%SZ)"
+          latest_stable="$(echo "$releases" | jq -r \
+            --arg cutoff "$cooldown_cutoff" \
+            --arg current "$CURRENT_VERSION" \
+            '($current | split(".") | map(tonumber)) as $cur
+             | [.releases[]
+                | select(.channel == "stable")
+                | select(.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
+                | select(.release_date <= $cutoff)
+                | select((.version | split(".") | map(tonumber)) > $cur)
+                | .version
+               ] | sort_by(split(".") | map(tonumber)) | last // empty')"
+
+          echo "version=$latest_stable" >> "$GITHUB_OUTPUT"
+          echo "cooldown_cutoff=$cooldown_cutoff" >> "$GITHUB_OUTPUT"
+          echo "Latest stable after cooldown: ${latest_stable:-none}"
+
+      - name: Create Flutter update PR
+        if: steps.latest.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_VERSION: ${{ steps.current.outputs.version }}
+          NEW_VERSION: ${{ steps.latest.outputs.version }}
+          COOLDOWN_CUTOFF: ${{ steps.latest.outputs.cooldown_cutoff }}
+        run: |
+          branch="chore/flutter-update-${NEW_VERSION}"
+
+          existing_pr="$(gh pr list --base main --head "$branch" --json number --jq '.[0].number // empty')"
+          if [ -n "$existing_pr" ]; then
+            echo "PR #$existing_pr already exists for $branch"
+            exit 0
+          fi
+
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Remote branch $branch already exists without an open PR; skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+
+          jq --arg version "$NEW_VERSION" '.flutter = $version' .fvmrc > .fvmrc.tmp
+          mv .fvmrc.tmp .fvmrc
+          sed -i "s/^flutter .*/flutter $NEW_VERSION/" .tool-versions
+
+          git add .fvmrc .tool-versions
+          git commit -m "chore: bump Flutter $CURRENT_VERSION -> $NEW_VERSION"
+          git push -u origin "$branch"
+
+          pr_url="$(gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore: bump Flutter to $NEW_VERSION" \
+            --body "## Summary
+
+          Updates the pinned Flutter SDK version used by CI:
+
+          - \`$CURRENT_VERSION\` -> \`$NEW_VERSION\`
+          - release was older than the 7-day cooldown cutoff: \`$COOLDOWN_CUTOFF\`
+
+          ## Review notes
+
+          - [Flutter $NEW_VERSION release](https://github.com/flutter/flutter/releases/tag/$NEW_VERSION)
+          - [Flutter release notes overview](https://docs.flutter.dev/release/release-notes)
+
+          ## Checklist
+
+          - [ ] CI passes
+          - [ ] Review Flutter release notes
+          - [ ] Confirm SDK constraints still match the new Flutter/Dart version
+
+          _Created automatically by the Flutter version-check workflow._")"
+
+          echo "Created $pr_url"
+          gh workflow run flutter_checks.yml --ref "$branch"
