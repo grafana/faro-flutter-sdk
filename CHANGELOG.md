@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Emit structured mobile metadata in Flutter SDK payloads:
+  `meta.device`, `meta.os`, `meta.app.installationId`, and
+  `exception.fatal`, while keeping legacy flat session attributes during
+  migration.
+
 ## [0.16.0] - 2026-05-11
 
 ### Added
