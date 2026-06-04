@@ -10,6 +10,8 @@ class DeviceInfo {
     required this.deviceModelName,
     required this.deviceBrand,
     required this.deviceIsPhysical,
+    this.deviceOsBuildId,
+    this.deviceType,
   });
 
   /// The Dart runtime version.
@@ -34,6 +36,9 @@ class DeviceInfo {
   /// - iOS: "iOS 17.0", "iPadOS 18.1"
   /// - Android: "Android 14 (SDK 34)"
   final String deviceOsDetail;
+
+  /// The operating system build identifier, when available.
+  final String? deviceOsBuildId;
 
   /// The device manufacturer.
   ///
@@ -62,4 +67,7 @@ class DeviceInfo {
 
   /// Whether the device is a physical device or an emulator/simulator.
   final bool deviceIsPhysical;
+
+  /// Device form factor, when known.
+  final String? deviceType;
 }

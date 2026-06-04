@@ -108,6 +108,9 @@ void main() {
 
     test('init called with no error', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({
+        'device_id': 'test-installation-id',
+      });
       final rumConfig = FaroConfig(
         appName: appName,
         appVersion: appVersion,
@@ -125,6 +128,19 @@ void main() {
       expect(app?.name, rumConfig.appName);
       expect(app?.version, rumConfig.appVersion);
       expect(app?.environment, rumConfig.appEnv);
+      expect(app?.installationId, 'test-installation-id');
+      expect(Faro().meta.device?.manufacturer, isNotNull);
+      expect(Faro().meta.device?.modelIdentifier, isNotNull);
+      expect(Faro().meta.device?.modelName, isNotNull);
+      expect(Faro().meta.device?.brand, isNotNull);
+      expect(Faro().meta.device?.isPhysical, isNotNull);
+      expect(Faro().meta.os?.name, isNotNull);
+      expect(Faro().meta.os?.version, isNotNull);
+      expect(Faro().meta.os?.detail, isNotNull);
+      expect(
+        Faro().meta.session?.attributes?['device_id'],
+        'test-installation-id',
+      );
       verify(() => mockBatchTransport.addEvent(any())).called(1);
     });
 
@@ -223,6 +239,26 @@ void main() {
       expect(Faro().meta.app?.version, appVersion);
     });
 
+    test('set App Meta data preserves installationId', () {
+      Faro().setAppMeta(
+        appName: appName,
+        appEnv: appEnv,
+        appVersion: appVersion,
+        namespace: appNamespace,
+        installationId: 'install-id',
+      );
+
+      Faro().setAppMeta(
+        appName: 'UpdatedApp',
+        appEnv: appEnv,
+        appVersion: appVersion,
+        namespace: appNamespace,
+      );
+
+      expect(Faro().meta.app?.name, 'UpdatedApp');
+      expect(Faro().meta.app?.installationId, 'install-id');
+    });
+
     test('set user meta data ', () async {
       await Faro().init(
         optionsConfiguration: FaroConfig(
@@ -302,7 +338,22 @@ void main() {
         value: flutterErrorDetails.exception.toString(),
         stacktrace: flutterErrorDetails.stack,
       );
-      verify(() => mockBatchTransport.addExceptions(any())).called(1);
+      final capturedException =
+          verify(
+                () => mockBatchTransport.addExceptions(captureAny()),
+              ).captured.single
+              as FaroException;
+      expect(capturedException.fatal, isFalse);
+    });
+
+    test('send fatal Error Logs', () {
+      Faro().pushError(type: 'crash', value: 'Native crash', fatal: true);
+      final capturedException =
+          verify(
+                () => mockBatchTransport.addExceptions(captureAny()),
+              ).captured.single
+              as FaroException;
+      expect(capturedException.fatal, isTrue);
     });
 
     test('send custom measurement', () {
