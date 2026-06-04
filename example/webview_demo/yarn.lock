@@ -255,7 +255,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@eslint/js@npm:^10.0.0":
+"@eslint/js@npm:10.0.1":
   version: 10.0.1
   resolution: "@eslint/js@npm:10.0.1"
   peerDependencies:
@@ -872,7 +872,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vitejs/plugin-react@npm:^6.0.0":
+"@vitejs/plugin-react@npm:6.0.1":
   version: 6.0.1
   resolution: "@vitejs/plugin-react@npm:6.0.1"
   dependencies:
@@ -1126,7 +1126,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint@npm:^10.0.0":
+"eslint@npm:10.3.0":
   version: 10.3.0
   resolution: "eslint@npm:10.3.0"
   dependencies:
@@ -1325,7 +1325,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globals@npm:^17.0.0":
+"globals@npm:17.6.0":
   version: 17.6.0
   resolution: "globals@npm:17.6.0"
   checksum: 10c0/cf94fb4329cc5c68cf81018fd68324f413181ee169f0235b0b33b82bc93fe7825a21beea951f83a80e8e4bbdad9c0c80515a145b5fd4b5cb52f2a80db899a93f
@@ -2045,7 +2045,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:^8.0.0":
+"vite@npm:8.0.12":
   version: 8.0.12
   resolution: "vite@npm:8.0.12"
   dependencies:
@@ -2113,20 +2113,20 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "webview_demo@workspace:."
   dependencies:
-    "@eslint/js": "npm:^10.0.0"
+    "@eslint/js": "npm:10.0.1"
     "@grafana/faro-web-sdk": "npm:^2.2.4"
     "@grafana/faro-web-tracing": "npm:^2.2.4"
     "@opentelemetry/api": "npm:^1.9.0"
     "@types/react": "npm:19.2.14"
     "@types/react-dom": "npm:19.2.3"
-    "@vitejs/plugin-react": "npm:^6.0.0"
-    eslint: "npm:^10.0.0"
+    "@vitejs/plugin-react": "npm:6.0.1"
+    eslint: "npm:10.3.0"
     eslint-plugin-react-hooks: "npm:7.1.1"
     eslint-plugin-react-refresh: "npm:0.5.2"
-    globals: "npm:^17.0.0"
+    globals: "npm:17.6.0"
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
-    vite: "npm:^8.0.0"
+    vite: "npm:8.0.12"
   languageName: unknown
   linkType: soft
 
