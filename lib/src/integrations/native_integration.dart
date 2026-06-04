@@ -147,6 +147,7 @@ class NativeIntegration {
               type: 'flutter_error',
               value: 'ANR (Application Not Responding)',
               context: {'stacktrace': anrJson['stacktrace']},
+              fatal: true,
             );
           }
         } catch (_) {}

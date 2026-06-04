@@ -23,11 +23,13 @@ class DeviceInfoProvider {
     var deviceOs = _platformInfoProvider.operatingSystem;
     var deviceOsVersion = _platformInfoProvider.operatingSystemVersion;
     var deviceOsDetail = 'unknown';
+    String? deviceOsBuildId;
     var deviceManufacturer = 'unknown';
     var deviceModel = 'unknown';
     var deviceModelName = 'unknown';
     var deviceBrand = 'unknown';
     var deviceIsPhysical = true;
+    String? deviceType;
 
     if (_platformInfoProvider.isAndroid) {
       final androidInfo = await _deviceInfoPlugin.androidInfo;
@@ -36,6 +38,7 @@ class DeviceInfoProvider {
 
       deviceOs = 'Android';
       deviceOsVersion = release;
+      deviceOsBuildId = androidInfo.id;
       deviceOsDetail = 'Android $release (SDK $sdkInt)';
       deviceManufacturer = androidInfo.manufacturer;
       deviceModel = androidInfo.model;
@@ -58,6 +61,9 @@ class DeviceInfoProvider {
       deviceModelName = iosInfo.modelName;
       deviceBrand = iosInfo.model;
       deviceIsPhysical = iosInfo.isPhysicalDevice;
+      deviceType = iosInfo.model.toLowerCase().contains('ipad')
+          ? 'tablet'
+          : 'mobile';
     }
 
     final deviceInfo = DeviceInfo(
@@ -70,6 +76,8 @@ class DeviceInfoProvider {
       deviceModelName: deviceModelName,
       deviceBrand: deviceBrand,
       deviceIsPhysical: deviceIsPhysical,
+      deviceOsBuildId: deviceOsBuildId,
+      deviceType: deviceType,
     );
     _deviceInfo = deviceInfo;
     return deviceInfo;

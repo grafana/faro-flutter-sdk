@@ -31,12 +31,19 @@ class StackFrames {
 
 class FaroException {
   /// Create a FaroException with specified type, value, and optional stacktrace and context
-  FaroException(this.type, this.value, this.stacktrace, {this.context});
+  FaroException(
+    this.type,
+    this.value,
+    this.stacktrace, {
+    this.context,
+    this.fatal = false,
+  });
 
   FaroException.fromJson(dynamic json) {
     type = json['type'];
     value = json['value'];
     timestamp = json['timestamp'];
+    fatal = json['fatal'] == true;
 
     // Safely handle stacktrace - maintain as Map<String, dynamic>
     if (json['stacktrace'] != null && json['stacktrace'] is Map) {
@@ -101,6 +108,7 @@ class FaroException {
   Map<String, dynamic>? stacktrace;
   String trace = '';
   Map<String, String>? context;
+  bool fatal = false;
   UserActionContext? action;
   String timestamp = DateTime.now().toUtc().toIso8601String();
 
@@ -110,6 +118,7 @@ class FaroException {
     map['type'] = type;
     map['value'] = value;
     map['timestamp'] = timestamp;
+    map['fatal'] = fatal;
     if (stacktrace != null) {
       map['stacktrace'] = stacktrace;
     }

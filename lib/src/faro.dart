@@ -155,10 +155,16 @@ class Faro {
     final attributesProvider = await SessionAttributesProviderFactory()
         .create();
     final customAttributes = optionsConfiguration.sessionAttributes ?? {};
-    final defaultAttributes = await attributesProvider.getAttributes();
+    final deviceInfo = await attributesProvider.getDeviceInfo();
+    final deviceId = await attributesProvider.getDeviceId();
+    final defaultAttributes = await attributesProvider.getAttributes(
+      deviceId: deviceId,
+      deviceInfo: deviceInfo,
+    );
     // Merge custom attributes first, then default attributes
     // Default attributes take precedence if there are conflicts
     meta.session?.attributes = {...customAttributes, ...defaultAttributes};
+    _setDeviceAndOsMeta(deviceInfo);
 
     _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
@@ -184,6 +190,7 @@ class Faro {
       appEnv: optionsConfiguration.appEnv,
       appVersion: appVersion,
       namespace: optionsConfiguration.namespace ?? '',
+      installationId: '$deviceId',
     );
 
     // Make sampling decision (once per session)
@@ -268,18 +275,40 @@ class Faro {
     required String appEnv,
     required String appVersion,
     required String? namespace,
+    String? installationId,
   }) {
     final appMeta = App(
       name: appName,
       environment: appEnv,
       version: appVersion,
       namespace: namespace,
+      installationId: installationId ?? _instance.meta.app?.installationId,
     );
     _instance.meta = Meta.fromJson({
       ..._instance.meta.toJson(),
       'app': appMeta.toJson(),
     });
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
+  }
+
+  void _setDeviceAndOsMeta(DeviceInfo deviceInfo) {
+    _instance.meta = Meta.fromJson({
+      ..._instance.meta.toJson(),
+      'device': Device(
+        manufacturer: deviceInfo.deviceManufacturer,
+        modelIdentifier: deviceInfo.deviceModel,
+        modelName: deviceInfo.deviceModelName,
+        brand: deviceInfo.deviceBrand,
+        isPhysical: deviceInfo.deviceIsPhysical,
+        type: deviceInfo.deviceType,
+      ).toJson(),
+      'os': Os(
+        name: deviceInfo.deviceOs,
+        version: deviceInfo.deviceOsVersion,
+        buildId: deviceInfo.deviceOsBuildId,
+        detail: deviceInfo.deviceOsDetail,
+      ).toJson(),
+    });
   }
 
   void _tearDownForReset() {
@@ -410,6 +439,7 @@ class Faro {
     required String value,
     StackTrace? stacktrace,
     Map<String, String>? context,
+    bool fatal = false,
   }) {
     var parsedStackTrace = <String, dynamic>{};
     if (stacktrace != null) {
@@ -421,6 +451,7 @@ class Faro {
       value,
       parsedStackTrace,
       context: context,
+      fatal: fatal,
     );
     _telemetryRouter.ingest(TelemetryItem.fromException(faroException));
   }
@@ -807,6 +838,7 @@ class Faro {
             _instance.pushError(
               type: 'crash',
               value: '$reason , status: $status',
+              fatal: true,
               context: {
                 'description': description,
                 'stacktrace': stacktrace,

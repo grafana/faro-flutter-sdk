@@ -63,6 +63,7 @@ void main() {
       when(
         () => mockAndroidDeviceInfo.version,
       ).thenReturn(mockAndroidBuildVersion);
+      when(() => mockAndroidDeviceInfo.id).thenReturn('RQ3A');
       when(() => mockAndroidDeviceInfo.manufacturer).thenReturn('Google');
       when(() => mockAndroidDeviceInfo.model).thenReturn('Pixel 4');
       when(() => mockAndroidDeviceInfo.brand).thenReturn('Google');
@@ -73,12 +74,14 @@ void main() {
       expect(deviceInfo.dartVersion, 'Some-dart-version');
       expect(deviceInfo.deviceOs, 'Android');
       expect(deviceInfo.deviceOsVersion, '11');
+      expect(deviceInfo.deviceOsBuildId, 'RQ3A');
       expect(deviceInfo.deviceOsDetail, 'Android 11 (SDK 30)');
       expect(deviceInfo.deviceManufacturer, 'Google');
       expect(deviceInfo.deviceModel, 'Pixel 4');
       expect(deviceInfo.deviceModelName, 'Pixel 4');
       expect(deviceInfo.deviceBrand, 'Google');
       expect(deviceInfo.deviceIsPhysical, true);
+      expect(deviceInfo.deviceType, isNull);
     });
 
     test('should return correct device info for iOS', () async {
@@ -101,13 +104,37 @@ void main() {
       expect(deviceInfo.dartVersion, 'Some-dart-version');
       expect(deviceInfo.deviceOs, 'iOS');
       expect(deviceInfo.deviceOsVersion, '14.4');
+      expect(deviceInfo.deviceOsBuildId, isNull);
       expect(deviceInfo.deviceOsDetail, 'iOS 14.4');
       expect(deviceInfo.deviceManufacturer, 'apple');
       expect(deviceInfo.deviceModel, 'iPhone12,1');
       expect(deviceInfo.deviceModelName, 'iPhone 11');
       expect(deviceInfo.deviceBrand, 'iPhone');
       expect(deviceInfo.deviceIsPhysical, true);
+      expect(deviceInfo.deviceType, 'mobile');
     });
+
+    for (final model in ['iPad', 'iPad Simulator']) {
+      test('should classify $model as tablet', () async {
+        when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
+        when(() => mockPlatformInfoProvider.isIOS).thenReturn(true);
+
+        when(() => mockIosDeviceInfo.systemName).thenReturn('iOS');
+        when(() => mockIosDeviceInfo.systemVersion).thenReturn('18.1');
+
+        final mockIosUtsname = MockIosUtsname();
+        when(() => mockIosUtsname.machine).thenReturn('iPad14,3');
+
+        when(() => mockIosDeviceInfo.utsname).thenReturn(mockIosUtsname);
+        when(() => mockIosDeviceInfo.model).thenReturn(model);
+        when(() => mockIosDeviceInfo.modelName).thenReturn('iPad Pro');
+        when(() => mockIosDeviceInfo.isPhysicalDevice).thenReturn(true);
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceType, 'tablet');
+      });
+    }
 
     test(
       'should return correct device info when not iOS and not Android',
@@ -120,12 +147,14 @@ void main() {
         expect(deviceInfo.dartVersion, 'Some-dart-version');
         expect(deviceInfo.deviceOs, 'Some-OS');
         expect(deviceInfo.deviceOsVersion, 'Some-OS-version');
+        expect(deviceInfo.deviceOsBuildId, isNull);
         expect(deviceInfo.deviceOsDetail, 'unknown');
         expect(deviceInfo.deviceManufacturer, 'unknown');
         expect(deviceInfo.deviceModel, 'unknown');
         expect(deviceInfo.deviceModelName, 'unknown');
         expect(deviceInfo.deviceBrand, 'unknown');
         expect(deviceInfo.deviceIsPhysical, true);
+        expect(deviceInfo.deviceType, isNull);
       },
     );
   });

@@ -20,7 +20,20 @@ void main() {
       expect(exception.stacktrace, isA<Map<String, dynamic>>());
       expect(exception.context, isA<Map<String, String>>());
       expect(exception.context!['key'], equals('value'));
+      expect(exception.fatal, isFalse);
       expect(exception.timestamp, isNotNull);
+    });
+
+    test('should create a fatal FaroException', () {
+      final exception = FaroException(
+        'crash',
+        'App crashed',
+        null,
+        fatal: true,
+      );
+
+      expect(exception.fatal, isTrue);
+      expect(exception.toJson()['fatal'], isTrue);
     });
 
     test('should create a FaroException with null stacktrace', () {
@@ -57,6 +70,7 @@ void main() {
         'value': 'Error message',
         'stacktrace': {'frames': '[]'},
         'timestamp': '2023-01-01T12:00:00.000Z',
+        'fatal': true,
         'context': {'key': 'value'},
       };
 
@@ -67,6 +81,7 @@ void main() {
       expect(exception.stacktrace, isA<Map<String, dynamic>>());
       expect(exception.context, isA<Map<String, String>>());
       expect(exception.context!['key'], equals('value'));
+      expect(exception.fatal, isTrue);
       expect(exception.timestamp, equals('2023-01-01T12:00:00.000Z'));
     });
 
@@ -211,6 +226,7 @@ void main() {
 
       expect(json['type'], equals('error_type'));
       expect(json['value'], equals('Error message'));
+      expect(json['fatal'], isFalse);
       expect(json['stacktrace'], isA<Map<String, dynamic>>());
       expect(json['context'], isA<Map<String, String>>());
       expect(encoded, isNotNull);
