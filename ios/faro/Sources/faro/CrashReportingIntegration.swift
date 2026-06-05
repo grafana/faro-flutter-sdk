@@ -113,6 +113,7 @@ internal struct RumExceptionFormat{
     let value: String?
     let stacktrace: Dictionary<String,Any>
     let timestamp: String
+    let fatal: Bool
 //    let context: Dictionary<String, String>?
     
     var jsonAbbreviation : [String: Any] {
@@ -121,14 +122,16 @@ internal struct RumExceptionFormat{
             "value": value ?? "",
             "stacktrace": stacktrace,
             "timestamp": timestamp,
+            "fatal": fatal,
 //            "context": context ?? ""
         ]
     }
-    init(type: String?, value: String?, stacktrace: Dictionary<String, Any>, timestamp: String) {
+    init(type: String?, value: String?, stacktrace: Dictionary<String, Any>, timestamp: String, fatal: Bool = false) {
         self.type = type
         self.value = value
         self.stacktrace = stacktrace
         self.timestamp = timestamp
+        self.fatal = fatal
 //        self.context = context
     }
     
@@ -244,7 +247,8 @@ internal struct CrashReportExporter{
         dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
 
         return (RumExceptionFormat(type: formattedType(for: crashReport), value: formattedValue(for: crashReport), stacktrace: ["frames":formattedStack(for: crashReport)],
-                           timestamp: dateFormatter.string(from: crashReport.systemInfo?.timestamp ?? Date())
+                           timestamp: dateFormatter.string(from: crashReport.systemInfo?.timestamp ?? Date()),
+                           fatal: true
                            // TODO: add context: binaryImages, ThreadInfo,contextData, Meta,truncation
                            //                           context: [
                            //                            "binaryImages": "",
