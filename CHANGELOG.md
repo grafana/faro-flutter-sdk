@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `meta.device`, `meta.os`, `meta.app.installationId`, and
   `exception.fatal`, while keeping legacy flat session attributes during
   migration.
+  The duplicated flat `device_*` session attributes are kept for compatibility
+  and can be removed after collector and plugin query parity is confirmed.
 
 ## [0.16.0] - 2026-05-11
 
