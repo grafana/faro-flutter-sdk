@@ -155,12 +155,10 @@ class Faro {
     final attributesProvider = await SessionAttributesProviderFactory()
         .create();
     final customAttributes = optionsConfiguration.sessionAttributes ?? {};
-    final deviceInfo = await attributesProvider.getDeviceInfo();
-    final deviceId = await attributesProvider.getDeviceId();
-    final defaultAttributes = await attributesProvider.getAttributes(
-      deviceId: deviceId,
-      deviceInfo: deviceInfo,
-    );
+    final collectedAttributes = await attributesProvider.collectAttributes();
+    final installationId = collectedAttributes.installationId;
+    final deviceInfo = collectedAttributes.deviceInfo;
+    final defaultAttributes = collectedAttributes.attributes;
     // Merge custom attributes first, then default attributes
     // Default attributes take precedence if there are conflicts
     meta.session?.attributes = {...customAttributes, ...defaultAttributes};
@@ -190,7 +188,7 @@ class Faro {
       appEnv: optionsConfiguration.appEnv,
       appVersion: appVersion,
       namespace: optionsConfiguration.namespace ?? '',
-      installationId: '$deviceId',
+      installationId: '$installationId',
     );
 
     // Make sampling decision (once per session)

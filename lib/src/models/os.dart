@@ -8,9 +8,24 @@ class Os {
     detail = json['detail'];
   }
 
+  /// Operating system name.
+  ///
+  /// Examples: "Android", "iOS", "iPadOS".
   String? name;
+
+  /// Operating system version.
+  ///
+  /// Examples: "17", "18.1".
   String? version;
+
+  /// Operating system build identifier, when available.
+  ///
+  /// Example: Android build ID like "CP21.260330.005".
   String? buildId;
+
+  /// Human-readable operating system detail.
+  ///
+  /// Examples: "Android 17 (SDK 36)", "iOS 18.1".
   String? detail;
 
   Map<String, dynamic> toJson() {

@@ -21,14 +21,25 @@ class SessionAttributesProvider {
     return _deviceInfoProvider.getDeviceInfo();
   }
 
-  Future<Map<String, Object>> getAttributes({
-    DeviceId? deviceId,
-    DeviceInfo? deviceInfo,
-  }) async {
-    deviceId ??= await getDeviceId();
-    deviceInfo ??= await getDeviceInfo();
+  Future<CollectedSessionAttributes> collectAttributes() async {
+    final installationId = await getDeviceId();
+    final deviceInfo = await getDeviceInfo();
 
-    final attributes = <String, Object>{
+    return CollectedSessionAttributes(
+      installationId: installationId,
+      deviceInfo: deviceInfo,
+      attributes: _attributesFor(
+        installationId: installationId,
+        deviceInfo: deviceInfo,
+      ),
+    );
+  }
+
+  Map<String, Object> _attributesFor({
+    required DeviceId installationId,
+    required DeviceInfo deviceInfo,
+  }) {
+    return <String, Object>{
       'dart_version': deviceInfo.dartVersion,
       'device_os': deviceInfo.deviceOs,
       'device_os_version': deviceInfo.deviceOsVersion,
@@ -38,11 +49,22 @@ class SessionAttributesProvider {
       'device_model_name': deviceInfo.deviceModelName,
       'device_brand': deviceInfo.deviceBrand,
       'device_is_physical': deviceInfo.deviceIsPhysical,
-      'device_id': '$deviceId',
+      // Keep the legacy flat key during the structured meta migration.
+      'device_id': '$installationId',
     };
-
-    return attributes;
   }
+}
+
+class CollectedSessionAttributes {
+  CollectedSessionAttributes({
+    required this.installationId,
+    required this.deviceInfo,
+    required this.attributes,
+  });
+
+  final DeviceId installationId;
+  final DeviceInfo deviceInfo;
+  final Map<String, Object> attributes;
 }
 
 class SessionAttributesProviderFactory {

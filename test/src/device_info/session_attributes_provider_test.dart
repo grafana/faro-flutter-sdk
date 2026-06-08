@@ -44,9 +44,11 @@ void main() {
         () => mockDeviceIdProvider.getDeviceId(),
       ).thenAnswer((_) async => DeviceId('device-id'));
 
-      final attributes = await sut.getAttributes();
+      final collectedAttributes = await sut.collectAttributes();
 
-      expect(attributes, {
+      expect('${collectedAttributes.installationId}', 'device-id');
+      expect(collectedAttributes.deviceInfo.deviceModel, 'Some-model');
+      expect(collectedAttributes.attributes, {
         'dart_version': 'Some-dart-version',
         'device_os': 'Some-OS',
         'device_os_version': 'Some-OS-version',

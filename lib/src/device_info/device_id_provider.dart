@@ -9,6 +9,7 @@ class DeviceIdProvider {
   }) : _sharedPreferences = sharedPreferences,
        _uuidProvider = uuidProvider;
 
+  // Preserve the existing storage key so installation IDs survive SDK upgrades.
   final String _deviceIdPrefsKey = 'device_id';
 
   final SharedPreferences _sharedPreferences;
