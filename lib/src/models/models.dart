@@ -1,5 +1,6 @@
 export './app.dart';
 export './browser.dart';
+export './device.dart';
 export './device_id.dart';
 export './device_info.dart';
 export './event.dart';
@@ -9,6 +10,7 @@ export './log.dart';
 export './log_level.dart';
 export './measurement.dart';
 export './meta.dart';
+export './os.dart';
 export './page.dart';
 export './payload.dart';
 export './sdk.dart';
