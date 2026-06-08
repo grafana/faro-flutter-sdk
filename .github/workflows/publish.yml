@@ -34,6 +34,26 @@ jobs:
         with:
           channel: stable
 
+      - name: Read package metadata
+        id: pkg
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          name=$(awk '/^name:/ { print $2; exit }' pubspec.yaml | tr -d '\r')
+          pubspec_version=$(awk '/^version:/ { print $2; exit }' pubspec.yaml | tr -d '\r')
+          tag_version="${REF_NAME#v}"
+          if [ -z "$name" ] || [ -z "$pubspec_version" ]; then
+            echo "::error::Could not read package name or version from pubspec.yaml"
+            exit 1
+          fi
+          if [ "$tag_version" != "$pubspec_version" ]; then
+            echo "::error::Tag version ${tag_version} does not match pubspec.yaml version ${pubspec_version}"
+            exit 1
+          fi
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "version=${pubspec_version}" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         run: dart pub get
 
@@ -49,17 +69,6 @@ jobs:
       # those bytes. Consumers who fetch the package via `pub` get byte-
       # identical content and can verify the attestation with
       # `gh attestation verify <tarball> --repo grafana/faro-flutter-sdk`.
-      - name: Read package metadata
-        id: pkg
-        shell: bash
-        env:
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          name=$(awk '/^name:/ { print $2; exit }' pubspec.yaml | tr -d '\r')
-          version="${REF_NAME#v}"
-          echo "name=${name}" >> "$GITHUB_OUTPUT"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-
       - name: Fetch published archive from pub.dev
         id: fetch
         shell: bash
