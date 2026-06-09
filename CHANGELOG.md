@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parsed into structured frames (e.g. sanitized, obfuscated, or free-form
   lines) are now kept as raw text in the frame's `function` field.
   ([#102](https://github.com/grafana/faro-flutter-sdk/issues/102))
+- iOS native crash reports no longer lose all stack frames: a broken
+  work-in-progress sanitization step in `CrashReportingIntegration`
+  unconditionally replaced non-empty stack traces with an empty array
+  before export. The dead sanitization has been removed so frames flow
+  through to the exported crash payload. Load/parse failures of pending
+  crash reports are now logged with a clearer message before the report
+  is purged. ([#220](https://github.com/grafana/faro-flutter-sdk/issues/220))
 
 ## [0.16.0] - 2026-05-11
 
