@@ -1,5 +1,7 @@
 import 'package:faro/src/device_info/device_id_provider.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
+import 'package:faro/src/models/device_id.dart';
+import 'package:faro/src/models/device_info.dart';
 
 class SessionAttributesProvider {
   SessionAttributesProvider({
@@ -11,9 +13,20 @@ class SessionAttributesProvider {
   final DeviceIdProvider _deviceIdProvider;
   final DeviceInfoProvider _deviceInfoProvider;
 
-  Future<Map<String, Object>> getAttributes() async {
-    final deviceId = await _deviceIdProvider.getDeviceId();
-    final deviceInfo = await _deviceInfoProvider.getDeviceInfo();
+  Future<DeviceId> getDeviceId() {
+    return _deviceIdProvider.getDeviceId();
+  }
+
+  Future<DeviceInfo> getDeviceInfo() {
+    return _deviceInfoProvider.getDeviceInfo();
+  }
+
+  Future<Map<String, Object>> getAttributes({
+    DeviceId? deviceId,
+    DeviceInfo? deviceInfo,
+  }) async {
+    deviceId ??= await getDeviceId();
+    deviceInfo ??= await getDeviceInfo();
 
     final attributes = <String, Object>{
       'dart_version': deviceInfo.dartVersion,

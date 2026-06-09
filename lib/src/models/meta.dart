@@ -1,6 +1,8 @@
 import 'package:faro/src/models/app.dart';
 import 'package:faro/src/models/browser.dart';
+import 'package:faro/src/models/device.dart';
 import 'package:faro/src/models/faro_user.dart';
+import 'package:faro/src/models/os.dart';
 import 'package:faro/src/models/page.dart';
 import 'package:faro/src/models/sdk.dart';
 import 'package:faro/src/models/session.dart';
@@ -15,6 +17,8 @@ class Meta {
     this.browser,
     this.page,
     this.user,
+    this.device,
+    this.os,
   });
 
   Meta.fromJson(dynamic json) {
@@ -29,6 +33,8 @@ class Meta {
         : null;
     page = json['page'] != null ? Page.fromJson(json['page']) : null;
     user = json['user'] != null ? FaroUser.fromJson(json['user']) : null;
+    device = json['device'] != null ? Device.fromJson(json['device']) : null;
+    os = json['os'] != null ? Os.fromJson(json['os']) : null;
   }
   Session? session;
   Sdk? sdk;
@@ -37,6 +43,8 @@ class Meta {
   Browser? browser;
   Page? page;
   FaroUser? user;
+  Device? device;
+  Os? os;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
@@ -60,6 +68,12 @@ class Meta {
     }
     if (user != null) {
       map['user'] = user!.toJson();
+    }
+    if (device != null) {
+      map['device'] = device!.toJson();
+    }
+    if (os != null) {
+      map['os'] = os!.toJson();
     }
     return map;
   }
@@ -88,6 +102,12 @@ class Meta {
     }
     if (user != null) {
       map['user'] = user!.toJson();
+    }
+    if (device != null) {
+      map['device'] = device!.toJson();
+    }
+    if (os != null) {
+      map['os'] = os!.toJson();
     }
     return map;
   }
