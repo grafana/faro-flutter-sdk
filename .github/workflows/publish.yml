@@ -77,22 +77,23 @@ jobs:
           VERSION: ${{ steps.pkg.outputs.version }}
         run: |
           # pub.dev is eventually consistent — poll until the new version is
-          # queryable. Typical propagation is well under a minute.
+          # queryable. Typical propagation is well under a minute, but publish
+          # is non-idempotent so it is worth waiting longer before failing.
           api_url="https://pub.dev/api/packages/${NAME}/versions/${VERSION}"
           archive_url=""
           expected_sha=""
-          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+          for attempt in {1..60}; do
             response=$(curl -fsSL "$api_url" || echo "")
             archive_url=$(echo "$response" | jq -r '.archive_url // empty')
             expected_sha=$(echo "$response" | jq -r '.archive_sha256 // empty')
             if [ -n "$archive_url" ]; then
               break
             fi
-            echo "::notice::pub.dev has not surfaced ${NAME}@${VERSION} yet (attempt ${attempt}/12); sleeping 10s"
+            echo "::notice::pub.dev has not surfaced ${NAME}@${VERSION} yet (attempt ${attempt}/60); sleeping 10s"
             sleep 10
           done
           if [ -z "$archive_url" ]; then
-            echo "::error::pub.dev did not surface ${NAME}@${VERSION} within ~2 minutes; published but unattested"
+            echo "::error::pub.dev did not surface ${NAME}@${VERSION} within ~10 minutes; published but unattested"
             exit 1
           fi
           curl -fsSL -o package.tar.gz "$archive_url"
