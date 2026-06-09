@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('DeviceId:', () {
-    test('should return the value when printed', () {
-      final deviceId = DeviceId('test_device_id');
+    test('should stay available as a backwards-compatible alias', () {
+      final deviceId = DeviceId('legacy_device_id');
       final printedDeviceId = '$deviceId';
-      expect(printedDeviceId, 'test_device_id');
+      expect(printedDeviceId, 'legacy_device_id');
     });
   });
 }
