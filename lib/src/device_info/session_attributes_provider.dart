@@ -1,20 +1,20 @@
-import 'package:faro/src/device_info/device_id_provider.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
-import 'package:faro/src/models/device_id.dart';
+import 'package:faro/src/device_info/installation_id_provider.dart';
 import 'package:faro/src/models/device_info.dart';
+import 'package:faro/src/models/installation_id.dart';
 
 class SessionAttributesProvider {
   SessionAttributesProvider({
-    required DeviceIdProvider deviceIdProvider,
+    required InstallationIdProvider installationIdProvider,
     required DeviceInfoProvider deviceInfoProvider,
-  }) : _deviceIdProvider = deviceIdProvider,
+  }) : _installationIdProvider = installationIdProvider,
        _deviceInfoProvider = deviceInfoProvider;
 
-  final DeviceIdProvider _deviceIdProvider;
+  final InstallationIdProvider _installationIdProvider;
   final DeviceInfoProvider _deviceInfoProvider;
 
-  Future<DeviceId> getDeviceId() {
-    return _deviceIdProvider.getDeviceId();
+  Future<InstallationId> getInstallationId() {
+    return _installationIdProvider.getInstallationId();
   }
 
   Future<DeviceInfo> getDeviceInfo() {
@@ -22,7 +22,7 @@ class SessionAttributesProvider {
   }
 
   Future<CollectedSessionAttributes> collectAttributes() async {
-    final installationId = await getDeviceId();
+    final installationId = await getInstallationId();
     final deviceInfo = await getDeviceInfo();
 
     return CollectedSessionAttributes(
@@ -36,7 +36,7 @@ class SessionAttributesProvider {
   }
 
   Map<String, Object> _attributesFor({
-    required DeviceId installationId,
+    required InstallationId installationId,
     required DeviceInfo deviceInfo,
   }) {
     return <String, Object>{
@@ -62,18 +62,19 @@ class CollectedSessionAttributes {
     required this.attributes,
   });
 
-  final DeviceId installationId;
+  final InstallationId installationId;
   final DeviceInfo deviceInfo;
   final Map<String, Object> attributes;
 }
 
 class SessionAttributesProviderFactory {
   Future<SessionAttributesProvider> create() async {
-    final deviceIdProvider = await DeviceIdProviderFactory().create();
+    final installationIdProvider = await InstallationIdProviderFactory()
+        .create();
     final deviceInfoProvider = DeviceInfoProviderFactory().create();
 
     return SessionAttributesProvider(
-      deviceIdProvider: deviceIdProvider,
+      installationIdProvider: installationIdProvider,
       deviceInfoProvider: deviceInfoProvider,
     );
   }
