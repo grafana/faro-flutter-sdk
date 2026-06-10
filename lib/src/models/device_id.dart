@@ -1,10 +1,4 @@
-class DeviceId {
-  DeviceId(this._value);
+import 'package:faro/src/models/installation_id.dart';
 
-  final String _value;
-
-  @override
-  String toString() {
-    return _value;
-  }
-}
+@Deprecated('Use InstallationId instead.')
+typedef DeviceId = InstallationId;

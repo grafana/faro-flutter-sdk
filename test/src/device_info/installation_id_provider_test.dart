@@ -1,4 +1,4 @@
-import 'package:faro/src/device_info/device_id_provider.dart';
+import 'package:faro/src/device_info/installation_id_provider.dart';
 import 'package:faro/src/util/uuid_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -12,7 +12,7 @@ void main() {
   late MockSharedPreferences mockSharedPreferences;
   late MockUuidProvider mockUuidProvider;
 
-  late DeviceIdProvider sut;
+  late InstallationIdProvider sut;
 
   setUp(() {
     mockSharedPreferences = MockSharedPreferences();
@@ -23,25 +23,28 @@ void main() {
       () => mockSharedPreferences.setString(any(), any()),
     ).thenAnswer((_) async => true);
 
-    sut = DeviceIdProvider(
+    sut = InstallationIdProvider(
       sharedPreferences: mockSharedPreferences,
       uuidProvider: mockUuidProvider,
     );
   });
 
-  group('DeviceIdProvider:', () {
-    test('should a newly generated uuid when not stored before', () async {
-      // Returning null from sharedPrefs to simulate no stored device id
-      when(() => mockSharedPreferences.getString(any())).thenReturn(null);
+  group('InstallationIdProvider:', () {
+    test(
+      'should return a newly generated uuid when not stored before',
+      () async {
+        // Simulate no stored installation id.
+        when(() => mockSharedPreferences.getString(any())).thenReturn(null);
 
-      const expectedUuid = 'some-random-uuid';
-      when(() => mockUuidProvider.getUuidV4()).thenReturn(expectedUuid);
+        const expectedUuid = 'some-random-uuid';
+        when(() => mockUuidProvider.getUuidV4()).thenReturn(expectedUuid);
 
-      final deviceId = await sut.getDeviceId();
+        final installationId = await sut.getInstallationId();
 
-      expect('$deviceId', expectedUuid);
-      verify(() => mockSharedPreferences.setString(any(), any())).called(1);
-    });
+        expect('$installationId', expectedUuid);
+        verify(() => mockSharedPreferences.setString(any(), any())).called(1);
+      },
+    );
 
     test('should return stored uuid when stored before', () async {
       const expectedUuid = 'stored-some-random-uuid';
@@ -49,10 +52,10 @@ void main() {
         () => mockSharedPreferences.getString(any()),
       ).thenReturn(expectedUuid);
 
-      final deviceId = await sut.getDeviceId();
+      final installationId = await sut.getInstallationId();
 
-      expect('$deviceId', expectedUuid);
-      verifyNever(() => mockUuidProvider.getUuidV4());
+      expect('$installationId', expectedUuid);
+      verifyNever(mockUuidProvider.getUuidV4);
       verifyNever(() => mockSharedPreferences.setString(any(), any()));
     });
 
@@ -64,10 +67,10 @@ void main() {
           () => mockSharedPreferences.getString(any()),
         ).thenReturn(expectedUuid);
 
-        var deviceId = await sut.getDeviceId();
-        deviceId = await sut.getDeviceId();
+        var installationId = await sut.getInstallationId();
+        installationId = await sut.getInstallationId();
 
-        expect('$deviceId', expectedUuid);
+        expect('$installationId', expectedUuid);
         verify(() => mockSharedPreferences.getString(any())).called(1);
       },
     );

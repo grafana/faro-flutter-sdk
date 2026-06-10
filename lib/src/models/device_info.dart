@@ -69,5 +69,8 @@ class DeviceInfo {
   final bool deviceIsPhysical;
 
   /// Device form factor, when known.
+  ///
+  /// Examples: "mobile", "tablet". Omitted when the platform does not expose a
+  /// reliable form factor.
   final String? deviceType;
 }

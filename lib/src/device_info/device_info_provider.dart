@@ -47,12 +47,16 @@ class DeviceInfoProvider {
       deviceModelName = androidInfo.model;
       deviceBrand = androidInfo.brand;
       deviceIsPhysical = androidInfo.isPhysicalDevice;
+      // device_info_plus does not reliably expose Android phone/tablet form
+      // factor, so deviceType is left unset instead of guessed.
     }
 
     if (_platformInfoProvider.isIOS) {
       final iosInfo = await _deviceInfoPlugin.iosInfo;
       deviceOs = iosInfo.systemName;
       deviceOsVersion = iosInfo.systemVersion;
+      // device_info_plus does not expose the real iOS OS build number.
+      deviceOsBuildId = null;
       deviceOsDetail = '$deviceOs $deviceOsVersion';
       deviceManufacturer = 'apple';
       // Raw identifier like "iPhone16,1"

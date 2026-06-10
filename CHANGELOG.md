@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the SDK-generated install identifier model and provider to
+  `InstallationId` / `InstallationIdProvider`. The persisted `device_id`
+  storage key and legacy flat `session.attributes['device_id']` payload key are
+  unchanged for migration compatibility.
+
+### Deprecated
+
+- `DeviceId` is deprecated; use `InstallationId` instead. The deprecated alias
+  is kept for backward compatibility.
+
 ### Added
 
 - Emit structured mobile metadata in Flutter SDK payloads:

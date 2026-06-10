@@ -1,26 +1,27 @@
-import 'package:faro/src/device_info/device_id_provider.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
+import 'package:faro/src/device_info/installation_id_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-class MockDeviceIdProvider extends Mock implements DeviceIdProvider {}
+class MockInstallationIdProvider extends Mock
+    implements InstallationIdProvider {}
 
 class MockDeviceInfoProvider extends Mock implements DeviceInfoProvider {}
 
 void main() {
-  late MockDeviceIdProvider mockDeviceIdProvider;
+  late MockInstallationIdProvider mockInstallationIdProvider;
   late MockDeviceInfoProvider mockDeviceInfoProvider;
 
   late SessionAttributesProvider sut;
 
   setUp(() {
-    mockDeviceIdProvider = MockDeviceIdProvider();
+    mockInstallationIdProvider = MockInstallationIdProvider();
     mockDeviceInfoProvider = MockDeviceInfoProvider();
 
     sut = SessionAttributesProvider(
-      deviceIdProvider: mockDeviceIdProvider,
+      installationIdProvider: mockInstallationIdProvider,
       deviceInfoProvider: mockDeviceInfoProvider,
     );
   });
@@ -41,12 +42,14 @@ void main() {
         ),
       );
       when(
-        () => mockDeviceIdProvider.getDeviceId(),
-      ).thenAnswer((_) async => DeviceId('device-id'));
+        () => mockInstallationIdProvider.getInstallationId(),
+      ).thenAnswer((_) async => InstallationId('installation-id'));
 
-      final attributes = await sut.getAttributes();
+      final collectedAttributes = await sut.collectAttributes();
 
-      expect(attributes, {
+      expect('${collectedAttributes.installationId}', 'installation-id');
+      expect(collectedAttributes.deviceInfo.deviceModel, 'Some-model');
+      expect(collectedAttributes.attributes, {
         'dart_version': 'Some-dart-version',
         'device_os': 'Some-OS',
         'device_os_version': 'Some-OS-version',
@@ -56,7 +59,7 @@ void main() {
         'device_model_name': 'Some-model-name',
         'device_brand': 'Some-brand',
         'device_is_physical': true,
-        'device_id': 'device-id',
+        'device_id': 'installation-id',
       });
     });
   });
