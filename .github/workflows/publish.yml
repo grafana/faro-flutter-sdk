@@ -96,6 +96,10 @@ jobs:
             echo "::error::pub.dev did not surface ${NAME}@${VERSION} within ~10 minutes; published but unattested"
             exit 1
           fi
+          if [ -z "$expected_sha" ]; then
+            echo "::error::pub.dev surfaced ${NAME}@${VERSION} but did not return archive_sha256"
+            exit 1
+          fi
           curl -fsSL -o package.tar.gz "$archive_url"
           actual_sha=$(sha256sum package.tar.gz | awk '{print $1}')
           if [ "$expected_sha" != "$actual_sha" ]; then
