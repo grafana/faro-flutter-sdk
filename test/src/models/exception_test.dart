@@ -265,5 +265,149 @@ void main() {
       expect(frames[0]['filename'], contains('app/file.dart'));
       expect(frames[1]['filename'], contains('app/another_file.dart'));
     });
+
+    group('stackTraceParse with non-standard formats (issue #102):', () {
+      test('should parse sanitized (trimmed) standard frames', () {
+        // Simulates a user sanitizer that trims each line before rejoining
+        // (see issue #102) - frames keep the "#N" index but lose padding.
+        final sanitizedStackTrace = StackTrace.fromString(
+          '#0 MyClass.myMethod (package:my_app/my_file.dart:10:5)\n'
+          '#1 OtherClass.otherMethod (package:my_app/other.dart:20:7)',
+        );
+
+        final frames = FaroException.stackTraceParse(sanitizedStackTrace);
+
+        expect(frames.length, equals(2));
+        expect(frames[0]['filename'], contains('my_app/my_file.dart'));
+        expect(frames[0]['function'], equals('MyClass.myMethod'));
+        expect(frames[0]['lineno'], equals(10));
+        expect(frames[0]['colno'], equals(5));
+        expect(frames[1]['filename'], contains('my_app/other.dart'));
+        expect(frames[1]['function'], equals('OtherClass.otherMethod'));
+        expect(frames[1]['lineno'], equals(20));
+        expect(frames[1]['colno'], equals(7));
+      });
+
+      test('should parse frames without a leading "#N" index', () {
+        final stackTrace = StackTrace.fromString(
+          'MyClass.myMethod (package:my_app/my_file.dart:10:5)',
+        );
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(1));
+        expect(frames[0]['filename'], contains('my_app/my_file.dart'));
+        expect(frames[0]['function'], equals('MyClass.myMethod'));
+        expect(frames[0]['lineno'], equals(10));
+        expect(frames[0]['colno'], equals(5));
+      });
+
+      test('should preserve lines in package:stack_trace Trace format', () {
+        final stackTrace = StackTrace.fromString(
+          'package:my_app/my_file.dart 10:5  MyClass.myMethod',
+        );
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(1));
+        expect(
+          frames[0]['function'],
+          equals('package:my_app/my_file.dart 10:5  MyClass.myMethod'),
+        );
+      });
+
+      test('should preserve free-form lines without spaces', () {
+        // A single-token line used to throw a RangeError, which dropped
+        // the entire stack trace.
+        final stackTrace = StackTrace.fromString('some-free-form-line');
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(1));
+        expect(frames[0]['function'], equals('some-free-form-line'));
+      });
+
+      test('should preserve obfuscated release-mode android frames', () {
+        final stackTrace = StackTrace.fromString(
+          '#00 abs 0000000000043b8f virt 00000000001fdb8f '
+          '_kDartIsolateSnapshotInstructions+0x1e3b8f\n'
+          '#01 abs 0000000000043c12 virt 00000000001fdc12 '
+          '_kDartIsolateSnapshotInstructions+0x1e3c12',
+        );
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(2));
+        expect(
+          frames[0]['function'],
+          equals(
+            '#00 abs 0000000000043b8f virt 00000000001fdb8f '
+            '_kDartIsolateSnapshotInstructions+0x1e3b8f',
+          ),
+        );
+        expect(
+          frames[1]['function'],
+          equals(
+            '#01 abs 0000000000043c12 virt 00000000001fdc12 '
+            '_kDartIsolateSnapshotInstructions+0x1e3c12',
+          ),
+        );
+      });
+
+      test('should preserve asynchronous suspension markers', () {
+        final stackTrace = StackTrace.fromString('<asynchronous suspension>');
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(1));
+        expect(frames[0]['function'], equals('<asynchronous suspension>'));
+      });
+
+      test('should preserve frames missing a column number', () {
+        final stackTrace = StackTrace.fromString(
+          '#0      main (package:app/file.dart:10)',
+        );
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(1));
+        expect(
+          frames[0]['function'],
+          equals('#0      main (package:app/file.dart:10)'),
+        );
+      });
+
+      test('should not drop parsable frames when mixed with free-form '
+          'lines', () {
+        final stackTrace = StackTrace.fromString(
+          '#0      SomeClass.someMethod (package:app/file.dart:10:5)\n'
+          'free-form-line\n'
+          '#1      Other.otherMethod (package:app/other_file.dart:20:10)',
+        );
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(3));
+        expect(frames[0]['filename'], contains('app/file.dart'));
+        expect(frames[0]['function'], equals('SomeClass.someMethod'));
+        expect(frames[1]['function'], equals('free-form-line'));
+        expect(frames[2]['filename'], contains('app/other_file.dart'));
+        expect(frames[2]['function'], equals('Other.otherMethod'));
+      });
+
+      test('should skip blank lines', () {
+        final stackTrace = StackTrace.fromString(
+          '#0      SomeClass.someMethod (package:app/file.dart:10:5)\n'
+          '\n'
+          '#1      Other.otherMethod (package:app/other_file.dart:20:10)',
+        );
+
+        final frames = FaroException.stackTraceParse(stackTrace);
+
+        expect(frames.length, equals(2));
+        expect(frames[0]['function'], equals('SomeClass.someMethod'));
+        expect(frames[1]['function'], equals('Other.otherMethod'));
+      });
+    });
   });
 }
