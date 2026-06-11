@@ -73,8 +73,14 @@ Notes:
   `enableCrashReporting` / `anrTracking`.
 - Dart-level errors currently share the generic `type: 'flutter_error'`
   rather than the underlying error class.
-- Native crash and ANR signals are detected from the **previous** run and
-  reported on the next launch.
+- `FlutterError.onError` currently only reports framework errors that carry a
+  stack trace (`details.stack != null`); framework errors without one are not
+  emitted today (tracked in #271).
+- Reporting timing differs by source. Previous-run native **crashes** (iOS
+  PLCrashReporter, Android `ApplicationExitInfo` exits — including `ANR`
+  exits) are detected and reported on the **next launch**. The Android
+  runtime **ANR watchdog** is different: it detects a blocked main thread
+  **while the app is running** and reports within the same session.
 
 ---
 
