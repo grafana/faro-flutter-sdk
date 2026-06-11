@@ -29,6 +29,7 @@ abstract interface class AppDiagnosticsPageActions {
   void clearLog();
   void triggerUnhandledError();
   void triggerUnhandledException();
+  void pushCustomTraceError();
   Future<void> simulateAnr(int seconds);
 }
 
@@ -65,6 +66,11 @@ class _AppDiagnosticsPageViewModel extends Notifier<AppDiagnosticsPageUiState>
   @override
   void triggerUnhandledException() {
     _service.triggerUnhandledException(_addLog);
+  }
+
+  @override
+  void pushCustomTraceError() {
+    _service.pushCustomTraceError(_addLog);
   }
 
   @override

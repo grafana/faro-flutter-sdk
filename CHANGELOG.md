@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   download the canonical archive pub.dev serves and attest those bytes via
   `actions/attest-build-provenance`. Consumers can verify with
   `gh attestation verify <tarball> --repo grafana/faro-flutter-sdk`.
+### Fixed
+
+- Preserve stack trace lines that do not match the expected Dart VM format
+  instead of silently dropping the whole stack trace. Lines that cannot be
+  parsed into structured frames (e.g. sanitized, obfuscated, or free-form
+  lines) are now kept as raw text in the frame's `function` field.
+  ([#102](https://github.com/grafana/faro-flutter-sdk/issues/102))
 
 ## [0.16.0] - 2026-05-11
 

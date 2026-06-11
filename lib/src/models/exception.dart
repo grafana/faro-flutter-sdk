@@ -136,24 +136,39 @@ class FaroException {
     final stackFrames = ls.convert(stacktrace.toString());
     final parsedStackFrames = <Map<String, dynamic>>[];
     for (final stackFrame in stackFrames) {
-      final sf = stackFrame.split(' ');
-      const pattern =
-          '.*((?<module>[a-zA-Z]*):(?<filename>[a-zA-Z-_/.]*):(?<lineno>[0-9]*):(?<colno>[0-9]*)).*';
-      final regExp = RegExp(pattern);
-      final regExpMatch = regExp.firstMatch(sf[sf.length - 1]);
-      final filename =
-          "${regExpMatch?.namedGroup("module")}:${regExpMatch?.namedGroup("filename")}";
-      final lineno = regExpMatch?.namedGroup('lineno');
-      final colno = regExpMatch?.namedGroup('colno');
-      parsedStackFrames.add(
-        StackFrames(
-          filename,
-          sf[sf.length - 2],
-          int.parse(lineno ?? '0'),
-          int.parse(colno ?? '0'),
-        ).toJson(),
-      );
+      if (stackFrame.trim().isEmpty) {
+        continue;
+      }
+      parsedStackFrames.add(_parseStackFrameLine(stackFrame).toJson());
     }
     return parsedStackFrames;
+  }
+
+  /// Parses a single stack trace line into a [StackFrames] entry.
+  ///
+  /// Lines matching the expected Dart VM format (a source location such as
+  /// `package:my_app/my_file.dart:10:5` as the last token) are parsed into
+  /// structured frames. Any other line is preserved as-is in the `function`
+  /// field so that no stack trace information is silently dropped
+  /// (see issue #102).
+  static StackFrames _parseStackFrameLine(String stackFrame) {
+    const pattern =
+        '.*((?<module>[a-zA-Z]*):(?<filename>[a-zA-Z-_/.]*):(?<lineno>[0-9]*):(?<colno>[0-9]*)).*';
+    final regExp = RegExp(pattern);
+    final sf = stackFrame.split(' ');
+    final regExpMatch = regExp.firstMatch(sf[sf.length - 1]);
+    final lineno = int.tryParse(regExpMatch?.namedGroup('lineno') ?? '');
+    final colno = int.tryParse(regExpMatch?.namedGroup('colno') ?? '');
+    if (regExpMatch == null ||
+        sf.length < 2 ||
+        lineno == null ||
+        colno == null) {
+      // The line does not match the expected format. Preserve the raw line
+      // instead of dropping the information.
+      return StackFrames('', stackFrame.trim(), 0, 0);
+    }
+    final filename =
+        "${regExpMatch.namedGroup("module")}:${regExpMatch.namedGroup("filename")}";
+    return StackFrames(filename, sf[sf.length - 2], lineno, colno);
   }
 }
