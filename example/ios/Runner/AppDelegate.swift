@@ -20,12 +20,14 @@ import UIKit
         name: "faro_example/crash",
         binaryMessenger: registrar.messenger()
       )
-      channel.setMethodCallHandler { (call, _) in
+      channel.setMethodCallHandler { (call, result) in
         if call.method == "crashNative" {
           // Intentional native crash for validating crash reporting:
           // force-unwrap a value that is nil at runtime.
           let value = AppDelegate.alwaysNil()
           print(value!)
+        } else {
+          result(FlutterMethodNotImplemented)
         }
       }
       self.crashChannel = channel
