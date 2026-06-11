@@ -1,3 +1,4 @@
+import 'package:faro/faro.dart';
 import 'package:faro_example/shared/models/demo_log_entry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,6 +33,30 @@ class AppDiagnosticsDemoService {
     Future<void>.delayed(const Duration(milliseconds: 10), () {
       throw Exception('This is an Exception! ${DateTime.now()}');
     });
+  }
+
+  void pushCustomTraceError(AppDiagnosticsLogCallback log) {
+    log(
+      'Pushing an error with a non-standard stack trace.',
+      tone: DemoLogTone.warning,
+    );
+
+    // A stack trace in a format Faro does not natively parse: a normal
+    // Dart frame, a token with no spaces (which previously crashed the
+    // parser), a stack_trace-package line, and a free-form note. See #102.
+    final customTrace = StackTrace.fromString(
+      '#0      MyWidget.build '
+      '(package:my_app/widgets/my_widget.dart:42:13)\n'
+      'sanitized_frame_without_spaces\n'
+      'package:my_app/foo.dart 10:5  Foo.bar\n'
+      'some free-form diagnostic note',
+    );
+
+    Faro().pushError(
+      type: 'custom_stacktrace_demo',
+      value: 'Custom-trace error ${DateTime.now()}',
+      stacktrace: customTrace,
+    );
   }
 
   Future<void> simulateAnr({

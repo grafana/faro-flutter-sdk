@@ -76,6 +76,12 @@ class AppDiagnosticsPage extends ConsumerWidget {
                       onPressed: actions.triggerUnhandledException,
                     ),
                     _DiagnosticsButton(
+                      label: 'Custom-Trace Error',
+                      icon: Icons.bug_report,
+                      isRunning: uiState.isRunning,
+                      onPressed: actions.pushCustomTraceError,
+                    ),
+                    _DiagnosticsButton(
                       label: 'Simulate ANR (8s)',
                       icon: Icons.hourglass_bottom,
                       isRunning: uiState.isRunning,
