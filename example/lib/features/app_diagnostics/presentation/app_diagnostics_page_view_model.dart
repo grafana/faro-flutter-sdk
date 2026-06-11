@@ -31,6 +31,7 @@ abstract interface class AppDiagnosticsPageActions {
   void triggerUnhandledException();
   void pushCustomTraceError();
   Future<void> simulateAnr(int seconds);
+  Future<void> triggerNativeCrash();
 }
 
 class _AppDiagnosticsPageViewModel extends Notifier<AppDiagnosticsPageUiState>
@@ -81,6 +82,11 @@ class _AppDiagnosticsPageViewModel extends Notifier<AppDiagnosticsPageUiState>
     } finally {
       state = state.copyWith(isRunning: false);
     }
+  }
+
+  @override
+  Future<void> triggerNativeCrash() async {
+    await _service.triggerNativeCrash(_addLog);
   }
 }
 

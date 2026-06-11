@@ -93,6 +93,12 @@ class AppDiagnosticsPage extends ConsumerWidget {
                       isRunning: uiState.isRunning,
                       onPressed: () => actions.simulateAnr(10),
                     ),
+                    _DiagnosticsButton(
+                      label: 'Native Crash',
+                      icon: Icons.dangerous,
+                      isRunning: uiState.isRunning,
+                      onPressed: actions.triggerNativeCrash,
+                    ),
                   ],
                 ),
               ],
