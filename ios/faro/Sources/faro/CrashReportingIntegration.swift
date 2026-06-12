@@ -39,10 +39,16 @@ class  CrashReportingIntegration {
                 // format crash report to send to grafana / send to separate storage
                 sendCrashReport(crash: exporter.export(crashReport: crashReport), config: crashReporterConfig)
             } catch let error {
-                print("CrashReporter failed to load and parse with error: \(error)")
+                // The pending report is purged below even on failure, so a
+                // corrupt report cannot cause repeated failures on every
+                // launch — but it also means this crash report is lost.
+                print(
+                    "Faro CrashReportingIntegration: failed to load/parse " +
+                    "pending crash report; discarding it. Error: \(error)"
+                )
             }
         }
-        
+
         crashReporter.purgePendingCrashReport()
         
     }
@@ -297,8 +303,8 @@ internal struct CrashReportExporter{
         guard let stackFrames = mostMeaningfulStackFrames else {
             return []
         }
-        
-        return sanitized(stackFrames: stackFrames).map { stackframe in
+
+        return stackFrames.map { stackframe in
             return stackframe.jsonRepresentation
         }
     }
@@ -323,18 +329,6 @@ internal struct CrashReportExporter{
                 "path": \(crashReport.processInfo?.processPath ?? ""),
                 "codeType": \(cpuArchitecture ?? ""),
             """
-    }
-    
-    // MARK: - Sanitizing
-    
-    private func sanitized(stackFrames: [StackFrame]) -> [StackFrame] {
-        guard let _ = stackFrames.last else {
-            return stackFrames
-        }
-        return []
-        func asDictionary(){
-            
-        }
     }
 
 }

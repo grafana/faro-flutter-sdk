@@ -1,5 +1,6 @@
 import 'package:faro/faro.dart';
 import 'package:faro_example/shared/models/demo_log_entry.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 typedef AppDiagnosticsLogCallback =
@@ -12,6 +13,26 @@ final appDiagnosticsDemoServiceProvider = Provider<AppDiagnosticsDemoService>(
 /// Runs the error and ANR demos shown in the example app.
 class AppDiagnosticsDemoService {
   const AppDiagnosticsDemoService();
+
+  static const MethodChannel _crashChannel = MethodChannel(
+    'faro_example/crash',
+  );
+
+  /// Triggers a native crash (force-unwrap of nil on iOS, null dereference
+  /// on Android) to validate the SDK's native crash reporting. The process
+  /// terminates; the crash is reported on the next launch.
+  Future<void> triggerNativeCrash(AppDiagnosticsLogCallback log) async {
+    log(
+      'Triggering a native crash. The app will terminate; relaunch to '
+      'let the SDK report it.',
+      tone: DemoLogTone.warning,
+    );
+
+    // Yield so the warning can paint before the process dies.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    await _crashChannel.invokeMethod<void>('crashNative');
+  }
 
   void triggerUnhandledError(AppDiagnosticsLogCallback log) {
     log(
