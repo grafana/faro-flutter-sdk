@@ -145,8 +145,17 @@ Future<bool> tagExists(String tag) async {
 
 /// Create and push git tag
 Future<bool> createAndPushTag(String tag) async {
-  // Create tag
-  var result = await Process.run('git', ['tag', tag]);
+  // Create an annotated tag (-m). A lightweight `git tag <name>` fails with
+  // "fatal: no tag message?" for anyone whose git config forces annotated or
+  // signed tags (tag.forceSignAnnotated / tag.gpgSign); annotating always works
+  // and signing, when configured, is applied transparently.
+  var result = await Process.run('git', [
+    'tag',
+    '-a',
+    '-m',
+    'Release $tag',
+    tag,
+  ]);
   if (result.exitCode != 0) {
     stderr.writeln(
       '${Colors.red}Failed to create tag: ${result.stderr}${Colors.reset}',
