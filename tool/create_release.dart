@@ -18,12 +18,28 @@ class Colors {
 Future<String> getVersion() async {
   final file = File('pubspec.yaml');
   final content = await file.readAsString();
-  final match = RegExp(r'version:\s*(\d+\.\d+\.\d+)').firstMatch(content);
-  if (match == null) {
+  final version = parseVersion(content);
+  if (version == null) {
     throw Exception('Could not find version in pubspec.yaml');
   }
-  return match.group(1)!;
+  return version;
 }
+
+/// Parse the SemVer version string from pubspec.yaml content.
+///
+/// Captures the full version including any pre-release (`-beta.1`) and build
+/// metadata (`+42`) identifiers, so pre-release releases tag and look up their
+/// changelog correctly. Returns null when no version line is found.
+String? parseVersion(String content) {
+  final match = RegExp(
+    r'version:\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)',
+  ).firstMatch(content);
+  return match?.group(1);
+}
+
+/// Whether a version string denotes a pre-release (has a `-` identifier),
+/// e.g. `0.17.0-beta.1`. Build metadata (`+42`) alone is not a pre-release.
+bool isPrerelease(String version) => version.contains('-');
 
 /// Get the previous git tag
 Future<String?> getPreviousTag() async {
@@ -153,7 +169,12 @@ Future<bool> createAndPushTag(String tag) async {
 }
 
 /// Create GitHub release using gh CLI
-Future<bool> createGitHubRelease(String tag, String title, String body) async {
+Future<bool> createGitHubRelease(
+  String tag,
+  String title,
+  String body, {
+  bool prerelease = false,
+}) async {
   final result = await Process.run('gh', [
     'release',
     'create',
@@ -162,6 +183,7 @@ Future<bool> createGitHubRelease(String tag, String title, String body) async {
     title,
     '--notes',
     body,
+    if (prerelease) '--prerelease',
   ]);
 
   if (result.exitCode != 0) {
@@ -343,10 +365,11 @@ Future<void> main(List<String> args) async {
   // Get version and create tag name
   final version = await getVersion();
   final tag = 'v$version';
+  final prerelease = isPrerelease(version);
 
   stdout.writeln(
     '${Colors.blue}📦 Creating release for '
-    'Faro Flutter SDK $tag${Colors.reset}',
+    'Faro Flutter SDK $tag${prerelease ? ' (pre-release)' : ''}${Colors.reset}',
   );
   stdout.writeln('');
 
@@ -435,7 +458,8 @@ Future<void> main(List<String> args) async {
   stdout.writeln('  ${Colors.green}•${Colors.reset} Push tag to origin');
   stdout.writeln(
     '  ${Colors.green}•${Colors.reset} Create '
-    'GitHub release with above notes',
+    'GitHub release with above notes'
+    '${prerelease ? ' (marked as pre-release)' : ''}',
   );
   stdout.writeln('');
 
@@ -470,7 +494,12 @@ Future<void> main(List<String> args) async {
   stdout.write('Creating GitHub release... ');
   final releaseTitle = 'v$version';
   try {
-    if (!await createGitHubRelease(tag, releaseTitle, releaseNotes)) {
+    if (!await createGitHubRelease(
+      tag,
+      releaseTitle,
+      releaseNotes,
+      prerelease: prerelease,
+    )) {
       stderr.writeln('');
       stderr.writeln(
         '${Colors.yellow}Tag was pushed but GitHub '

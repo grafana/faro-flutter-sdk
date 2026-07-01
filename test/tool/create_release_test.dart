@@ -90,6 +90,74 @@ void main() {
       expect(extracted, startsWith('### Added'));
       expect(extracted, endsWith('- Feature X'));
     });
+
+    test('extracts content for a pre-release version', () {
+      final content = _joinLines([
+        '# Changelog',
+        '',
+        '## [Unreleased]',
+        '',
+        '## [0.17.0-beta.1] - 2026-07-01',
+        '',
+        '### Changed',
+        '- Beta change',
+        '',
+        '## [0.16.0] - 2026-05-11',
+        '- Stable stuff',
+      ]);
+
+      final extracted = extractChangelogForVersion(content, '0.17.0-beta.1');
+
+      expect(extracted, contains('- Beta change'));
+      expect(extracted, isNot(contains('- Stable stuff')));
+    });
+  });
+
+  group('parseVersion:', () {
+    test('parses a plain major.minor.patch version', () {
+      expect(parseVersion('version: 0.16.0'), '0.16.0');
+    });
+
+    test('preserves a pre-release identifier', () {
+      expect(parseVersion('version: 0.17.0-beta.1'), '0.17.0-beta.1');
+    });
+
+    test('preserves build metadata', () {
+      expect(parseVersion('version: 1.2.3+42'), '1.2.3+42');
+    });
+
+    test('preserves both pre-release and build metadata', () {
+      expect(parseVersion('version: 1.2.3-rc.2+42'), '1.2.3-rc.2+42');
+    });
+
+    test('reads the version line from full pubspec content', () {
+      final content = _joinLines([
+        'name: faro',
+        'description: Grafana Faro SDK for Flutter.',
+        'version: 0.17.0-beta.1',
+        'homepage: https://grafana.com',
+      ]);
+
+      expect(parseVersion(content), '0.17.0-beta.1');
+    });
+
+    test('returns null when no version line is present', () {
+      expect(parseVersion('name: faro\ndescription: no version here'), isNull);
+    });
+  });
+
+  group('isPrerelease:', () {
+    test('is false for a stable version', () {
+      expect(isPrerelease('0.17.0'), isFalse);
+    });
+
+    test('is true for a pre-release version', () {
+      expect(isPrerelease('0.17.0-beta.1'), isTrue);
+    });
+
+    test('is false for build metadata only', () {
+      expect(isPrerelease('1.2.3+42'), isFalse);
+    });
   });
 }
 
