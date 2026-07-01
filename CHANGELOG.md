@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0-beta.1] - 2026-07-01
+
 ### Changed
 
 - Renamed the SDK-generated install identifier model and provider to
   `InstallationId` / `InstallationIdProvider`. The persisted `device_id`
   storage key and legacy flat `session.attributes['device_id']` payload key are
   unchanged for migration compatibility.
+- Swapped the underlying OpenTelemetry implementation from the Workiva
+  `opentelemetry` Dart package to `dartastic_opentelemetry` for tracing.
+  ([#242](https://github.com/grafana/faro-flutter-sdk/pull/242))
 
 ### Deprecated
 
@@ -35,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   download the canonical archive pub.dev serves and attest those bytes via
   `actions/attest-build-provenance`. Consumers can verify with
   `gh attestation verify <tarball> --repo grafana/faro-flutter-sdk`.
+
 ### Fixed
 
 - Preserve stack trace lines that do not match the expected Dart VM format
