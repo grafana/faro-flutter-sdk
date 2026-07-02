@@ -76,31 +76,35 @@ jobs:
           NAME: ${{ steps.pkg.outputs.name }}
           VERSION: ${{ steps.pkg.outputs.version }}
         run: |
-          # pub.dev is eventually consistent — poll until the new version is
-          # queryable. Typical propagation is well under a minute, but publish
-          # is non-idempotent so it is worth waiting longer before failing.
+          # pub.dev is eventually consistent — and the version metadata surfaces
+          # *before* the published archive is downloadable, so polling only the
+          # metadata API breaks the loop too early and the archive download then
+          # 404s. publish is non-idempotent, so poll until BOTH the metadata is
+          # queryable AND the tarball actually downloads before giving up.
           api_url="https://pub.dev/api/packages/${NAME}/versions/${VERSION}"
-          archive_url=""
           expected_sha=""
+          downloaded=""
           for attempt in {1..60}; do
             response=$(curl -fsSL "$api_url" || echo "")
             archive_url=$(echo "$response" | jq -r '.archive_url // empty')
             expected_sha=$(echo "$response" | jq -r '.archive_sha256 // empty')
-            if [ -n "$archive_url" ]; then
+            # curl -f exits non-zero on the transient archive 404; guarding it in
+            # the `if` keeps `set -e` from killing the step so we retry instead.
+            if [ -n "$archive_url" ] && curl -fsSL -o package.tar.gz "$archive_url"; then
+              downloaded="yes"
               break
             fi
-            echo "::notice::pub.dev has not surfaced ${NAME}@${VERSION} yet (attempt ${attempt}/60); sleeping 10s"
+            echo "::notice::pub.dev has not fully surfaced ${NAME}@${VERSION} yet (attempt ${attempt}/60); sleeping 10s"
             sleep 10
           done
-          if [ -z "$archive_url" ]; then
-            echo "::error::pub.dev did not surface ${NAME}@${VERSION} within ~10 minutes; published but unattested"
+          if [ -z "$downloaded" ]; then
+            echo "::error::pub.dev did not surface a downloadable ${NAME}@${VERSION} archive within ~10 minutes; published but unattested"
             exit 1
           fi
           if [ -z "$expected_sha" ]; then
             echo "::error::pub.dev surfaced ${NAME}@${VERSION} but did not return archive_sha256"
             exit 1
           fi
-          curl -fsSL -o package.tar.gz "$archive_url"
           actual_sha=$(sha256sum package.tar.gz | awk '{print $1}')
           if [ "$expected_sha" != "$actual_sha" ]; then
             echo "::error::sha256 mismatch: pub.dev reports ${expected_sha}, downloaded ${actual_sha}"
