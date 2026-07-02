@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Offline transport is now resilient to malformed cache data
+  ([#22](https://github.com/grafana/faro-flutter-sdk/issues/22)).
+  A corrupt cached entry (e.g. from a partial write or schema drift) is
+  now skipped and purged instead of aborting the read and permanently
+  blocking all remaining cached telemetry. Additionally, payloads whose
+  user-supplied log context or event attributes cannot be JSON-encoded
+  (a `DateTime`, custom object, or non-finite double) are dropped with a
+  type-only diagnostic rather than failing the cache write.
+
 ## [0.17.0-beta.1] - 2026-07-01
 
 ### Changed
