@@ -77,19 +77,53 @@ class OfflineTransport extends BaseTransport {
     }
   }
 
+  /// Writes the payload to the cache file.
+  ///
+  /// Failure policy: payloads that cannot be JSON-encoded (for example a
+  /// user-supplied attribute containing a [DateTime], a custom object, or a
+  /// non-finite double) are dropped. A payload that cannot be encoded for
+  /// the cache could not be encoded for upload to the collector later
+  /// either, so dropping it keeps the cache consistent with what online
+  /// delivery accepts.
   Future<void> _writeToFile(Payload payload) async {
     await _withFileLock(() async {
-      final file = await _getCacheFile();
       final logJson = {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
         'payload': payload.toJson(),
       };
+      final encodedLogJson = _encodeJsonSafely(logJson);
+      if (encodedLogJson == null) {
+        return;
+      }
+      final file = await _getCacheFile();
       await file.writeAsString(
-        '${jsonEncode(logJson)}\n',
+        '$encodedLogJson\n',
         mode: FileMode.append,
         flush: true,
       );
     });
+  }
+
+  /// Encodes [json] to a JSON string, or returns null if encoding fails.
+  ///
+  /// Diagnostics only mention value/error types, never the values
+  /// themselves, to avoid leaking potentially sensitive payload data.
+  String? _encodeJsonSafely(Map<String, dynamic> json) {
+    try {
+      return jsonEncode(json);
+    } catch (error) {
+      var details = error.runtimeType.toString();
+      if (error is JsonUnsupportedObjectError) {
+        details =
+            'unsupported value of type '
+            '${error.unsupportedObject.runtimeType}';
+      }
+      log(
+        'OfflineTransport: Failed to JSON-encode payload ($details). '
+        'Dropping this payload.',
+      );
+      return null;
+    }
   }
 
   Future<void> _readFromFile() async {
@@ -118,12 +152,18 @@ class OfflineTransport extends BaseTransport {
           continue;
         }
 
-        final timestamp = logJson['timestamp'] as int?;
-        final payload = Payload.fromJson(logJson['payload']);
-
-        if (timestamp == null) {
+        final timestamp = logJson['timestamp'];
+        if (timestamp is! int) {
           log(
             'OfflineTransport: Failed to parse timestamp in payload. Skipping this payload.',
+          );
+          continue;
+        }
+
+        final payload = _parsePayloadSafely(logJson['payload']);
+        if (payload == null) {
+          log(
+            'OfflineTransport: Failed to parse cached payload. Skipping this payload.',
           );
           continue;
         }
@@ -146,6 +186,19 @@ class OfflineTransport extends BaseTransport {
       }
       await file.writeAsString(updatedFileContent, flush: true);
     });
+  }
+
+  /// Parses a cached payload, or returns null if parsing fails.
+  ///
+  /// Corrupt cache entries must not break processing of the remaining
+  /// entries, so failures are swallowed and the entry is dropped.
+  Payload? _parsePayloadSafely(dynamic payloadJson) {
+    try {
+      return Payload.fromJson(payloadJson);
+    } catch (error) {
+      // Return null if parsing fails.
+      return null;
+    }
   }
 
   Map<String, dynamic>? _parseJsonSafely(String jsonString) {
