@@ -32,11 +32,20 @@ Before you begin, ensure you have the following installed:
 ### Fork and Clone
 
 1. Fork the repository on GitHub
-2. Clone your fork locally:
+2. Clone your fork locally into a folder named `faro`:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/faro-flutter-sdk.git
-   cd faro-flutter-sdk
+   git clone https://github.com/YOUR_USERNAME/faro-flutter-sdk.git faro
+   cd faro
    ```
+
+   > **iOS note:** The Dart package is named `faro`. Swift Package Manager
+   > derives a package's identity from its directory name, so the iOS example
+   > only builds via SwiftPM when the repository is checked out into a folder
+   > named `faro`. Cloning into the default `faro-flutter-sdk` folder fails with
+   > `unable to override package 'faro' because its identity 'faro-flutter-sdk'`
+   > `doesn't match override's identity (directory name) 'faro'`. This only
+   > affects local development (path/git checkouts); apps that depend on `faro`
+   > from pub.dev are unaffected.
 3. Add the upstream repository as a remote:
    ```bash
    git remote add upstream https://github.com/grafana/faro-flutter-sdk.git
