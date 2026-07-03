@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   user-supplied log context or event attributes cannot be JSON-encoded
   (a `DateTime`, custom object, or non-finite double) are dropped with a
   type-only diagnostic rather than failing the cache write.
+- **Offline transport connectivity probe reliability**
+  ([#11](https://github.com/grafana/faro-flutter-sdk/issues/11)): The DNS
+  lookup used by `OfflineTransport` to confirm internet access now has a
+  5-second timeout (previously it could hang indefinitely on some
+  platforms, stalling online/offline decisions) and catches all probe
+  errors instead of only `SocketException`. Any probe failure is still
+  treated as offline: while offline, payloads are cached on disk and
+  flushed once connectivity returns, whereas a send attempted while
+  actually offline is dropped without retry — so a false "offline" only
+  costs disk usage, while a false "online" would risk permanent data
+  loss. The lookup function is also injectable for testing via the new
+  optional `addressLookup` and `lookupTimeout` parameters on
+  `InternetConnectivityService`.
 
 ## [0.17.0-beta.1] - 2026-07-01
 
