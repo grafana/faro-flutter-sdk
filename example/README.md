@@ -88,6 +88,29 @@ See `lib/features/tracing/` for the reference implementation.
    `run-example.sh` uses `example/api-config.json` and forwards any extra args
    to `flutter run`, e.g. `./tool/run-example.sh -d emulator-5554 --release`.
 
+### Troubleshooting: iOS SwiftPM build fails with a package identity error
+
+If `flutter build ios` / `flutter run` on iOS fails with:
+
+```
+unable to override package 'faro' because its identity 'faro-flutter-sdk'
+doesn't match override's identity (directory name) 'faro'
+```
+
+your repository is checked out in a folder whose name isn't `faro`. Swift
+Package Manager derives a package's identity from its directory name, and this
+package is named `faro`. Rename the repository folder to `faro` (or clone into
+one), then regenerate:
+
+```bash
+flutter clean && flutter pub get
+```
+
+This only affects local development (path/git checkouts) because the example
+depends on the SDK via a path override; apps that depend on `faro` from pub.dev
+are unaffected. This is a known Swift Package Manager behavior: a package's
+identity is derived from its directory name.
+
 ## Features Demonstrated
 
 The example app showcases various Faro SDK features:
