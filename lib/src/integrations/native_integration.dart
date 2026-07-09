@@ -15,7 +15,7 @@ import 'package:flutter/services.dart';
 
 /// NativeIntegration provides access to native platform metrics and events
 /// such as memory usage, CPU usage, ANR detection, and crash reporting.
-class NativeIntegration {
+class NativeIntegration implements Disposable {
   NativeIntegration({required TelemetryRouter telemetryRouter})
     : _telemetryRouter = telemetryRouter;
 
@@ -23,6 +23,7 @@ class NativeIntegration {
   final MethodChannel _channel = const MethodChannel('faro');
 
   int _warmStart = 0;
+  Timer? _vitalsTimer;
 
   /// Initialize the native integration with the specified features
   ///
@@ -48,6 +49,24 @@ class NativeIntegration {
     );
     initRefreshRate();
     initializeMethodChannel();
+  }
+
+  /// Cancels the periodic vitals timer and detaches the method channel
+  /// handler.
+  ///
+  /// Invoked by dartypod when [nativeIntegrationProvider]'s scope is cleared.
+  /// This instance is scoped to a single `Faro.init`; without teardown its
+  /// timer would keep firing and holding the (now stale) telemetry router and
+  /// session manager alive after `Faro.resetForTesting` or a re-init.
+  ///
+  /// Detaching the handler is safe because disposal always runs before the
+  /// next `Faro.init` registers a new handler on the shared `'faro'` channel;
+  /// it is never disposed after a newer instance has taken over.
+  @override
+  void dispose() {
+    _vitalsTimer?.cancel();
+    _vitalsTimer = null;
+    _channel.setMethodCallHandler(null);
   }
 
   /// Pushes an SDK-emitted vitals measurement, marked
@@ -113,7 +132,8 @@ class NativeIntegration {
     Duration setSendUsageInterval = const Duration(seconds: 60),
   }) {
     if (memusage || cpuusage || anr || refreshrate) {
-      Timer.periodic(setSendUsageInterval, (timer) {
+      _vitalsTimer?.cancel();
+      _vitalsTimer = Timer.periodic(setSendUsageInterval, (timer) {
         if (memusage) {
           _pushMemoryUsage();
         }
@@ -223,8 +243,9 @@ class NativeIntegration {
 /// Provides the [NativeIntegration].
 ///
 /// Lives in [faroInitScope] so each `Faro.init` gets a fresh instance
-/// wired to the current telemetry router, and it is evicted by
-/// `Faro.resetForTesting`.
+/// wired to the current telemetry router. Clearing the scope in
+/// `Faro.resetForTesting` disposes it (see [NativeIntegration.dispose]),
+/// cancelling the vitals timer so it cannot outlive its `Faro.init`.
 final nativeIntegrationProvider = Provider<NativeIntegration>(
   (pod) =>
       NativeIntegration(telemetryRouter: pod.resolve(telemetryRouterProvider)),

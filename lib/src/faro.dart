@@ -364,7 +364,8 @@ class Faro {
       _didAttachUiActivityMonitor = false;
     }
     // Evict the per-init singletons (session manager, app lifecycle
-    // service) so the next init resolves fresh instances.
+    // service) so the next init resolves fresh instances. Disposable
+    // instances (e.g. NativeIntegration's vitals timer) are cleaned up here.
     pod.clearScope(faroInitScope);
     _isInitialized = false;
   }
