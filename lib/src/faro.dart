@@ -224,7 +224,7 @@ class Faro {
           collectorUrl: optionsConfiguration.collectorUrl ?? '',
           apiKey: optionsConfiguration.apiKey,
           maxBufferLimit: config?.maxBufferLimit,
-          sessionId: meta.session?.id,
+          sessionIdResolver: () => _sessionIdProvider.sessionId,
           headers: optionsConfiguration.collectorHeaders,
         ),
       );
