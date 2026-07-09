@@ -28,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   actually offline is dropped without retry — so a false "offline" only
   costs disk usage, while a false "online" would risk permanent data
   loss. The lookup function is also injectable for testing via the new
-  optional `addressLookup` and `lookupTimeout` parameters on
-  `InternetConnectivityService`.
+  required `addressLookup` parameter and optional `lookupTimeout`
+  parameter on `InternetConnectivityService`.
 
 ## [0.17.0-beta.1] - 2026-07-01
 
