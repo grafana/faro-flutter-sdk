@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
+import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
@@ -117,37 +118,22 @@ class FaroTracer {
   }
 }
 
-class FaroTracerFactory {
-  static FaroTracer? _faroTracer;
+/// Scope for [faroTracerProvider]. Cleared when the tracer wrapper must be
+/// rebuilt without re-initializing the process-global OTel SDK.
+const tracerScope = CustomScope('tracer');
 
-  /// Resets the cached tracer. Visible for testing.
-  static void reset() {
-    _faroTracer = null;
-  }
-
-  FaroTracer create() {
-    final cached = _faroTracer;
-    if (cached != null) {
-      return cached;
-    }
-
-    // Use OTelAPI directly so we degrade to a no-op tracer if the Faro
-    // bootstrap (which calls OTel.initialize) hasn't run yet — e.g. when
-    // FaroHttpTrackingClient is used in unit tests that never call Faro.init.
-    final otelTracer = otel.OTelAPI.tracerProvider().getTracer(
-      FaroConstants.sdkName,
-      version: FaroConstants.sdkVersion,
-    );
-    final faroZoneSpanManager = FaroZoneSpanManagerFactory().create();
-    final sessionIdProvider = SessionIdProviderFactory().create();
-
-    final faroTracer = FaroTracer(
-      otelTracer: otelTracer,
-      faroZoneSpanManager: faroZoneSpanManager,
-      sessionIdProvider: sessionIdProvider,
-    );
-    _faroTracer = faroTracer;
-
-    return faroTracer;
-  }
-}
+/// Provides the shared [FaroTracer].
+final faroTracerProvider = Provider<FaroTracer>((pod) {
+  // Use OTelAPI directly so we degrade to a no-op tracer if the Faro
+  // bootstrap (which calls OTel.initialize) hasn't run yet — e.g. when
+  // FaroHttpTrackingClient is used in unit tests that never call Faro.init.
+  final otelTracer = otel.OTelAPI.tracerProvider().getTracer(
+    FaroConstants.sdkName,
+    version: FaroConstants.sdkVersion,
+  );
+  return FaroTracer(
+    otelTracer: otelTracer,
+    faroZoneSpanManager: FaroZoneSpanManagerFactory().create(),
+    sessionIdProvider: pod.resolve(sessionIdProviderProvider),
+  );
+}, scope: tracerScope);

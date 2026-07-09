@@ -1,6 +1,9 @@
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/user_actions/telemetry_router.dart';
+import 'package:faro/src/user_actions/user_action_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -8,16 +11,33 @@ class MockFaro extends Mock implements Faro {}
 
 class MockNativeChannel extends Mock implements FaroNativeMethods {}
 
+class _RecordingRouter implements TelemetryRouter {
+  final List<TelemetryItem> ingested = [];
+  final List<SessionActivityKind> activities = [];
+
+  @override
+  void ingest(
+    TelemetryItem item, {
+    bool skipBuffer = false,
+    SessionActivityKind activity = SessionActivityKind.active,
+  }) {
+    ingested.add(item);
+    activities.add(activity);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late MockFaro mockFaro;
   late MockNativeChannel mockNativeChannel;
   late NativeIntegration nativeIntegration;
+  late _RecordingRouter router;
 
   setUp(() {
     mockFaro = MockFaro();
     mockNativeChannel = MockNativeChannel();
-    nativeIntegration = NativeIntegration();
+    router = _RecordingRouter();
+    nativeIntegration = NativeIntegration(telemetryRouter: router);
 
     when(() => mockFaro.nativeChannel).thenReturn(mockNativeChannel);
     when(
@@ -46,7 +66,22 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 10));
       nativeIntegration.getWarmStart();
 
-      verify(() => mockFaro.pushMeasurement(any(), 'app_startup')).called(1);
+      expect(router.ingested, hasLength(1));
+      final measurement = router.ingested.single.asMeasurement;
+      expect(measurement?.type, 'app_startup');
     });
+
+    test(
+      'vitals measurements are ingested as foreground-gated telemetry',
+      () async {
+        nativeIntegration.setWarmStart();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        nativeIntegration.getWarmStart();
+
+        // Automatic vitals use foregroundOnly; SessionActivityPolicy decides
+        // whether they extend the session based on foreground state.
+        expect(router.activities, [SessionActivityKind.foregroundOnly]);
+      },
+    );
   });
 }

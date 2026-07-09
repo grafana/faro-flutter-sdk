@@ -24,7 +24,7 @@ class FaroOtelBootstrap {
       // which involves async shutdown work that can hang under Flutter's
       // fake-async test environment. Once initialized, just refresh the
       // Faro tracer wrapper so it observes the latest pod state.
-      FaroTracerFactory.reset();
+      pod.clearScope(tracerScope);
       return;
     }
 
@@ -52,7 +52,7 @@ class FaroOtelBootstrap {
       detectPlatformResources: false,
     );
 
-    FaroTracerFactory.reset();
+    pod.clearScope(tracerScope);
     _initialized = true;
   }
 
@@ -62,7 +62,7 @@ class FaroOtelBootstrap {
       // ignore: invalid_use_of_visible_for_testing_member
       await otel.OTel.reset();
     }
-    FaroTracerFactory.reset();
+    pod.clearScope(tracerScope);
     _initialized = false;
   }
 

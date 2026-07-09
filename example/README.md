@@ -177,15 +177,15 @@ Key implementation features shown in this example:
 ## QA Smoke Test Configuration
 
 The example app supports optional QA dart-define keys that inject session
-attributes and an initial user at startup, removing the need to patch source
-code for automated smoke tests.
+attributes and an initial user at startup, removing the need to patch
+source code for automated smoke tests.
 
 | Key | Type | Purpose |
 |-----|------|---------|
 | `FARO_QA_RUN_ID` | string | Adds `qa_run_id` to session attributes |
 | `FARO_QA_INITIAL_USER_JSON` | stringified JSON | Sets the initial `FaroUser` |
 
-Both keys are optional. When absent or empty, the app behaves normally.
+All keys are optional. When absent or empty, the app behaves normally.
 
 All configuration lives in `api-config.json` and is passed via a single flag:
 

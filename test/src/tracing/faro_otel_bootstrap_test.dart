@@ -3,6 +3,7 @@
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/models/models.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/tracing/faro_otel_bootstrap.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/faro_user_action_span_processor.dart';
@@ -15,7 +16,11 @@ class _RecordingRouter implements TelemetryRouter {
   final List<TelemetryItem> ingested = [];
 
   @override
-  void ingest(TelemetryItem item, {bool skipBuffer = false}) {
+  void ingest(
+    TelemetryItem item, {
+    bool skipBuffer = false,
+    SessionActivityKind activity = SessionActivityKind.active,
+  }) {
     ingested.add(item);
   }
 }
@@ -57,7 +62,7 @@ void main() {
       // Second call must complete promptly without resetting OTel.
       await FaroOtelBootstrap.initialize().timeout(const Duration(seconds: 5));
 
-      final tracer = FaroTracerFactory().create();
+      final tracer = pod.resolve(faroTracerProvider);
       final span = tracer.startSpanManual('after-double-init');
       span.end();
       await Future<void>.delayed(Duration.zero);
@@ -87,7 +92,7 @@ void main() {
       pod.removeOverride(faroSpanProcessorProvider);
 
       await FaroOtelBootstrap.initialize();
-      final tracer = FaroTracerFactory().create();
+      final tracer = pod.resolve(faroTracerProvider);
       final span = tracer.startSpanManual('after-reset');
       span.end();
       await Future<void>.delayed(Duration.zero);

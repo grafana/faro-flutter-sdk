@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Session rotation** (#52): Sessions now rotate automatically after
+  15 minutes of inactivity or 4 hours of total lifetime (fixed to match
+  the Faro session definition and the collector's server-side
+  validation). On
+  rotation a new session id is generated, a `session_extend` event is
+  emitted (the initial session emits `session_start`), and the previous
+  id is recorded in the `previousSession` attribute so backends can link
+  sessions. Automatic vitals (CPU, memory, etc.) count as activity only
+  while the app is in the foreground: a foregrounded but idle app (e.g.
+  a user reading a screen) stays in one session, while a backgrounded
+  app's vitals cannot keep its session alive. Sampling is not
+  re-evaluated on rotation. See the Reference docs for full details.
+
 ### Fixed
 
 - Offline transport is now resilient to malformed cache data

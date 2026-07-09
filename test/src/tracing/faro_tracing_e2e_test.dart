@@ -3,6 +3,8 @@
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/models/models.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_otel_bootstrap.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/faro_user_action_span_processor.dart';
@@ -17,7 +19,11 @@ class _RecordingRouter implements TelemetryRouter {
   final List<bool> skipBufferFlags = [];
 
   @override
-  void ingest(TelemetryItem item, {bool skipBuffer = false}) {
+  void ingest(
+    TelemetryItem item, {
+    bool skipBuffer = false,
+    SessionActivityKind activity = SessionActivityKind.active,
+  }) {
     ingested.add(item);
     skipBufferFlags.add(skipBuffer);
   }
@@ -62,7 +68,7 @@ void main() {
   test('Faro.startSpanManual flows through to the telemetry router as '
       'an Event with span attributes and a span TelemetryItem', () async {
     await FaroOtelBootstrap.initialize();
-    final tracer = FaroTracerFactory().create();
+    final tracer = pod.resolve(faroTracerProvider);
 
     final span = tracer.startSpanManual(
       'order.checkout',
@@ -99,7 +105,7 @@ void main() {
 
   test('HTTP-flavored spans surface as faro.tracing.fetch events', () async {
     await FaroOtelBootstrap.initialize();
-    final tracer = FaroTracerFactory().create();
+    final tracer = pod.resolve(faroTracerProvider);
 
     final span = tracer.startSpanManual(
       'GET https://example.com',
@@ -120,7 +126,7 @@ void main() {
 
   test('child span shares the parent trace_id', () async {
     await FaroOtelBootstrap.initialize();
-    final tracer = FaroTracerFactory().create();
+    final tracer = pod.resolve(faroTracerProvider);
 
     final parent = tracer.startSpanManual('parent');
     final child = tracer.startSpanManual('child', parentSpan: parent);
@@ -134,7 +140,7 @@ void main() {
     'Span.noParent starts a new trace even when an active span exists',
     () async {
       await FaroOtelBootstrap.initialize();
-      final tracer = FaroTracerFactory().create();
+      final tracer = pod.resolve(faroTracerProvider);
 
       final outer = tracer.startSpanManual('outer');
       final detached = tracer.startSpanManual(
@@ -146,4 +152,34 @@ void main() {
       outer.end();
     },
   );
+
+  test('spans pick up a rotated session id from the shared provider', () async {
+    await FaroOtelBootstrap.initialize();
+    final tracer = pod.resolve(faroTracerProvider);
+
+    final beforeSpan = tracer.startSpanManual('before_rotation');
+    beforeSpan.end();
+    await Future<void>.delayed(Duration.zero);
+
+    // Rotate the shared session id the same way SessionManager does on
+    // expiry. The tracer holds this same provider instance and reads the
+    // id live at span creation, so a later span must carry the new id.
+    final provider = pod.resolve(sessionIdProviderProvider);
+    final beforeId = provider.sessionId;
+    final afterId = provider.rotateSessionId();
+    expect(afterId, isNot(equals(beforeId)));
+
+    final afterSpan = tracer.startSpanManual('after_rotation');
+    afterSpan.end();
+    await Future<void>.delayed(Duration.zero);
+
+    Event spanEvent(String name) => router.ingested
+        .map((i) => i.asEvent)
+        .whereType<Event>()
+        .firstWhere((e) => e.name == 'span.$name');
+
+    expect(spanEvent('before_rotation').attributes?['session_id'], beforeId);
+    expect(spanEvent('after_rotation').attributes?['session_id'], afterId);
+    expect(spanEvent('after_rotation').attributes?['session.id'], afterId);
+  });
 }
