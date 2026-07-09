@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:faro/src/offline_transport/connectivity_checker.dart';
@@ -36,6 +37,7 @@ void main() {
     service = InternetConnectivityService(
       connectivity: mockConnectivity,
       internetConnectionCheckerUrl: 'localhost',
+      addressLookup: InternetAddress.lookup,
     );
   });
 
@@ -52,6 +54,7 @@ void main() {
         final service = InternetConnectivityService(
           connectivity: mockConnectivity,
           internetConnectionCheckerUrl: 'localhost',
+          addressLookup: InternetAddress.lookup,
         );
 
         await waitForAsyncWork();
@@ -65,6 +68,7 @@ void main() {
         final service = InternetConnectivityService(
           connectivity: mockConnectivity,
           internetConnectionCheckerUrl: 'localhost',
+          addressLookup: InternetAddress.lookup,
         );
 
         await waitForAsyncWork();
@@ -93,6 +97,7 @@ void main() {
           service = InternetConnectivityService(
             connectivity: mockConnectivity,
             internetConnectionCheckerUrl: 'invalid.domain.that.does.not.exist',
+            addressLookup: InternetAddress.lookup,
           );
 
           fakeConnectivityController.add([ConnectivityResult.wifi]);
@@ -102,6 +107,151 @@ void main() {
           expect(service.isOnline, false);
         },
       );
+
+      test('returns true when injected lookup resolves an address', () async {
+        service = InternetConnectivityService(
+          connectivity: mockConnectivity,
+          internetConnectionCheckerUrl: 'probe.example',
+          addressLookup: (host) async => [InternetAddress('1.1.1.1')],
+        );
+
+        fakeConnectivityController.add([ConnectivityResult.wifi]);
+        await waitForAsyncWork();
+
+        expect(service.isOnline, true);
+      });
+
+      test('returns false when lookup resolves no addresses', () async {
+        service = InternetConnectivityService(
+          connectivity: mockConnectivity,
+          internetConnectionCheckerUrl: 'probe.example',
+          addressLookup: (host) async => [],
+        );
+
+        fakeConnectivityController.add([ConnectivityResult.wifi]);
+        await waitForAsyncWork();
+
+        expect(service.isOnline, false);
+      });
+
+      test('returns false when lookup hangs longer than the timeout', () async {
+        final neverCompletes = Completer<List<InternetAddress>>();
+        service = InternetConnectivityService(
+          connectivity: mockConnectivity,
+          internetConnectionCheckerUrl: 'probe.example',
+          addressLookup: (host) => neverCompletes.future,
+          lookupTimeout: const Duration(milliseconds: 10),
+        );
+
+        fakeConnectivityController.add([ConnectivityResult.wifi]);
+        await waitForAsyncWork();
+
+        expect(service.isOnline, false);
+      });
+
+      test(
+        'recovers to online once a hanging lookup starts succeeding',
+        () async {
+          var shouldHang = true;
+          service = InternetConnectivityService(
+            connectivity: mockConnectivity,
+            internetConnectionCheckerUrl: 'probe.example',
+            addressLookup: (host) {
+              if (shouldHang) {
+                return Completer<List<InternetAddress>>().future;
+              }
+              return Future.value([InternetAddress('1.1.1.1')]);
+            },
+            lookupTimeout: const Duration(milliseconds: 10),
+          );
+
+          fakeConnectivityController.add([ConnectivityResult.wifi]);
+          await waitForAsyncWork();
+          expect(service.isOnline, false);
+
+          shouldHang = false;
+          fakeConnectivityController.add([ConnectivityResult.mobile]);
+          await waitForAsyncWork();
+          expect(service.isOnline, true);
+        },
+      );
+
+      test('returns false when lookup throws a SocketException', () async {
+        service = InternetConnectivityService(
+          connectivity: mockConnectivity,
+          internetConnectionCheckerUrl: 'probe.example',
+          addressLookup: (host) => throw const SocketException('no route'),
+        );
+
+        fakeConnectivityController.add([ConnectivityResult.wifi]);
+        await waitForAsyncWork();
+
+        expect(service.isOnline, false);
+      });
+
+      test('returns false when lookup throws a non-socket error', () async {
+        service = InternetConnectivityService(
+          connectivity: mockConnectivity,
+          internetConnectionCheckerUrl: 'probe.example',
+          addressLookup: (host) => throw StateError('platform failure'),
+        );
+
+        fakeConnectivityController.add([ConnectivityResult.wifi]);
+        await waitForAsyncWork();
+
+        expect(service.isOnline, false);
+      });
+
+      test(
+        'ignores a stale probe result that completes after a newer probe',
+        () async {
+          final probes = <Completer<List<InternetAddress>>>[];
+          service = InternetConnectivityService(
+            connectivity: mockConnectivity,
+            internetConnectionCheckerUrl: 'probe.example',
+            addressLookup: (host) {
+              final probe = Completer<List<InternetAddress>>();
+              probes.add(probe);
+              return probe.future;
+            },
+          );
+
+          // First connectivity event: probe 1 starts and stays pending
+          // (slow DNS resolution).
+          fakeConnectivityController.add([ConnectivityResult.wifi]);
+          await waitForAsyncWork();
+
+          // Second connectivity event: probe 2 starts and succeeds
+          // quickly -> online.
+          fakeConnectivityController.add([ConnectivityResult.mobile]);
+          await waitForAsyncWork();
+          expect(probes.length, 2);
+          probes[1].complete([InternetAddress('1.1.1.1')]);
+          await waitForAsyncWork();
+          expect(service.isOnline, true);
+
+          // The stale probe 1 now completes as a failure. It must not
+          // overwrite the newer online state.
+          probes[0].complete(<InternetAddress>[]);
+          await waitForAsyncWork();
+          expect(service.isOnline, true);
+        },
+      );
+
+      test('returns false when lookup returns an asynchronous error', () async {
+        service = InternetConnectivityService(
+          connectivity: mockConnectivity,
+          internetConnectionCheckerUrl: 'probe.example',
+          addressLookup: (host) async {
+            throw const OSError('lookup blocked', 11);
+          },
+        );
+
+        fakeConnectivityController.add([ConnectivityResult.wifi]);
+        await waitForAsyncWork();
+
+        expect(service.isOnline, false);
+      });
     });
 
     group('onConnectivityChanged:', () {
