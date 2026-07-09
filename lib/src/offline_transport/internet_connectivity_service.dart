@@ -50,6 +50,16 @@ class InternetConnectivityService {
   _connectivityChangedSubscription;
   bool _isOnline = true;
 
+  /// Identifies the most recently started connectivity update.
+  ///
+  /// Connectivity events can overlap: a slow DNS probe from an older event
+  /// may complete (or time out) after a newer event's probe has already
+  /// resolved. Each [_handleConnectivityResults] call registers its own
+  /// token here and only applies its probe result if its token is still
+  /// the latest one — otherwise a newer update has taken over and the
+  /// stale result is discarded (last caller wins).
+  Object? _latestProbeToken;
+
   bool get isOnline => _isOnline;
 
   Stream<bool> get onConnectivityChanged {
@@ -84,11 +94,20 @@ class InternetConnectivityService {
   Future<void> _handleConnectivityResults(
     List<ConnectivityResult> results,
   ) async {
+    final probeToken = Object();
+    _latestProbeToken = probeToken;
     final result = results.firstOrNull ?? ConnectivityResult.none;
     if (result == ConnectivityResult.none) {
       _setOnline(false);
     } else {
-      _setOnline(await _isConnectedToInternet());
+      final isOnline = await _isConnectedToInternet();
+      if (!identical(probeToken, _latestProbeToken)) {
+        // A newer connectivity update started while this probe was in
+        // flight; its result owns the state now. Applying this stale
+        // result could mark a working connection offline (or vice versa).
+        return;
+      }
+      _setOnline(isOnline);
     }
   }
 

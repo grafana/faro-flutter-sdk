@@ -202,6 +202,42 @@ void main() {
         expect(service.isOnline, false);
       });
 
+      test(
+        'ignores a stale probe result that completes after a newer probe',
+        () async {
+          final probes = <Completer<List<InternetAddress>>>[];
+          service = InternetConnectivityService(
+            connectivity: mockConnectivity,
+            internetConnectionCheckerUrl: 'probe.example',
+            addressLookup: (host) {
+              final probe = Completer<List<InternetAddress>>();
+              probes.add(probe);
+              return probe.future;
+            },
+          );
+
+          // First connectivity event: probe 1 starts and stays pending
+          // (slow DNS resolution).
+          fakeConnectivityController.add([ConnectivityResult.wifi]);
+          await waitForAsyncWork();
+
+          // Second connectivity event: probe 2 starts and succeeds
+          // quickly -> online.
+          fakeConnectivityController.add([ConnectivityResult.mobile]);
+          await waitForAsyncWork();
+          expect(probes.length, 2);
+          probes[1].complete([InternetAddress('1.1.1.1')]);
+          await waitForAsyncWork();
+          expect(service.isOnline, true);
+
+          // The stale probe 1 now completes as a failure. It must not
+          // overwrite the newer online state.
+          probes[0].complete(<InternetAddress>[]);
+          await waitForAsyncWork();
+          expect(service.isOnline, true);
+        },
+      );
+
       test('returns false when lookup returns an asynchronous error', () async {
         service = InternetConnectivityService(
           connectivity: mockConnectivity,
