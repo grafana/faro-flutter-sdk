@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  resolve-pub-dependencies:
+  resolve-and-scan-sdk-dependencies:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -36,44 +36,32 @@ jobs:
       - name: Resolve SDK dependencies
         run: flutter pub get
 
-      - name: Resolve example dependencies
-        working-directory: example
-        run: flutter pub get
-
-      - name: Upload resolved pub lockfiles
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - name: Scan SDK dependencies
+        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
         with:
-          name: pub-lockfiles
-          path: |
-            pubspec.lock
-            example/pubspec.lock
-          if-no-files-found: error
-          retention-days: 1
+          scan-args: |-
+            --lockfile=pub:pubspec.lock
 
-  scan-pr:
+  scan-committed-lockfiles-pr:
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    needs: resolve-pub-dependencies
     permissions:
       actions: read
       contents: read
       security-events: write
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
     with:
-      download-artifact: pub-lockfiles
       scan-args: |-
-        --lockfile=pub:pubspec.lock
         --lockfile=pub:example/pubspec.lock
+        --lockfile=example/webview_demo/yarn.lock
 
-  scan-scheduled:
+  scan-committed-lockfiles:
     if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
-    needs: resolve-pub-dependencies
     permissions:
       actions: read
       contents: read
       security-events: write
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
     with:
-      download-artifact: pub-lockfiles
       scan-args: |-
-        --lockfile=pub:pubspec.lock
         --lockfile=pub:example/pubspec.lock
+        --lockfile=example/webview_demo/yarn.lock
