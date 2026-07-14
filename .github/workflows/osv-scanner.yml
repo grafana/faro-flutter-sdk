@@ -33,11 +33,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Check out target branch
+      - name: Check out target revision
         if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-        run: git checkout "$BASE_REF"
-        env:
-          BASE_REF: ${{ github.base_ref }}
+        run: |
+          target_sha="$(jq -r \
+            '.pull_request.base.sha // .merge_group.base_sha // empty' \
+            "$GITHUB_EVENT_PATH")"
+          if [ -z "$target_sha" ]; then
+            echo "::error::Could not determine target revision"
+            exit 1
+          fi
+          git checkout "$target_sha"
 
       - name: Set up target branch Flutter
         if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
