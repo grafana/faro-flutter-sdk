@@ -117,6 +117,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
+          category: osv-sdk-dependencies
           sarif_file: sdk-results.sarif
 
   scan-committed-lockfiles-pr:
