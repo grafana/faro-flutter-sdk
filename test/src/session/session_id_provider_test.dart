@@ -51,6 +51,17 @@ void main() {
       expect(firstAccess, equals(secondAccess));
     });
 
+    test('should generate a new session ID on rotateSessionId', () {
+      final sut = SessionIdProvider();
+      final initialSessionId = sut.sessionId;
+
+      final rotatedSessionId = sut.rotateSessionId();
+
+      expect(rotatedSessionId, isNot(equals(initialSessionId)));
+      expect(sut.sessionId, equals(rotatedSessionId));
+      expect(RegExp(r'^[a-zA-Z0-9]{10}$').hasMatch(rotatedSessionId), isTrue);
+    });
+
     test('should generate session IDs matching expected pattern', () {
       // Generate multiple IDs to test pattern consistency
       for (var i = 0; i < 10; i++) {
@@ -65,62 +76,6 @@ void main() {
         );
       }
     });
-  });
-
-  group('SessionIdProviderFactory:', () {
-    late SessionIdProviderFactory sut;
-
-    setUp(() {
-      sut = SessionIdProviderFactory();
-    });
-
-    test('should create a SessionIdProvider instance', () {
-      final provider = sut.create();
-
-      expect(provider, isA<SessionIdProvider>());
-      expect(provider.sessionId, isNotEmpty);
-    });
-
-    test(
-      'should return the same instance on multiple calls (singleton behavior)',
-      () {
-        final provider1 = sut.create();
-        final provider2 = sut.create();
-
-        expect(identical(provider1, provider2), isTrue);
-        expect(provider1.sessionId, equals(provider2.sessionId));
-      },
-    );
-
-    test('should return same instance across different factory instances', () {
-      final factory1 = SessionIdProviderFactory();
-      final factory2 = SessionIdProviderFactory();
-
-      final provider1 = factory1.create();
-      final provider2 = factory2.create();
-
-      expect(identical(provider1, provider2), isTrue);
-      expect(provider1.sessionId, equals(provider2.sessionId));
-    });
-
-    test(
-      'should maintain singleton state after multiple factory instantiations',
-      () {
-        final factory1 = SessionIdProviderFactory();
-        final provider1 = factory1.create();
-
-        final factory2 = SessionIdProviderFactory();
-        final provider2 = factory2.create();
-
-        final factory3 = SessionIdProviderFactory();
-        final provider3 = factory3.create();
-
-        expect(identical(provider1, provider2), isTrue);
-        expect(identical(provider2, provider3), isTrue);
-        expect(provider1.sessionId, equals(provider2.sessionId));
-        expect(provider2.sessionId, equals(provider3.sessionId));
-      },
-    );
   });
 
   group('SessionIdProvider _generateSessionID static method:', () {

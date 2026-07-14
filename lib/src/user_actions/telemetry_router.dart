@@ -1,4 +1,7 @@
 import 'package:dartypod/dartypod.dart';
+import 'package:faro/src/core/pod.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/user_actions/telemetry_item_dispatcher.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
@@ -9,11 +12,14 @@ class TelemetryRouter {
   TelemetryRouter({
     required BatchTransportResolver transportResolver,
     required UserActionsService userActionsService,
+    required SessionManager sessionManager,
   }) : _transportResolver = transportResolver,
-       _userActionsService = userActionsService;
+       _userActionsService = userActionsService,
+       _sessionManager = sessionManager;
 
   final BatchTransportResolver _transportResolver;
   final UserActionsService _userActionsService;
+  final SessionManager _sessionManager;
 
   /// Ingests a telemetry item and dispatches it according to routing
   /// rules.
@@ -24,7 +30,16 @@ class TelemetryRouter {
   ///
   /// If [skipBuffer] is `true`, the item bypasses user action buffering
   /// and is dispatched to transport immediately.
-  void ingest(TelemetryItem item, {bool skipBuffer = false}) {
+  ///
+  /// [activity] classifies how this item affects the session inactivity
+  /// window (see [SessionActivityKind]).
+  void ingest(
+    TelemetryItem item, {
+    bool skipBuffer = false,
+    SessionActivityKind activity = SessionActivityKind.active,
+  }) {
+    _sessionManager.checkSession(activity: activity);
+
     if (!skipBuffer &&
         _shouldBuffer(item.type) &&
         _userActionsService.tryBuffer(item)) {
@@ -46,9 +61,11 @@ class TelemetryRouter {
   }
 }
 
-final telemetryRouterProvider = Provider((pod) {
-  return TelemetryRouter(
-    transportResolver: pod.resolve(batchTransportResolverProvider),
+final telemetryRouterProvider = Provider<TelemetryRouter>(
+  (pod) => TelemetryRouter(
     userActionsService: pod.resolve(userActionsServiceProvider),
-  );
-});
+    transportResolver: pod.resolve(batchTransportResolverProvider),
+    sessionManager: pod.resolve(sessionManagerProvider),
+  ),
+  scope: faroInitScope,
+);

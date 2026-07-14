@@ -17,7 +17,10 @@ import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/session/app_lifecycle_service.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_id_provider.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/tracing/faro_otel_bootstrap.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
@@ -92,10 +95,7 @@ class Faro {
   bool get isSampled => _isSampled;
 
   Meta meta = Meta(
-    session: Session(
-      SessionIdProviderFactory().create().sessionId,
-      attributes: {},
-    ),
+    session: Session(_sessionIdProvider.sessionId, attributes: {}),
     sdk: Sdk(FaroConstants.sdkName, FaroConstants.sdkVersion),
     app: App(name: '', environment: '', version: ''),
     view: ViewMeta('default'),
@@ -108,7 +108,13 @@ class Faro {
 
   FaroNativeMethods? get nativeChannel => _nativeChannel;
 
+  static SessionIdProvider get _sessionIdProvider =>
+      pod.resolve(sessionIdProviderProvider);
+
   TelemetryRouter get _telemetryRouter => pod.resolve(telemetryRouterProvider);
+
+  NativeIntegration get _nativeIntegration =>
+      pod.resolve(nativeIntegrationProvider);
 
   UserActionsService get _userActionsService =>
       pod.resolve(userActionsServiceProvider);
@@ -116,7 +122,7 @@ class Faro {
   UserActionUiActivityMonitor get _userActionUiActivityMonitor =>
       pod.resolve(userActionUiActivityMonitorProvider);
 
-  FaroTracer get _tracer => FaroTracerFactory().create();
+  FaroTracer get _tracer => pod.resolve(faroTracerProvider);
 
   @visibleForTesting
   set nativeChannel(FaroNativeMethods? nativeChannel) {
@@ -209,13 +215,16 @@ class Faro {
     _batchTransport = batchTransport;
     pod.overrideProvider(batchTransportProvider, (_) => batchTransport);
 
+    final sessionManager = pod.resolve(sessionManagerProvider)
+      ..addListener(_onSessionChanged);
+
     if (config?.transports == null) {
       Faro()._transports.add(
         FaroTransport(
           collectorUrl: optionsConfiguration.collectorUrl ?? '',
           apiKey: optionsConfiguration.apiKey,
           maxBufferLimit: config?.maxBufferLimit,
-          sessionId: meta.session?.id,
+          sessionIdResolver: () => _sessionIdProvider.sessionId,
           headers: optionsConfiguration.collectorHeaders,
         ),
       );
@@ -234,7 +243,7 @@ class Faro {
       );
     }
     if (Platform.isAndroid || Platform.isIOS) {
-      NativeIntegration.instance.init(
+      _nativeIntegration.init(
         memusage: optionsConfiguration.memoryUsageVitals,
         cpuusage: optionsConfiguration.cpuUsageVitals,
         anr: optionsConfiguration.anrTracking,
@@ -243,11 +252,17 @@ class Faro {
       );
     }
     await FaroOtelBootstrap.initialize();
-    _instance.pushEvent('session_start');
+    // Announce the initial session; the listener emits `session_start`.
+    sessionManager.start();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      NativeIntegration.instance.getAppStart();
+      _nativeIntegration.getAppStart();
     });
-    _widgetsBindingObserver = FaroWidgetsBindingObserver();
+
+    final appLifecycleService = pod.resolve(appLifecycleServiceProvider);
+    _widgetsBindingObserver = FaroWidgetsBindingObserver(
+      appLifecycleService: appLifecycleService,
+      nativeIntegration: _nativeIntegration,
+    );
     WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
     if (optionsConfiguration.enableUiActivityMonitoring) {
       _userActionUiActivityMonitor.attach();
@@ -309,6 +324,34 @@ class Faro {
     });
   }
 
+  void _onSessionChanged({
+    required String currentId,
+    String? previousId,
+    required SessionStartTrigger trigger,
+  }) {
+    final attributes = <String, dynamic>{...?meta.session?.attributes};
+    if (previousId != null) {
+      attributes['previousSession'] = previousId;
+    }
+
+    meta = Meta.fromJson({
+      ...meta.toJson(),
+      'session': Session(currentId, attributes: attributes).toJson(),
+    });
+    _batchTransport?.updatePayloadMeta(meta);
+
+    final eventName = trigger == SessionStartTrigger.initial
+        ? 'session_start'
+        : 'session_extend';
+    // Lifecycle events bypass user-action buffering and never count as
+    // session activity (SDK-emitted, not app/user behavior).
+    _telemetryRouter.ingest(
+      TelemetryItem.fromEvent(Event(eventName)),
+      skipBuffer: true,
+      activity: SessionActivityKind.none,
+    );
+  }
+
   void _tearDownForReset() {
     final widgetsBindingObserver = _widgetsBindingObserver;
     if (widgetsBindingObserver != null) {
@@ -320,6 +363,10 @@ class Faro {
       _userActionUiActivityMonitor.detach();
       _didAttachUiActivityMonitor = false;
     }
+    // Evict the per-init singletons (session manager, app lifecycle
+    // service) so the next init resolves fresh instances. Disposable
+    // instances (e.g. NativeIntegration's vitals timer) are cleaned up here.
+    pod.clearScope(faroInitScope);
     _isInitialized = false;
   }
 

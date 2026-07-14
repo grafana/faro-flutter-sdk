@@ -299,6 +299,32 @@ To explicitly clear any persisted user on app start, use the sentinel value:
 initialUser: FaroUser.cleared(), // Start with no user, ignore persisted data
 ```
 
+### Session Lifecycle & Rotation
+
+Faro tracks a session id that groups all telemetry from a single period of use. Matching the [Faro session definition](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/session-tracking/), a session is automatically **rotated** (a new session id is generated) when either threshold is reached:
+
+- **Inactivity**: no app/user activity for 15 minutes, or
+- **Max lifetime**: the session has been alive for 4 hours.
+
+These thresholds are fixed and not configurable: the Grafana Cloud Faro receiver enforces the same windows server-side and drops telemetry from sessions that exceed them, so a longer client-side value would cause silent data loss.
+
+**Lifecycle events.** Faro emits an event whenever the session id changes, so you can follow the user journey in Grafana:
+
+| Event           | When                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------ |
+| `session_start` | The initial session, emitted once when the SDK initializes                           |
+| `session_extend` | A rotation: a new session was auto-created because the inactivity or lifetime timeout was reached |
+
+**Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
+
+**What counts as activity.** Telemetry that originates from app or user behavior extends the inactivity window: events, logs, exceptions, app-developer measurements, user interactions, view changes, and app lifecycle events. Spans count too — each exported span emits a Faro event that flows through the same path, so tracked HTTP requests and custom spans keep the session alive.
+
+Automatic vitals measurements pushed by the SDK itself (CPU, memory, refresh rate, frame stats, ANR count, app start) count as activity **only while the app is in the foreground**. This keeps a single session for a foregrounded but idle app (e.g. a user reading a screen without tapping), while ensuring a backgrounded app's session still expires — the Dart isolate keeps running while backgrounded on Android, so if background vitals counted they would keep the session alive indefinitely.
+
+Session expiry is evaluated lazily on the next ingested telemetry item (there is no periodic rotation timer). The triggering telemetry is attributed to the new session.
+
+> **Sampling note:** the session sampling decision is made once at initialization and is **not** re-evaluated on rotation (see [Session Sampling](#session-sampling)).
+
 ---
 
 ## User Interaction & Navigation
@@ -1111,7 +1137,7 @@ Faro().runApp(
 
 **How it works:**
 
-- The sampling decision is made once per session at initialization time
+- The sampling decision is made once at initialization time and applies for the whole app run, including across [session rotations](#session-lifecycle--rotation)
 - When a session is not sampled, all telemetry (events, logs, exceptions, measurements, traces) is silently dropped
 - A debug log is emitted when a session is not sampled, for transparency during development
 - Invalid return values (< 0.0 or > 1.0) are clamped to the valid range
@@ -1131,8 +1157,8 @@ Faro().runApp(
 
 **Notes:**
 
-- Sampling is head-based: the decision is made at SDK initialization and remains consistent for the entire session
-- This aligns with [Faro Web SDK sampling behavior](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/)
+- Sampling is head-based: the decision is made at SDK initialization and remains consistent for the whole app run (it is not re-evaluated when the session rotates)
+- The broader [Faro sampling model](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/) re-samples per rotated session; matching that in the Flutter SDK is planned as a follow-up (#284)
 
 **Use cases:**
 

@@ -1,6 +1,7 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
@@ -525,11 +526,11 @@ void main() {
     });
   });
 
-  group('FaroTracerFactory:', () {
-    setUp(FaroTracerFactory.reset);
-    tearDown(FaroTracerFactory.reset);
+  group('faroTracerProvider:', () {
+    setUp(() => pod.clearScope(tracerScope));
+    tearDown(() => pod.clearScope(tracerScope));
 
-    test('create() returns a working tracer even when OTel has not been '
+    test('resolves a working tracer even when OTel has not been '
         'initialized (e.g. when Faro.init has not run)', () async {
       // Regression test: callers like FaroHttpTrackingClient call
       // Faro().startSpanManual without first calling Faro().init(),
@@ -545,9 +546,9 @@ void main() {
         await otel.OTel.reset();
         await _initializeOtelForTest();
       });
-      FaroTracerFactory.reset();
+      pod.clearScope(tracerScope);
 
-      final tracer = FaroTracerFactory().create();
+      final tracer = pod.resolve(faroTracerProvider);
       final span = tracer.startSpanManual('preinit-span');
       expect(span, isNotNull);
       expect(span.traceId, isNotEmpty);
