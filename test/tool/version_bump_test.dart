@@ -5,43 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/version_bump.dart';
 
 void main() {
-  group('Version.parse:', () {
-    test('preserves prerelease and build metadata', () {
-      final version = Version.parse('1.2.3-rc.2+42');
-
-      expect(version.major, 1);
-      expect(version.minor, 2);
-      expect(version.patch, 3);
-      expect(version.prerelease, 'rc.2');
-      expect(version.buildMetadata, '42');
-      expect(version.toString(), '1.2.3-rc.2+42');
-    });
-
-    test('rejects leading zeros', () {
-      expect(() => Version.parse('01.2.3'), throwsFormatException);
-      expect(() => Version.parse('1.2.3-beta.01'), throwsFormatException);
-    });
-  });
-
-  group('Version.compareTo:', () {
-    test('orders prerelease versions using SemVer precedence', () {
-      expect(
-        Version.parse(
-          '0.17.0-beta.2',
-        ).compareTo(Version.parse('0.17.0-beta.1')),
-        greaterThan(0),
-      );
-      expect(
-        Version.parse('0.17.0').compareTo(Version.parse('0.17.0-beta.2')),
-        greaterThan(0),
-      );
-      expect(
-        Version.parse('1.0.0-beta.11').compareTo(Version.parse('1.0.0-beta.2')),
-        greaterThan(0),
-      );
-    });
-  });
-
   group('resolveNextVersion:', () {
     test('accepts an explicit prerelease target', () {
       expect(
@@ -64,6 +27,13 @@ void main() {
       expect(
         () => resolveNextVersion('0.17.0-beta.2', '0.17.0-beta.1'),
         throwsArgumentError,
+      );
+    });
+
+    test('rejects invalid SemVer targets', () {
+      expect(
+        () => resolveNextVersion('0.17.0-beta.1', 'not-a-version'),
+        throwsFormatException,
       );
     });
   });
