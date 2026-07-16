@@ -47,7 +47,7 @@ As you develop new features or fix bugs, add entries to the `CHANGELOG.md` under
 3. **Version Bump**
 
    ```bash
-   dart tool/version_bump.dart <patch|minor|major>
+   dart tool/version_bump.dart <patch|minor|major|version>
    ```
 
    This automatically:
@@ -56,6 +56,12 @@ As you develop new features or fix bugs, add entries to the `CHANGELOG.md` under
    - Converts `## [Unreleased]` → `## [x.y.z] - YYYY-MM-DD` in `CHANGELOG.md`
    - Creates a new empty `## [Unreleased]` section
    - Runs `flutter pub get` to update `example/pubspec.lock`
+
+   For pre-releases, pass the complete next version explicitly:
+
+   ```bash
+   dart tool/version_bump.dart 0.17.0-beta.2
+   ```
 
 4. **Commit Version Bump Changes**
 

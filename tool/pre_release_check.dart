@@ -223,7 +223,8 @@ Future<void> main(List<String> args) async {
     // ignore: avoid_print
     print(
       '\n${Colors.green}🚀 Ready to run: ${Colors.yellow}'
-      'dart tool/version_bump.dart <patch|minor|major>${Colors.reset}',
+      'dart tool/version_bump.dart '
+      '<patch|minor|major|version>${Colors.reset}',
     );
   }
 }
