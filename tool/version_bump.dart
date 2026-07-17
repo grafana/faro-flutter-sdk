@@ -1,43 +1,41 @@
 import 'dart:io';
 
-/// Version bump types
-enum BumpType { patch, minor, major }
+import 'package:pub_semver/pub_semver.dart';
 
-/// Represents a semantic version
-class Version {
-  Version(this.major, this.minor, this.patch);
+const _semVerPattern =
+    r'\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
+    r'(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?';
+const _bumpTargets = {'patch', 'minor', 'major'};
 
-  /// Parse version string into Version object
-  factory Version.parse(String version) {
-    final parts = version.split('.');
-    if (parts.length != 3) {
-      throw FormatException('Invalid version format: $version');
-    }
-    return Version(
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-      int.parse(parts[2]),
+/// Resolve a bump type or explicit SemVer target into the next version.
+Version resolveNextVersion(String currentVersion, String target) {
+  final current = Version.parse(currentVersion);
+  final normalizedTarget = target.toLowerCase();
+  if (current.isPreRelease && _bumpTargets.contains(normalizedTarget)) {
+    final stableVersion = current.nextPatch;
+    throw ArgumentError(
+      'Cannot use "$normalizedTarget" because current version $current '
+      'is a prerelease.\n'
+      'Specify the intended version explicitly, for example:\n'
+      '  dart tool/version_bump.dart $stableVersion\n'
+      '  dart tool/version_bump.dart ${stableVersion.nextMinor}\n'
+      'To continue the prerelease, provide its complete next version.',
     );
   }
 
-  final int major;
-  final int minor;
-  final int patch;
+  final next = switch (normalizedTarget) {
+    'patch' => current.nextPatch,
+    'minor' => current.nextMinor,
+    'major' => current.nextMajor,
+    _ => Version.parse(target),
+  };
 
-  /// Bump version according to specified type
-  Version bump(BumpType type) {
-    switch (type) {
-      case BumpType.major:
-        return Version(major + 1, 0, 0);
-      case BumpType.minor:
-        return Version(major, minor + 1, 0);
-      case BumpType.patch:
-        return Version(major, minor, patch + 1);
-    }
+  if (next.compareTo(current) <= 0) {
+    throw ArgumentError(
+      'Target version $next must be newer than current version $current',
+    );
   }
-
-  @override
-  String toString() => '$major.$minor.$patch';
+  return next;
 }
 
 /// Update version in pubspec.yaml
@@ -45,9 +43,10 @@ Future<void> updatePubspec(String version) async {
   final file = File('pubspec.yaml');
   final content = await file.readAsString();
   final updated = content.replaceFirst(
-    RegExp(r'version: \d+\.\d+\.\d+'),
+    RegExp('version: $_semVerPattern'),
     'version: $version',
   );
+  _ensureUpdated(file.path, content, updated);
   await file.writeAsString(updated);
 }
 
@@ -56,9 +55,10 @@ Future<void> updatePodspec(String version) async {
   final file = File('ios/faro.podspec');
   final content = await file.readAsString();
   final updated = content.replaceFirst(
-    RegExp(r"s\.version\s*=\s*'\d+\.\d+\.\d+'"),
+    RegExp("s\\.version\\s*=\\s*'$_semVerPattern'"),
     "s.version          = '$version'",
   );
+  _ensureUpdated(file.path, content, updated);
   await file.writeAsString(updated);
 }
 
@@ -67,9 +67,10 @@ Future<void> updateBuildGradle(String version) async {
   final file = File('android/build.gradle');
   final content = await file.readAsString();
   final updated = content.replaceFirst(
-    RegExp(r"version '\d+\.\d+\.\d+'"),
+    RegExp("version '$_semVerPattern'"),
     "version '$version'",
   );
+  _ensureUpdated(file.path, content, updated);
   await file.writeAsString(updated);
 }
 
@@ -127,38 +128,24 @@ Future<void> updateConstants(String version) async {
   final file = File('lib/src/util/constants.dart');
   final content = await file.readAsString();
   final updated = content.replaceFirst(
-    RegExp(r"static const String sdkVersion = '\d+\.\d+\.\d+';"),
+    RegExp("static const String sdkVersion = '$_semVerPattern';"),
     "static const String sdkVersion = '$version';",
   );
+  _ensureUpdated(file.path, content, updated);
   await file.writeAsString(updated);
+}
+
+void _ensureUpdated(String path, String content, String updated) {
+  if (updated == content) {
+    throw StateError('Could not update version in $path');
+  }
 }
 
 /// Main entry point
 Future<void> main(List<String> args) async {
   if (args.isEmpty) {
-    stderr.writeln('Usage: dart version_bump.dart <patch|minor|major>');
+    stderr.writeln('Usage: dart version_bump.dart <patch|minor|major|version>');
     exit(1);
-  }
-
-  // Parse bump type
-  final bumpTypeStr = args[0].toLowerCase();
-  BumpType? bumpType;
-
-  switch (bumpTypeStr) {
-    case 'patch':
-      bumpType = BumpType.patch;
-      break;
-    case 'minor':
-      bumpType = BumpType.minor;
-      break;
-    case 'major':
-      bumpType = BumpType.major;
-      break;
-    default:
-      stderr.writeln(
-        'Invalid bump type: $bumpTypeStr. Must be patch, minor, or major',
-      );
-      exit(1);
   }
 
   try {
@@ -166,7 +153,7 @@ Future<void> main(List<String> args) async {
     final pubspecFile = File('pubspec.yaml');
     final pubspecContent = await pubspecFile.readAsString();
     final versionMatch = RegExp(
-      r'version: (\d+\.\d+\.\d+)',
+      'version: ($_semVerPattern)',
     ).firstMatch(pubspecContent);
 
     if (versionMatch == null) {
@@ -175,8 +162,8 @@ Future<void> main(List<String> args) async {
     }
 
     // Calculate new version
-    final currentVersion = Version.parse(versionMatch.group(1)!);
-    final newVersion = currentVersion.bump(bumpType);
+    final currentVersion = versionMatch.group(1)!;
+    final newVersion = resolveNextVersion(currentVersion, args[0]);
 
     stdout.writeln('Bumping version: $currentVersion -> $newVersion');
 
