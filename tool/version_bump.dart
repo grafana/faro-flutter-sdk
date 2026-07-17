@@ -5,15 +5,28 @@ import 'package:pub_semver/pub_semver.dart';
 const _semVerPattern =
     r'\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
     r'(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?';
+const _bumpTargets = {'patch', 'minor', 'major'};
 
 /// Resolve a bump type or explicit SemVer target into the next version.
 Version resolveNextVersion(String currentVersion, String target) {
   final current = Version.parse(currentVersion);
   final normalizedTarget = target.toLowerCase();
+  if (current.isPreRelease && _bumpTargets.contains(normalizedTarget)) {
+    final stableVersion = current.nextPatch;
+    throw ArgumentError(
+      'Cannot use "$normalizedTarget" because current version $current '
+      'is a prerelease.\n'
+      'Specify the intended version explicitly, for example:\n'
+      '  dart tool/version_bump.dart $stableVersion\n'
+      '  dart tool/version_bump.dart ${stableVersion.nextMinor}\n'
+      'To continue the prerelease, provide its complete next version.',
+    );
+  }
+
   final next = switch (normalizedTarget) {
-    'patch' => Version(current.major, current.minor, current.patch + 1),
-    'minor' => Version(current.major, current.minor + 1, 0),
-    'major' => Version(current.major + 1, 0, 0),
+    'patch' => current.nextPatch,
+    'minor' => current.nextMinor,
+    'major' => current.nextMajor,
     _ => Version.parse(target),
   };
 

@@ -6,17 +6,46 @@ import '../../tool/version_bump.dart';
 
 void main() {
   group('resolveNextVersion:', () {
-    test('accepts an explicit prerelease target', () {
+    test('accepts explicit targets from a prerelease', () {
       expect(
         resolveNextVersion('0.17.0-beta.1', '0.17.0-beta.2').toString(),
         '0.17.0-beta.2',
       );
+      expect(
+        resolveNextVersion('0.17.0-beta.1', '0.17.0').toString(),
+        '0.17.0',
+      );
+      expect(
+        resolveNextVersion('0.17.0-beta.1', '0.18.0').toString(),
+        '0.18.0',
+      );
     });
 
     test('keeps stable bump behavior', () {
-      expect(resolveNextVersion('0.17.0-beta.1', 'patch').toString(), '0.17.1');
-      expect(resolveNextVersion('0.17.0-beta.1', 'minor').toString(), '0.18.0');
-      expect(resolveNextVersion('0.17.0-beta.1', 'major').toString(), '1.0.0');
+      expect(resolveNextVersion('0.17.1', 'patch').toString(), '0.17.2');
+      expect(resolveNextVersion('0.17.1', 'minor').toString(), '0.18.0');
+      expect(resolveNextVersion('0.17.1', 'major').toString(), '1.0.0');
+    });
+
+    test('requires an explicit target from a prerelease', () {
+      for (final bumpType in ['patch', 'minor', 'major']) {
+        expect(
+          () => resolveNextVersion('0.17.0-beta.1', bumpType),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.message.toString(),
+              'message',
+              allOf(
+                contains('Cannot use "$bumpType"'),
+                contains('0.17.0-beta.1 is a prerelease'),
+                contains('Specify the intended version explicitly'),
+                contains('dart tool/version_bump.dart 0.17.0'),
+                contains('dart tool/version_bump.dart 0.18.0'),
+              ),
+            ),
+          ),
+        );
+      }
     });
 
     test('rejects equal or older targets', () {

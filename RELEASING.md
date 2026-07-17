@@ -63,6 +63,11 @@ As you develop new features or fix bugs, add entries to the `CHANGELOG.md` under
    dart tool/version_bump.dart 0.17.0-beta.2
    ```
 
+   When the current version is a pre-release, the `patch`, `minor`, and
+   `major` shortcuts are rejected because the intended transition is
+   ambiguous. Pass the complete target version to continue the pre-release,
+   promote it to stable, or move to a different release line.
+
 4. **Commit Version Bump Changes**
 
    ```bash
