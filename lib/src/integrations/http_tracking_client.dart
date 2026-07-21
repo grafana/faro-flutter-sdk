@@ -91,6 +91,7 @@ class FaroHttpTrackingClient implements HttpClient {
       final request = await innerClient.openUrl(method, url);
       return FaroTrackingHttpClientRequest(request, httpSpan: httpSpan);
     } catch (error, stackTrace) {
+      httpSpan.setAttribute('http.status_code', 0);
       httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
       httpSpan.recordException(error, stackTrace: stackTrace);
       httpSpan.end();
@@ -248,6 +249,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   }
 
   void _recordOperationError(Object error, [StackTrace? stackTrace]) {
+    _httpSpan.setAttribute('http.status_code', 0);
     _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
     _httpSpan.recordException(error, stackTrace: stackTrace);
   }
@@ -264,7 +266,14 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         'http.response_size': value.headers.contentLength,
         'http.content_type': '${value.headers.contentType}',
       });
-      _httpSpan.setStatus(SpanStatusCode.ok);
+      if (value.statusCode >= 400) {
+        _httpSpan.setStatus(
+          SpanStatusCode.error,
+          message: 'HTTP status code ${value.statusCode}',
+        );
+      } else {
+        _httpSpan.setStatus(SpanStatusCode.ok);
+      }
 
       return FaroTrackingHttpResponse(
         value,
