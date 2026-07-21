@@ -358,7 +358,7 @@ void main() {
       responseStreamController.addError(StateError('boom'), StackTrace.current);
       await Future<void>.delayed(Duration.zero);
 
-      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verifyNever(() => mockSpan.setAttribute('http.status_code', 0));
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,
