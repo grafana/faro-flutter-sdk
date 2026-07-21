@@ -66,6 +66,12 @@ class NetworkRequestsPage extends ConsumerWidget {
                       isRunning: uiState.isRunning,
                       onPressed: actions.sendGetFailure,
                     ),
+                    _RequestButton(
+                      label: 'Network Failure (no response)',
+                      icon: Icons.cloud_off,
+                      isRunning: uiState.isRunning,
+                      onPressed: actions.sendNetworkFailure,
+                    ),
                   ],
                 ),
               ],
