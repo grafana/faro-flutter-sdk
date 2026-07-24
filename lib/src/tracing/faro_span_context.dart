@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:faro/src/tracing/span.dart';
 
 /// Identifies the span that a signal (log, event, exception, or measurement)
@@ -13,7 +14,7 @@ import 'package:faro/src/tracing/span.dart';
 ///
 /// If you already hold a [Span], use its `spanContext` getter instead of
 /// constructing this manually.
-class FaroSpanContext {
+class FaroSpanContext extends Equatable {
   /// Creates a span context from a [traceId] and [spanId].
   const FaroSpanContext({required this.traceId, required this.spanId});
 
@@ -29,14 +30,7 @@ class FaroSpanContext {
   }
 
   @override
-  bool operator ==(Object other) {
-    return other is FaroSpanContext &&
-        other.traceId == traceId &&
-        other.spanId == spanId;
-  }
-
-  @override
-  int get hashCode => Object.hash(traceId, spanId);
+  List<Object?> get props => [traceId, spanId];
 
   @override
   String toString() {
