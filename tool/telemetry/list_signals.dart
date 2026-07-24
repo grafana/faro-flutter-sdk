@@ -140,7 +140,10 @@ Map<String, dynamic> _toJson(Signal s) => {
 /// (exception value, measurement value keys).
 String _extra(Signal s) {
   final parts = <String>[];
-  if (s.traceId != null) {
+  // Show trace context whenever EITHER id is present. Gating on traceId alone
+  // would hide span-only (partial context) signals — the exact case
+  // verify_correlation.dart flags — so use hasTrace. short(null) renders '-'.
+  if (s.hasTrace) {
     parts.add('trace=${short(s.traceId, len: 10)}:${s.spanId ?? '-'}');
   }
   if (s.kind == 'exception' && s.metadata['value'] != null) {
