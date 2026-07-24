@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING**: The `trace: Map<String, String>?` parameter on `pushLog` and
+  `pushEvent` is replaced by `spanContext: FaroSpanContext?`. `pushError` and
+  `pushMeasurement` also gain the optional `spanContext` parameter (additive —
+  they had no `trace` parameter before). Migrate by wrapping ids in
+  `FaroSpanContext(traceId:, spanId:)`, or use `span.spanContext` when you
+  hold a `Span`.
 - **BREAKING**: The HTTP tracking integration now only exports
   `FaroHttpOverrides` from `package:faro/faro.dart`. The internal wrapper
   classes (`FaroHttpTrackingClient`, `FaroTrackingHttpClientRequest`,
