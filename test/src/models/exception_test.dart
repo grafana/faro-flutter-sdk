@@ -249,6 +249,47 @@ void main() {
       expect(json['context'], isA<Map<String, String>>());
     });
 
+    group('trace serialization:', () {
+      test('toJson includes trace when set and fromJson reads it back', () {
+        final exception = FaroException(
+          'error_type',
+          'Error message',
+          null,
+          trace: const {'trace_id': 'trace-1', 'span_id': 'span-1'},
+        );
+
+        final json = exception.toJson();
+        expect(
+          json['trace'],
+          equals({'trace_id': 'trace-1', 'span_id': 'span-1'}),
+        );
+
+        final decoded = FaroException.fromJson(json);
+        expect(
+          decoded.trace,
+          equals({'trace_id': 'trace-1', 'span_id': 'span-1'}),
+        );
+      });
+
+      test('toJson omits trace when null', () {
+        final exception = FaroException('error_type', 'Error message', null);
+
+        expect(exception.trace, isNull);
+        expect(exception.toJson().containsKey('trace'), isFalse);
+      });
+
+      test('toJson omits trace when empty', () {
+        final exception = FaroException(
+          'error_type',
+          'Error message',
+          null,
+          trace: const {},
+        );
+
+        expect(exception.toJson().containsKey('trace'), isFalse);
+      });
+    });
+
     test('stackTraceParse should extract stack trace information', () {
       final sampleStackTrace = StackTrace.fromString('''
 #0      SomeClass.someMethod (package:app/file.dart:10:5)

@@ -5,6 +5,7 @@ import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
@@ -318,12 +319,15 @@ void main() {
     test('send custom log', () {
       const logMessage = 'Log Message';
       const logContext = {'testkey': 'testvalue'};
-      const trace = {'traceId': 'testtraceid', 'spanId': 'testspanid'};
+      const spanContext = FaroSpanContext(
+        traceId: 'testtraceid',
+        spanId: 'testspanid',
+      );
       Faro().pushLog(
         logMessage,
         level: LogLevel.info,
         context: logContext,
-        trace: trace,
+        spanContext: spanContext,
       );
       verify(() => mockBatchTransport.addLog(any())).called(1);
     });

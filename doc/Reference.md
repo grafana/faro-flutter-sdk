@@ -581,6 +581,47 @@ Faro().pushMeasurement(
 );
 ```
 
+### Automatic Trace Correlation
+
+When you push a log, event, exception, or measurement while a span is active,
+the SDK automatically stamps the signal with the active span's `trace_id` and
+`span_id`. This lets you jump from a log line straight to its trace in Grafana,
+following the OpenTelemetry logs data model.
+
+```dart
+await Faro().startSpan('checkout', (span) async {
+  // No trace argument needed — the active span is picked up automatically.
+  Faro().pushLog('Payment authorized', level: LogLevel.info);
+  Faro().pushEvent('payment_authorized');
+  Faro().pushMeasurement({'amount': 29.99}, 'payment');
+});
+```
+
+Correlation applies to signals emitted inside a `startSpan()` callback (the
+active span is tracked per zone). Signals pushed with no active span carry no
+trace context.
+
+To attach or override the span context explicitly, pass a `FaroSpanContext`.
+An explicit `spanContext` always takes precedence over the active span:
+
+```dart
+Faro().pushLog(
+  'Correlated with a specific span',
+  level: LogLevel.info,
+  spanContext: FaroSpanContext(traceId: myTraceId, spanId: mySpanId),
+);
+```
+
+If you already hold a `Span`, use its `spanContext` getter:
+
+```dart
+Faro().pushLog(
+  'Correlated with a span I have a reference to',
+  level: LogLevel.info,
+  spanContext: span.spanContext,
+);
+```
+
 ### Capturing Event Duration
 
 Use distributed tracing spans to capture operation duration:

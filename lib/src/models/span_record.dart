@@ -5,6 +5,7 @@ import 'package:faro/src/models/trace/trace_span.dart';
 import 'package:faro/src/models/trace/trace_span_status.dart';
 import 'package:faro/src/tracing/dartastic_span_access.dart';
 import 'package:faro/src/tracing/extensions.dart';
+import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:fixnum/fixnum.dart';
 
 class SpanRecord {
@@ -58,10 +59,10 @@ class SpanRecord {
   }
 
   Map<String, String> getFaroSpanContext() {
-    return {
-      'trace_id': _otelReadOnlySpan.spanContext.traceId.toString(),
-      'span_id': _otelReadOnlySpan.spanContext.spanId.toString(),
-    };
+    return FaroSpanContext(
+      traceId: _otelReadOnlySpan.spanContext.traceId.toString(),
+      spanId: _otelReadOnlySpan.spanContext.spanId.toString(),
+    ).toJson();
   }
 
   Map<String, String> getFaroEventAttributes() {

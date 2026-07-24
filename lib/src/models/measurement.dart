@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:developer';
 
 class Measurement {
-  Measurement(Map<String, dynamic>? inputValues, this.type) {
+  Measurement(Map<String, dynamic>? inputValues, this.type, {this.trace}) {
     values = _sanitizeValues(inputValues);
   }
 
@@ -12,6 +12,7 @@ class Measurement {
     values = _sanitizeValues(json['values']);
     type = json['type'];
     timestamp = json['timestamp'];
+    trace = json['trace'];
   }
 
   /// Creates a Measurement from JSON, but returns null if required fields are missing
@@ -73,6 +74,7 @@ class Measurement {
 
   Map<String, dynamic>? values;
   String type = '';
+  Map<String, dynamic>? trace;
   String timestamp = DateTime.now().toUtc().toIso8601String();
 
   Map<String, dynamic> toJson() {
@@ -80,6 +82,9 @@ class Measurement {
     map['values'] = values;
     map['type'] = type;
     map['timestamp'] = timestamp;
+    if (trace != null && trace!.isNotEmpty) {
+      map['trace'] = trace;
+    }
     return map;
   }
 }

@@ -27,7 +27,10 @@ class FaroLog {
     map['level'] = level;
     map['timestamp'] = timestamp;
     map['context'] = context;
-    map['trace'] = trace;
+
+    if (trace != null && trace!.isNotEmpty) {
+      map['trace'] = trace;
+    }
 
     if (action != null) {
       map['action'] = action!.toJson();

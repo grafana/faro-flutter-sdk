@@ -175,6 +175,48 @@ class TracingService {
     }
   }
 
+  /// Runs a span and emits all four custom telemetry types inside it.
+  ///
+  /// Used to verify automatic log-trace correlation: none of the push calls
+  /// pass a `trace`, so the SDK should stamp each signal with the active
+  /// span's `trace_id`/`span_id`.
+  Future<void> runSpanWithCustomerTelemetry(LogCallback log) async {
+    log('Starting span with customer telemetry (log/event/error/measurement)...');
+
+    try {
+      await Faro().startSpan<void>('customer-telemetry-span', (span) async {
+        log('Active span traceId: ${span.traceId}');
+        log('Active span spanId: ${span.spanId}');
+
+        // None of these pass a trace: the active span should be attached.
+        Faro().pushLog(
+          'correlation-check log',
+          level: LogLevel.info,
+          context: {'source': 'customer-telemetry-demo'},
+        );
+        Faro().pushEvent(
+          'correlation_check_event',
+          attributes: {'source': 'customer-telemetry-demo'},
+        );
+        Faro().pushError(
+          type: 'CorrelationCheck',
+          value: 'correlation-check error',
+        );
+        Faro().pushMeasurement(
+          {'correlation_check': 1},
+          'correlation_check',
+        );
+
+        await Future.delayed(const Duration(milliseconds: 200));
+      });
+      log('Customer telemetry span completed.');
+      log('Check backend: log/event/exception/measurement should share the');
+      log('same trace_id/span_id as the span above.');
+    } catch (error) {
+      log('Error: $error', isError: true);
+    }
+  }
+
   /// Runs a span that records an error.
   Future<void> runSpanWithError(LogCallback log) async {
     log('Starting span that will record an error...');
