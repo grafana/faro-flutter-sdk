@@ -43,13 +43,17 @@ class Gcx {
     try {
       result = Process.runSync(bin, ['--context', context, ...args]);
     } on ProcessException catch (e) {
-      fail('Could not run "$bin" (${e.message}). '
-          'Is gcx installed and on your PATH? See https://github.com/grafana/gcx');
+      fail(
+        'Could not run "$bin" (${e.message}). '
+        'Is gcx installed and on your PATH? See https://github.com/grafana/gcx',
+      );
     }
     if (result.exitCode != 0) {
       if (allowFailure) return null;
-      fail('gcx ${args.join(' ')} failed (exit ${result.exitCode}):\n'
-          '${result.stderr}');
+      fail(
+        'gcx ${args.join(' ')} failed (exit ${result.exitCode}):\n'
+        '${result.stderr}',
+      );
     }
     final out = (result.stdout as String).trim();
     if (out.isEmpty) return allowFailure ? null : <String, dynamic>{};
@@ -62,14 +66,38 @@ class Gcx {
   }
 }
 
-/// Resolves a Loki `app_id` from a Faro app name (`service_name`).
-String? resolveAppId(Gcx runner, String appName) {
-  final json = runner.json(['frontend', 'apps', 'list', '-o', 'json']);
-  if (json is! List) return null;
-  for (final app in json) {
-    if (app is Map && app['spec'] is Map) {
-      final spec = app['spec'] as Map;
-      if (spec['name'] == appName) return spec['id']?.toString();
+/// Resolves a Loki `app_id` for a Faro app [appName] (`service_name`) by
+/// querying Loki and reading the `app_id` label off a matching stream.
+///
+/// The pipeline filters on `{app_id="..."}`, so the id must be Loki's — not the
+/// FEO registry id from `gcx frontend apps list`, which is not guaranteed to
+/// match. Returns null if no matching stream is found in the [since] window.
+String? resolveAppId(
+  Gcx runner,
+  String appName, {
+  required String lokiDs,
+  required String since,
+}) {
+  final json = runner.json([
+    'logs',
+    'query',
+    '-d',
+    lokiDs,
+    '{service_name="$appName"}',
+    '--since',
+    since,
+    '--limit',
+    '1',
+    '-o',
+    'json',
+  ], allowFailure: true);
+  final result = dig(json, ['data', 'result']);
+  if (result is! List) return null;
+  for (final stream in result) {
+    if (stream is! Map) continue;
+    final labels = stream['stream'];
+    if (labels is Map && labels['app_id'] != null) {
+      return labels['app_id'].toString();
     }
   }
   return null;
@@ -119,17 +147,17 @@ List<Signal> queryLokiSignals(
       // gcx returns each value as an object with a structuredMetadata map,
       // NOT a [timestamp, line] array.
       final rawMd = v is Map ? v['structuredMetadata'] : null;
-      final md =
-          rawMd is Map<String, dynamic> ? rawMd : const <String, dynamic>{};
+      final md = rawMd is Map<String, dynamic>
+          ? rawMd
+          : const <String, dynamic>{};
       if (runId != null && md['session_attr_qa_run_id'] != runId) continue;
       if (sessionId != null && md['session_id'] != sessionId) continue;
 
       final kind = (md['kind'] ?? labels['kind'] ?? 'unknown').toString();
       if (kinds != null && !kinds.contains(kind)) continue;
 
-      final ts =
-          (md['timestamp'] ?? (v is Map ? v['timestamp'] : null) ?? '')
-              .toString();
+      final ts = (md['timestamp'] ?? (v is Map ? v['timestamp'] : null) ?? '')
+          .toString();
       signals.add(
         Signal(
           kind: kind,
@@ -147,8 +175,10 @@ List<Signal> queryLokiSignals(
   // filtering. If we hit it, the run's signals may be silently truncated.
   final limitN = int.tryParse(limit);
   if (limitN != null && rawCount >= limitN) {
-    stderr.writeln('WARNING: hit --limit ($limit) raw Loki lines; results may '
-        'be truncated. Raise --limit or narrow --since.');
+    stderr.writeln(
+      'WARNING: hit --limit ($limit) raw Loki lines; results may '
+      'be truncated. Raise --limit or narrow --since.',
+    );
   }
   return signals;
 }
@@ -237,8 +267,10 @@ class Args {
     final allowed = {...known, 'help', 'h'};
     final unknown = _map.keys.where((k) => !allowed.contains(k)).toList();
     if (unknown.isNotEmpty) {
-      fail('Unknown flag(s): ${unknown.map((k) => '--$k').join(', ')}. '
-          'See --help.');
+      fail(
+        'Unknown flag(s): ${unknown.map((k) => '--$k').join(', ')}. '
+        'See --help.',
+      );
     }
   }
 }

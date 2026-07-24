@@ -56,7 +56,7 @@ void main(List<String> argv) {
 
   if (appId == null) {
     stdout.writeln('Resolving app-id for "$appName" ...');
-    appId = resolveAppId(runner, appName!);
+    appId = resolveAppId(runner, appName!, lokiDs: lokiDs, since: since);
     if (appId == null) {
       fail('Could not resolve an app-id for --app-name "$appName".');
     }
@@ -66,8 +66,8 @@ void main(List<String> argv) {
   final filter = runId != null
       ? 'qa_run_id=$runId'
       : sessionId != null
-          ? 'session_id=$sessionId'
-          : '(none)';
+      ? 'session_id=$sessionId'
+      : '(none)';
   stdout
     ..writeln('Context : $context')
     ..writeln('App     : id=$appId')
@@ -126,6 +126,9 @@ void main(List<String> argv) {
     } else if (spans == null) {
       status = 'TRACE NOT FOUND IN TEMPO';
       dangling++;
+    } else if (spans.isEmpty) {
+      status = 'TRACE HAS NO DECODABLE SPANS';
+      dangling++;
     } else if (!spans.contains(s.spanId!.toLowerCase())) {
       status = 'SPAN NOT IN TRACE';
       dangling++;
@@ -162,37 +165,53 @@ void main(List<String> argv) {
     ..writeln('  signals total     : ${signals.length}')
     ..writeln('  correlated        : ${correlated.length}')
     ..writeln('  uncorrelated      : ${uncorrelated.length}')
-    ..writeln('  distinct traces   : ${traceSpanIds.length} '
-        '(found in Tempo: $tracesFound)')
+    ..writeln(
+      '  distinct traces   : ${traceSpanIds.length} '
+      '(found in Tempo: $tracesFound)',
+    )
     ..writeln('  dangling refs     : $dangling');
 
   if (dangling > 0) {
-    stdout.writeln('\nFAIL: $dangling signal(s) have partial context or '
-        'reference a trace/span not found in Tempo.');
+    stdout.writeln(
+      '\nFAIL: $dangling signal(s) have partial context or '
+      'reference a trace/span not found in Tempo.',
+    );
     exit(1);
   }
-  stdout.writeln('\nPASS: every correlated signal resolves to a real Tempo '
-      'span.');
+  stdout.writeln(
+    '\nPASS: every correlated signal resolves to a real Tempo '
+    'span.',
+  );
 }
 
-/// Returns the set of span-ids (lowercase hex) in a Tempo trace, or null if
-/// the trace could not be fetched.
+/// Returns the set of span-ids (lowercase hex) in a Tempo trace. Returns null
+/// only when the trace could not be fetched (missing/absent); an empty set
+/// means the trace was fetched but no `spanId`s decoded, which is distinct and
+/// reported separately so a decode/schema regression isn't mistaken for a
+/// missing trace.
 Set<String>? _fetchTraceSpanIds(Gcx runner, String tempoDs, String traceId) {
-  final json = runner.json(
-    ['traces', 'get', traceId, '-d', tempoDs, '-o', 'json'],
-    allowFailure: true,
-  );
+  final json = runner.json([
+    'traces',
+    'get',
+    traceId,
+    '-d',
+    tempoDs,
+    '-o',
+    'json',
+  ], allowFailure: true);
   if (json == null) return null;
   final ids = <String>{};
   _collectSpanIds(json, ids);
-  return ids.isEmpty ? null : ids;
+  return ids;
 }
 
 /// Recursively walks OTLP-shaped JSON collecting base64 `spanId` values,
-/// decoded to lowercase hex.
+/// decoded to lowercase hex. Skips `links`/`references`, whose `spanId`s point
+/// at other spans (often in other traces) and would cause false matches.
 void _collectSpanIds(dynamic node, Set<String> out) {
   if (node is Map) {
     for (final entry in node.entries) {
+      if (entry.key == 'links' || entry.key == 'references') continue;
       if (entry.key == 'spanId' && entry.value is String) {
         final hex = _base64ToHex(entry.value as String);
         if (hex != null) out.add(hex);

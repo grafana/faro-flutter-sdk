@@ -60,7 +60,7 @@ void main(List<String> argv) {
   final runner = Gcx(gcx, context);
 
   if (appId == null) {
-    appId = resolveAppId(runner, appName!);
+    appId = resolveAppId(runner, appName!, lokiDs: lokiDs, since: since);
     if (appId == null) fail('Could not resolve app-id for "$appName".');
   }
 
@@ -77,9 +77,7 @@ void main(List<String> argv) {
 
   if (format == 'json') {
     stdout.writeln(
-      const JsonEncoder.withIndent('  ').convert(
-        signals.map(_toJson).toList(),
-      ),
+      const JsonEncoder.withIndent('  ').convert(signals.map(_toJson).toList()),
     );
     return;
   }
@@ -91,8 +89,10 @@ void main(List<String> argv) {
     ..writeln();
 
   if (signals.isEmpty) {
-    stdout.writeln('No signals found. Data can take ~30-45s to appear; try a '
-        'wider --since.');
+    stdout.writeln(
+      'No signals found. Data can take ~30-45s to appear; try a '
+      'wider --since.',
+    );
     return;
   }
 
@@ -102,8 +102,9 @@ void main(List<String> argv) {
   );
   stdout.writeln('-' * 100);
   for (final s in signals) {
-    final kindCol =
-        (s.kind == 'log' && s.level != null) ? '${s.kind}/${s.level}' : s.kind;
+    final kindCol = (s.kind == 'log' && s.level != null)
+        ? '${s.kind}/${s.level}'
+        : s.kind;
     stdout.writeln(
       '${pad(s.timestamp, 26)}${pad(kindCol, 13)}'
       '${pad(s.name, 34)}${_extra(s)}',
@@ -124,16 +125,16 @@ void main(List<String> argv) {
 }
 
 Map<String, dynamic> _toJson(Signal s) => {
-      'timestamp': s.timestamp,
-      'kind': s.kind,
-      'name': s.name,
-      if (s.kind == 'log' && s.level != null) 'level': s.level,
-      if (s.traceId != null) 'trace_id': s.traceId,
-      if (s.spanId != null) 'span_id': s.spanId,
-      // Full structuredMetadata so `--format json` can be used to inspect
-      // actual field names/values (e.g. confirm a new field surfaces).
-      'metadata': s.metadata,
-    };
+  'timestamp': s.timestamp,
+  'kind': s.kind,
+  'name': s.name,
+  if (s.kind == 'log' && s.level != null) 'level': s.level,
+  if (s.traceId != null) 'trace_id': s.traceId,
+  if (s.spanId != null) 'span_id': s.spanId,
+  // Full structuredMetadata so `--format json` can be used to inspect
+  // actual field names/values (e.g. confirm a new field surfaces).
+  'metadata': s.metadata,
+};
 
 /// Trailing EXTRA column: trace context plus a couple of kind-specific hints
 /// (exception value, measurement value keys).

@@ -81,7 +81,7 @@ void _snapshot(Args args) {
 
   final runner = Gcx(gcx, context);
   if (appId == null) {
-    appId = resolveAppId(runner, appName!);
+    appId = resolveAppId(runner, appName!, lokiDs: lokiDs, since: since);
     if (appId == null) fail('Could not resolve app-id for "$appName".');
   }
 
@@ -107,8 +107,10 @@ void _snapshot(Args args) {
 
   final groups = <String, _Group>{};
   for (final s in signals) {
-    final group = groups.putIfAbsent('${s.kind}::${s.name}',
-        () => _Group(s.kind, s.name));
+    final group = groups.putIfAbsent(
+      '${s.kind}::${s.name}',
+      () => _Group(s.kind, s.name),
+    );
     group.count++;
     if (s.hasTrace) group.hasTrace = true;
     for (final key in s.metadata.keys) {
@@ -117,8 +119,7 @@ void _snapshot(Args args) {
     }
   }
 
-  final sorted = groups.values.toList()
-    ..sort((a, b) => a.key.compareTo(b.key));
+  final sorted = groups.values.toList()..sort((a, b) => a.key.compareTo(b.key));
   final snapshot = {
     'app_id': appId,
     'context': context,
@@ -202,8 +203,10 @@ void _diff(String beforePath, String afterPath) {
     stdout.writeln('No structural differences. Telemetry shape is identical.');
     exit(0);
   }
-  stdout.writeln('$changes group(s) differ. Review above — for a '
-      'trace-correlation change, expect only has_trace / trace-key deltas.');
+  stdout.writeln(
+    '$changes group(s) differ. Review above — for a '
+    'trace-correlation change, expect only has_trace / trace-key deltas.',
+  );
   exit(2);
 }
 
@@ -227,8 +230,10 @@ Map<String, dynamic> _readSnapshot(String path) {
     fail('Could not parse snapshot "$path": $e');
   }
   if (decoded is! Map<String, dynamic> || decoded['groups'] is! Map) {
-    fail('"$path" is not a telemetry snapshot (missing "groups"). '
-        'Generate one with: snapshot.dart snapshot ... --out $path');
+    fail(
+      '"$path" is not a telemetry snapshot (missing "groups"). '
+      'Generate one with: snapshot.dart snapshot ... --out $path',
+    );
   }
   return decoded;
 }
