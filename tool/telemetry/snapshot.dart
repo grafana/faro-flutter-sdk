@@ -35,10 +35,14 @@ import 'common.dart';
 const _traceKeys = <String>{'trace_id', 'span_id', 'traceID', 'spanID'};
 
 void main(List<String> argv) {
+  // Only the bare `help` keyword counts as help when it's the first token;
+  // matching it anywhere would treat flag values/paths (e.g. `--run-id help`
+  // or `diff help after.json`) as a help request. The `--help`/`-h` flags may
+  // appear anywhere.
   if (argv.isEmpty ||
+      argv.first == 'help' ||
       argv.contains('--help') ||
-      argv.contains('-h') ||
-      argv.contains('help')) {
+      argv.contains('-h')) {
     _printUsage();
     return;
   }
