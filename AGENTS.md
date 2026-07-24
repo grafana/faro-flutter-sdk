@@ -282,13 +282,15 @@ Then run as usual: `flutter run --dart-define-from-file api-config.json`
 
 See `example/README.md` § "QA Smoke Test Configuration" for the full reference.
 
-### Before opening a PR
+### Before pushing to a PR (run on EVERY push, not just the first)
 
-Run the pre-release check script before committing/opening a PR. It validates formatting, static analysis, tests, and CHANGELOG content in one step:
+Run the pre-release check script before **every** push to a PR branch — not only when first opening the PR. CI runs these same gates on every push, so validating locally first avoids wasted CI cycles. Formatting is by far the most common cause of red CI:
 
 ```bash
 dart tool/pre_release_check.dart
 ```
+
+This validates formatting (`dart format --set-exit-if-changed .`), static analysis, tests, and CHANGELOG content in one step. Run the full script every time — do not substitute a partial check like `flutter analyze`, which does not catch formatting.
 
 See `CONTRIBUTING.md` for the full contributor workflow.
 
