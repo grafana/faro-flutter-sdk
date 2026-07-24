@@ -63,7 +63,7 @@ abstract interface class TracingPageActions {
   Future<void> runSpanWithError();
 
   /// Runs a span and emits all four custom telemetry types inside it.
-  Future<void> runSpanWithCustomerTelemetry();
+  Future<void> runSpanWithCustomTelemetry();
 
   /// Demonstrates Span.noParent for independent traces.
   Future<void> runSpanWithNoParent();
@@ -177,8 +177,8 @@ class _TracingPageViewModel extends Notifier<TracingPageUiState>
   }
 
   @override
-  Future<void> runSpanWithCustomerTelemetry() async {
-    await _runSpanOperation(_tracingService.runSpanWithCustomerTelemetry);
+  Future<void> runSpanWithCustomTelemetry() async {
+    await _runSpanOperation(_tracingService.runSpanWithCustomTelemetry);
   }
 
   @override

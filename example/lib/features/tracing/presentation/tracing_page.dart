@@ -108,7 +108,7 @@ class _ButtonsSection extends StatelessWidget {
               _SpanButton(
                 label: 'Span + Telemetry',
                 icon: Icons.link,
-                onPressed: actions.runSpanWithCustomerTelemetry,
+                onPressed: actions.runSpanWithCustomTelemetry,
                 isRunning: uiState.isRunning,
               ),
               _SpanButton(
