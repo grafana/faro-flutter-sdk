@@ -181,9 +181,7 @@ class TracingService {
   /// pass a `trace`, so the SDK should stamp each signal with the active
   /// span's `trace_id`/`span_id`.
   Future<void> runSpanWithCustomTelemetry(LogCallback log) async {
-    log(
-      'Starting span with custom telemetry (log/event/error/measurement)...',
-    );
+    log('Starting span with custom telemetry (log/event/error/measurement)...');
 
     try {
       await Faro().startSpan<void>('custom-telemetry-span', (span) async {
