@@ -25,10 +25,7 @@ class FaroSpanContext {
 
   /// Serializes to the Faro payload shape with snake_case keys.
   Map<String, String> toJson() {
-    return {
-      'trace_id': traceId,
-      'span_id': spanId,
-    };
+    return {'trace_id': traceId, 'span_id': spanId};
   }
 
   @override

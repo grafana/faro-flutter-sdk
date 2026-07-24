@@ -181,7 +181,9 @@ class TracingService {
   /// pass a `trace`, so the SDK should stamp each signal with the active
   /// span's `trace_id`/`span_id`.
   Future<void> runSpanWithCustomerTelemetry(LogCallback log) async {
-    log('Starting span with customer telemetry (log/event/error/measurement)...');
+    log(
+      'Starting span with customer telemetry (log/event/error/measurement)...',
+    );
 
     try {
       await Faro().startSpan<void>('customer-telemetry-span', (span) async {
@@ -202,10 +204,7 @@ class TracingService {
           type: 'CorrelationCheck',
           value: 'correlation-check error',
         );
-        Faro().pushMeasurement(
-          {'correlation_check': 1},
-          'correlation_check',
-        );
+        Faro().pushMeasurement({'correlation_check': 1}, 'correlation_check');
 
         await Future.delayed(const Duration(milliseconds: 200));
       });
