@@ -296,6 +296,19 @@ See `CONTRIBUTING.md` for the full contributor workflow.
 
 If `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` are set, the example APK can be tested on a real Android device using BrowserStack App Automate. Upload via the BrowserStack REST API with `custom_id=faro-flutter-example`, then use Appium REST calls to interact with the app. Flutter exposes UI elements through the Accessibility Bridge, so `accessibility id` element lookups work for buttons with text labels (e.g., `"Change Route"`, `"Simple Span"`). For card-style `ListTile` widgets, the accessibility label is the concatenated title and subtitle separated by `\n`.
 
+### Validating telemetry changes against Grafana Cloud
+
+When a change affects emitted telemetry (logs, events, exceptions, measurements,
+spans, trace/span context, or any `structuredMetadata` field), validate it
+end-to-end against the real data in Grafana Cloud (Loki + Tempo), not just unit
+tests. The `tool/telemetry/` directory has generic, dependency-free Dart helpers
+for this — verifying log↔trace correlation, diffing the emitted telemetry shape
+before/after a change (e.g. branch vs `main`), and listing a session's full
+signal timeline. They shell out to the `gcx` CLI.
+
+See `tool/telemetry/README.md` for the full workflow, inputs to gather, and the
+gcx/Loki/Tempo gotchas.
+
 ### Gotchas
 
 - `flutter pub get` in the root resolves both SDK and `example/` dependencies due to workspace configuration — no need to run it separately in `example/`.
