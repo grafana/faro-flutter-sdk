@@ -12,6 +12,12 @@ import 'package:faro/src/tracing/span.dart';
 /// with a span you obtained elsewhere (for example, ids received from a backend
 /// or a WebView handoff).
 ///
+/// The [traceId] and [spanId] must be lowercase-hex strings in
+/// [W3C Trace Context](https://www.w3.org/TR/trace-context/) format, which
+/// OpenTelemetry also conforms to: a 32-character `traceId` (16 bytes) and a
+/// 16-character `spanId` (8 bytes), neither all-zeroes. Ids that don't match
+/// won't correlate in Grafana/Tempo. Note: the SDK does not validate this.
+///
 /// If you already hold a [Span], use its `spanContext` getter instead of
 /// constructing this manually.
 class FaroSpanContext extends Equatable {
