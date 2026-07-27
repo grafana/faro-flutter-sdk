@@ -42,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   span. When a response stream error handler has an unsupported signature,
   the SDK's fallback `network_error` log now carries the HTTP span's
   `trace_id`/`span_id` instead of no trace context.
+- Forward Android native crash and ANR traces from `ApplicationExitInfo` into
+  the Faro exception context instead of always reporting `No stacktrace`.
 
 ## [0.17.0-beta.2] - 2026-07-16
 

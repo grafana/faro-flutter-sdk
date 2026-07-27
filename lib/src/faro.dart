@@ -872,51 +872,56 @@ class Faro {
       if (Platform.isAndroid) {
         final crashReports = await _nativeChannel?.getCrashReport();
         if (crashReports != null) {
-          for (final crashInfo in crashReports) {
-            final crashInfoJson = json.decode(crashInfo);
-            final String reason = crashInfoJson['reason'];
-            final int status = crashInfoJson['status'];
-            // String description = crashInfoJson["description"];
-            // description/stacktrace fails to send format and sanitize before push
-
-            // Convert crashInfoJson from Map<String, dynamic> to Map<String, String>
-            final stringifiedContext = <String, String>{};
-            crashInfoJson.forEach((String key, dynamic value) {
-              stringifiedContext[key] = value?.toString() ?? '';
-            });
-
-            final description =
-                stringifiedContext['description'] ?? 'No description';
-            final stacktrace =
-                stringifiedContext['stacktrace'] ?? 'No stacktrace';
-            final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
-            final humanReadableTimestamp = timestamp.toHumanReadableTimestamp();
-
-            final importance =
-                stringifiedContext['importance'] ?? 'No importance';
-            final processName =
-                stringifiedContext['processName'] ?? 'No processName';
-
-            _instance.pushError(
-              type: 'crash',
-              value: '$reason , status: $status',
-              fatal: true,
-              context: {
-                'description': description,
-                'stacktrace': stacktrace,
-                'timestamp': timestamp,
-                'timestamp_readable_utc': humanReadableTimestamp,
-                'importance': importance,
-                'processName': processName,
-              },
-            );
-          }
+          _reportAndroidCrashReports(crashReports);
         }
       }
     } catch (error, stacktrace) {
       log(
         'Faro: enableCrashReporter failed with error: $error',
         stackTrace: stacktrace,
+      );
+    }
+  }
+
+  @visibleForTesting
+  void reportAndroidCrashesForTesting(List<String> crashReports) {
+    _reportAndroidCrashReports(crashReports);
+  }
+
+  void _reportAndroidCrashReports(List<String> crashReports) {
+    for (final crashInfo in crashReports) {
+      final crashInfoJson = json.decode(crashInfo);
+      final String reason = crashInfoJson['reason'];
+      final int status = crashInfoJson['status'];
+
+      final stringifiedContext = <String, String>{};
+      crashInfoJson.forEach((String key, dynamic value) {
+        stringifiedContext[key] = value?.toString() ?? '';
+      });
+
+      final description = stringifiedContext['description'] ?? 'No description';
+      final stacktrace =
+          stringifiedContext['trace'] ??
+          stringifiedContext['stacktrace'] ??
+          'No stacktrace';
+      final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
+      final humanReadableTimestamp = timestamp.toHumanReadableTimestamp();
+
+      final importance = stringifiedContext['importance'] ?? 'No importance';
+      final processName = stringifiedContext['processName'] ?? 'No processName';
+
+      _instance.pushError(
+        type: 'crash',
+        value: '$reason , status: $status',
+        fatal: true,
+        context: {
+          'description': description,
+          'stacktrace': stacktrace,
+          'timestamp': timestamp,
+          'timestamp_readable_utc': humanReadableTimestamp,
+          'importance': importance,
+          'processName': processName,
+        },
       );
     }
   }
