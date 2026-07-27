@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Report Flutter framework errors even when no stack trace is available
+  ([#271](https://github.com/grafana/faro-flutter-sdk/issues/271)).
 - Forward Android native crash and ANR traces from `ApplicationExitInfo` into
   the Faro exception context instead of always reporting `No stacktrace`.
 

@@ -54,6 +54,25 @@ void main() {
       verify(() => mockBatchTransport.addExceptions(any())).called(1);
     });
 
+    test('reports Flutter errors without a stack trace', () {
+      final detailsWithoutStack = FlutterErrorDetails(
+        exception: FlutterError('Test Error'),
+      );
+      FlutterError.onError = null;
+      FlutterErrorIntegration().call();
+
+      FlutterError.onError?.call(detailsWithoutStack);
+
+      final exception =
+          verify(
+                () => mockBatchTransport.addExceptions(captureAny()),
+              ).captured.single
+              as FaroException;
+      expect(exception.type, 'flutter_error');
+      expect(exception.value, 'Test Error');
+      expect(exception.stacktrace, isEmpty);
+    });
+
     test('Default error handler executes after Pushing Errors', () {
       FlutterError.onError = mockFunctions.defaultOnError;
       FlutterErrorIntegration().call();

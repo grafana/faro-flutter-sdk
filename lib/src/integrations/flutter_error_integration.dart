@@ -9,13 +9,11 @@ class FlutterErrorIntegration {
   void call() {
     _defaultOnError = FlutterError.onError;
     _onErrorIntegration = (details) async {
-      if (details.stack != null) {
-        Faro().pushError(
-          type: 'flutter_error',
-          value: details.exceptionAsString(),
-          stacktrace: details.stack,
-        );
-      }
+      Faro().pushError(
+        type: 'flutter_error',
+        value: details.exceptionAsString(),
+        stacktrace: details.stack,
+      );
 
       if (_defaultOnError != null) {
         _defaultOnError?.call(details);
