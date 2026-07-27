@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
@@ -354,6 +356,74 @@ void main() {
               ).captured.single
               as FaroException;
       expect(capturedException.fatal, isTrue);
+    });
+
+    test('native Android crash forwards the captured trace', () {
+      const nativeTrace = '''
+java.lang.NullPointerException: test crash
+    at com.example.MainActivity.crash(MainActivity.kt:42)
+''';
+      final crashReport = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'description': 'Native crash',
+        'trace': nativeTrace,
+        'timestamp': '1749080960296',
+        'importance': 100,
+        'processName': 'com.example.app',
+      });
+
+      Faro().reportAndroidCrashesForTesting([crashReport]);
+
+      final capturedException =
+          verify(
+                () => mockBatchTransport.addExceptions(captureAny()),
+              ).captured.single
+              as FaroException;
+      expect(capturedException.fatal, isTrue);
+      expect(capturedException.context?['stacktrace'], nativeTrace);
+    });
+
+    test('native Android crash accepts the legacy stacktrace key', () {
+      const nativeTrace = 'legacy native trace';
+      final crashReport = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'description': 'Native crash',
+        'stacktrace': nativeTrace,
+        'timestamp': '1749080960296',
+        'importance': 100,
+        'processName': 'com.example.app',
+      });
+
+      Faro().reportAndroidCrashesForTesting([crashReport]);
+
+      final capturedException =
+          verify(
+                () => mockBatchTransport.addExceptions(captureAny()),
+              ).captured.single
+              as FaroException;
+      expect(capturedException.context?['stacktrace'], nativeTrace);
+    });
+
+    test('native Android crash keeps the missing trace fallback', () {
+      final crashReport = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'description': 'Native crash',
+        'timestamp': '1749080960296',
+        'importance': 100,
+        'processName': 'com.example.app',
+      });
+
+      Faro().reportAndroidCrashesForTesting([crashReport]);
+
+      final capturedException =
+          verify(
+                () => mockBatchTransport.addExceptions(captureAny()),
+              ).captured.single
+              as FaroException;
+      expect(capturedException.context?['stacktrace'], 'No stacktrace');
     });
 
     test('send custom measurement', () {

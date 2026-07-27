@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Forward Android native crash and ANR traces from `ApplicationExitInfo` into
+  the Faro exception context instead of always reporting `No stacktrace`.
+
 ## [0.17.0-beta.2] - 2026-07-16
 
 ### Added
