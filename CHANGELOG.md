@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Report Flutter framework errors even when no stack trace is available
+  ([#271](https://github.com/grafana/faro-flutter-sdk/issues/271)).
 - HTTP network-error fallback logs are now correlated with their request
   span. When a response stream error handler has an unsupported signature,
   the SDK's fallback `network_error` log now carries the HTTP span's
