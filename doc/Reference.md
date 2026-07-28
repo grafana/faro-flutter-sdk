@@ -306,8 +306,10 @@ Faro tracks a session id that groups all telemetry from a single period of use. 
 - **Inactivity**: no app/user activity for 15 minutes, or
 - **Max lifetime**: the session has been alive for 4 hours.
 
-These thresholds are fixed and not configurable so they stay aligned with the
-same windows enforced by the Grafana Cloud Faro receiver.
+These thresholds are fixed and not configurable: the Grafana Cloud Faro
+receiver enforces the same windows server-side and drops telemetry from
+sessions that exceed them, so a longer client-side value would cause silent
+data loss.
 
 **Lifecycle events.** Faro emits an event whenever the session id changes, so you can follow the user journey in Grafana:
 

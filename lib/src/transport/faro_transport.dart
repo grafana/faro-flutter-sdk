@@ -27,6 +27,7 @@ class FaroTransport extends BaseTransport {
   }
 
   static const _accepted = 202;
+  static const _sessionIdHeader = 'x-faro-session-id';
   static const _sessionStatusHeader = 'x-faro-session-status';
   static const _invalidSessionStatus = 'invalid';
 
@@ -68,12 +69,10 @@ class FaroTransport extends BaseTransport {
       final headers = {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'x-faro-session-id': _sessionIdResolver(),
+        _sessionIdHeader: _sessionIdResolver(),
         ...?this.headers,
       };
-      final sentSessionId = headers.entries
-          .lastWhere((entry) => entry.key.toLowerCase() == 'x-faro-session-id')
-          .value;
+      final sentSessionId = _headerValue(headers, _sessionIdHeader);
 
       final post = _httpClient?.post ?? http.post;
       final response = await _taskBuffer?.add(() {
@@ -92,22 +91,24 @@ class FaroTransport extends BaseTransport {
       }
 
       if (response != null &&
+          sentSessionId != null &&
           response.statusCode == _accepted &&
-          _responseHeader(response.headers, _sessionStatusHeader) ==
+          _headerValue(response.headers, _sessionStatusHeader) ==
               _invalidSessionStatus) {
         _onSessionInvalidated?.call(sentSessionId);
       }
     } catch (error) {
-      log('Error encoding payload: $error');
+      log('Error sending payload: $error');
     }
   }
 
-  static String? _responseHeader(Map<String, String> headers, String name) {
+  static String? _headerValue(Map<String, String> headers, String name) {
+    String? value;
     for (final entry in headers.entries) {
       if (entry.key.toLowerCase() == name) {
-        return entry.value;
+        value = entry.value;
       }
     }
-    return null;
+    return value;
   }
 }
