@@ -23,6 +23,7 @@ import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/tracing/faro_otel_bootstrap.dart';
+import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
@@ -458,9 +459,13 @@ class Faro {
   void pushEvent(
     String name, {
     Map<String, dynamic>? attributes,
-    Map<String, String>? trace,
+    FaroSpanContext? spanContext,
   }) {
-    final event = Event(name, attributes: attributes, trace: trace);
+    final event = Event(
+      name,
+      attributes: attributes,
+      trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
+    );
     _telemetryRouter.ingest(TelemetryItem.fromEvent(event));
   }
 
@@ -468,13 +473,13 @@ class Faro {
     String message, {
     required LogLevel level,
     Map<String, dynamic>? context,
-    Map<String, String>? trace,
+    FaroSpanContext? spanContext,
   }) {
     final faroLog = FaroLog(
       message,
       level: level.value,
       context: context,
-      trace: trace,
+      trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
     );
     _telemetryRouter.ingest(TelemetryItem.fromLog(faroLog));
   }
@@ -484,6 +489,7 @@ class Faro {
     required String value,
     StackTrace? stacktrace,
     Map<String, String>? context,
+    FaroSpanContext? spanContext,
     bool fatal = false,
   }) {
     var parsedStackTrace = <String, dynamic>{};
@@ -496,14 +502,25 @@ class Faro {
       value,
       parsedStackTrace,
       context: context,
+      trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
       fatal: fatal,
     );
     _telemetryRouter.ingest(TelemetryItem.fromException(faroException));
   }
 
-  void pushMeasurement(Map<String, dynamic>? values, String type) {
+  void pushMeasurement(
+    Map<String, dynamic>? values,
+    String type, {
+    FaroSpanContext? spanContext,
+  }) {
     _telemetryRouter.ingest(
-      TelemetryItem.fromMeasurement(Measurement(values, type)),
+      TelemetryItem.fromMeasurement(
+        Measurement(
+          values,
+          type,
+          trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
+        ),
+      ),
     );
   }
 

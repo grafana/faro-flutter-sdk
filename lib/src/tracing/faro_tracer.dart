@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/session/session_id_provider.dart';
+import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/faro_zone_span_manager.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
@@ -73,6 +74,15 @@ class FaroTracer {
 
   Span? getActiveSpan() {
     return _faroZoneSpanManager.getActiveSpan();
+  }
+
+  /// Returns the [FaroSpanContext] of the currently active span, or `null`
+  /// when no span is active.
+  ///
+  /// Used to correlate logs, events, exceptions, and measurements with the
+  /// active span.
+  FaroSpanContext? getActiveSpanContext() {
+    return getActiveSpan()?.spanContext;
   }
 
   Span _createAndStartSpan({
