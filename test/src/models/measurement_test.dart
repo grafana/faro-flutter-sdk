@@ -153,6 +153,45 @@ void main() {
       expect(Measurement.fromJsonOrNull(missingTimestamp), isNull);
       expect(Measurement.fromJsonOrNull(validJson), isNotNull);
     });
+
+    group('trace serialization:', () {
+      test('toJson includes trace when set and fromJson reads it back', () {
+        final measurement = Measurement(
+          {'cpu': 50.0},
+          'device',
+          trace: const {'trace_id': 'trace-1', 'span_id': 'span-1'},
+        );
+
+        final json = measurement.toJson();
+        expect(
+          json['trace'],
+          equals({'trace_id': 'trace-1', 'span_id': 'span-1'}),
+        );
+
+        final decoded = Measurement.fromJson(json);
+        expect(
+          decoded.trace,
+          equals({'trace_id': 'trace-1', 'span_id': 'span-1'}),
+        );
+      });
+
+      test('toJson omits trace when null', () {
+        final measurement = Measurement({'cpu': 50.0}, 'device');
+
+        expect(measurement.trace, isNull);
+        expect(measurement.toJson().containsKey('trace'), isFalse);
+      });
+
+      test('toJson omits trace when empty', () {
+        final measurement = Measurement(
+          {'cpu': 50.0},
+          'device',
+          trace: const {},
+        );
+
+        expect(measurement.toJson().containsKey('trace'), isFalse);
+      });
+    });
   });
 }
 

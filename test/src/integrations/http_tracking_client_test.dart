@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/integrations/http_tracking_client.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/tracing/span.dart';
+import 'package:faro/src/user_actions/telemetry_router.dart';
+import 'package:faro/src/user_actions/user_action_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -16,6 +20,21 @@ class MockHttpClientResponse extends Mock implements HttpClientResponse {}
 class MockHttpHeaders extends Mock implements HttpHeaders {}
 
 class MockSpan extends Mock implements Span {}
+
+/// Captures telemetry handed to the router so tests can inspect the trace
+/// context attached to signals pushed by the HTTP integration.
+class _RecordingRouter implements TelemetryRouter {
+  final List<TelemetryItem> ingested = [];
+
+  @override
+  void ingest(
+    TelemetryItem item, {
+    bool skipBuffer = false,
+    SessionActivityKind activity = SessionActivityKind.active,
+  }) {
+    ingested.add(item);
+  }
+}
 
 void main() {
   group('FaroHttpTrackingClient:', () {
@@ -234,6 +253,7 @@ void main() {
     late FaroTrackingHttpClientRequest trackedRequest;
     late MockSpan mockSpan;
     late StreamController<List<int>> responseStreamController;
+    late _RecordingRouter router;
 
     setUp(() {
       mockHttpClientRequest = MockHttpClientRequest();
@@ -242,6 +262,11 @@ void main() {
       mockResponseHeaders = MockHttpHeaders();
       mockSpan = MockSpan();
       responseStreamController = StreamController<List<int>>();
+      router = _RecordingRouter();
+      pod.overrideProvider<TelemetryRouter>(
+        telemetryRouterProvider,
+        (_) => router,
+      );
 
       when(() => mockSpan.traceId).thenReturn('trace-id');
       when(() => mockSpan.spanId).thenReturn('span-id');
@@ -293,6 +318,7 @@ void main() {
       if (!responseStreamController.isClosed) {
         responseStreamController.close();
       }
+      pod.removeOverride(telemetryRouterProvider);
     });
 
     test('replacing onDone via setter should still end span', () async {
@@ -410,5 +436,30 @@ void main() {
       ).called(1);
       verify(() => mockSpan.end()).called(1);
     });
+
+    test(
+      'network_error log from unsupported onError carries span trace context',
+      () async {
+        final response = await trackedRequest.close();
+        // An onError with an unsupported signature (neither one- nor two-arg)
+        // forces the integration onto its fallback pushLog path.
+        // ignore: cancel_subscriptions
+        response.listen((_) {}, onError: () {});
+
+        responseStreamController.addError(
+          StateError('boom'),
+          StackTrace.current,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final logItem = router.ingested.firstWhere(
+          (item) => item.type == TelemetryItemType.log,
+        );
+        expect(
+          logItem.asLog!.trace,
+          equals({'trace_id': 'trace-id', 'span_id': 'span-id'}),
+        );
+      },
+    );
   });
 }

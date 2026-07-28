@@ -7,8 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Automatic log-trace correlation**: Logs, events, exceptions, and
+  measurements pushed via `pushLog`, `pushEvent`, `pushError`, and
+  `pushMeasurement` while a span is active are now automatically stamped
+  with the active span's `trace_id`/`span_id`, matching the Faro Web SDK
+  and the OpenTelemetry logs data model. All four push methods accept an
+  optional `spanContext` parameter (new `FaroSpanContext(traceId:, spanId:)`
+  value type; use `span.spanContext` when you hold a `Span`) that always
+  takes precedence over the active span. Span context is captured at push
+  time, so buffered signals keep the span that was active when they were
+  recorded.
+
+### Changed
+
+- **BREAKING**: The `trace: Map<String, String>?` parameter on `pushLog` and
+  `pushEvent` is replaced by `spanContext: FaroSpanContext?`. `pushError` and
+  `pushMeasurement` also gain the optional `spanContext` parameter (additive —
+  they had no `trace` parameter before). Migrate by wrapping ids in
+  `FaroSpanContext(traceId:, spanId:)`, or use `span.spanContext` when you
+  hold a `Span`.
+- **BREAKING**: The HTTP tracking integration now only exports
+  `FaroHttpOverrides` from `package:faro/faro.dart`. The internal wrapper
+  classes (`FaroHttpTrackingClient`, `FaroTrackingHttpClientRequest`,
+  `FaroTrackingHttpResponse`) were previously exported unintentionally and
+  are no longer part of the public API. Only `FaroHttpOverrides` is needed
+  to enable HTTP tracking. This is a source-breaking change only for code
+  that imported those implementation-detail classes directly.
+
 ### Fixed
 
+- HTTP network-error fallback logs are now correlated with their request
+  span. When a response stream error handler has an unsupported signature,
+  the SDK's fallback `network_error` log now carries the HTTP span's
+  `trace_id`/`span_id` instead of no trace context.
 - Forward Android native crash and ANR traces from `ApplicationExitInfo` into
   the Faro exception context instead of always reporting `No stacktrace`.
 
