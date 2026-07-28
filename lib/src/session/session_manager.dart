@@ -10,7 +10,7 @@ enum SessionStartTrigger {
   /// The first session after the SDK started (via [SessionManager.start]).
   initial,
 
-  /// A rotation triggered by inactivity or maximum lifetime.
+  /// A rotation triggered by expiry or receiver invalidation.
   rotation,
 }
 
@@ -24,7 +24,8 @@ typedef SessionChangedListener =
       required SessionStartTrigger trigger,
     });
 
-/// Tracks session validity and rotates the session when it expires.
+/// Tracks session validity and rotates the session when it expires locally or
+/// the receiver reports it as invalid.
 ///
 /// A session expires when either:
 /// - no activity has been recorded for [inactivityTimeout]
@@ -126,6 +127,18 @@ class SessionManager {
     } else if (_activityPolicy.recordsActivity(activity)) {
       _lastActivityAt = now;
     }
+  }
+
+  /// Rotates a session that the receiver reported as invalid.
+  ///
+  /// [invalidSessionId] must still be the active session. This prevents
+  /// duplicate or delayed responses for an older session from rotating a
+  /// newer session again.
+  void invalidateSession(String invalidSessionId) {
+    if (!_isActive || _isRotating || invalidSessionId != currentSessionId) {
+      return;
+    }
+    _rotate(_currentTimeProvider());
   }
 
   /// Rotates the session and notifies listeners.

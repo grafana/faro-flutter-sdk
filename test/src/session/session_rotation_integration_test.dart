@@ -15,6 +15,8 @@ import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -237,6 +239,66 @@ void main() {
         ),
       ]);
     });
+
+    test(
+      'rotates the session when a configured transport reports it invalid',
+      () async {
+        final client = MockClient((request) async {
+          return http.Response(
+            '',
+            202,
+            headers: {'X-Faro-Session-Status': 'invalid'},
+          );
+        });
+        final transport = FaroTransport(
+          collectorUrl: 'https://some-url.com',
+          apiKey: apiKey,
+          sessionIdResolver: () => Faro().meta.session!.id!,
+          httpClient: client,
+        );
+        final config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          transports: [transport],
+        );
+
+        await Faro().init(optionsConfiguration: config);
+        final initialSessionId = Faro().meta.session!.id;
+        clearInteractions(mockBatchTransport);
+
+        await transport.send({
+          'meta': Faro().meta.toJson(),
+          'events': <dynamic>[],
+        });
+
+        final session = Faro().meta.session!;
+        expect(session.id, isNot(initialSessionId));
+        expect(session.attributes?['previousSession'], initialSessionId);
+        verifyInOrder([
+          () => mockBatchTransport.updatePayloadMeta(
+            any(
+              that: isA<Meta>().having(
+                (meta) => meta.session?.id,
+                'session.id',
+                session.id,
+              ),
+            ),
+          ),
+          () => mockBatchTransport.addEvent(
+            any(
+              that: isA<Event>().having(
+                (event) => event.name,
+                'name',
+                'session_extend',
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
 
     test('preserves session attributes across rotation', () async {
       await initFaro();

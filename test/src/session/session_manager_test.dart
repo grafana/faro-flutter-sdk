@@ -179,6 +179,45 @@ void main() {
       expect(observer.startedCount, 0);
     });
 
+    test('rotates when the receiver invalidates the active session', () {
+      final manager = createManager();
+      final initialId = manager.currentSessionId;
+      now = now.add(const Duration(minutes: 1));
+
+      manager.invalidateSession(initialId);
+
+      expect(manager.currentSessionId, isNot(initialId));
+      expect(manager.previousSessionId, initialId);
+      expect(manager.startedAt, now);
+      expect(manager.lastActivityAt, now);
+      expect(observer.startedCount, 1);
+      expect(observer.lastTrigger, SessionStartTrigger.rotation);
+    });
+
+    test('ignores duplicate invalidation for a previous session', () {
+      final manager = createManager();
+      final initialId = manager.currentSessionId;
+
+      manager.invalidateSession(initialId);
+      final rotatedId = manager.currentSessionId;
+      observer.reset();
+
+      manager.invalidateSession(initialId);
+
+      expect(manager.currentSessionId, rotatedId);
+      expect(observer.startedCount, 0);
+    });
+
+    test('ignores invalidation before session tracking starts', () {
+      final manager = buildManager();
+      final initialId = manager.currentSessionId;
+
+      manager.invalidateSession(initialId);
+
+      expect(manager.currentSessionId, initialId);
+      expect(observer.startedCount, 0);
+    });
+
     test('records activity to keep the session alive', () {
       final manager = createManager();
 

@@ -232,6 +232,9 @@ class Faro {
     } else {
       Faro()._transports.addAll(config?.transports ?? []);
     }
+    for (final transport in _transports.whereType<FaroTransport>()) {
+      transport.sessionInvalidatedHandler = sessionManager.invalidateSession;
+    }
     _httpTrackingFilter.configure(
       collectorUrl: optionsConfiguration.collectorUrl,
       ignoreUrls: optionsConfiguration.ignoreUrls,
