@@ -72,6 +72,8 @@ class FaroTransport extends BaseTransport {
         _sessionIdHeader: _sessionIdResolver(),
         ...?this.headers,
       };
+      // Capture the effective request value before awaiting the response.
+      // Custom headers may override the resolver value using different casing.
       final sentSessionId = _headerValue(headers, _sessionIdHeader);
 
       final post = _httpClient?.post ?? http.post;
@@ -95,6 +97,7 @@ class FaroTransport extends BaseTransport {
           response.statusCode == _accepted &&
           _headerValue(response.headers, _sessionStatusHeader) ==
               _invalidSessionStatus) {
+        log('Faro: Receiver reported the submitted session as invalid.');
         _onSessionInvalidated?.call(sentSessionId);
       }
     } catch (error) {
@@ -104,6 +107,8 @@ class FaroTransport extends BaseTransport {
 
   static String? _headerValue(Map<String, String> headers, String name) {
     String? value;
+    // Custom headers are merged last, so the last case-insensitive match is
+    // the effective value sent by the HTTP client.
     for (final entry in headers.entries) {
       if (entry.key.toLowerCase() == name) {
         value = entry.value;
