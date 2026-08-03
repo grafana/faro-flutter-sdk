@@ -25,9 +25,9 @@
       "groupName": "npm-dependencies"
     },
     {
-      "description": "Keep Gradle/Kotlin toolchain bumps ungrouped. These are the only dependencies here with real CI coverage (build-example-app and :faro:testDebugUnitTest), so they are worth individual review and individual revertability.",
+      "description": "Group Gradle/Kotlin toolchain bumps for the example app into a single PR. These are the only dependencies here with real CI coverage (build-example-app and :faro:testDebugUnitTest), so a grouped failure still points at a small and related set.",
       "matchManagers": ["gradle", "gradle-wrapper"],
-      "groupName": null
+      "groupName": "gradle"
     },
     {
       "description": "Renovate cannot resolve this plugin marker on the maven datasource (no-result), which stamps a 'Package lookup failures' WARN onto every PR body in this repo. It is supplied by the Flutter SDK itself and is not independently upgradable.",
