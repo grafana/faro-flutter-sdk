@@ -31,6 +31,11 @@
       "groupName": "gradle"
     },
     {
+      "description": "Collect patch-only bumps from every manager into a single low-risk PR, matching faro-web-sdk. Placed after the manager groups so it overrides them: a Gradle or Kotlin patch rides here rather than in the gradle group. Fires only when a dependency's sole pending update is a patch.",
+      "matchUpdateTypes": ["patch"],
+      "groupName": "patch updates"
+    },
+    {
       "description": "Renovate cannot resolve this plugin marker on the maven datasource (no-result), which stamps a 'Package lookup failures' WARN onto every PR body in this repo. It is supplied by the Flutter SDK itself and is not independently upgradable.",
       "matchPackageNames": [
         "dev.flutter.flutter-plugin-loader:dev.flutter.flutter-plugin-loader.gradle.plugin"
