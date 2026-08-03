@@ -7,6 +7,7 @@
   "separateMultipleMajor": true,
   "prHourlyLimit": 2,
   "prConcurrentLimit": 10,
+  "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
