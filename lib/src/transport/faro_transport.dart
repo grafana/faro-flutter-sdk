@@ -10,6 +10,9 @@ import 'package:http/http.dart' as http;
 /// Resolves the current session id to send in the `x-faro-session-id` header.
 typedef SessionIdResolver = String Function();
 
+/// Called when the receiver reports that a submitted session is invalid.
+typedef SessionInvalidatedHandler = void Function(String sessionId);
+
 class FaroTransport extends BaseTransport {
   FaroTransport({
     required this.collectorUrl,
@@ -22,6 +25,12 @@ class FaroTransport extends BaseTransport {
        _httpClient = httpClient {
     _taskBuffer = TaskBuffer(maxBufferLimit ?? 30);
   }
+
+  static const _accepted = 202;
+  static const _sessionIdHeader = 'x-faro-session-id';
+  static const _sessionStatusHeader = 'x-faro-session-status';
+  static const _invalidSessionStatus = 'invalid';
+
   final String collectorUrl;
   final String apiKey;
 
@@ -34,12 +43,18 @@ class FaroTransport extends BaseTransport {
   /// active session even when a rotation happened after this transport was
   /// created, or when an older cached payload is replayed offline.
   final SessionIdResolver _sessionIdResolver;
+  SessionInvalidatedHandler? _onSessionInvalidated;
   TaskBuffer<dynamic>? _taskBuffer;
   final Map<String, String>? headers;
 
   /// Optional HTTP client seam for tests. When null, the top-level
   /// [http.post] is used so production behavior is unchanged.
   final http.Client? _httpClient;
+
+  /// Connects receiver invalidation responses to the SDK session manager.
+  set sessionInvalidatedHandler(SessionInvalidatedHandler handler) {
+    _onSessionInvalidated = handler;
+  }
 
   @override
   Future<void> send(Map<String, dynamic> payloadJson) async {
@@ -54,9 +69,12 @@ class FaroTransport extends BaseTransport {
       final headers = {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'x-faro-session-id': _sessionIdResolver(),
+        _sessionIdHeader: _sessionIdResolver(),
         ...?this.headers,
       };
+      // Capture the effective request value before awaiting the response.
+      // Custom headers may override the resolver value using different casing.
+      final sentSessionId = _headerValue(headers, _sessionIdHeader);
 
       final post = _httpClient?.post ?? http.post;
       final response = await _taskBuffer?.add(() {
@@ -73,8 +91,29 @@ class FaroTransport extends BaseTransport {
           'body: ${response.body} payload:$encodedPayload',
         );
       }
+
+      if (response != null &&
+          sentSessionId != null &&
+          response.statusCode == _accepted &&
+          _headerValue(response.headers, _sessionStatusHeader) ==
+              _invalidSessionStatus) {
+        log('Faro: Receiver reported the submitted session as invalid.');
+        _onSessionInvalidated?.call(sentSessionId);
+      }
     } catch (error) {
-      log('Error encoding payload: $error');
+      log('Error sending payload: $error');
     }
+  }
+
+  static String? _headerValue(Map<String, String> headers, String name) {
+    String? value;
+    // Custom headers are merged last, so the last case-insensitive match is
+    // the effective value sent by the HTTP client.
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == name) {
+        value = entry.value;
+      }
+    }
+    return value;
   }
 }

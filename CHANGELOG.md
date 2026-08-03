@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Rotate the active session when the Grafana Cloud receiver accepts a payload
+  with `X-Faro-Session-Status: invalid`, following the Faro Web SDK response
+  handling. Duplicate or delayed responses for an older session are ignored.
+  ([#286](https://github.com/grafana/faro-flutter-sdk/issues/286))
 - **Automatic log-trace correlation**: Logs, events, exceptions, and
   measurements pushed via `pushLog`, `pushEvent`, `pushError`, and
   `pushMeasurement` while a span is active are now automatically stamped

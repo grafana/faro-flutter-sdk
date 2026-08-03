@@ -306,14 +306,17 @@ Faro tracks a session id that groups all telemetry from a single period of use. 
 - **Inactivity**: no app/user activity for 15 minutes, or
 - **Max lifetime**: the session has been alive for 4 hours.
 
-These thresholds are fixed and not configurable: the Grafana Cloud Faro receiver enforces the same windows server-side and drops telemetry from sessions that exceed them, so a longer client-side value would cause silent data loss.
+These thresholds are fixed and not configurable: the Grafana Cloud Faro
+receiver enforces the same windows server-side and drops telemetry from
+sessions that exceed them, so a longer client-side value would cause silent
+data loss.
 
 **Lifecycle events.** Faro emits an event whenever the session id changes, so you can follow the user journey in Grafana:
 
 | Event           | When                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |
 | `session_start` | The initial session, emitted once when the SDK initializes                           |
-| `session_extend` | A rotation: a new session was auto-created because the inactivity or lifetime timeout was reached |
+| `session_extend` | A rotation: a new session was auto-created after local expiry or receiver invalidation |
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 
@@ -322,6 +325,12 @@ These thresholds are fixed and not configurable: the Grafana Cloud Faro receiver
 Automatic vitals measurements pushed by the SDK itself (CPU, memory, refresh rate, frame stats, ANR count, app start) count as activity **only while the app is in the foreground**. This keeps a single session for a foregrounded but idle app (e.g. a user reading a screen without tapping), while ensuring a backgrounded app's session still expires — the Dart isolate keeps running while backgrounded on Android, so if background vitals counted they would keep the session alive indefinitely.
 
 Session expiry is evaluated lazily on the next ingested telemetry item (there is no periodic rotation timer). The triggering telemetry is attributed to the new session.
+
+The Grafana Cloud receiver can also report that a submitted session has
+expired by returning `X-Faro-Session-Status: invalid` with its accepted
+response. Faro rotates that session immediately. Delayed or duplicate
+responses for an older session are ignored, so they cannot rotate the current
+session again.
 
 > **Sampling note:** the session sampling decision is made once at initialization and is **not** re-evaluated on rotation (see [Session Sampling](#session-sampling)).
 
