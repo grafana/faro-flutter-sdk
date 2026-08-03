@@ -45,6 +45,10 @@ public class ApplicationExitInfoExtTest {
 
     @Test
     public void excessiveResourceUsageFilteringRemainsUnchanged() {
+        assertFalse(ApplicationExitInfoExt.shouldBeFilteredOut(
+                ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
+                0,
+                ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE));
         assertTrue(ApplicationExitInfoExt.shouldBeFilteredOut(
                 ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
                 0,
