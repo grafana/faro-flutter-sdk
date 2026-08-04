@@ -31,7 +31,13 @@
       "groupName": "gradle"
     },
     {
-      "description": "Collect patch-only bumps from every manager into a single low-risk PR, matching faro-web-sdk. Placed after the manager groups so it overrides them: a Gradle or Kotlin patch rides here rather than in the gradle group. Fires only when a dependency's sole pending update is a patch.",
+      "description": "Keep the Flutter SDK pin atomic — setup-flutter fails if .fvmrc and .tool-versions disagree.",
+      "matchManagers": ["fvm", "asdf", "mise"],
+      "groupName": "flutter-sdk"
+    },
+    {
+      "description": "Collect patch-only bumps from the grouped managers into one low-risk PR, matching faro-web-sdk. Scoped to those managers so Flutter SDK pin bumps stay standalone; pub and swift only ever emit majors.",
+      "matchManagers": ["github-actions", "npm", "gradle", "gradle-wrapper"],
       "matchUpdateTypes": ["patch"],
       "groupName": "patch updates"
     },
