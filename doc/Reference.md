@@ -197,8 +197,7 @@ creating the process and loading its libraries ahead of the user tapping the
 icon. In both cases the time since process start can be hours, and reporting it
 as a cold start makes any percentile over the metric meaningless.
 
-The SDK therefore only reports a cold start when it can establish that the
-launch was user-visible:
+How much of that the SDK can rule out differs by platform:
 
 - **Android 7+**: `FaroStartupProvider`, a content provider merged into your
   manifest automatically, samples the process importance before
@@ -208,9 +207,12 @@ launch was user-visible:
   foreground at that moment; one brought up to show UI is.
 - **Android 6 and below**: no cold start is reported, because the platform
   exposes no process start time.
-- **iOS**: prewarmed launches are re-based onto a monotonic anchor taken when
-  the SDK loads, so they measure the launch rather than the idle time before
-  it, and are flagged with `prewarmed`.
+- **iOS**: a background launch cannot be told apart from a user-initiated one,
+  so every launch with a usable anchor is reported. Prewarmed launches are
+  re-based onto a monotonic anchor taken when the SDK loads, so they measure
+  the launch rather than the idle time before it, and are flagged with
+  `prewarmed`. Beyond that re-basing, the 60-second cap below is the only
+  guard on iOS.
 
 As a final guard, any cold start longer than 60 seconds is discarded on both
 platforms. This is the same bound commonly used across mobile RUM tooling, so

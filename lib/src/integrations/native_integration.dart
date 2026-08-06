@@ -90,11 +90,11 @@ class NativeIntegration implements Disposable {
 
   /// Upper bound on a plausible user-visible cold start.
   ///
-  /// The native side already rejects process starts it can prove were not
-  /// user-initiated, but that proof is only authoritative on Android 15+, and
-  /// on iOS a background launch cannot be detected at all. This bound is the
-  /// backstop: a launch longer than this is not something a user sat through,
-  /// it is a process that was already alive long before anyone opened the app.
+  /// Android rejects process starts it can show were not user-initiated, but
+  /// iOS cannot detect a background launch at all. This bound is the backstop,
+  /// and on iOS the only one: a launch longer than this is not something a
+  /// user sat through, it is a process that was already alive long before
+  /// anyone opened the app.
   ///
   /// Sixty seconds matches the bound in common use across mobile RUM tooling.
   /// A tighter bound would discard genuine slow launches on low-end devices
@@ -104,11 +104,10 @@ class NativeIntegration implements Disposable {
 
   /// Get app start metrics for cold start
   ///
-  /// Emits nothing unless the platform can show the process was started by the
-  /// user and the duration is plausible. Both guards matter: Android forks
-  /// processes for pushes, jobs and broadcasts, and iOS prewarms them, and in
-  /// either case the time since process start measures idle time rather than
-  /// anything the user waited for.
+  /// Emits nothing unless the duration is plausible and the platform reported
+  /// the launch as user-visible. Android decides that from the process
+  /// importance sampled at startup; iOS cannot tell a background launch apart,
+  /// and only reports whether it found a usable anchor.
   Future<void> getAppStart() async {
     try {
       final appStart = await Faro().nativeChannel?.getAppStart();
