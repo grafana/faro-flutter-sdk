@@ -1,5 +1,6 @@
 package com.grafana.faro;
 
+import android.app.ActivityManager;
 import android.app.ApplicationExitInfo;
 import android.os.Build;
 import android.util.Log;
@@ -120,20 +121,29 @@ public class ApplicationExitInfoExt {
     @RequiresApi(api = Build.VERSION_CODES.R)
     public static boolean shouldBeFilteredOut(@NonNull ApplicationExitInfo exitInfo) {
         try {
-            // Status code 0 (normal exit) + importance > 300 (background)
-            boolean isBackgroundNormalExit = exitInfo.getStatus() == 0 && exitInfo.getImportance() > 300;
-            
-            // Filter out LOW_MEMORY and EXCESSIVE_RESOURCE_USAGE for backgroundNormalExits
-            if (isBackgroundNormalExit) {
-                int reason = exitInfo.getReason();
-                return reason == ApplicationExitInfo.REASON_LOW_MEMORY || 
-                       reason == ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE;
-            }
-            
-            return false;
+            return shouldBeFilteredOut(
+                    exitInfo.getReason(),
+                    exitInfo.getStatus(),
+                    exitInfo.getImportance());
         } catch (Exception e) {
             Log.e(TAG, "Error checking if exit info should be filtered out", e);
             return false; // When in doubt, don't filter out
         }
+    }
+
+    static boolean shouldBeFilteredOut(int reason, int status, int importance) {
+        if (reason == ApplicationExitInfo.REASON_LOW_MEMORY) {
+            // LMKD and zygote update exit records independently, so Android can
+            // expose the same low-memory kill with status 0 or SIGKILL.
+            return importance >= ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE;
+        }
+
+        // Status code 0 (normal exit) + importance > 300 (background)
+        boolean isBackgroundNormalExit = status == 0
+                && importance > ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE;
+
+        // Preserve the existing filtering behavior for excessive resource usage.
+        return isBackgroundNormalExit
+                && reason == ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE;
     }
 }

@@ -80,6 +80,10 @@ Notes:
   exits) are detected and reported on the **next launch**. The Android
   runtime **ANR watchdog** is different: it detects a blocked main thread
   **while the app is running** and reports within the same session.
+- Android low-memory exits from service and less important process states are
+  filtered because they are normal system reclamation rather than user-facing
+  crashes. Foreground, foreground-service, visible, and perceptible low-memory
+  exits remain reportable.
 
 ---
 
