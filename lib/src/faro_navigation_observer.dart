@@ -1,5 +1,7 @@
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
 import 'package:flutter/widgets.dart';
 
@@ -9,54 +11,65 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
       lifecycleSignalChannel: pod.resolve(
         userActionLifecycleSignalChannelProvider,
       ),
+      sessionManager: pod.resolve(sessionManagerProvider),
     );
   }
 
   FaroNavigationObserver._({
     required UserActionLifecycleSignalChannel lifecycleSignalChannel,
-  }) : _lifecycleSignalChannel = lifecycleSignalChannel;
+    required SessionManager sessionManager,
+  }) : _lifecycleSignalChannel = lifecycleSignalChannel,
+       _sessionManager = sessionManager;
 
   final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
+  final SessionManager _sessionManager;
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    Faro().setViewMeta(name: previousRoute?.settings.name);
-    Faro().pushEvent(
-      'view_changed',
-      attributes: {
-        'fromView': route.settings.name,
-        'toView': previousRoute?.settings.name,
-      },
+    _recordNavigation(
+      fromView: route.settings.name,
+      toView: previousRoute?.settings.name,
+      activitySource: 'navigation.pop',
     );
-    _lifecycleSignalChannel.emitActivity(source: 'navigation.pop');
   }
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
-    Faro().setViewMeta(name: route.settings.name);
-    Faro().pushEvent(
-      'view_changed',
-      attributes: {
-        'fromView': previousRoute?.settings.name,
-        'toView': route.settings.name,
-      },
+    _recordNavigation(
+      fromView: previousRoute?.settings.name,
+      toView: route.settings.name,
+      activitySource: 'navigation.push',
     );
-    _lifecycleSignalChannel.emitActivity(source: 'navigation.push');
   }
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    Faro().setViewMeta(name: newRoute?.settings.name);
-    Faro().pushEvent(
-      'view_changed',
-      attributes: {
-        'fromView': oldRoute?.settings.name,
-        'toView': newRoute?.settings.name,
-      },
+    _recordNavigation(
+      fromView: oldRoute?.settings.name,
+      toView: newRoute?.settings.name,
+      activitySource: 'navigation.replace',
     );
-    _lifecycleSignalChannel.emitActivity(source: 'navigation.replace');
+  }
+
+  void _recordNavigation({
+    required String? fromView,
+    required String? toView,
+    required String activitySource,
+  }) {
+    if (toView != null) {
+      Faro().setViewMeta(name: toView);
+    }
+    if (fromView != null || toView != null) {
+      Faro().pushEvent(
+        'view_changed',
+        attributes: {'fromView': fromView, 'toView': toView},
+      );
+    } else {
+      _sessionManager.checkSession(activity: SessionActivityKind.active);
+    }
+    _lifecycleSignalChannel.emitActivity(source: activitySource);
   }
 }
