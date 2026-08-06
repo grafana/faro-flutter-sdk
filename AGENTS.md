@@ -89,6 +89,33 @@ Android-specific Java code (in `android/src/main/java/`) has JUnit tests in
 cd example/android && ./gradlew :faro:testDebugUnitTest
 ```
 
+### iOS Native Unit Tests
+
+Swift code (in `ios/faro/Sources/faro/`) has
+[Swift Testing](https://developer.apple.com/xcode/swift-testing/) tests in
+`example/ios/RunnerTests/`. They live under `example/` because they are run via
+the example app's Xcode project, which is the convention for Flutter plugins.
+
+Build the example app at least once so the platform build files exist, then run
+the tests against any available simulator:
+
+```bash
+cd example/ios && xcodebuild test -workspace Runner.xcworkspace \
+  -scheme Runner -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+```
+
+CI runs these on a macOS runner in the `build & test iOS` job, which also gives
+us the only iOS compile coverage we have.
+
+Locally they are opt-in, because a run needs a simulator and takes about a
+minute, against a second for the Android JUnit tests. Pass `--ios` to include
+them whenever you have touched Swift:
+
+```bash
+dart tool/pre_release_check.dart --ios
+```
+
 ---
 
 ## Code Style Guidelines
@@ -124,6 +151,24 @@ try {
 Follow `.gitmessage` template: `type(scope): description`
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+
+## Changelog Entries
+
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com). Entries
+are written for SDK users, not for us. Wrap at 80 characters.
+
+- **One change per bullet.** Don't bundle unrelated changes into one entry.
+- **Lead with impact**, then the explanation. Bold the opening noun phrase so
+  the file is skimmable.
+- **Keep entries under ~10 lines.** If it runs longer, the detail belongs in
+  `doc/Reference.md` — end with "See the Reference docs for details."
+- **Don't restate what the docs already cover.** Platform internals, API names
+  and algorithm details go in the docs, not here.
+- **Bold anything that changes the user's data or app**, such as a drop in
+  telemetry volume, a new manifest component, or a breaking API change.
+- Group under Added / Changed / Deprecated / Removed / Fixed / Security, and
+  link the issue as a full URL rather than a bare number:
+  `([#123](https://github.com/grafana/faro-flutter-sdk/issues/123))`.
 
 
 ## Pull Requests
@@ -291,6 +336,8 @@ dart tool/pre_release_check.dart
 ```
 
 This validates formatting (`dart format --set-exit-if-changed .`), static analysis, tests, and CHANGELOG content in one step. Run the full script every time — do not substitute a partial check like `flutter analyze`, which does not catch formatting.
+
+Add `--ios` when the change touches Swift, to also run the iOS native tests.
 
 See `CONTRIBUTING.md` for the full contributor workflow.
 

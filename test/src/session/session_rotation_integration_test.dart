@@ -430,9 +430,13 @@ void main() {
 
     test('vitals pushed by NativeIntegration do not extend the '
         'session', () async {
-      when(
-        () => mockFaroNativeMethods.getAppStart(),
-      ).thenAnswer((_) async => {'appStartDuration': 100});
+      when(() => mockFaroNativeMethods.getAppStart()).thenAnswer(
+        (_) async => {
+          'appStartDurationMillis': 100,
+          'isUserVisibleColdStart': true,
+          'prewarmed': false,
+        },
+      );
       await initFaro();
       final initialSessionId = Faro().meta.session?.id;
       // Backgrounded: automatic vitals must not count as activity.
@@ -441,7 +445,11 @@ void main() {
       // An automatic vitals measurement at 14 minutes flows through
       // the passive path: no rotation, no activity recorded.
       now = now.add(const Duration(minutes: 14));
+      clearInteractions(mockBatchTransport);
       await pod.resolve(nativeIntegrationProvider).getAppStart();
+      // Guards against the stub silently ceasing to produce a measurement,
+      // which would leave the rest of this test asserting nothing.
+      verify(() => mockBatchTransport.addMeasurement(any())).called(1);
       expect(Faro().meta.session?.id, initialSessionId);
 
       // Two minutes later it is 16 minutes since the last real

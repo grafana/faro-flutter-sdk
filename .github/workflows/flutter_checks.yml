@@ -76,3 +76,54 @@ jobs:
       - name: Run Android unit tests
         working-directory: example/android
         run: ./gradlew :faro:testDebugUnitTest
+
+  test-ios:
+    name: build & test iOS
+    runs-on: macos-latest
+    needs: build-and-test-faro
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
+
+      - name: Install dependencies
+        working-directory: example
+        run: flutter pub get
+
+      - name: Create api-config file
+        run: tool/create-api-config-file.sh
+
+      - name: Build example app
+        working-directory: example
+        run: flutter build ios --debug --simulator
+
+      # Resolved at runtime because the device names in the runner image change
+      # whenever GitHub updates it.
+      - name: Select a simulator
+        id: simulator
+        run: |
+          udid=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted(devices, reverse=True):
+              for device in devices[runtime]:
+                  if "iPhone" in device["name"]:
+                      print(device["udid"])
+                      sys.exit(0)
+          sys.exit("No available iPhone simulator found")
+          ')
+          echo "Using simulator $udid"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Run iOS unit tests
+        working-directory: example/ios
+        run: |
+          xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -destination "id=${{ steps.simulator.outputs.udid }}"

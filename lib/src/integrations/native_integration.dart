@@ -88,16 +88,54 @@ class NativeIntegration implements Disposable {
     }
   }
 
+  /// Upper bound on a plausible user-visible cold start.
+  ///
+  /// The native side already rejects process starts it can prove were not
+  /// user-initiated, but that proof is only authoritative on Android 15+, and
+  /// on iOS a background launch cannot be detected at all. This bound is the
+  /// backstop: a launch longer than this is not something a user sat through,
+  /// it is a process that was already alive long before anyone opened the app.
+  ///
+  /// Sixty seconds matches the bound in common use across mobile RUM tooling.
+  /// A tighter bound would discard genuine slow launches on low-end devices
+  /// without rejecting meaningfully more of the background starts this guards
+  /// against, which run to hours.
+  static const maxColdStartDuration = Duration(seconds: 60);
+
   /// Get app start metrics for cold start
+  ///
+  /// Emits nothing unless the platform can show the process was started by the
+  /// user and the duration is plausible. Both guards matter: Android forks
+  /// processes for pushes, jobs and broadcasts, and iOS prewarms them, and in
+  /// either case the time since process start measures idle time rather than
+  /// anything the user waited for.
   Future<void> getAppStart() async {
     try {
       final appStart = await Faro().nativeChannel?.getAppStart();
-      if (appStart != null) {
-        _pushVitalsMeasurement({
-          'appStartDuration': appStart['appStartDuration'],
-          'coldStart': 1,
-        }, 'app_startup');
+      if (appStart == null) {
+        return;
       }
+      final durationMillis = appStart['appStartDurationMillis'];
+      if (durationMillis is! int) {
+        return;
+      }
+      if (appStart['isUserVisibleColdStart'] != true) {
+        log(
+          'Faro: discarding cold start, the process was not started by '
+          'the user',
+        );
+        return;
+      }
+      if (durationMillis <= 0 ||
+          durationMillis > maxColdStartDuration.inMilliseconds) {
+        log('Faro: discarding implausible cold start of $durationMillis ms');
+        return;
+      }
+      _pushVitalsMeasurement({
+        'appStartDuration': durationMillis,
+        'coldStart': 1,
+        'prewarmed': appStart['prewarmed'] == true ? 1 : 0,
+      }, 'app_startup');
     } catch (error) {
       log('Error getting app start metrics: $error');
     }

@@ -172,7 +172,76 @@ Faro().runApp(
 
 ### Cold/Warm Start
 
-App startup times are automatically captured and sent as events.
+App startup times are automatically captured and sent as `app_startup` measurements:
+
+| Value              | Meaning                                                         |
+| ------------------ | --------------------------------------------------------------- |
+| `appStartDuration` | Milliseconds the start took                                       |
+| `coldStart`        | `1` for a cold start, `0` for a warm start                        |
+| `prewarmed`        | `1` when iOS prewarmed the process, `0` otherwise (always `0` on Android) |
+
+A **cold start** is measured from process start until the first frame is
+rasterized. A **warm start** is measured from the app returning to the
+foreground until the next frame.
+
+#### Which cold starts are reported
+
+Both platforms start app processes without any user involvement. Android forks
+a process to deliver a push message, run a scheduled job or handle a broadcast,
+and that process then stays in the LRU cache indefinitely. iOS *prewarms* apps,
+creating the process and loading its libraries ahead of the user tapping the
+icon. In both cases the time since process start can be hours, and reporting it
+as a cold start makes any percentile over the metric meaningless.
+
+The SDK therefore only reports a cold start when it can establish that the
+launch was user-visible:
+
+- **Android 7+**: `FaroStartupProvider`, a content provider merged into your
+  manifest automatically, samples the process importance before
+  `Application.onCreate` runs. That is the only point at which the answer is
+  still meaningful, because once an activity exists every process reports
+  foreground importance. A process Android forked for background work is not
+  foreground at that moment; one brought up to show UI is.
+- **Android 6 and below**: no cold start is reported, because the platform
+  exposes no process start time.
+- **iOS**: prewarmed launches are re-based onto a monotonic anchor taken when
+  the SDK loads, so they measure the launch rather than the idle time before
+  it, and are flagged with `prewarmed`.
+
+As a final guard, any cold start longer than 60 seconds is discarded on both
+platforms. This is the same bound commonly used across mobile RUM tooling, so
+the metric stays comparable with what you may collect elsewhere.
+
+> **Known limitation — prewarmed launches on iOS undercount.** The anchor above
+> is taken during plugin registration, which runs inside
+> `application(_:didFinishLaunchingWithOptions:)`. Apple documents prewarming as
+> stopping before that point, but on apps adopting the `UIScene` lifecycle —
+> which Flutter's iOS template does — iOS may run it during the prewarm itself.
+> The anchor is then set long before the user taps, and because the uptime clock
+> keeps running the measured duration includes the idle gap. A long prewarm
+> trips the 60 second guard and is dropped, so treat `prewarmed=1` as a lower
+> bound on volume; a short one is reported with the idle gap included, so treat
+> `prewarmed=1` durations as an upper bound on the real launch time.
+
+> **Known limitation — split screen.** The importance sample reads
+> `IMPORTANCE_FOREGROUND`. A launch into a split-screen or multi-window slot can
+> report the process as merely visible instead, in which case the cold start is
+> discarded. This affects all Android versions.
+
+If you do not want the content provider in your app, remove it in your
+`AndroidManifest.xml`. Its sample is the only way the SDK can prove a launch was
+user-visible, so without it no cold start is reported on any Android version:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <provider
+            android:name="com.grafana.faro.FaroStartupProvider"
+            tools:node="remove" />
+    </application>
+</manifest>
+```
 
 ---
 

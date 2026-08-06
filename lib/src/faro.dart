@@ -258,9 +258,7 @@ class Faro {
     await FaroOtelBootstrap.initialize();
     // Announce the initial session; the listener emits `session_start`.
     sessionManager.start();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nativeIntegration.getAppStart();
-    });
+    _reportColdStartAfterFirstFrame();
 
     final appLifecycleService = pod.resolve(appLifecycleServiceProvider);
     _widgetsBindingObserver = FaroWidgetsBindingObserver(
@@ -353,6 +351,19 @@ class Faro {
       TelemetryItem.fromEvent(Event(eventName)),
       skipBuffer: true,
       activity: SessionActivityKind.none,
+    );
+  }
+
+  /// Ends the cold start interval at the first frame the engine rasterized.
+  ///
+  /// Using that frame rather than the next one after `init` keeps the
+  /// measurement from stretching when a host app initialises Faro late. The
+  /// future completes immediately when the frame has already been rendered.
+  void _reportColdStartAfterFirstFrame() {
+    unawaited(
+      WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
+        (_) => _nativeIntegration.getAppStart(),
+      ),
     );
   }
 
