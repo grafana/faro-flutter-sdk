@@ -356,9 +356,11 @@ class Faro {
 
   /// Ends the cold start interval at the first frame the engine rasterized.
   ///
-  /// Using that frame rather than the next one after `init` keeps the
-  /// measurement from stretching when a host app initialises Faro late. The
-  /// future completes immediately when the frame has already been rendered.
+  /// Using that frame rather than the next one after `init` limits how far the
+  /// measurement stretches when a host app initialises Faro late. It cannot
+  /// remove the stretch: the native side measures up to the moment it is
+  /// called, so an app that initialises Faro after the first frame is measured
+  /// to `init`, the future having already completed.
   void _reportColdStartAfterFirstFrame() {
     unawaited(
       WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(

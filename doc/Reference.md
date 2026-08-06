@@ -181,7 +181,9 @@ App startup times are automatically captured and sent as `app_startup` measureme
 | `prewarmed`        | `1` when iOS prewarmed the process, `0` otherwise (always `0` on Android) |
 
 A **cold start** is measured from process start until the first frame is
-rasterized. A **warm start** is measured from the app returning to the
+rasterized. An app that calls `Faro.init` after that frame is measured up to
+`init` instead, since by then the frame has already passed unobserved.
+A **warm start** is measured from the app returning to the
 foreground until the next frame, and is only reported when the app had actually
 been backgrounded. A launch reports a cold start alone, and a momentary loss of
 focus such as a notification banner reports nothing.
