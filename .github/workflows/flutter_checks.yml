@@ -83,22 +83,30 @@ jobs:
     needs: build-and-test-faro
     timeout-minutes: 30
     steps:
+      # Checked out as `faro` because SwiftPM derives a package's identity from
+      # its directory name, and the example resolves the SDK by path. From the
+      # default `faro-flutter-sdk` directory the build fails to resolve. See
+      # the iOS note in CONTRIBUTING.md.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          path: faro
 
       - name: Set up Flutter
-        uses: ./.github/actions/setup-flutter
+        uses: ./faro/.github/actions/setup-flutter
+        with:
+          working-directory: faro
 
       - name: Install dependencies
-        working-directory: example
+        working-directory: faro/example
         run: flutter pub get
 
       - name: Create api-config file
+        working-directory: faro
         run: tool/create-api-config-file.sh
 
       - name: Build example app
-        working-directory: example
+        working-directory: faro/example
         run: flutter build ios --debug --simulator
 
       # Resolved at runtime because the device names in the runner image change
@@ -120,7 +128,7 @@ jobs:
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Run iOS unit tests
-        working-directory: example/ios
+        working-directory: faro/example/ios
         run: |
           xcodebuild test \
             -workspace Runner.xcworkspace \
