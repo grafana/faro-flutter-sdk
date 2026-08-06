@@ -182,7 +182,9 @@ App startup times are automatically captured and sent as `app_startup` measureme
 
 A **cold start** is measured from process start until the first frame is
 rasterized. A **warm start** is measured from the app returning to the
-foreground until the next frame.
+foreground until the next frame, and is only reported when the app had actually
+been backgrounded. A launch reports a cold start alone, and a momentary loss of
+focus such as a notification banner reports nothing.
 
 #### Which cold starts are reported
 

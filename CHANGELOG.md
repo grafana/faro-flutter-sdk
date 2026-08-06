@@ -71,6 +71,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   60 seconds. **Expect cold start volume to drop**: launches that cannot be
   shown to be user-visible now emit nothing rather than a misleading duration.
   See the Reference docs for per-platform detection and known limitations.
+- **Every launch also reported a phantom warm start** of a few milliseconds
+  alongside its cold start. Warm starts are now reported only when the app
+  returns from the background. **Expect warm start volume to drop and
+  durations to rise**, as those near-zero measurements are gone.
 - Android cold starts no longer count time the device spent in deep sleep.
 - iOS no longer reports a garbage duration when the process start-time lookup
   fails.
