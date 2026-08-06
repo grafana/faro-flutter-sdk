@@ -21,42 +21,47 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    Faro().setViewMeta(name: previousRoute?.settings.name);
-    Faro().pushEvent(
-      'view_changed',
-      attributes: {
-        'fromView': route.settings.name,
-        'toView': previousRoute?.settings.name,
-      },
+    _recordNavigation(
+      fromView: route.settings.name,
+      toView: previousRoute?.settings.name,
+      activitySource: 'navigation.pop',
     );
-    _lifecycleSignalChannel.emitActivity(source: 'navigation.pop');
   }
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
-    Faro().setViewMeta(name: route.settings.name);
-    Faro().pushEvent(
-      'view_changed',
-      attributes: {
-        'fromView': previousRoute?.settings.name,
-        'toView': route.settings.name,
-      },
+    _recordNavigation(
+      fromView: previousRoute?.settings.name,
+      toView: route.settings.name,
+      activitySource: 'navigation.push',
     );
-    _lifecycleSignalChannel.emitActivity(source: 'navigation.push');
   }
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    Faro().setViewMeta(name: newRoute?.settings.name);
-    Faro().pushEvent(
-      'view_changed',
-      attributes: {
-        'fromView': oldRoute?.settings.name,
-        'toView': newRoute?.settings.name,
-      },
+    _recordNavigation(
+      fromView: oldRoute?.settings.name,
+      toView: newRoute?.settings.name,
+      activitySource: 'navigation.replace',
     );
-    _lifecycleSignalChannel.emitActivity(source: 'navigation.replace');
+  }
+
+  void _recordNavigation({
+    required String? fromView,
+    required String? toView,
+    required String activitySource,
+  }) {
+    if (toView != null) {
+      Faro().setViewMeta(name: toView);
+    }
+    if (fromView != null || toView != null) {
+      Faro().pushEvent(
+        'view_changed',
+        attributes: {'fromView': fromView, 'toView': toView},
+      );
+    }
+    _lifecycleSignalChannel.emitActivity(source: activitySource);
   }
 }

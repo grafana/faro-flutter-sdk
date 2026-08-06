@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   states regardless of whether Android records status `0` or `SIGKILL`.
   Foreground, foreground-service, visible, and perceptible exits remain
   reportable ([#307](https://github.com/grafana/faro-flutter-sdk/issues/307)).
+- Preserve the last known view metadata when navigating through unnamed
+  Flutter routes, and suppress empty `view_changed` events.
+  ([#305](https://github.com/grafana/faro-flutter-sdk/issues/305))
 - Report Flutter framework errors even when no stack trace is available
   ([#271](https://github.com/grafana/faro-flutter-sdk/issues/271)).
 - HTTP network-error fallback logs are now correlated with their request
