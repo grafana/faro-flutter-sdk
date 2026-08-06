@@ -54,14 +54,36 @@ enum AppStartTracker {
   }
 
   private static func durationMillis() -> Double? {
-    if isPrewarmedLaunch {
-      // Process start is meaningless for a prewarmed launch, and the SDK load
-      // anchor is monotonic, so this arm is also immune to clock changes.
-      guard let anchor = sdkLoadUptimeMillis else { return nil }
-      return uptimeMillis() - anchor
+    launchDurationMillis(
+      prewarmed: isPrewarmedLaunch,
+      sdkLoadAnchor: sdkLoadUptimeMillis,
+      uptimeNow: uptimeMillis(),
+      processStart: processStartWallclockMillis(),
+      wallclockNow: wallclockMillis()
+    )
+  }
+
+  /// Picks the anchor to measure from, or nil when neither is usable.
+  ///
+  /// Process start is meaningless for a prewarmed launch, and the SDK load
+  /// anchor is monotonic, so that arm is also immune to clock changes.
+  ///
+  /// Takes its inputs rather than reading them so both arms can be tested. The
+  /// prewarmed arm is otherwise unreachable from a test: `ActivePrewarm` is
+  /// read once when the SDK loads, and iOS clears it after launch.
+  static func launchDurationMillis(
+    prewarmed: Bool,
+    sdkLoadAnchor: Double?,
+    uptimeNow: Double,
+    processStart: Double?,
+    wallclockNow: Double
+  ) -> Double? {
+    if prewarmed {
+      guard let sdkLoadAnchor else { return nil }
+      return uptimeNow - sdkLoadAnchor
     }
-    guard let processStart = processStartWallclockMillis() else { return nil }
-    return wallclockMillis() - processStart
+    guard let processStart else { return nil }
+    return wallclockNow - processStart
   }
 
   /// Converts to the integer the method channel carries, without trapping.
