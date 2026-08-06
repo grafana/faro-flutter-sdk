@@ -1,0 +1,57 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 5am on Monday", "before 5am on Wednesday", "before 5am on Friday"],
+  "semanticCommits": "enabled",
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 10,
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
+  "packageRules": [
+    {
+      "description": "Group GitHub Actions bumps into a single PR. These are SHA pins across four workflows; reviewing them one-by-one costs a rebase + CI cycle each because main requires up-to-date branches.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Group the example/webview_demo JS toolchain into a single PR. Nothing installs or builds this app in CI (it only appears in osv-scanner.yml as a lockfile path), so per-package PRs buy no extra signal.",
+      "matchManagers": ["npm"],
+      "groupName": "npm-dependencies"
+    },
+    {
+      "description": "Group Gradle/Kotlin toolchain bumps for the example app into a single PR. These are the only dependencies here with real CI coverage (build-example-app and :faro:testDebugUnitTest), so a grouped failure still points at a small and related set.",
+      "matchManagers": ["gradle", "gradle-wrapper"],
+      "groupName": "gradle"
+    },
+    {
+      "description": "Keep the Flutter SDK pin atomic — setup-flutter fails if .fvmrc and .tool-versions disagree.",
+      "matchManagers": ["fvm", "asdf", "mise"],
+      "groupName": "flutter-sdk"
+    },
+    {
+      "description": "Collect patch-only bumps from the grouped managers into one low-risk PR, matching faro-web-sdk. Scoped to those managers so Flutter SDK pin bumps stay standalone; pub and swift only ever emit majors.",
+      "matchManagers": ["github-actions", "npm", "gradle", "gradle-wrapper"],
+      "matchUpdateTypes": ["patch"],
+      "groupName": "patch updates"
+    },
+    {
+      "description": "Renovate cannot resolve this plugin marker on the maven datasource (no-result), which stamps a 'Package lookup failures' WARN onto every PR body in this repo. It is supplied by the Flutter SDK itself and is not independently upgradable.",
+      "matchPackageNames": [
+        "dev.flutter.flutter-plugin-loader:dev.flutter.flutter-plugin-loader.gradle.plugin"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Enforce the org-default 3-day release-age cooldown on ALL npm depTypes (incl @grafana/*, which the injected Grafana org preset exempts) to match yarn's npmMinimalAgeGate in example/webview_demo/.yarnrc.yml. Placed last so it overrides that preset. Without this, Renovate proposes @grafana/faro-web-sdk versions younger than the gate that yarn then refuses to lock, producing PRs whose renovate/artifacts check fails and whose package.json drifts from yarn.lock. Keep this value in sync with that .yarnrc.yml.",
+      "matchDatasources": ["npm"],
+      "minimumReleaseAge": "3 days"
+    }
+  ]
+}
