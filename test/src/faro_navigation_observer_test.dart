@@ -1,15 +1,21 @@
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/faro_navigation_observer.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockFaro extends Mock implements Faro {}
 
+class MockSessionManager extends Mock implements SessionManager {}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late MockFaro mockFaro;
+  late MockSessionManager mockSessionManager;
   late FaroNavigationObserver observer;
 
   PageRoute<void> route([String? name]) {
@@ -19,15 +25,25 @@ void main() {
     );
   }
 
+  setUpAll(() {
+    registerFallbackValue(SessionActivityKind.active);
+  });
+
   setUp(() {
     mockFaro = MockFaro();
+    mockSessionManager = MockSessionManager();
     Faro.instance = mockFaro;
+    pod.overrideProvider(sessionManagerProvider, (_) => mockSessionManager);
     observer = FaroNavigationObserver();
 
     when(() => mockFaro.setViewMeta(name: any(named: 'name'))).thenReturn(null);
     when(
       () => mockFaro.pushEvent(any(), attributes: any(named: 'attributes')),
     ).thenReturn(null);
+  });
+
+  tearDown(() {
+    pod.removeOverride(sessionManagerProvider);
   });
 
   group('FaroNavigationObserver', () {
@@ -79,13 +95,18 @@ void main() {
       ).called(1);
     });
 
-    test('does not emit a view change when both route names are null', () {
+    test('refreshes the session without emitting an empty view change', () {
       observer.didReplace(newRoute: route(), oldRoute: route());
 
       verifyNever(() => mockFaro.setViewMeta(name: any(named: 'name')));
       verifyNever(
         () => mockFaro.pushEvent(any(), attributes: any(named: 'attributes')),
       );
+      verify(
+        () => mockSessionManager.checkSession(
+          activity: SessionActivityKind.active,
+        ),
+      ).called(1);
     });
   });
 }

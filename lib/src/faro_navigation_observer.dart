@@ -1,5 +1,7 @@
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
 import 'package:flutter/widgets.dart';
 
@@ -9,14 +11,18 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
       lifecycleSignalChannel: pod.resolve(
         userActionLifecycleSignalChannelProvider,
       ),
+      sessionManager: pod.resolve(sessionManagerProvider),
     );
   }
 
   FaroNavigationObserver._({
     required UserActionLifecycleSignalChannel lifecycleSignalChannel,
-  }) : _lifecycleSignalChannel = lifecycleSignalChannel;
+    required SessionManager sessionManager,
+  }) : _lifecycleSignalChannel = lifecycleSignalChannel,
+       _sessionManager = sessionManager;
 
   final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
+  final SessionManager _sessionManager;
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
@@ -61,6 +67,8 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
         'view_changed',
         attributes: {'fromView': fromView, 'toView': toView},
       );
+    } else {
+      _sessionManager.checkSession(activity: SessionActivityKind.active);
     }
     _lifecycleSignalChannel.emitActivity(source: activitySource);
   }
