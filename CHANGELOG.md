@@ -46,8 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to enable HTTP tracking. This is a source-breaking change only for code
   that imported those implementation-detail classes directly.
 - The cold start interval now ends at the first frame the engine rasterized
-  rather than the first frame after `Faro.init`, which shortens it for apps
-  that initialise Faro late.
+  rather than the first frame after `Faro.init`. An app that initialises Faro
+  after that frame is measured up to `init` instead, which is still shorter
+  than before.
 - `app_startup` measurements carry an additional `prewarmed` value (`1` when
   iOS prewarmed the process, `0` otherwise). `appStartDuration` and `coldStart`
   are unchanged, so existing dashboards keep working.
