@@ -30,7 +30,10 @@ class SessionRuntimeInfoProvider {
 
   Future<SessionRuntimeInfo?> getRuntimeInfo() async {
     try {
-      final nativeInfo = await _nativeMethods.getSessionRuntimeInfo();
+      final isRootIsolate = _isRootIsolate();
+      final nativeInfo = await _nativeMethods.getSessionRuntimeInfo(
+        claimSessionPersistence: isRootIsolate,
+      );
       final processIdentifier = nativeInfo?['processIdentifier'];
       final ownsSessionPersistence =
           nativeInfo?['ownsSessionPersistence'] == true;
@@ -39,7 +42,6 @@ class SessionRuntimeInfoProvider {
         return null;
       }
 
-      final isRootIsolate = _isRootIsolate();
       final debugName = Isolate.current.debugName;
       final isolateIdentifier = isRootIsolate
           ? 'main'

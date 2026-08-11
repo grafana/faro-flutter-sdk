@@ -13,7 +13,9 @@ void main() {
   });
 
   test('allows the owning root isolate to persist', () async {
-    when(() => nativeMethods.getSessionRuntimeInfo()).thenAnswer(
+    when(
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
+    ).thenAnswer(
       (_) async => <String, dynamic>{
         'processIdentifier': 'com.example.app',
         'ownsSessionPersistence': true,
@@ -32,7 +34,9 @@ void main() {
   });
 
   test('secondary isolates keep identity but cannot persist', () async {
-    when(() => nativeMethods.getSessionRuntimeInfo()).thenAnswer(
+    when(
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: false),
+    ).thenAnswer(
       (_) async => <String, dynamic>{
         'processIdentifier': 'com.example.app',
         'ownsSessionPersistence': true,
@@ -51,7 +55,9 @@ void main() {
   });
 
   test('a non-owning engine cannot persist', () async {
-    when(() => nativeMethods.getSessionRuntimeInfo()).thenAnswer(
+    when(
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
+    ).thenAnswer(
       (_) async => <String, dynamic>{
         'processIdentifier': 'com.example.app',
         'ownsSessionPersistence': false,
@@ -67,7 +73,7 @@ void main() {
 
   test('missing process identity disables persistence safely', () async {
     when(
-      () => nativeMethods.getSessionRuntimeInfo(),
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
     ).thenAnswer((_) async => <String, dynamic>{});
     final provider = SessionRuntimeInfoProvider(
       nativeMethods: nativeMethods,
@@ -79,7 +85,7 @@ void main() {
 
   test('native failures disable persistence safely', () async {
     when(
-      () => nativeMethods.getSessionRuntimeInfo(),
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
     ).thenThrow(StateError('unavailable'));
     final provider = SessionRuntimeInfoProvider(
       nativeMethods: nativeMethods,

@@ -71,7 +71,9 @@ abstract class FaroSdkPlatform extends PlatformInterface {
     throw UnimplementedError('getCrashReport() has not been implemented');
   }
 
-  Future<Map<String, dynamic>?> getSessionRuntimeInfo() {
+  Future<Map<String, dynamic>?> getSessionRuntimeInfo({
+    required bool claimSessionPersistence,
+  }) {
     throw UnimplementedError(
       'getSessionRuntimeInfo() has not been implemented',
     );

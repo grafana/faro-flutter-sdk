@@ -7,15 +7,7 @@ import CrashReporter
 public class FaroPlugin: NSObject, FlutterPlugin {
   private static let sessionPersistenceOwnerLock = NSLock()
   private static var sessionPersistenceOwnerClaimed = false
-  private let ownsSessionPersistence: Bool
-
-  public override init() {
-    FaroPlugin.sessionPersistenceOwnerLock.lock()
-    ownsSessionPersistence = !FaroPlugin.sessionPersistenceOwnerClaimed
-    FaroPlugin.sessionPersistenceOwnerClaimed = true
-    FaroPlugin.sessionPersistenceOwnerLock.unlock()
-    super.init()
-  }
+  private var ownsSessionPersistence = false
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "faro", binaryMessenger: registrar.messenger())
@@ -90,6 +82,10 @@ public class FaroPlugin: NSObject, FlutterPlugin {
                 let memory = getMemoryUsage()/1024
                 result( memory);
             case "getSessionRuntimeInfo":
+                let arguments = call.arguments as? [String: Any]
+                if arguments?["claimSessionPersistence"] as? Bool == true {
+                    claimSessionPersistenceOwnership()
+                }
                 let processIdentifier = Bundle.main.bundleIdentifier
                     ?? ProcessInfo.processInfo.processName
                 result([
@@ -101,6 +97,20 @@ public class FaroPlugin: NSObject, FlutterPlugin {
         }
 
       }
+
+  private func claimSessionPersistenceOwnership() {
+    // Registration also runs for pre-warmed engines. Claim only when a root
+    // Dart runtime actually initializes Faro.
+    FaroPlugin.sessionPersistenceOwnerLock.lock()
+    defer { FaroPlugin.sessionPersistenceOwnerLock.unlock() }
+
+    guard !ownsSessionPersistence else { return }
+    guard !FaroPlugin.sessionPersistenceOwnerClaimed else { return }
+
+    FaroPlugin.sessionPersistenceOwnerClaimed = true
+    ownsSessionPersistence = true
+  }
+
       func getMemoryUsage() -> Double {
          let task_vm_info_count = MemoryLayout<task_vm_info>.size / MemoryLayout<natural_t>.size
 

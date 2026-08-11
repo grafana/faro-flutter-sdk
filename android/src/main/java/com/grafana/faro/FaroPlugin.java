@@ -165,7 +165,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
         Log.d(TAG, "onAttachedToEngine");
         this.pluginBinding = flutterPluginBinding;
-        this.ownsSessionPersistence = SESSION_PERSISTENCE_OWNER_CLAIMED.compareAndSet(false, true);
         channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "faro");
         channel.setMethodCallHandler(this);
         
@@ -408,6 +407,11 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                             result.success(null);
                             break;
                         }
+                        Boolean shouldClaimPersistence =
+                            call.argument("claimSessionPersistence");
+                        if (Boolean.TRUE.equals(shouldClaimPersistence)) {
+                            claimSessionPersistenceOwnership();
+                        }
                         Map<String, Object> runtimeInfo = new HashMap<>();
                         runtimeInfo.put("processIdentifier", processIdentifier);
                         runtimeInfo.put("ownsSessionPersistence", ownsSessionPersistence);
@@ -558,6 +562,15 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         // Do not guess here. Using the package name for an unidentified
         // secondary process could make two processes write the same file.
         return null;
+    }
+
+    private void claimSessionPersistenceOwnership() {
+        // Registration also runs for pre-warmed engines. Claim only when a
+        // root Dart runtime actually initializes Faro.
+        if (!ownsSessionPersistence
+            && SESSION_PERSISTENCE_OWNER_CLAIMED.compareAndSet(false, true)) {
+            ownsSessionPersistence = true;
+        }
     }
 
     private void handleFrameDrop() {

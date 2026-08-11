@@ -79,9 +79,12 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
   }
 
   @override
-  Future<Map<String, dynamic>?> getSessionRuntimeInfo() {
+  Future<Map<String, dynamic>?> getSessionRuntimeInfo({
+    required bool claimSessionPersistence,
+  }) {
     return methodChannel.invokeMapMethod<String, dynamic>(
       'getSessionRuntimeInfo',
+      <String, dynamic>{'claimSessionPersistence': claimSessionPersistence},
     );
   }
 }
