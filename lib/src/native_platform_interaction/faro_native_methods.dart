@@ -44,4 +44,8 @@ class FaroNativeMethods {
   Future<List<String>?> getCrashReport() {
     return FaroSdkPlatform.instance.getCrashReport();
   }
+
+  Future<Map<String, dynamic>?> getSessionRuntimeInfo() {
+    return FaroSdkPlatform.instance.getSessionRuntimeInfo();
+  }
 }

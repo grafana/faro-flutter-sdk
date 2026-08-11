@@ -28,6 +28,7 @@ class FaroConfig {
     this.sessionAttributes,
     this.initialUser,
     this.persistUser = true,
+    this.persistSession = true,
     this.sampling,
     this.spanExceptionOptions = SpanExceptionOptions.defaults,
   }) : assert(appName.isNotEmpty, 'appName cannot be empty'),
@@ -88,6 +89,14 @@ class FaroConfig {
   ///
   /// Set to `false` to disable user persistence.
   final bool persistUser;
+
+  /// Whether to persist minimal session state between process starts.
+  ///
+  /// When enabled (default), a cold start always creates a new session and
+  /// links the previous session ID when it is available. The persisted record
+  /// contains only session identity, timing, sampling, and schema information.
+  /// It never resumes the same live session across a process start.
+  final bool persistSession;
 
   /// Session sampling configuration.
   ///

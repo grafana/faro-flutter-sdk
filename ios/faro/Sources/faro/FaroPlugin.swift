@@ -5,6 +5,18 @@ import CrashReporter
 
 
 public class FaroPlugin: NSObject, FlutterPlugin {
+  private static let sessionPersistenceOwnerLock = NSLock()
+  private static var sessionPersistenceOwnerClaimed = false
+  private let ownsSessionPersistence: Bool
+
+  public override init() {
+    FaroPlugin.sessionPersistenceOwnerLock.lock()
+    ownsSessionPersistence = !FaroPlugin.sessionPersistenceOwnerClaimed
+    FaroPlugin.sessionPersistenceOwnerClaimed = true
+    FaroPlugin.sessionPersistenceOwnerLock.unlock()
+    super.init()
+  }
+
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "faro", binaryMessenger: registrar.messenger())
     let instance = FaroPlugin()
@@ -25,6 +37,11 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     // Remove observers or perform other cleanup here
     AppStart.clear()
     NotificationCenter.default.removeObserver(self)
+    if ownsSessionPersistence {
+      FaroPlugin.sessionPersistenceOwnerLock.lock()
+      FaroPlugin.sessionPersistenceOwnerClaimed = false
+      FaroPlugin.sessionPersistenceOwnerLock.unlock()
+    }
   }
 
   @objc private func applicationDidBecomeActive() {
@@ -72,6 +89,13 @@ public class FaroPlugin: NSObject, FlutterPlugin {
                 _ = CACurrentMediaTime();
                 let memory = getMemoryUsage()/1024
                 result( memory);
+            case "getSessionRuntimeInfo":
+                let processIdentifier = Bundle.main.bundleIdentifier
+                    ?? ProcessInfo.processInfo.processName
+                result([
+                    "processIdentifier": processIdentifier,
+                    "ownsSessionPersistence": ownsSessionPersistence,
+                ])
             default:
                 result(FlutterMethodNotImplemented);
         }
@@ -105,4 +129,3 @@ public class FaroPlugin: NSObject, FlutterPlugin {
 
 
 }
-

@@ -77,4 +77,11 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
     );
     return crashInfo;
   }
+
+  @override
+  Future<Map<String, dynamic>?> getSessionRuntimeInfo() {
+    return methodChannel.invokeMapMethod<String, dynamic>(
+      'getSessionRuntimeInfo',
+    );
+  }
 }

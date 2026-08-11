@@ -1,6 +1,7 @@
 package com.grafana.faro;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Application;
 import android.app.ApplicationExitInfo;
 import android.content.Context;
@@ -50,6 +51,8 @@ import io.flutter.plugin.common.MethodChannel.Result;
  * - Frame rate monitoring
  */
 public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
+    private static final AtomicBoolean SESSION_PERSISTENCE_OWNER_CLAIMED = new AtomicBoolean(false);
+
     /// The MethodChannel that will the communication between Flutter and native Android
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
@@ -60,6 +63,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private @Nullable ExitInfoHelper exitInfoHelper;
     private @Nullable Window window;
     private @Nullable Application application;
+    private boolean ownsSessionPersistence = false;
 
     private FlutterPluginBinding pluginBinding;
     private long lastFrameTimeNanos = 0;
@@ -161,6 +165,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
         Log.d(TAG, "onAttachedToEngine");
         this.pluginBinding = flutterPluginBinding;
+        this.ownsSessionPersistence = SESSION_PERSISTENCE_OWNER_CLAIMED.compareAndSet(false, true);
         channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "faro");
         channel.setMethodCallHandler(this);
         
@@ -330,6 +335,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "onDetachedFromEngine");
         channel.setMethodCallHandler(null);
         channel = null;
+        if (ownsSessionPersistence) {
+            SESSION_PERSISTENCE_OWNER_CLAIMED.set(false);
+            ownsSessionPersistence = false;
+        }
     }
 
     // test
@@ -392,6 +401,17 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         Map<String, Object> appStart = new HashMap<>();
                         appStart.put("appStartDuration", getAppStart());
                         result.success(appStart);
+                        break;
+                    case "getSessionRuntimeInfo":
+                        String processIdentifier = getProcessIdentifier();
+                        if (processIdentifier == null) {
+                            result.success(null);
+                            break;
+                        }
+                        Map<String, Object> runtimeInfo = new HashMap<>();
+                        runtimeInfo.put("processIdentifier", processIdentifier);
+                        runtimeInfo.put("ownsSessionPersistence", ownsSessionPersistence);
+                        result.success(runtimeInfo);
                         break;
                     default:
                         result.notImplemented();
@@ -510,6 +530,34 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             return SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime();
         }
         return 0;
+    }
+
+    private @Nullable String getProcessIdentifier() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            return Application.getProcessName();
+        }
+        if (applicationContext == null) {
+            return null;
+        }
+
+        ActivityManager activityManager =
+            (ActivityManager) applicationContext.getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager != null) {
+            List<ActivityManager.RunningAppProcessInfo> processes =
+                activityManager.getRunningAppProcesses();
+            if (processes != null) {
+                int currentPid = Process.myPid();
+                for (ActivityManager.RunningAppProcessInfo process : processes) {
+                    if (process.pid == currentPid) {
+                        return process.processName;
+                    }
+                }
+            }
+        }
+
+        // Do not guess here. Using the package name for an unidentified
+        // secondary process could make two processes write the same file.
+        return null;
     }
 
     private void handleFrameDrop() {

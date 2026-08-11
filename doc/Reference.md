@@ -320,6 +320,20 @@ data loss.
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 
+**Cold starts and persistence.** Faro stores a minimal versioned session record
+by default. A process start always creates a new session ID. When the prior ID
+is available, the new session links it through `previousSession`; Faro never
+resumes the same live session across a process start. The record contains only
+the current and previous IDs, start and last-activity timestamps, the sampling
+decision, and its schema version. Disable this behavior with
+`persistSession: false`; disabling it also clears the record owned by that
+process.
+
+Each Android process and iOS app or extension keeps its own session chain.
+Only the owning root Flutter isolate persists state, so secondary engines and
+background isolates cannot concurrently update that record. Telemetry includes
+`process_name` and `dart_isolate_name` session attributes for correlation.
+
 **What counts as activity.** Telemetry that originates from app or user behavior extends the inactivity window: events, logs, exceptions, app-developer measurements, user interactions, view changes, and app lifecycle events. Spans count too — each exported span emits a Faro event that flows through the same path, so tracked HTTP requests and custom spans keep the session alive.
 
 Automatic vitals measurements pushed by the SDK itself (CPU, memory, refresh rate, frame stats, ANR count, app start) count as activity **only while the app is in the foreground**. This keeps a single session for a foregrounded but idle app (e.g. a user reading a screen without tapping), while ensuring a backgrounded app's session still expires — the Dart isolate keeps running while backgrounded on Android, so if background vitals counted they would keep the session alive indefinitely.
