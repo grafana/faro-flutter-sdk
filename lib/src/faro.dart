@@ -87,6 +87,10 @@ class Faro {
   DataCollectionPolicy? _dataCollectionPolicy;
   UserManager? _userManager;
   SessionPersistence? _sessionPersistence;
+  SessionPersistenceFactory _sessionPersistenceFactory =
+      SessionPersistenceFactory();
+  bool Function() _isMobilePlatform = () =>
+      Platform.isAndroid || Platform.isIOS;
   bool _isSampled = true;
   bool _isInitialized = false;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
@@ -152,6 +156,16 @@ class Faro {
   @visibleForTesting
   set userManager(UserManager? manager) {
     _userManager = manager;
+  }
+
+  @visibleForTesting
+  set sessionPersistenceFactory(SessionPersistenceFactory factory) {
+    _sessionPersistenceFactory = factory;
+  }
+
+  @visibleForTesting
+  set mobilePlatformResolver(bool Function() resolver) {
+    _isMobilePlatform = resolver;
   }
 
   Future<void> init({required FaroConfig optionsConfiguration}) async {
@@ -378,7 +392,7 @@ class Faro {
   }
 
   Future<String?> _initializeSessionPersistence(FaroConfig options) async {
-    if (!Platform.isAndroid && !Platform.isIOS) {
+    if (!_isMobilePlatform()) {
       return null;
     }
 
@@ -396,7 +410,7 @@ class Faro {
 
     final session = meta.session;
     if (session != null) {
-      session.attributes = <String, Object>{
+      session.attributes = <String, dynamic>{
         ...?session.attributes,
         'process_name': runtimeInfo.processIdentifier,
         'dart_isolate_name': runtimeInfo.isolateIdentifier,
@@ -408,7 +422,7 @@ class Faro {
     }
 
     try {
-      final persistence = await SessionPersistenceFactory().create(
+      final persistence = await _sessionPersistenceFactory.create(
         processIdentifier: runtimeInfo.processIdentifier,
       );
       if (!options.persistSession) {

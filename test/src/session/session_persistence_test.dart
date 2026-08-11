@@ -155,6 +155,25 @@ void main() {
     );
   });
 
+  test('backward clock changes are clamped before persistence', () async {
+    final sut = persistence();
+    final start = DateTime.utc(2026, 8, 11, 12);
+
+    sut.record(
+      state(
+        startedAt: start,
+        lastActivityAt: start.subtract(const Duration(minutes: 1)),
+      ),
+      isSampled: true,
+      immediate: true,
+    );
+    await sut.flush();
+
+    final loaded = await sut.load();
+    expect(loaded?.startedAt, start);
+    expect(loaded?.lastActivityAt, start);
+  });
+
   test('a newer state wins while an earlier write is queued', () async {
     final sut = persistence();
 
@@ -197,6 +216,23 @@ void main() {
 
     expect((await first.load())?.currentSessionId, 'main-session');
     expect((await second.load())?.currentSessionId, 'background-session');
+
+    final sessionDirectory = Directory(
+      '${temporaryDirectory.path}${Platform.pathSeparator}'
+      'faro${Platform.pathSeparator}sessions',
+    );
+    final fileNames = await sessionDirectory
+        .list()
+        .where((entry) => entry is File)
+        .map((entry) => entry.uri.pathSegments.last)
+        .toList();
+    expect(
+      fileNames,
+      unorderedEquals(<String>[
+        '9cb83f56ad0412ab.json',
+        'e69ec7cdc5b6a332.json',
+      ]),
+    );
   });
 
   test(

@@ -47,7 +47,7 @@ class SessionRuntimeInfoProvider {
           ? 'main'
           : debugName != null && debugName != 'main'
           ? debugName
-          : 'background-${identityHashCode(Isolate.current)}';
+          : 'background';
 
       // Secondary isolates must not race the owning root isolate's file.
       return SessionRuntimeInfo(

@@ -331,8 +331,11 @@ process.
 
 Each Android process and iOS app or extension keeps its own session chain.
 Only the owning root Flutter isolate persists state, so secondary engines and
-background isolates cannot concurrently update that record. Telemetry includes
-`process_name` and `dart_isolate_name` session attributes for correlation.
+background isolates cannot concurrently update that record. Ownership is not
+transferred to an already-running secondary engine if the owner detaches; that
+engine keeps its in-memory session until it initializes again. When native
+process identity is available, telemetry includes `process_name` and
+`dart_isolate_name` session attributes for correlation.
 
 **What counts as activity.** Telemetry that originates from app or user behavior extends the inactivity window: events, logs, exceptions, app-developer measurements, user interactions, view changes, and app lifecycle events. Spans count too — each exported span emits a Faro event that flows through the same path, so tracked HTTP requests and custom spans keep the session alive.
 

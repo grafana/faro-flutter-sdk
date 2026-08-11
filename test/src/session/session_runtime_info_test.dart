@@ -50,7 +50,7 @@ void main() {
     final info = await provider.getRuntimeInfo();
 
     expect(info?.processIdentifier, 'com.example.app');
-    expect(info?.isolateIdentifier, startsWith('background-'));
+    expect(info?.isolateIdentifier, 'background');
     expect(info?.ownsSessionPersistence, isFalse);
   });
 

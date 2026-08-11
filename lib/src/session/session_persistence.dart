@@ -161,11 +161,14 @@ class SessionPersistence {
     required bool isSampled,
     required bool immediate,
   }) {
+    final lastActivityAt = state.lastActivityAt.isBefore(state.startedAt)
+        ? state.startedAt
+        : state.lastActivityAt;
     _pendingRecord = PersistedSessionRecord(
       currentSessionId: state.currentSessionId,
       previousSessionId: state.previousSessionId,
       startedAt: state.startedAt,
-      lastActivityAt: state.lastActivityAt,
+      lastActivityAt: lastActivityAt,
       isSampled: isSampled,
     );
 
@@ -243,13 +246,12 @@ class SessionPersistenceFactory {
   }
 
   String _stableStorageKey(String value) {
-    const offsetBasis = 0xcbf29ce484222325;
-    const prime = 0x100000001b3;
-    const mask = 0xffffffffffffffff;
+    final offsetBasis = BigInt.parse('cbf29ce484222325', radix: 16);
+    final prime = BigInt.parse('100000001b3', radix: 16);
+    final mask = BigInt.parse('ffffffffffffffff', radix: 16);
     var hash = offsetBasis;
     for (final byte in utf8.encode(value)) {
-      hash ^= byte;
-      hash = (hash * prime) & mask;
+      hash = ((hash ^ BigInt.from(byte)) * prime) & mask;
     }
     return hash.toRadixString(16).padLeft(16, '0');
   }
