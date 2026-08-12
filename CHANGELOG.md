@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   takes precedence over the active span. Span context is captured at push
   time, so buffered signals keep the span that was active when they were
   recorded.
+- **`FaroStartupProvider`**, a content provider merged into your Android
+  manifest automatically. It samples process importance at startup so the SDK
+  can tell a user-initiated launch from a background one; it stores no data and
+  answers no queries. It can be removed with `tools:node="remove"`, at the cost
+  of cold start reporting on Android entirely. See the Reference docs for
+  details.
 
 ### Changed
 
@@ -39,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are no longer part of the public API. Only `FaroHttpOverrides` is needed
   to enable HTTP tracking. This is a source-breaking change only for code
   that imported those implementation-detail classes directly.
+- The cold start interval now ends at the first frame the engine rasterized
+  rather than the first frame after `Faro.init`. An app that initialises Faro
+  after that frame is measured up to `init` instead, which is still shorter
+  than before.
+- `app_startup` measurements carry an additional `prewarmed` value (`1` when
+  iOS prewarmed the process, `0` otherwise). `appStartDuration` and `coldStart`
+  are unchanged, so existing dashboards keep working.
 
 ### Fixed
 
@@ -57,6 +70,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `trace_id`/`span_id` instead of no trace context.
 - Forward Android native crash and ANR traces from `ApplicationExitInfo` into
   the Faro exception context instead of always reporting `No stacktrace`.
+- **Cold start duration measured process age, not user-visible startup**
+  ([#302](https://github.com/grafana/faro-flutter-sdk/issues/302)): Processes
+  the system started in the background — push messages, jobs and broadcasts on
+  Android, prewarming on iOS — reported the age of the process as the cold
+  start, which in production data reached hours. Android now reports a cold
+  start only for launches it can show were user-visible; iOS cannot tell a
+  background launch apart, so it instead measures a prewarmed launch from when
+  the SDK loaded. Both platforms discard anything over 60 seconds. **Expect
+  cold start volume to drop on Android**, where launches that cannot be shown
+  to be user-visible now emit nothing rather than a misleading duration. See
+  the Reference docs for per-platform detection and known limitations.
+- **Every launch also reported a phantom warm start** of a few milliseconds
+  alongside its cold start. Warm starts are now reported only when the app
+  returns from the background. **Expect warm start volume to drop and
+  durations to rise**, as those near-zero measurements are gone.
+- Android cold starts no longer count time the device spent in deep sleep.
+- iOS no longer reports a garbage duration when the process start-time lookup
+  fails.
 
 ## [0.17.0-beta.2] - 2026-07-16
 

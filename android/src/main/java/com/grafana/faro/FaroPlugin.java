@@ -8,8 +8,6 @@ import android.os.Build;
 import android.os.Debug;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Process;
-import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.Window;
 
@@ -22,9 +20,7 @@ import org.json.JSONObject;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -389,9 +385,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         result.success(anrStatuses);
                         break;
                     case "getAppStart":
-                        Map<String, Object> appStart = new HashMap<>();
-                        appStart.put("appStartDuration", getAppStart());
-                        result.success(appStart);
+                        result.success(AppStartTracker.getColdStartMetrics());
                         break;
                     default:
                         result.notImplemented();
@@ -503,13 +497,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             handleFrameDrop();
         }
         lastFrameTimeNanos = frameTimeNanos;
-    }
-
-    private long getAppStart(){
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime();
-        }
-        return 0;
     }
 
     private void handleFrameDrop() {
