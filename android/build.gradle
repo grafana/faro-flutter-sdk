@@ -43,7 +43,6 @@ android {
 dependencies {
     implementation 'androidx.metrics:metrics-performance:1.0.0'
     implementation 'androidx.annotation:annotation-jvm:1.10.0'
-//    implementation 'androidx.annotation:annotation-jvm:1.8.0-beta02'
     testImplementation 'junit:junit:4.13.2'
 }
 

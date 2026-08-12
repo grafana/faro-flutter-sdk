@@ -10,7 +10,6 @@ import android.os.Debug;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
-import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.Window;
 
@@ -397,9 +396,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         result.success(anrStatuses);
                         break;
                     case "getAppStart":
-                        Map<String, Object> appStart = new HashMap<>();
-                        appStart.put("appStartDuration", getAppStart());
-                        result.success(appStart);
+                        result.success(AppStartTracker.getColdStartMetrics());
                         break;
                     case "getSessionRuntimeInfo":
                         String processIdentifier = getProcessIdentifier();
@@ -527,13 +524,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             handleFrameDrop();
         }
         lastFrameTimeNanos = frameTimeNanos;
-    }
-
-    private long getAppStart(){
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime();
-        }
-        return 0;
     }
 
     private @Nullable String getProcessIdentifier() {

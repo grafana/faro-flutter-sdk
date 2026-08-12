@@ -281,9 +281,7 @@ class Faro {
     // Announce the initial session; the listener emits `session_start`.
     sessionManager.start(previousSessionId: persistedPreviousSessionId);
     await _sessionPersistence?.flush();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nativeIntegration.getAppStart();
-    });
+    _reportColdStartAfterFirstFrame();
 
     final appLifecycleService = pod.resolve(appLifecycleServiceProvider);
     _widgetsBindingObserver = FaroWidgetsBindingObserver(
@@ -441,6 +439,21 @@ class Faro {
 
   Future<void> _flushSessionPersistence() async {
     await _sessionPersistence?.flush();
+  }
+
+  /// Ends the cold start interval at the first frame the engine rasterized.
+  ///
+  /// Using that frame rather than the next one after `init` limits how far the
+  /// measurement stretches when a host app initialises Faro late. It cannot
+  /// remove the stretch: the native side measures up to the moment it is
+  /// called, so an app that initialises Faro after the first frame is measured
+  /// to `init`, the future having already completed.
+  void _reportColdStartAfterFirstFrame() {
+    unawaited(
+      WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
+        (_) => _nativeIntegration.getAppStart(),
+      ),
+    );
   }
 
   Future<void> _tearDownForReset() async {

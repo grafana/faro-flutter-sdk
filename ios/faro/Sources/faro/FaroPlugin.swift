@@ -10,6 +10,12 @@ public class FaroPlugin: NSObject, FlutterPlugin {
   private var ownsSessionPersistence = false
 
   public static func register(with registrar: FlutterPluginRegistrar) {
+    // First thing the SDK does. iOS clears the prewarm flag once the app has
+    // finished launching, and plugin registration runs inside
+    // `didFinishLaunchingWithOptions`, which is the earliest hook a Flutter
+    // plugin gets.
+    AppStartTracker.recordSdkLoad()
+
     let channel = FlutterMethodChannel(name: "faro", binaryMessenger: registrar.messenger())
     let instance = FaroPlugin()
       
@@ -17,8 +23,6 @@ public class FaroPlugin: NSObject, FlutterPlugin {
 //          let crashreporter = CrashReportingIntegration()
 //    }
     registrar.addMethodCallDelegate(instance, channel: channel)
-    NotificationCenter.default.addObserver(instance, selector: #selector(applicationDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
-
   }
     
     private static func isCrashReportAutoEnabled() -> Bool{
@@ -26,24 +30,11 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     }
 
   deinit {
-    // Remove observers or perform other cleanup here
-    AppStart.clear()
-    NotificationCenter.default.removeObserver(self)
     if ownsSessionPersistence {
       FaroPlugin.sessionPersistenceOwnerLock.lock()
       FaroPlugin.sessionPersistenceOwnerClaimed = false
       FaroPlugin.sessionPersistenceOwnerLock.unlock()
     }
-  }
-
-  @objc private func applicationDidBecomeActive() {
-    // Handle the app becoming active
-      var time: timeval = timeval(tv_sec: 0, tv_usec: 0)
-      gettimeofday(&time, nil)
-
-      let currentTimeMilliseconds = Double(Int64(time.tv_sec) * 1000) + Double(time.tv_usec) / 1000.0
-      AppStart.setAppStartEndMillis(currentTimeMilliseconds)
-      
   }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -61,11 +52,7 @@ public class FaroPlugin: NSObject, FlutterPlugin {
             case "initMobileApp":
                 result("IOS init");
             case "getAppStart":
-                let appStart = Int64(AppStart.getAppStartDuration())
-                let appStartMetrics: [String: Any] = [
-                   "appStartDuration": appStart,
-               ]
-               result(appStartMetrics);
+                result(AppStartTracker.coldStartMetrics());
             case "getCpuUsage":
                 result(CPUInfo.getCpuInfo());
             case "initRefreshRate":
