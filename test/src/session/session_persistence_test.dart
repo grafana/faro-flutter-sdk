@@ -195,6 +195,48 @@ void main() {
     expect(loaded?.isSampled, isTrue);
   });
 
+  test('a failed write remains pending for the next flush', () async {
+    final store = _FailingSessionFileStore(file: stateFile, failures: 1);
+    final sut = SessionPersistence(store: store);
+
+    sut.record(state(), isSampled: true, immediate: true);
+    await sut.flush();
+
+    expect(store.writeAttempts, 1);
+    expect(await stateFile.exists(), isFalse);
+
+    await sut.flush();
+
+    expect(store.writeAttempts, 2);
+    expect((await sut.load())?.currentSessionId, 'current-session');
+  });
+
+  test('a newer queued state supersedes an earlier failed write', () async {
+    final store = _FailingSessionFileStore(file: stateFile, failures: 1);
+    final sut = SessionPersistence(store: store);
+
+    sut.record(
+      state(currentSessionId: 'first', previousSessionId: null),
+      isSampled: false,
+      immediate: true,
+    );
+    sut.record(
+      state(currentSessionId: 'second', previousSessionId: 'first'),
+      isSampled: true,
+      immediate: true,
+    );
+    await sut.flush();
+
+    expect(store.writeAttempts, 2);
+    final loaded = await sut.load();
+    expect(loaded?.currentSessionId, 'second');
+    expect(loaded?.previousSessionId, 'first');
+    expect(loaded?.isSampled, isTrue);
+
+    await sut.flush();
+    expect(store.writeAttempts, 2);
+  });
+
   test('process-specific factories keep separate session chains', () async {
     final factory = SessionPersistenceFactory(
       applicationSupportDirectory: () async => temporaryDirectory,
@@ -273,4 +315,20 @@ void main() {
     expect(await sut.load(), isNull);
     expect(await stateFile.exists(), isFalse);
   });
+}
+
+class _FailingSessionFileStore extends SessionFileStore {
+  _FailingSessionFileStore({required super.file, required this.failures});
+
+  final int failures;
+  int writeAttempts = 0;
+
+  @override
+  Future<void> write(String contents) async {
+    writeAttempts += 1;
+    if (writeAttempts <= failures) {
+      throw const FileSystemException('simulated write failure');
+    }
+    await super.write(contents);
+  }
 }

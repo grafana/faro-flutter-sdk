@@ -136,6 +136,7 @@ class SessionPersistence {
 
   Timer? _activityWriteTimer;
   PersistedSessionRecord? _pendingRecord;
+  PersistedSessionRecord? _enqueuedRecord;
   Future<void> _writeQueue = Future<void>.value();
 
   Future<PersistedSessionRecord?> load() async {
@@ -202,18 +203,28 @@ class SessionPersistence {
 
   void _enqueuePendingWrite() {
     final record = _pendingRecord;
-    if (record == null) {
+    if (record == null || identical(record, _enqueuedRecord)) {
       return;
     }
-    _pendingRecord = null;
-    _writeQueue = _writeQueue.then((_) => _writeSafely(record));
+    _enqueuedRecord = record;
+    _writeQueue = _writeQueue.then((_) async {
+      final writeSucceeded = await _writeSafely(record);
+      if (identical(_enqueuedRecord, record)) {
+        _enqueuedRecord = null;
+      }
+      if (writeSucceeded && identical(_pendingRecord, record)) {
+        _pendingRecord = null;
+      }
+    });
   }
 
-  Future<void> _writeSafely(PersistedSessionRecord record) async {
+  Future<bool> _writeSafely(PersistedSessionRecord record) async {
     try {
       await _store.write(jsonEncode(record.toJson()));
+      return true;
     } catch (error) {
       log('Faro: Failed to persist session state: $error');
+      return false;
     }
   }
 
