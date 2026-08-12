@@ -26,7 +26,7 @@ void main() {
   }
 
   setUpAll(() {
-    registerFallbackValue(SessionActivityKind.active);
+    registerFallbackValue(SessionActivityKind.meaningful);
   });
 
   setUp(() {
@@ -104,7 +104,7 @@ void main() {
       );
       verify(
         () => mockSessionManager.checkSession(
-          activity: SessionActivityKind.active,
+          activity: SessionActivityKind.meaningful,
         ),
       ).called(1);
     });

@@ -20,8 +20,8 @@ class _RecordingRouter implements TelemetryRouter {
   @override
   void ingest(
     TelemetryItem item, {
+    required SessionActivityKind activity,
     bool skipBuffer = false,
-    SessionActivityKind activity = SessionActivityKind.active,
   }) {
     ingested.add(item);
     activities.add(activity);
@@ -79,18 +79,13 @@ void main() {
       expect(measurement?.type, 'app_startup');
     });
 
-    test(
-      'vitals measurements are ingested as foreground-gated telemetry',
-      () async {
-        nativeIntegration.setWarmStart();
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        nativeIntegration.getWarmStart();
+    test('vitals measurements are ingested as passive telemetry', () async {
+      nativeIntegration.setWarmStart();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      nativeIntegration.getWarmStart();
 
-        // Automatic vitals use foregroundOnly; SessionActivityPolicy decides
-        // whether they extend the session based on foreground state.
-        expect(router.activities, [SessionActivityKind.foregroundOnly]);
-      },
-    );
+      expect(router.activities, [SessionActivityKind.passive]);
+    });
 
     group('getAppStart', () {
       void stubAppStart(Map<String, dynamic>? value) {

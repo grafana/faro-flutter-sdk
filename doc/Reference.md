@@ -395,9 +395,25 @@ data loss.
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 
-**What counts as activity.** Telemetry that originates from app or user behavior extends the inactivity window: events, logs, exceptions, app-developer measurements, user interactions, view changes, and app lifecycle events. Spans count too — each exported span emits a Faro event that flows through the same path, so tracked HTTP requests and custom spans keep the session alive.
+**What counts as activity.** Faro classifies telemetry as meaningful work or
+passive telemetry. Every item checks session expiry before it is attributed,
+but only meaningful work refreshes the 15-minute inactivity window.
 
-Automatic vitals measurements pushed by the SDK itself (CPU, memory, refresh rate, frame stats, ANR count, app start) count as activity **only while the app is in the foreground**. This keeps a single session for a foregrounded but idle app (e.g. a user reading a screen without tapping), while ensuring a backgrounded app's session still expires — the Dart isolate keeps running while backgrounded on Android, so if background vitals counted they would keep the session alive indefinitely.
+| Source | Category | Session effect |
+| ------ | -------- | -------------- |
+| Taps captured by `FaroUserInteractionWidget` | Meaningful | Refreshes inactivity |
+| Navigation and screen updates from `FaroNavigationObserver` or `setViewMeta` | Meaningful | Refreshes inactivity |
+| `startUserAction` | Meaningful | Refreshes inactivity in the foreground or background |
+| Spans linked to an active user action | Meaningful | Refreshes inactivity |
+| Return to `AppLifecycleState.resumed` | Meaningful | Checks expiry first, then refreshes the valid session |
+| `pushEvent`, `pushLog`, `pushError`, and `pushMeasurement` | Passive | Checks expiry but does not refresh inactivity |
+| Unmarked HTTP and custom spans | Passive | Checks expiry but does not refresh inactivity |
+| Session events, other lifecycle events, asset loads, and automatic vitals | Passive | Checks expiry but does not refresh inactivity |
+
+Use `startUserAction` when application work should explicitly keep a session
+active. Network work refreshes inactivity only when its span is linked to that
+tracked action. This prevents passive polling, measurements, and SDK
+housekeeping from keeping an idle session alive.
 
 Session expiry is evaluated lazily on the next ingested telemetry item (there is no periodic rotation timer). The triggering telemetry is attributed to the new session.
 

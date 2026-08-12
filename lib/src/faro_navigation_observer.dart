@@ -61,14 +61,14 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
   }) {
     if (toView != null) {
       Faro().setViewMeta(name: toView);
+    } else {
+      _sessionManager.checkSession(activity: SessionActivityKind.meaningful);
     }
     if (fromView != null || toView != null) {
       Faro().pushEvent(
         'view_changed',
         attributes: {'fromView': fromView, 'toView': toView},
       );
-    } else {
-      _sessionManager.checkSession(activity: SessionActivityKind.active);
     }
     _lifecycleSignalChannel.emitActivity(source: activitySource);
   }

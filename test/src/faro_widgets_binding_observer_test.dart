@@ -1,7 +1,8 @@
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/integrations/native_integration.dart';
-import 'package:faro/src/session/app_lifecycle_service.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -10,17 +11,23 @@ class MockFaro extends Mock implements Faro {}
 
 class MockNativeIntegration extends Mock implements NativeIntegration {}
 
+class MockSessionManager extends Mock implements SessionManager {}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() {
+    registerFallbackValue(SessionActivityKind.passive);
+  });
+
   late MockFaro mockFaro;
   late MockNativeIntegration mockNativeIntegration;
-  late AppLifecycleService lifecycleService;
+  late MockSessionManager mockSessionManager;
 
   setUp(() {
     mockFaro = MockFaro();
     mockNativeIntegration = MockNativeIntegration();
-    lifecycleService = AppLifecycleService();
+    mockSessionManager = MockSessionManager();
     Faro.instance = mockFaro;
 
     when(
@@ -28,26 +35,16 @@ void main() {
     ).thenReturn(null);
     when(() => mockNativeIntegration.setWarmStart()).thenReturn(null);
     when(() => mockNativeIntegration.getWarmStart()).thenAnswer((_) async {});
+    when(
+      () => mockSessionManager.checkSession(activity: any(named: 'activity')),
+    ).thenReturn(null);
   });
 
   group('FaroWidgetsBindingObserver:', () {
-    test('updates AppLifecycleService on lifecycle change', () {
-      final observer = FaroWidgetsBindingObserver(
-        appLifecycleService: lifecycleService,
-        nativeIntegration: mockNativeIntegration,
-      );
-
-      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
-      expect(lifecycleService.isInForeground, isFalse);
-
-      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      expect(lifecycleService.isInForeground, isTrue);
-    });
-
     test('emits app_lifecycle_changed events', () {
       final observer = FaroWidgetsBindingObserver(
-        appLifecycleService: lifecycleService,
         nativeIntegration: mockNativeIntegration,
+        sessionManager: mockSessionManager,
       );
 
       observer.didChangeAppLifecycleState(AppLifecycleState.paused);
@@ -56,6 +53,32 @@ void main() {
         () => mockFaro.pushEvent(
           'app_lifecycle_changed',
           attributes: {'fromState': '', 'toState': 'paused'},
+        ),
+      ).called(1);
+    });
+
+    test('refreshes activity only after a real background return', () {
+      final observer = FaroWidgetsBindingObserver(
+        nativeIntegration: mockNativeIntegration,
+        sessionManager: mockSessionManager,
+      );
+
+      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      verifyNever(
+        () => mockSessionManager.checkSession(activity: any(named: 'activity')),
+      );
+
+      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+      verifyNever(
+        () => mockSessionManager.checkSession(activity: any(named: 'activity')),
+      );
+
+      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      verify(
+        () => mockSessionManager.checkSession(
+          activity: SessionActivityKind.meaningful,
         ),
       ).called(1);
     });
@@ -69,8 +92,8 @@ void main() {
       List<AppLifecycleState> states,
     ) async {
       final observer = FaroWidgetsBindingObserver(
-        appLifecycleService: lifecycleService,
         nativeIntegration: mockNativeIntegration,
+        sessionManager: mockSessionManager,
       );
       await tester.pumpWidget(const SizedBox());
       for (final state in states) {

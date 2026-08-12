@@ -1,4 +1,7 @@
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -71,6 +74,9 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
   void _onTapped(Offset localPosition, String tap) {
     final tappedElement = _findElementTapped(localPosition);
     if (tappedElement != null) {
+      pod
+          .resolve(sessionManagerProvider)
+          .checkSession(activity: SessionActivityKind.meaningful);
       Faro().pushEvent(
         'user_interaction',
         attributes: {

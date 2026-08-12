@@ -1,9 +1,7 @@
-import 'package:faro/src/session/app_lifecycle_service.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_activity_policy.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_manager.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Records session lifecycle notifications for assertions.
@@ -52,12 +50,10 @@ void main() {
     SessionManager buildManager({
       Duration inactivity = inactivityTimeout,
       Duration lifetime = maxLifetime,
-      AppLifecycleService? lifecycleService,
     }) {
-      final lifecycle = lifecycleService ?? AppLifecycleService();
       return SessionManager(
         sessionIdProvider: SessionIdProvider(),
-        activityPolicy: SessionActivityPolicy(lifecycle),
+        activityPolicy: SessionActivityPolicy(),
         inactivityTimeout: inactivity,
         maxLifetime: lifetime,
         currentTimeProvider: () => now,
@@ -69,13 +65,9 @@ void main() {
     SessionManager createManager({
       Duration inactivity = inactivityTimeout,
       Duration lifetime = maxLifetime,
-      AppLifecycleService? lifecycleService,
     }) {
-      final manager = buildManager(
-        inactivity: inactivity,
-        lifetime: lifetime,
-        lifecycleService: lifecycleService,
-      )..start();
+      final manager = buildManager(inactivity: inactivity, lifetime: lifetime)
+        ..start();
       observer.reset();
       return manager;
     }
@@ -85,21 +77,27 @@ void main() {
       observer = _RecordingObserver();
     });
 
-    test('does not rotate when activity is within thresholds', () {
+    test('meaningful work refreshes just before the inactivity boundary', () {
       final manager = createManager();
 
       now = now.add(const Duration(minutes: 14, seconds: 59));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
+
+      expect(observer.startedCount, 0);
+      expect(manager.lastActivityAt, now);
+
+      now = now.add(const Duration(minutes: 14, seconds: 59));
+      manager.checkSession(activity: SessionActivityKind.meaningful);
 
       expect(observer.startedCount, 0);
       expect(manager.lastActivityAt, now);
     });
 
-    test('rotates when inactivity reaches the timeout', () {
+    test('meaningful work rotates at the inactivity boundary', () {
       final manager = createManager();
 
       now = now.add(inactivityTimeout);
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
 
       expect(observer.startedCount, 1);
     });
@@ -112,12 +110,12 @@ void main() {
       final deadline = now.add(maxLifetime);
       while (now.add(step).isBefore(deadline)) {
         now = now.add(step);
-        manager.checkSession(activity: SessionActivityKind.active);
+        manager.checkSession(activity: SessionActivityKind.meaningful);
       }
       expect(observer.startedCount, 0);
 
       now = deadline;
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
 
       expect(observer.startedCount, 1);
     });
@@ -126,19 +124,19 @@ void main() {
       final manager = createManager();
 
       now = now.add(inactivityTimeout);
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       expect(observer.startedCount, 1);
       expect(manager.startedAt, now);
       expect(manager.lastActivityAt, now);
 
       // New session is fresh: just under the threshold does not rotate.
       now = now.add(const Duration(minutes: 14));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       expect(observer.startedCount, 1);
 
       // But crossing the threshold from the rotated session does.
       now = now.add(inactivityTimeout);
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       expect(observer.startedCount, 2);
     });
 
@@ -148,7 +146,7 @@ void main() {
       expect(manager.previousSessionId, isNull);
 
       now = now.add(inactivityTimeout);
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
 
       expect(manager.currentSessionId, isNot(initialId));
       expect(manager.previousSessionId, initialId);
@@ -174,7 +172,7 @@ void main() {
       // Well past the inactivity timeout, but the manager is inert until
       // start(), so nothing rotates.
       now = now.add(const Duration(hours: 1));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
 
       expect(observer.startedCount, 0);
     });
@@ -223,7 +221,7 @@ void main() {
 
       for (var i = 0; i < 10; i++) {
         now = now.add(const Duration(minutes: 10));
-        manager.checkSession(activity: SessionActivityKind.active);
+        manager.checkSession(activity: SessionActivityKind.meaningful);
       }
 
       expect(observer.startedCount, 0);
@@ -235,10 +233,10 @@ void main() {
       // Simulates the rotation emitting a session_extend event that
       // flows back through the ingestion path.
       observer.onStarted = () =>
-          manager.checkSession(activity: SessionActivityKind.active);
+          manager.checkSession(activity: SessionActivityKind.meaningful);
 
       now = now.add(inactivityTimeout);
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
 
       expect(observer.startedCount, 1);
     });
@@ -250,11 +248,11 @@ void main() {
       );
 
       now = now.add(const Duration(seconds: 29));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       expect(observer.startedCount, 0);
 
       now = now.add(const Duration(seconds: 30));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       expect(observer.startedCount, 1);
     });
 
@@ -265,17 +263,17 @@ void main() {
       );
 
       now = now.add(const Duration(seconds: 50));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       now = now.add(const Duration(seconds: 50));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       expect(observer.startedCount, 0);
 
       now = now.add(const Duration(seconds: 50));
-      manager.checkSession(activity: SessionActivityKind.active);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
       expect(observer.startedCount, 1);
     });
 
-    group('SessionActivityKind.none:', () {
+    group('SessionActivityKind.passive:', () {
       test('does not extend the session', () {
         final manager = createManager();
         final sessionStart = now;
@@ -283,9 +281,9 @@ void main() {
         // SDK lifecycle events (e.g. session_extend) never move
         // lastActivity forward.
         now = now.add(const Duration(minutes: 5));
-        manager.checkSession(activity: SessionActivityKind.none);
+        manager.checkSession(activity: SessionActivityKind.passive);
         now = now.add(const Duration(minutes: 5));
-        manager.checkSession(activity: SessionActivityKind.none);
+        manager.checkSession(activity: SessionActivityKind.passive);
 
         expect(observer.startedCount, 0);
         expect(manager.lastActivityAt, sessionStart);
@@ -294,42 +292,42 @@ void main() {
       test('still rotates the session once expired', () {
         final manager = createManager();
 
-        // None-kind ingests below the threshold without extending.
-        now = now.add(const Duration(minutes: 10));
-        manager.checkSession(activity: SessionActivityKind.none);
+        // Passive ingests below the threshold do not extend it.
+        now = now.add(const Duration(minutes: 14, seconds: 59));
+        manager.checkSession(activity: SessionActivityKind.passive);
         expect(observer.startedCount, 0);
 
-        // The first ingest past the inactivity threshold rotates the
+        // The first ingest at the inactivity threshold rotates the
         // session even though it does not record activity.
-        now = now.add(const Duration(minutes: 5));
-        manager.checkSession(activity: SessionActivityKind.none);
+        now = now.add(const Duration(seconds: 1));
+        manager.checkSession(activity: SessionActivityKind.passive);
 
         expect(observer.startedCount, 1);
         expect(manager.startedAt, now);
         expect(manager.lastActivityAt, now);
       });
 
-      test('rotates repeatedly while only none-kind telemetry flows', () {
+      test('rotates repeatedly while only passive telemetry flows', () {
         final manager = createManager();
 
         for (var i = 0; i < 3; i++) {
           for (var j = 0; j < 3; j++) {
             now = now.add(const Duration(minutes: 5));
-            manager.checkSession(activity: SessionActivityKind.none);
+            manager.checkSession(activity: SessionActivityKind.passive);
           }
         }
 
         expect(observer.startedCount, 3);
       });
 
-      test('does not prevent active telemetry from extending', () {
+      test('does not prevent meaningful work from extending', () {
         final manager = createManager();
 
         for (var i = 0; i < 10; i++) {
           now = now.add(const Duration(minutes: 7));
-          manager.checkSession(activity: SessionActivityKind.none);
+          manager.checkSession(activity: SessionActivityKind.passive);
           now = now.add(const Duration(minutes: 7));
-          manager.checkSession(activity: SessionActivityKind.active);
+          manager.checkSession(activity: SessionActivityKind.meaningful);
         }
 
         expect(observer.startedCount, 0);
@@ -343,51 +341,12 @@ void main() {
 
         for (var i = 0; i < 5; i++) {
           now = now.add(const Duration(seconds: 30));
-          manager.checkSession(activity: SessionActivityKind.active);
+          manager.checkSession(activity: SessionActivityKind.meaningful);
         }
         expect(observer.startedCount, 0);
 
         now = now.add(const Duration(seconds: 30));
-        manager.checkSession(activity: SessionActivityKind.none);
-        expect(observer.startedCount, 1);
-      });
-    });
-
-    group('SessionActivityKind.foregroundOnly:', () {
-      test('extends the session while foregrounded', () {
-        final lifecycle = AppLifecycleService()
-          ..updateFromLifecycleState(AppLifecycleState.resumed);
-        final manager = createManager(lifecycleService: lifecycle);
-        final sessionStart = now;
-
-        now = now.add(const Duration(minutes: 10));
-        manager.checkSession(activity: SessionActivityKind.foregroundOnly);
-
-        expect(observer.startedCount, 0);
-        expect(manager.lastActivityAt, isNot(sessionStart));
-      });
-
-      test('does not extend the session while backgrounded', () {
-        final lifecycle = AppLifecycleService()
-          ..updateFromLifecycleState(AppLifecycleState.paused);
-        final manager = createManager(lifecycleService: lifecycle);
-        final sessionStart = now;
-
-        now = now.add(const Duration(minutes: 10));
-        manager.checkSession(activity: SessionActivityKind.foregroundOnly);
-
-        expect(observer.startedCount, 0);
-        expect(manager.lastActivityAt, sessionStart);
-      });
-
-      test('rotates once expired even when backgrounded', () {
-        final lifecycle = AppLifecycleService()
-          ..updateFromLifecycleState(AppLifecycleState.paused);
-        final manager = createManager(lifecycleService: lifecycle);
-
-        now = now.add(inactivityTimeout);
-        manager.checkSession(activity: SessionActivityKind.foregroundOnly);
-
+        manager.checkSession(activity: SessionActivityKind.passive);
         expect(observer.startedCount, 1);
       });
     });
