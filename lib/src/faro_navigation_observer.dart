@@ -59,10 +59,9 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
     required String? toView,
     required String activitySource,
   }) {
+    _sessionManager.checkSession(activity: SessionActivityKind.meaningful);
     if (toView != null) {
       Faro().setViewMeta(name: toView);
-    } else {
-      _sessionManager.checkSession(activity: SessionActivityKind.meaningful);
     }
     if (fromView != null || toView != null) {
       Faro().pushEvent(

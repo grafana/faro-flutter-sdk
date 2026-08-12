@@ -68,7 +68,7 @@ void main() {
     ),
     appRunner: () => runApp(
       FaroAssetTracking(                  // tracks asset loading times and sizes
-        child: FaroUserInteractionWidget( // tracks user taps and gestures
+        child: FaroUserInteractionWidget( // tracks pointer session activity
           child: MyApp()
         )
       )
@@ -401,7 +401,7 @@ but only meaningful work refreshes the 15-minute inactivity window.
 
 | Source | Category | Session effect |
 | ------ | -------- | -------------- |
-| Taps captured by `FaroUserInteractionWidget` | Meaningful | Refreshes inactivity |
+| Pointer interactions observed by `FaroUserInteractionWidget` | Meaningful | Refreshes inactivity |
 | Navigation and screen updates from `FaroNavigationObserver` or `setViewMeta` | Meaningful | Refreshes inactivity |
 | `startUserAction` | Meaningful | Refreshes inactivity in the foreground or background |
 | Spans linked to an active user action | Meaningful | Refreshes inactivity |
@@ -414,6 +414,11 @@ Use `startUserAction` when application work should explicitly keep a session
 active. Network work refreshes inactivity only when its span is linked to that
 tracked action. This prevents passive polling, measurements, and SDK
 housekeeping from keeping an idle session alive.
+
+`FaroUserInteractionWidget` treats completed taps and drags as meaningful
+session activity. It still emits `user_interaction` events only for supported
+tap targets. Keeping an app visible without pointer, navigation, or explicit
+application activity does not refresh inactivity.
 
 Session expiry is evaluated lazily on the next ingested telemetry item (there is no periodic rotation timer). The triggering telemetry is attributed to the new session.
 

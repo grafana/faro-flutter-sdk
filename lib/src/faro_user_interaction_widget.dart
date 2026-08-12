@@ -48,6 +48,7 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
       behavior: HitTestBehavior.translucent,
       onPointerDown: _onPointerDown,
       onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
       child: widget.child,
     );
   }
@@ -58,25 +59,39 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
   }
 
   void _onPointerUp(PointerUpEvent event) {
-    if (_lastPointerDownLocation != null && event.pointer == _lastPointerId) {
-      final distanceOffset = Offset(
-        _lastPointerDownLocation!.dx - event.localPosition.dx,
-        _lastPointerDownLocation!.dy - event.localPosition.dy,
-      );
+    final pointerDownLocation = _lastPointerDownLocation;
+    if (pointerDownLocation == null || event.pointer != _lastPointerId) {
+      return;
+    }
 
-      final distanceSquared = distanceOffset.distanceSquared;
-      if (distanceSquared < _tapAreaSizeSquared) {
-        _onTapped(event.localPosition, 'tap');
-      }
+    _clearPointer(event.pointer);
+    pod
+        .resolve(sessionManagerProvider)
+        .checkSession(activity: SessionActivityKind.meaningful);
+
+    final distanceOffset = Offset(
+      pointerDownLocation.dx - event.localPosition.dx,
+      pointerDownLocation.dy - event.localPosition.dy,
+    );
+    if (distanceOffset.distanceSquared < _tapAreaSizeSquared) {
+      _onTapped(event.localPosition, 'tap');
+    }
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _clearPointer(event.pointer);
+  }
+
+  void _clearPointer(int pointer) {
+    if (pointer == _lastPointerId) {
+      _lastPointerId = null;
+      _lastPointerDownLocation = null;
     }
   }
 
   void _onTapped(Offset localPosition, String tap) {
     final tappedElement = _findElementTapped(localPosition);
     if (tappedElement != null) {
-      pod
-          .resolve(sessionManagerProvider)
-          .checkSession(activity: SessionActivityKind.meaningful);
       Faro().pushEvent(
         'user_interaction',
         attributes: {
