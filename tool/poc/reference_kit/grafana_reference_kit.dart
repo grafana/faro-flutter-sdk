@@ -11,16 +11,17 @@ abstract interface class GrafanaReferenceKitPlugin<TSdk extends Object> {
 
 /// A composition-first proof of concept for the Flutter Reference Kit.
 ///
-/// The native [sdk] remains public so applications can use its complete API.
+/// Applications instrument through the stable OpenTelemetry API. The native
+/// [sdk] remains available for advanced configuration and extension points.
 /// Grafana-specific behavior is added through small lifecycle plugins instead
-/// of a wrapper that mirrors every SDK method.
+/// of introducing another telemetry API or mirroring every SDK method.
 final class GrafanaReferenceKit<TSdk extends Object> {
   GrafanaReferenceKit({
     required this.sdk,
     required List<GrafanaReferenceKitPlugin<TSdk>> plugins,
   }) : _plugins = List.unmodifiable(plugins);
 
-  /// The unwrapped telemetry SDK supplied by the application.
+  /// The unwrapped telemetry SDK for advanced configuration and extensions.
   final TSdk sdk;
 
   final List<GrafanaReferenceKitPlugin<TSdk>> _plugins;

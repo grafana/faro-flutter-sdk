@@ -4,7 +4,7 @@ import '../../tool/poc/reference_kit/grafana_reference_kit.dart';
 
 void main() {
   group('GrafanaReferenceKit', () {
-    test('keeps the native SDK available without wrapping its API', () {
+    test('keeps the native SDK available for advanced configuration', () {
       final sdk = _FakeTelemetrySdk();
       final kit = GrafanaReferenceKit<_FakeTelemetrySdk>(
         sdk: sdk,
