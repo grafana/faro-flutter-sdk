@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Persist a minimal, versioned session record by default. Every cold start
+  creates a new session and links the prior session ID when known instead of
+  resuming the same live session. Independent native processes use separate
+  records, and secondary Flutter engines or isolates fail closed to in-memory
+  sessions ([#283](https://github.com/grafana/faro-flutter-sdk/issues/283)).
 - Rotate the active session when the Grafana Cloud receiver accepts a payload
   with `X-Faro-Session-Status: invalid`, following the Faro Web SDK response
   handling. Duplicate or delayed responses for an older session are ignored.

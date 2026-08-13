@@ -1,6 +1,7 @@
 package com.grafana.faro;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Application;
 import android.app.ApplicationExitInfo;
 import android.content.Context;
@@ -8,6 +9,7 @@ import android.os.Build;
 import android.os.Debug;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.view.Choreographer;
 import android.view.Window;
 
@@ -20,7 +22,9 @@ import org.json.JSONObject;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,6 +50,8 @@ import io.flutter.plugin.common.MethodChannel.Result;
  * - Frame rate monitoring
  */
 public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
+    private static final AtomicBoolean SESSION_PERSISTENCE_OWNER_CLAIMED = new AtomicBoolean(false);
+
     /// The MethodChannel that will the communication between Flutter and native Android
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
@@ -56,6 +62,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private @Nullable ExitInfoHelper exitInfoHelper;
     private @Nullable Window window;
     private @Nullable Application application;
+    private boolean ownsSessionPersistence = false;
 
     private FlutterPluginBinding pluginBinding;
     private long lastFrameTimeNanos = 0;
@@ -326,6 +333,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "onDetachedFromEngine");
         channel.setMethodCallHandler(null);
         channel = null;
+        if (ownsSessionPersistence) {
+            SESSION_PERSISTENCE_OWNER_CLAIMED.set(false);
+            ownsSessionPersistence = false;
+        }
     }
 
     // test
@@ -386,6 +397,22 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         break;
                     case "getAppStart":
                         result.success(AppStartTracker.getColdStartMetrics());
+                        break;
+                    case "getSessionRuntimeInfo":
+                        String processIdentifier = getProcessIdentifier();
+                        if (processIdentifier == null) {
+                            result.success(null);
+                            break;
+                        }
+                        Boolean shouldClaimPersistence =
+                            call.argument("claimSessionPersistence");
+                        if (Boolean.TRUE.equals(shouldClaimPersistence)) {
+                            claimSessionPersistenceOwnership();
+                        }
+                        Map<String, Object> runtimeInfo = new HashMap<>();
+                        runtimeInfo.put("processIdentifier", processIdentifier);
+                        runtimeInfo.put("ownsSessionPersistence", ownsSessionPersistence);
+                        result.success(runtimeInfo);
                         break;
                     default:
                         result.notImplemented();
@@ -497,6 +524,43 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             handleFrameDrop();
         }
         lastFrameTimeNanos = frameTimeNanos;
+    }
+
+    private @Nullable String getProcessIdentifier() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            return Application.getProcessName();
+        }
+        if (applicationContext == null) {
+            return null;
+        }
+
+        ActivityManager activityManager =
+            (ActivityManager) applicationContext.getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager != null) {
+            List<ActivityManager.RunningAppProcessInfo> processes =
+                activityManager.getRunningAppProcesses();
+            if (processes != null) {
+                int currentPid = Process.myPid();
+                for (ActivityManager.RunningAppProcessInfo process : processes) {
+                    if (process.pid == currentPid) {
+                        return process.processName;
+                    }
+                }
+            }
+        }
+
+        // Do not guess here. Using the package name for an unidentified
+        // secondary process could make two processes write the same file.
+        return null;
+    }
+
+    private void claimSessionPersistenceOwnership() {
+        // Registration also runs for pre-warmed engines. Claim only when a
+        // root Dart runtime actually initializes Faro.
+        if (!ownsSessionPersistence
+            && SESSION_PERSISTENCE_OWNER_CLAIMED.compareAndSet(false, true)) {
+            ownsSessionPersistence = true;
+        }
     }
 
     private void handleFrameDrop() {

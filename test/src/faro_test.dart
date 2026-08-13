@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/configurations/batch_config.dart';
@@ -7,6 +8,8 @@ import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/session/session_manager.dart';
+import 'package:faro/src/session/session_persistence.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
@@ -145,6 +148,153 @@ void main() {
         'test-installation-id',
       );
       verify(() => mockBatchTransport.addEvent(any())).called(1);
+    });
+
+    group('session persistence integration', () {
+      late Directory temporaryDirectory;
+      late SessionPersistenceFactory persistenceFactory;
+
+      FaroConfig createConfig({bool persistSession = true}) {
+        return FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          persistSession: persistSession,
+        );
+      }
+
+      Future<void> seedPersistedSession(String sessionId) async {
+        final persistence = await persistenceFactory.create(
+          processIdentifier: 'com.example.app',
+        );
+        final startedAt = DateTime.utc(2026, 8, 11, 12);
+        persistence.record(
+          SessionState(
+            currentSessionId: sessionId,
+            previousSessionId: null,
+            startedAt: startedAt,
+            lastActivityAt: startedAt,
+          ),
+          isSampled: true,
+          immediate: true,
+        );
+        await persistence.flush();
+      }
+
+      void stubRuntimeInfo({required bool ownsPersistence}) {
+        when(
+          () => mockFaroNativeMethods.getSessionRuntimeInfo(
+            claimSessionPersistence: true,
+          ),
+        ).thenAnswer(
+          (_) async => <String, dynamic>{
+            'processIdentifier': 'com.example.app',
+            'ownsSessionPersistence': ownsPersistence,
+          },
+        );
+      }
+
+      setUp(() async {
+        temporaryDirectory = await Directory.systemTemp.createTemp(
+          'faro-init-session-persistence-',
+        );
+        persistenceFactory = SessionPersistenceFactory(
+          applicationSupportDirectory: () async => temporaryDirectory,
+        );
+        Faro().mobilePlatformResolver = () => true;
+        Faro().sessionPersistenceFactory = persistenceFactory;
+      });
+
+      tearDown(() {
+        if (temporaryDirectory.existsSync()) {
+          temporaryDirectory.deleteSync(recursive: true);
+        }
+      });
+
+      test('loads, links, and replaces the prior cold-start record', () async {
+        await seedPersistedSession('persisted-session');
+        stubRuntimeInfo(ownsPersistence: true);
+
+        await Faro().init(optionsConfiguration: createConfig());
+
+        final currentSessionId = Faro().meta.session?.id;
+        expect(currentSessionId, isNot('persisted-session'));
+        expect(
+          Faro().meta.session?.attributes?['previousSession'],
+          'persisted-session',
+        );
+        expect(
+          Faro().meta.session?.attributes?['process_name'],
+          'com.example.app',
+        );
+        expect(Faro().meta.session?.attributes?['dart_isolate_name'], 'main');
+
+        final persistence = await persistenceFactory.create(
+          processIdentifier: 'com.example.app',
+        );
+        final stored = await persistence.load();
+        expect(stored?.currentSessionId, currentSessionId);
+        expect(stored?.previousSessionId, 'persisted-session');
+        expect(stored?.isSampled, isTrue);
+      });
+
+      test('disabling persistence clears the owned record', () async {
+        await seedPersistedSession('persisted-session');
+        stubRuntimeInfo(ownsPersistence: true);
+
+        await Faro().init(
+          optionsConfiguration: createConfig(persistSession: false),
+        );
+
+        final persistence = await persistenceFactory.create(
+          processIdentifier: 'com.example.app',
+        );
+        expect(await persistence.load(), isNull);
+        expect(
+          Faro().meta.session?.attributes?.containsKey('previousSession'),
+          isFalse,
+        );
+      });
+
+      test(
+        'a non-owner stays in memory and preserves the owned record',
+        () async {
+          await seedPersistedSession('persisted-session');
+          stubRuntimeInfo(ownsPersistence: false);
+
+          await Faro().init(optionsConfiguration: createConfig());
+
+          final persistence = await persistenceFactory.create(
+            processIdentifier: 'com.example.app',
+          );
+          expect(
+            (await persistence.load())?.currentSessionId,
+            'persisted-session',
+          );
+          expect(
+            Faro().meta.session?.attributes?.containsKey('previousSession'),
+            isFalse,
+          );
+        },
+      );
+
+      test('storage failures fall back to an unlinked session', () async {
+        stubRuntimeInfo(ownsPersistence: true);
+        Faro().sessionPersistenceFactory = SessionPersistenceFactory(
+          applicationSupportDirectory: () =>
+              Future<Directory>.error(StateError('storage unavailable')),
+        );
+
+        await Faro().init(optionsConfiguration: createConfig());
+
+        expect(Faro().meta.session?.id, isNotEmpty);
+        expect(
+          Faro().meta.session?.attributes?.containsKey('previousSession'),
+          isFalse,
+        );
+      });
     });
 
     test('pre-init no-op tracing does not prevent later init', () async {

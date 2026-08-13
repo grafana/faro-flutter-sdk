@@ -24,6 +24,27 @@ typedef SessionChangedListener =
       required SessionStartTrigger trigger,
     });
 
+/// Why observable session state changed.
+enum SessionStateChangeKind { sessionStarted, activity }
+
+/// A snapshot of the active session state.
+class SessionState {
+  const SessionState({
+    required this.currentSessionId,
+    required this.previousSessionId,
+    required this.startedAt,
+    required this.lastActivityAt,
+  });
+
+  final String currentSessionId;
+  final String? previousSessionId;
+  final DateTime startedAt;
+  final DateTime lastActivityAt;
+}
+
+typedef SessionStateChangedListener =
+    void Function(SessionState state, SessionStateChangeKind changeKind);
+
 /// Tracks session validity and rotates the session when it expires locally or
 /// the receiver reports it as invalid.
 ///
@@ -70,6 +91,7 @@ class SessionManager {
   final SessionActivityPolicy _activityPolicy;
   final CurrentTimeProvider _currentTimeProvider;
   final List<SessionChangedListener> _listeners = [];
+  final List<SessionStateChangedListener> _stateListeners = [];
 
   late DateTime _startedAt;
   late DateTime _lastActivityAt;
@@ -94,17 +116,26 @@ class SessionManager {
     _listeners.add(listener);
   }
 
+  /// Registers [listener] for persistable session state changes.
+  void addStateListener(SessionStateChangedListener listener) {
+    _stateListeners.add(listener);
+  }
+
   /// Activates session tracking and announces the initial session.
   ///
   /// Until this runs, [checkSession] is a no-op. Calling [start] resets
   /// the timing baseline to now and notifies listeners so they can emit
   /// the initial `session_start`.
-  void start() {
+  void start({String? previousSessionId}) {
     final now = _currentTimeProvider();
     _startedAt = now;
     _lastActivityAt = now;
+    _previousSessionId = previousSessionId == currentSessionId
+        ? null
+        : previousSessionId;
     _isActive = true;
     _notifySessionStarted(trigger: SessionStartTrigger.initial);
+    _notifyStateChanged(SessionStateChangeKind.sessionStarted);
   }
 
   /// Checks session validity and records activity per [activity].
@@ -126,6 +157,7 @@ class SessionManager {
       _rotate(now);
     } else if (_activityPolicy.recordsActivity(activity)) {
       _lastActivityAt = now;
+      _notifyStateChanged(SessionStateChangeKind.activity);
     }
   }
 
@@ -151,6 +183,7 @@ class SessionManager {
       _lastActivityAt = now;
       _previousSessionId = previousId;
       _notifySessionStarted(trigger: SessionStartTrigger.rotation);
+      _notifyStateChanged(SessionStateChangeKind.sessionStarted);
     } finally {
       _isRotating = false;
     }
@@ -161,6 +194,18 @@ class SessionManager {
     final previousId = _previousSessionId;
     for (final listener in _listeners) {
       listener(currentId: currentId, previousId: previousId, trigger: trigger);
+    }
+  }
+
+  void _notifyStateChanged(SessionStateChangeKind changeKind) {
+    final state = SessionState(
+      currentSessionId: currentSessionId,
+      previousSessionId: previousSessionId,
+      startedAt: startedAt,
+      lastActivityAt: lastActivityAt,
+    );
+    for (final listener in _stateListeners) {
+      listener(state, changeKind);
     }
   }
 
