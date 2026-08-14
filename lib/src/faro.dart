@@ -17,7 +17,6 @@ import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
-import 'package:faro/src/session/app_lifecycle_service.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_manager.dart';
@@ -283,10 +282,9 @@ class Faro {
     await _sessionPersistence?.flush();
     _reportColdStartAfterFirstFrame();
 
-    final appLifecycleService = pod.resolve(appLifecycleServiceProvider);
     _widgetsBindingObserver = FaroWidgetsBindingObserver(
-      appLifecycleService: appLifecycleService,
       nativeIntegration: _nativeIntegration,
+      sessionManager: sessionManager,
       onAppBackgrounded: _flushSessionPersistence,
     );
     WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
@@ -374,7 +372,7 @@ class Faro {
     _telemetryRouter.ingest(
       TelemetryItem.fromEvent(Event(eventName)),
       skipBuffer: true,
-      activity: SessionActivityKind.none,
+      activity: SessionActivityKind.passive,
     );
   }
 
@@ -469,9 +467,9 @@ class Faro {
       _userActionUiActivityMonitor.detach();
       _didAttachUiActivityMonitor = false;
     }
-    // Evict the per-init singletons (session manager, app lifecycle
-    // service) so the next init resolves fresh instances. Disposable
-    // instances (e.g. NativeIntegration's vitals timer) are cleaned up here.
+    // Evict per-init session state so the next init resolves fresh instances.
+    // Disposable instances (e.g. NativeIntegration's vitals timer) are also
+    // cleaned up here.
     pod.clearScope(faroInitScope);
     _isInitialized = false;
   }
@@ -553,6 +551,12 @@ class Faro {
   }
 
   void setViewMeta({String? name}) {
+    if ((_instance.meta.view?.name ?? '') == (name ?? '')) {
+      return;
+    }
+    pod
+        .resolve(sessionManagerProvider)
+        .checkSession(activity: SessionActivityKind.meaningful);
     final viewMeta = ViewMeta(name);
     _instance.meta = Meta.fromJson({
       ..._instance.meta.toJson(),
@@ -571,7 +575,10 @@ class Faro {
       attributes: attributes,
       trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
     );
-    _telemetryRouter.ingest(TelemetryItem.fromEvent(event));
+    _telemetryRouter.ingest(
+      TelemetryItem.fromEvent(event),
+      activity: SessionActivityKind.passive,
+    );
   }
 
   void pushLog(
@@ -586,7 +593,10 @@ class Faro {
       context: context,
       trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
     );
-    _telemetryRouter.ingest(TelemetryItem.fromLog(faroLog));
+    _telemetryRouter.ingest(
+      TelemetryItem.fromLog(faroLog),
+      activity: SessionActivityKind.passive,
+    );
   }
 
   void pushError({
@@ -610,7 +620,10 @@ class Faro {
       trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
       fatal: fatal,
     );
-    _telemetryRouter.ingest(TelemetryItem.fromException(faroException));
+    _telemetryRouter.ingest(
+      TelemetryItem.fromException(faroException),
+      activity: SessionActivityKind.passive,
+    );
   }
 
   void pushMeasurement(
@@ -626,6 +639,7 @@ class Faro {
           trace: (spanContext ?? _tracer.getActiveSpanContext())?.toJson(),
         ),
       ),
+      activity: SessionActivityKind.passive,
     );
   }
 
@@ -889,11 +903,17 @@ class Faro {
     Map<String, String>? attributes,
     StartUserActionOptions? options,
   }) {
-    return _userActionsService.startUserAction(
+    final action = _userActionsService.startUserAction(
       name,
       attributes: attributes,
       options: options,
     );
+    if (action != null) {
+      pod
+          .resolve(sessionManagerProvider)
+          .checkSession(activity: SessionActivityKind.meaningful);
+    }
+    return action;
   }
 
   /// Returns the currently active user action, if any.

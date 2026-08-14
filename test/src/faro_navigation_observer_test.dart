@@ -17,6 +17,7 @@ void main() {
   late MockFaro mockFaro;
   late MockSessionManager mockSessionManager;
   late FaroNavigationObserver observer;
+  late Faro originalFaro;
 
   PageRoute<void> route([String? name]) {
     return PageRouteBuilder<void>(
@@ -26,10 +27,11 @@ void main() {
   }
 
   setUpAll(() {
-    registerFallbackValue(SessionActivityKind.active);
+    registerFallbackValue(SessionActivityKind.meaningful);
   });
 
   setUp(() {
+    originalFaro = Faro();
     mockFaro = MockFaro();
     mockSessionManager = MockSessionManager();
     Faro.instance = mockFaro;
@@ -43,6 +45,7 @@ void main() {
   });
 
   tearDown(() {
+    Faro.instance = originalFaro;
     pod.removeOverride(sessionManagerProvider);
   });
 
@@ -63,6 +66,11 @@ void main() {
       observer.didPop(route(), route('/home'));
 
       verify(() => mockFaro.setViewMeta(name: '/home')).called(1);
+      verify(
+        () => mockSessionManager.checkSession(
+          activity: SessionActivityKind.meaningful,
+        ),
+      ).called(1);
       verify(
         () => mockFaro.pushEvent(
           'view_changed',
@@ -104,7 +112,7 @@ void main() {
       );
       verify(
         () => mockSessionManager.checkSession(
-          activity: SessionActivityKind.active,
+          activity: SessionActivityKind.meaningful,
         ),
       ).called(1);
     });

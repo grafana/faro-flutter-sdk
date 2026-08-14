@@ -2,40 +2,38 @@ import 'dart:async';
 
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/native_integration.dart';
-import 'package:faro/src/session/app_lifecycle_service.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:flutter/cupertino.dart';
 
 class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
   FaroWidgetsBindingObserver({
-    required AppLifecycleService appLifecycleService,
     required NativeIntegration nativeIntegration,
+    required SessionManager sessionManager,
     required Future<void> Function() onAppBackgrounded,
-  }) : _appLifecycleService = appLifecycleService,
-       _nativeIntegration = nativeIntegration,
+  }) : _nativeIntegration = nativeIntegration,
+       _sessionManager = sessionManager,
        _onAppBackgrounded = onAppBackgrounded;
 
-  final AppLifecycleService _appLifecycleService;
   final NativeIntegration _nativeIntegration;
+  final SessionManager _sessionManager;
   final Future<void> Function() _onAppBackgrounded;
   AppLifecycleState? _previousState;
 
   /// Whether the app has left the foreground since it last resumed.
   ///
-  /// A warm start is the app coming back from the background, so there has to
-  /// have been a background to come back from. Without this the `resumed`
-  /// callback that merely completes app launch is measured as a warm start of
-  /// a few milliseconds, on top of the cold start for the same launch.
+  /// A foreground return is meaningful session activity and may also be a warm
+  /// start. Requiring a prior background state excludes the `resumed` callback
+  /// that merely completes app launch and transient focus changes.
   bool _hasLeftForeground = false;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // Keep the shared foreground state current; see AppLifecycleService
-    // for how it is used.
-    _appLifecycleService.updateFromLifecycleState(state);
     if (_isOutOfForeground(state)) {
       _hasLeftForeground = true;
     } else if (state == AppLifecycleState.resumed && _hasLeftForeground) {
+      _sessionManager.checkSession(activity: SessionActivityKind.meaningful);
       _hasLeftForeground = false;
       WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
         _nativeIntegration.getWarmStart();

@@ -37,6 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (behavioral)**: Session inactivity now refreshes only for
+  user interactions, view or navigation changes, foreground returns,
+  explicit user actions, and spans linked to those actions. Generic telemetry,
+  unmarked spans and HTTP requests, lifecycle events, asset loads, and
+  automatic measurements still check expiry but no longer keep an idle
+  session alive.
+  Applications that relied on `pushEvent`, `pushLog`, `pushError`,
+  `pushMeasurement`, or unmarked spans to extend a session should wrap that
+  work in `startUserAction`.
+  ([#314](https://github.com/grafana/faro-flutter-sdk/issues/314))
 - **BREAKING**: The `trace: Map<String, String>?` parameter on `pushLog` and
   `pushEvent` is replaced by `spanContext: FaroSpanContext?`. `pushError` and
   `pushMeasurement` also gain the optional `spanContext` parameter (additive —

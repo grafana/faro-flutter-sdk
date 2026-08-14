@@ -4,11 +4,12 @@ import 'package:faro/src/core/current_time_provider.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
-import 'package:faro/src/session/app_lifecycle_service.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
@@ -131,12 +132,12 @@ void main() {
       ).captured.map((dynamic event) => (event as Event).name).toList();
     }
 
-    // Simulates the app moving to the background (screen locked or task
-    // switched), so passive vitals stop counting as session activity.
-    void setAppBackgrounded() {
-      pod
-          .resolve(appLifecycleServiceProvider)
-          .updateFromLifecycleState(AppLifecycleState.paused);
+    FaroWidgetsBindingObserver buildLifecycleObserver() {
+      return FaroWidgetsBindingObserver(
+        nativeIntegration: pod.resolve(nativeIntegrationProvider),
+        sessionManager: pod.resolve(sessionManagerProvider),
+        onAppBackgrounded: () async {},
+      );
     }
 
     void ingestVitals() {
@@ -146,7 +147,7 @@ void main() {
             TelemetryItem.fromMeasurement(
               Measurement({'mem_usage': 42}, 'app_memory'),
             ),
-            activity: SessionActivityKind.foregroundOnly,
+            activity: SessionActivityKind.passive,
           );
     }
 
@@ -165,13 +166,58 @@ void main() {
       expect(initialSessionId, isNotNull);
 
       now = now.add(const Duration(minutes: 14));
-      Faro().pushEvent('some_event');
+      Faro().setViewMeta(name: 'checkout');
 
       expect(Faro().meta.session?.id, initialSessionId);
       expect(
         Faro().meta.session?.attributes?.containsKey('previousSession'),
         isFalse,
       );
+    });
+
+    test('repeating the current view does not refresh inactivity', () async {
+      await initFaro();
+      final initialSessionId = Faro().meta.session?.id;
+      final manager = pod.resolve(sessionManagerProvider);
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().setViewMeta(name: 'checkout');
+      final viewChangedAt = manager.lastActivityAt;
+
+      now = now.add(const Duration(minutes: 10));
+      Faro().setViewMeta(name: 'checkout');
+      expect(manager.lastActivityAt, viewChangedAt);
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().pushEvent('poll_complete');
+
+      final session = Faro().meta.session;
+      expect(session?.id, isNot(initialSessionId));
+      expect(session?.attributes?['previousSession'], initialSessionId);
+    });
+
+    test('repeating an unnamed view does not refresh inactivity', () async {
+      await initFaro();
+      final initialSessionId = Faro().meta.session?.id;
+      final manager = pod.resolve(sessionManagerProvider);
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().setViewMeta(name: 'checkout');
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().setViewMeta();
+      final viewChangedAt = manager.lastActivityAt;
+
+      now = now.add(const Duration(minutes: 10));
+      Faro().setViewMeta();
+      expect(manager.lastActivityAt, viewChangedAt);
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().pushEvent('poll_complete');
+
+      final session = Faro().meta.session;
+      expect(session?.id, isNot(initialSessionId));
+      expect(session?.attributes?['previousSession'], initialSessionId);
     });
 
     test('rotates the session when inactivity reaches 15 minutes', () async {
@@ -190,15 +236,15 @@ void main() {
       await initFaro();
       final initialSessionId = Faro().meta.session?.id;
 
-      // Stay active every 10 minutes so inactivity never expires.
+      // Record meaningful view changes so inactivity never expires.
       for (var i = 0; i < 23; i++) {
         now = now.add(const Duration(minutes: 10));
-        Faro().pushEvent('keep_alive');
+        Faro().setViewMeta(name: 'view_$i');
       }
       expect(Faro().meta.session?.id, initialSessionId);
 
       now = now.add(const Duration(minutes: 10));
-      Faro().pushEvent('after_lifetime');
+      Faro().setViewMeta(name: 'after_lifetime');
 
       final session = Faro().meta.session;
       expect(session?.id, isNot(initialSessionId));
@@ -352,80 +398,151 @@ void main() {
       ]);
     });
 
-    test('background vitals do not extend the session and rotate it '
-        'once expired', () async {
-      await initFaro();
-      final initialSessionId = Faro().meta.session?.id;
-      // Backgrounded: vitals must not count as activity.
-      setAppBackgrounded();
+    test(
+      'periodic vitals do not extend inactivity while backgrounded',
+      () async {
+        await initFaro();
+        final initialSessionId = Faro().meta.session?.id;
+        // Backgrounded: vitals must not count as activity.
+        buildLifecycleObserver().didChangeAppLifecycleState(
+          AppLifecycleState.paused,
+        );
 
-      // Vitals below the threshold neither rotate nor extend.
-      now = now.add(const Duration(minutes: 10));
-      ingestVitals();
-      now = now.add(const Duration(minutes: 4));
-      ingestVitals();
-      expect(Faro().meta.session?.id, initialSessionId);
-
-      // 16 minutes since the last ACTIVITY (init); the vitals ingest
-      // itself rotates the session even though it is passive.
-      now = now.add(const Duration(minutes: 2));
-      clearInteractions(mockBatchTransport);
-      ingestVitals();
-
-      final session = Faro().meta.session;
-      expect(session?.id, isNot(initialSessionId));
-      expect(session?.attributes?['previousSession'], initialSessionId);
-      verifyInOrder([
-        () => mockBatchTransport.updatePayloadMeta(any()),
-        () => mockBatchTransport.addEvent(
-          any(
-            that: isA<Event>().having((e) => e.name, 'name', 'session_extend'),
-          ),
-        ),
-        () => mockBatchTransport.addMeasurement(any()),
-      ]);
-    });
-
-    test('foreground vitals keep the session alive by extending the '
-        'window', () async {
-      await initFaro();
-      final initialSessionId = Faro().meta.session?.id;
-
-      // App stays in the foreground (default). Vitals every 10 minutes
-      // each extend the 15-minute window, so the session never expires
-      // even though there is no user interaction (e.g. a user reading
-      // a screen). Kept under the 4-hour max lifetime.
-      for (var i = 0; i < 6; i++) {
+        // Vitals below the threshold neither rotate nor extend.
         now = now.add(const Duration(minutes: 10));
         ingestVitals();
+        now = now.add(const Duration(minutes: 4));
+        ingestVitals();
         expect(Faro().meta.session?.id, initialSessionId);
-      }
-      expect(
-        Faro().meta.session?.attributes?.containsKey('previousSession'),
-        isFalse,
-      );
-    });
 
-    test('foreground vitals stop extending once the app is '
-        'backgrounded', () async {
+        // 16 minutes since the last ACTIVITY (init); the vitals ingest
+        // itself rotates the session even though it is passive.
+        now = now.add(const Duration(minutes: 2));
+        clearInteractions(mockBatchTransport);
+        ingestVitals();
+
+        final session = Faro().meta.session;
+        expect(session?.id, isNot(initialSessionId));
+        expect(session?.attributes?['previousSession'], initialSessionId);
+        verifyInOrder([
+          () => mockBatchTransport.updatePayloadMeta(any()),
+          () => mockBatchTransport.addEvent(
+            any(
+              that: isA<Event>().having(
+                (e) => e.name,
+                'name',
+                'session_extend',
+              ),
+            ),
+          ),
+          () => mockBatchTransport.addMeasurement(any()),
+        ]);
+      },
+    );
+
+    test(
+      'periodic vitals do not extend inactivity while foregrounded',
+      () async {
+        await initFaro();
+        final initialSessionId = Faro().meta.session?.id;
+
+        now = now.add(const Duration(minutes: 10));
+        ingestVitals();
+        now = now.add(const Duration(minutes: 4, seconds: 59));
+        ingestVitals();
+        expect(Faro().meta.session?.id, initialSessionId);
+
+        now = now.add(const Duration(seconds: 1));
+        ingestVitals();
+
+        final session = Faro().meta.session;
+        expect(session?.id, isNot(initialSessionId));
+        expect(session?.attributes?['previousSession'], initialSessionId);
+      },
+    );
+
+    test(
+      'explicit user actions refresh inactivity while backgrounded',
+      () async {
+        await initFaro();
+        final initialSessionId = Faro().meta.session?.id;
+        buildLifecycleObserver().didChangeAppLifecycleState(
+          AppLifecycleState.paused,
+        );
+
+        now = now.add(const Duration(minutes: 10));
+        final action = Faro().startUserAction('background_sync');
+        expect(action, isNotNull);
+        expect(pod.resolve(sessionManagerProvider).lastActivityAt, now);
+
+        now = now.add(const Duration(minutes: 10));
+        Faro().pushEvent('poll_complete');
+
+        expect(Faro().meta.session?.id, initialSessionId);
+      },
+    );
+
+    test(
+      'foreground return rotates before lifecycle telemetry attribution',
+      () async {
+        await initFaro();
+        final initialSessionId = Faro().meta.session?.id;
+        final observer = buildLifecycleObserver();
+
+        observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+        now = now.add(const Duration(minutes: 15));
+        clearInteractions(mockBatchTransport);
+        observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+
+        final rotatedSessionId = Faro().meta.session?.id;
+        expect(rotatedSessionId, isNot(initialSessionId));
+        verifyInOrder([
+          () => mockBatchTransport.updatePayloadMeta(
+            any(
+              that: isA<Meta>().having(
+                (meta) => meta.session?.id,
+                'session.id',
+                rotatedSessionId,
+              ),
+            ),
+          ),
+          () => mockBatchTransport.addEvent(
+            any(
+              that: isA<Event>().having(
+                (event) => event.name,
+                'name',
+                'session_extend',
+              ),
+            ),
+          ),
+          () => mockBatchTransport.addEvent(
+            any(
+              that: isA<Event>().having(
+                (event) => event.name,
+                'name',
+                'app_lifecycle_changed',
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
+
+    test('generic telemetry remains passive before the timeout', () async {
       await initFaro();
-      final initialSessionId = Faro().meta.session?.id;
+      final manager = pod.resolve(sessionManagerProvider);
+      final initialActivityAt = manager.lastActivityAt;
 
-      // Foreground vitals extend the window past the first threshold.
-      now = now.add(const Duration(minutes: 10));
-      ingestVitals();
-      now = now.add(const Duration(minutes: 10));
-      ingestVitals();
-      expect(Faro().meta.session?.id, initialSessionId);
+      now = now.add(const Duration(minutes: 1));
+      Faro().pushEvent('poll_complete');
+      now = now.add(const Duration(minutes: 1));
+      Faro().pushLog('poll log', level: LogLevel.info);
+      now = now.add(const Duration(minutes: 1));
+      Faro().pushError(type: 'poll_error', value: 'retrying');
+      now = now.add(const Duration(minutes: 1));
+      Faro().pushMeasurement({'items': 1}, 'poll_result');
 
-      // App goes to the background; from here vitals no longer extend.
-      setAppBackgrounded();
-      now = now.add(const Duration(minutes: 16));
-      ingestVitals();
-
-      final session = Faro().meta.session;
-      expect(session?.id, isNot(initialSessionId));
-      expect(session?.attributes?['previousSession'], initialSessionId);
+      expect(manager.lastActivityAt, initialActivityAt);
     });
 
     test('vitals pushed by NativeIntegration do not extend the '
@@ -439,9 +556,6 @@ void main() {
       );
       await initFaro();
       final initialSessionId = Faro().meta.session?.id;
-      // Backgrounded: automatic vitals must not count as activity.
-      setAppBackgrounded();
-
       // An automatic vitals measurement at 14 minutes flows through
       // the passive path: no rotation, no activity recorded.
       now = now.add(const Duration(minutes: 14));
@@ -452,11 +566,11 @@ void main() {
       verify(() => mockBatchTransport.addMeasurement(any())).called(1);
       expect(Faro().meta.session?.id, initialSessionId);
 
-      // Two minutes later it is 16 minutes since the last real
-      // activity (init). If the vitals measurement had recorded
-      // activity, this event would NOT rotate.
+      // Two minutes later it is 16 minutes since the last meaningful work.
+      // If the vitals measurement had recorded activity, this view update
+      // would not rotate.
       now = now.add(const Duration(minutes: 2));
-      Faro().pushEvent('user_tap');
+      Faro().setViewMeta(name: 'checkout');
 
       final session = Faro().meta.session;
       expect(session?.id, isNot(initialSessionId));

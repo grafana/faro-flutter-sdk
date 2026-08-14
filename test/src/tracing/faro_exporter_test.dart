@@ -1,5 +1,6 @@
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/models/models.dart';
+import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
@@ -35,6 +36,7 @@ void main() {
     );
     tracer = otel.OTel.tracer();
     registerFallbackValue(TelemetryItem.fromEvent(Event('fallback')));
+    registerFallbackValue(SessionActivityKind.passive);
     registerFallbackValue(false);
   });
 
@@ -72,16 +74,15 @@ void main() {
         final exporter = FaroExporter(telemetryRouter: mockRouter);
         await exporter.export([span]);
 
-        final captured = verify(
-          () => mockRouter.ingest(
-            captureAny(),
-            skipBuffer: any(named: 'skipBuffer'),
-          ),
-        ).captured;
-
-        expect(captured, hasLength(2));
-
-        final eventItem = captured[0] as TelemetryItem;
+        final eventItem =
+            verify(
+                  () => mockRouter.ingest(
+                    captureAny(),
+                    activity: SessionActivityKind.meaningful,
+                    skipBuffer: true,
+                  ),
+                ).captured.single
+                as TelemetryItem;
         expect(eventItem.type, equals(TelemetryItemType.event));
 
         final event = eventItem.asEvent!;
@@ -97,6 +98,12 @@ void main() {
 
         expect(event.attributes!['http.method'], equals('GET'));
         expect(event.attributes!['http.scheme'], equals('https'));
+        verify(
+          () => mockRouter.ingest(
+            any(),
+            activity: SessionActivityKind.meaningful,
+          ),
+        ).called(1);
       });
 
       test('should NOT set Event.action when only faro.action.user.name '
@@ -109,17 +116,21 @@ void main() {
         final exporter = FaroExporter(telemetryRouter: mockRouter);
         await exporter.export([span]);
 
-        final captured = verify(
-          () => mockRouter.ingest(
-            captureAny(),
-            skipBuffer: any(named: 'skipBuffer'),
-          ),
-        ).captured;
-
-        final eventItem = captured[0] as TelemetryItem;
+        final eventItem =
+            verify(
+                  () => mockRouter.ingest(
+                    captureAny(),
+                    activity: SessionActivityKind.passive,
+                    skipBuffer: true,
+                  ),
+                ).captured.single
+                as TelemetryItem;
         final event = eventItem.asEvent!;
         expect(event.action, isNull);
         expect(event.attributes!.containsKey('faro.action.user.name'), isTrue);
+        verify(
+          () => mockRouter.ingest(any(), activity: SessionActivityKind.passive),
+        ).called(1);
       });
 
       test('should NOT set Event.action when no action attributes '
@@ -129,16 +140,20 @@ void main() {
         final exporter = FaroExporter(telemetryRouter: mockRouter);
         await exporter.export([span]);
 
-        final captured = verify(
-          () => mockRouter.ingest(
-            captureAny(),
-            skipBuffer: any(named: 'skipBuffer'),
-          ),
-        ).captured;
-
-        final eventItem = captured[0] as TelemetryItem;
+        final eventItem =
+            verify(
+                  () => mockRouter.ingest(
+                    captureAny(),
+                    activity: SessionActivityKind.passive,
+                    skipBuffer: true,
+                  ),
+                ).captured.single
+                as TelemetryItem;
         final event = eventItem.asEvent!;
         expect(event.action, isNull);
+        verify(
+          () => mockRouter.ingest(any(), activity: SessionActivityKind.passive),
+        ).called(1);
       });
     });
 
@@ -152,8 +167,16 @@ void main() {
         final exporter = FaroExporter(telemetryRouter: mockRouter);
         await exporter.export([span]);
 
-        verify(() => mockRouter.ingest(any(), skipBuffer: true)).called(1);
-        verify(() => mockRouter.ingest(any())).called(1);
+        verify(
+          () => mockRouter.ingest(
+            any(),
+            activity: SessionActivityKind.passive,
+            skipBuffer: true,
+          ),
+        ).called(1);
+        verify(
+          () => mockRouter.ingest(any(), activity: SessionActivityKind.passive),
+        ).called(1);
       });
     });
   });

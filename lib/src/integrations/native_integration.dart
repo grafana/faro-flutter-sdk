@@ -69,13 +69,11 @@ class NativeIntegration implements Disposable {
     _channel.setMethodCallHandler(null);
   }
 
-  /// Pushes an SDK-emitted vitals measurement, marked
-  /// [SessionActivityKind.foregroundOnly] so it only extends the session
-  /// while the app is foregrounded (see [SessionManager] for the rationale).
+  /// Pushes an SDK-emitted vitals measurement without extending inactivity.
   void _pushVitalsMeasurement(Map<String, dynamic>? values, String type) {
     _telemetryRouter.ingest(
       TelemetryItem.fromMeasurement(Measurement(values, type)),
-      activity: SessionActivityKind.foregroundOnly,
+      activity: SessionActivityKind.passive,
     );
   }
 

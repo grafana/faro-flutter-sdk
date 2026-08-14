@@ -21,7 +21,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Event('fallback'));
-    registerFallbackValue(SessionActivityKind.active);
+    registerFallbackValue(SessionActivityKind.meaningful);
   });
 
   setUp(() {
@@ -50,7 +50,7 @@ void main() {
       when(() => mockUserActionsService.tryBuffer(item)).thenReturn(true);
       final router = buildRouter();
 
-      router.ingest(item);
+      router.ingest(item, activity: SessionActivityKind.meaningful);
 
       verify(() => mockUserActionsService.tryBuffer(item)).called(1);
       verifyNever(() => mockTransport.addEvent(item.asEvent!));
@@ -60,7 +60,11 @@ void main() {
       final item = TelemetryItem.fromEvent(Event('tap'));
       final router = buildRouter();
 
-      router.ingest(item, skipBuffer: true);
+      router.ingest(
+        item,
+        activity: SessionActivityKind.meaningful,
+        skipBuffer: true,
+      );
 
       verifyNever(() => mockUserActionsService.tryBuffer(item));
       verify(() => mockTransport.addEvent(item.asEvent!)).called(1);
@@ -71,7 +75,7 @@ void main() {
       when(() => mockUserActionsService.tryBuffer(item)).thenReturn(false);
       final router = buildRouter();
 
-      router.ingest(item);
+      router.ingest(item, activity: SessionActivityKind.meaningful);
 
       verify(() => mockUserActionsService.tryBuffer(item)).called(1);
       verify(() => mockTransport.addEvent(item.asEvent!)).called(1);
@@ -82,7 +86,7 @@ void main() {
       when(() => mockUserActionsService.tryBuffer(item)).thenReturn(false);
       final router = buildRouter(transportResolver: () => null);
 
-      router.ingest(item);
+      router.ingest(item, activity: SessionActivityKind.meaningful);
 
       verify(() => mockUserActionsService.tryBuffer(item)).called(1);
       verifyNever(() => mockTransport.addEvent(item.asEvent!));
@@ -101,7 +105,11 @@ void main() {
       final item = TelemetryItem.fromEvent(Event('tap'));
       final router = buildRouter();
 
-      router.ingest(item, skipBuffer: true);
+      router.ingest(
+        item,
+        activity: SessionActivityKind.meaningful,
+        skipBuffer: true,
+      );
 
       expect(dispatchOrder, ['session-check', 'dispatch']);
     });
@@ -112,41 +120,50 @@ void main() {
       );
       final router = buildRouter();
 
-      router.ingest(item, activity: SessionActivityKind.foregroundOnly);
+      router.ingest(item, activity: SessionActivityKind.passive);
 
       // The router does not decide whether vitals count as activity; it
       // just forwards the classification. The session policy interprets
       // it (see session_activity_policy_test.dart).
       verify(
         () => mockSessionManager.checkSession(
-          activity: SessionActivityKind.foregroundOnly,
+          activity: SessionActivityKind.passive,
         ),
       ).called(1);
       verify(() => mockTransport.addMeasurement(item.asMeasurement!)).called(1);
     });
 
-    test('defaults to SessionActivityKind.active', () {
+    test('forwards SessionActivityKind.meaningful', () {
       final item = TelemetryItem.fromEvent(Event('tap'));
       final router = buildRouter();
 
-      router.ingest(item, skipBuffer: true);
+      router.ingest(
+        item,
+        activity: SessionActivityKind.meaningful,
+        skipBuffer: true,
+      );
 
       verify(
         () => mockSessionManager.checkSession(
-          activity: SessionActivityKind.active,
+          activity: SessionActivityKind.meaningful,
         ),
       ).called(1);
     });
 
-    test('forwards SessionActivityKind.none', () {
+    test('forwards SessionActivityKind.passive', () {
       final item = TelemetryItem.fromEvent(Event('session_extend'));
       final router = buildRouter();
 
-      router.ingest(item, skipBuffer: true, activity: SessionActivityKind.none);
+      router.ingest(
+        item,
+        activity: SessionActivityKind.passive,
+        skipBuffer: true,
+      );
 
       verify(
-        () =>
-            mockSessionManager.checkSession(activity: SessionActivityKind.none),
+        () => mockSessionManager.checkSession(
+          activity: SessionActivityKind.passive,
+        ),
       ).called(1);
     });
 
@@ -156,7 +173,7 @@ void main() {
         Measurement({'value': 1}, 'custom'),
       );
 
-      router.ingest(item);
+      router.ingest(item, activity: SessionActivityKind.passive);
 
       verifyNever(() => mockUserActionsService.tryBuffer(item));
       verify(() => mockTransport.addMeasurement(item.asMeasurement!)).called(1);
