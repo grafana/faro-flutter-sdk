@@ -4,7 +4,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:faro/src/session/app_lifecycle_service.dart';
 import 'package:faro/src/session/session_activity_policy.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_manager.dart';
@@ -75,7 +74,7 @@ void main() {
     final sut = persistence();
     final manager = SessionManager(
       sessionIdProvider: SessionIdProvider(),
-      activityPolicy: SessionActivityPolicy(AppLifecycleService()),
+      activityPolicy: SessionActivityPolicy(),
       currentTimeProvider: () => DateTime.utc(2026, 8, 11, 13),
     );
 
@@ -291,7 +290,7 @@ void main() {
       final previousSessionId = (await sut.load())?.currentSessionId;
       final manager = SessionManager(
         sessionIdProvider: SessionIdProvider(),
-        activityPolicy: SessionActivityPolicy(AppLifecycleService()),
+        activityPolicy: SessionActivityPolicy(),
         currentTimeProvider: () => DateTime.utc(2026, 8, 11, 13),
       )..start(previousSessionId: previousSessionId);
 

@@ -59,6 +59,7 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
     required String? toView,
     required String activitySource,
   }) {
+    _sessionManager.checkSession(activity: SessionActivityKind.meaningful);
     if (toView != null) {
       Faro().setViewMeta(name: toView);
     }
@@ -67,8 +68,6 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
         'view_changed',
         attributes: {'fromView': fromView, 'toView': toView},
       );
-    } else {
-      _sessionManager.checkSession(activity: SessionActivityKind.active);
     }
     _lifecycleSignalChannel.emitActivity(source: activitySource);
   }

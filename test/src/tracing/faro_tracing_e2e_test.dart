@@ -21,8 +21,8 @@ class _RecordingRouter implements TelemetryRouter {
   @override
   void ingest(
     TelemetryItem item, {
+    required SessionActivityKind activity,
     bool skipBuffer = false,
-    SessionActivityKind activity = SessionActivityKind.active,
   }) {
     ingested.add(item);
     skipBufferFlags.add(skipBuffer);
