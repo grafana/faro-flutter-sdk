@@ -37,6 +37,16 @@ class _RecordingObserver {
   }
 }
 
+class _RecordingStateObserver {
+  final List<SessionState> states = <SessionState>[];
+  final List<SessionStateChangeKind> changeKinds = <SessionStateChangeKind>[];
+
+  void onStateChanged(SessionState state, SessionStateChangeKind changeKind) {
+    states.add(state);
+    changeKinds.add(changeKind);
+  }
+}
+
 void main() {
   group('SessionManager:', () {
     const inactivityTimeout = Duration(minutes: 15);
@@ -164,6 +174,50 @@ void main() {
       expect(observer.lastCurrentId, manager.currentSessionId);
       expect(observer.lastPreviousId, isNull);
       expect(observer.lastTrigger, SessionStartTrigger.initial);
+    });
+
+    test('start() links a known previous cold-start session', () {
+      final manager = buildManager();
+      final newSessionId = manager.currentSessionId;
+
+      manager.start(previousSessionId: 'persisted-session');
+
+      expect(manager.currentSessionId, newSessionId);
+      expect(manager.currentSessionId, isNot('persisted-session'));
+      expect(manager.previousSessionId, 'persisted-session');
+      expect(observer.lastPreviousId, 'persisted-session');
+    });
+
+    test('start() rejects a persisted id matching the new session', () {
+      final manager = buildManager();
+
+      manager.start(previousSessionId: manager.currentSessionId);
+
+      expect(manager.previousSessionId, isNull);
+      expect(observer.lastPreviousId, isNull);
+    });
+
+    test('reports persistable state changes', () {
+      final stateObserver = _RecordingStateObserver();
+      final manager = buildManager()
+        ..addStateListener(stateObserver.onStateChanged)
+        ..start(previousSessionId: 'persisted-session');
+
+      now = now.add(const Duration(minutes: 1));
+      manager.checkSession(activity: SessionActivityKind.meaningful);
+      now = now.add(inactivityTimeout);
+      manager.checkSession(activity: SessionActivityKind.meaningful);
+
+      expect(stateObserver.changeKinds, <SessionStateChangeKind>[
+        SessionStateChangeKind.sessionStarted,
+        SessionStateChangeKind.activity,
+        SessionStateChangeKind.sessionStarted,
+      ]);
+      expect(stateObserver.states.first.previousSessionId, 'persisted-session');
+      expect(
+        stateObserver.states.last.previousSessionId,
+        stateObserver.states[1].currentSessionId,
+      );
     });
 
     test('is inert until start(): does not rotate before activation', () {

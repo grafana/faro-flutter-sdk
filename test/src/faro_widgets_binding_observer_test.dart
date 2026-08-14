@@ -45,6 +45,7 @@ void main() {
       final observer = FaroWidgetsBindingObserver(
         nativeIntegration: mockNativeIntegration,
         sessionManager: mockSessionManager,
+        onAppBackgrounded: () async {},
       );
 
       observer.didChangeAppLifecycleState(AppLifecycleState.paused);
@@ -61,6 +62,7 @@ void main() {
       final observer = FaroWidgetsBindingObserver(
         nativeIntegration: mockNativeIntegration,
         sessionManager: mockSessionManager,
+        onAppBackgrounded: () async {},
       );
 
       observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
@@ -82,6 +84,24 @@ void main() {
         ),
       ).called(1);
     });
+
+    test('flushes session state when leaving the foreground', () async {
+      var flushCount = 0;
+      final observer = FaroWidgetsBindingObserver(
+        nativeIntegration: mockNativeIntegration,
+        sessionManager: mockSessionManager,
+        onAppBackgrounded: () async {
+          flushCount++;
+        },
+      );
+
+      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await Future<void>.delayed(Duration.zero);
+      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(flushCount, 1);
+    });
   });
 
   group('FaroWidgetsBindingObserver warm start:', () {
@@ -94,6 +114,7 @@ void main() {
       final observer = FaroWidgetsBindingObserver(
         nativeIntegration: mockNativeIntegration,
         sessionManager: mockSessionManager,
+        onAppBackgrounded: () async {},
       );
       await tester.pumpWidget(const SizedBox());
       for (final state in states) {

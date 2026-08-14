@@ -5,6 +5,10 @@ import CrashReporter
 
 
 public class FaroPlugin: NSObject, FlutterPlugin {
+  private static let sessionPersistenceOwnerLock = NSLock()
+  private static var sessionPersistenceOwnerClaimed = false
+  private var ownsSessionPersistence = false
+
   public static func register(with registrar: FlutterPluginRegistrar) {
     // First thing the SDK does. iOS clears the prewarm flag once the app has
     // finished launching, and plugin registration runs inside
@@ -24,6 +28,14 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     private static func isCrashReportAutoEnabled() -> Bool{
         return false
     }
+
+  deinit {
+    if ownsSessionPersistence {
+      FaroPlugin.sessionPersistenceOwnerLock.lock()
+      FaroPlugin.sessionPersistenceOwnerClaimed = false
+      FaroPlugin.sessionPersistenceOwnerLock.unlock()
+    }
+  }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
@@ -56,11 +68,36 @@ public class FaroPlugin: NSObject, FlutterPlugin {
                 _ = CACurrentMediaTime();
                 let memory = getMemoryUsage()/1024
                 result( memory);
+            case "getSessionRuntimeInfo":
+                let arguments = call.arguments as? [String: Any]
+                if arguments?["claimSessionPersistence"] as? Bool == true {
+                    claimSessionPersistenceOwnership()
+                }
+                let processIdentifier = Bundle.main.bundleIdentifier
+                    ?? ProcessInfo.processInfo.processName
+                result([
+                    "processIdentifier": processIdentifier,
+                    "ownsSessionPersistence": ownsSessionPersistence,
+                ])
             default:
                 result(FlutterMethodNotImplemented);
         }
 
       }
+
+  private func claimSessionPersistenceOwnership() {
+    // Registration also runs for pre-warmed engines. Claim only when a root
+    // Dart runtime actually initializes Faro.
+    FaroPlugin.sessionPersistenceOwnerLock.lock()
+    defer { FaroPlugin.sessionPersistenceOwnerLock.unlock() }
+
+    guard !ownsSessionPersistence else { return }
+    guard !FaroPlugin.sessionPersistenceOwnerClaimed else { return }
+
+    FaroPlugin.sessionPersistenceOwnerClaimed = true
+    ownsSessionPersistence = true
+  }
+
       func getMemoryUsage() -> Double {
          let task_vm_info_count = MemoryLayout<task_vm_info>.size / MemoryLayout<natural_t>.size
 
@@ -89,4 +126,3 @@ public class FaroPlugin: NSObject, FlutterPlugin {
 
 
 }
-

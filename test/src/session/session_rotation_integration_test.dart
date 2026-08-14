@@ -136,6 +136,7 @@ void main() {
       return FaroWidgetsBindingObserver(
         nativeIntegration: pod.resolve(nativeIntegrationProvider),
         sessionManager: pod.resolve(sessionManagerProvider),
+        onAppBackgrounded: () async {},
       );
     }
 

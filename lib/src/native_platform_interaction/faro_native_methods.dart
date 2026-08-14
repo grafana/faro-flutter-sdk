@@ -44,4 +44,12 @@ class FaroNativeMethods {
   Future<List<String>?> getCrashReport() {
     return FaroSdkPlatform.instance.getCrashReport();
   }
+
+  Future<Map<String, dynamic>?> getSessionRuntimeInfo({
+    required bool claimSessionPersistence,
+  }) {
+    return FaroSdkPlatform.instance.getSessionRuntimeInfo(
+      claimSessionPersistence: claimSessionPersistence,
+    );
+  }
 }

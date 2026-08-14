@@ -20,6 +20,8 @@ import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_manager.dart';
+import 'package:faro/src/session/session_persistence.dart';
+import 'package:faro/src/session/session_runtime_info.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/tracing/faro_otel_bootstrap.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
@@ -60,7 +62,7 @@ class Faro {
 
   @visibleForTesting
   static Future<void> resetForTesting() async {
-    _instance._tearDownForReset();
+    await _instance._tearDownForReset();
     await FaroOtelBootstrap.resetForTesting();
     _instance = Faro._();
   }
@@ -83,6 +85,11 @@ class Faro {
   List<BaseTransport> get transports => _transports;
   DataCollectionPolicy? _dataCollectionPolicy;
   UserManager? _userManager;
+  SessionPersistence? _sessionPersistence;
+  SessionPersistenceFactory _sessionPersistenceFactory =
+      SessionPersistenceFactory();
+  bool Function() _isMobilePlatform = () =>
+      Platform.isAndroid || Platform.isIOS;
   bool _isSampled = true;
   bool _isInitialized = false;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
@@ -150,6 +157,16 @@ class Faro {
     _userManager = manager;
   }
 
+  @visibleForTesting
+  set sessionPersistenceFactory(SessionPersistenceFactory factory) {
+    _sessionPersistenceFactory = factory;
+  }
+
+  @visibleForTesting
+  set mobilePlatformResolver(bool Function() resolver) {
+    _isMobilePlatform = resolver;
+  }
+
   Future<void> init({required FaroConfig optionsConfiguration}) async {
     if (_isInitialized) {
       log('Faro: init() called after initialization; ignoring.');
@@ -197,6 +214,10 @@ class Faro {
       installationId: '$installationId',
     );
 
+    final persistedPreviousSessionId = await _initializeSessionPersistence(
+      optionsConfiguration,
+    );
+
     // Make sampling decision (once per session)
     _isSampled = SessionSamplingProviderFactory()
         .create(sampling: optionsConfiguration.sampling, meta: meta)
@@ -216,7 +237,8 @@ class Faro {
     pod.overrideProvider(batchTransportProvider, (_) => batchTransport);
 
     final sessionManager = pod.resolve(sessionManagerProvider)
-      ..addListener(_onSessionChanged);
+      ..addListener(_onSessionChanged)
+      ..addStateListener(_onSessionStateChanged);
 
     if (config?.transports == null) {
       Faro()._transports.add(
@@ -256,12 +278,14 @@ class Faro {
     }
     await FaroOtelBootstrap.initialize();
     // Announce the initial session; the listener emits `session_start`.
-    sessionManager.start();
+    sessionManager.start(previousSessionId: persistedPreviousSessionId);
+    await _sessionPersistence?.flush();
     _reportColdStartAfterFirstFrame();
 
     _widgetsBindingObserver = FaroWidgetsBindingObserver(
       nativeIntegration: _nativeIntegration,
       sessionManager: sessionManager,
+      onAppBackgrounded: _flushSessionPersistence,
     );
     WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
     if (optionsConfiguration.enableUiActivityMonitoring) {
@@ -352,6 +376,69 @@ class Faro {
     );
   }
 
+  void _onSessionStateChanged(
+    SessionState state,
+    SessionStateChangeKind changeKind,
+  ) {
+    _sessionPersistence?.record(
+      state,
+      isSampled: _isSampled,
+      immediate: changeKind == SessionStateChangeKind.sessionStarted,
+    );
+  }
+
+  Future<String?> _initializeSessionPersistence(FaroConfig options) async {
+    if (!_isMobilePlatform()) {
+      return null;
+    }
+
+    final nativeChannel = _nativeChannel;
+    if (nativeChannel == null) {
+      return null;
+    }
+
+    final runtimeInfo = await SessionRuntimeInfoProvider(
+      nativeMethods: nativeChannel,
+    ).getRuntimeInfo();
+    if (runtimeInfo == null) {
+      return null;
+    }
+
+    final session = meta.session;
+    if (session != null) {
+      session.attributes = <String, dynamic>{
+        ...?session.attributes,
+        'process_name': runtimeInfo.processIdentifier,
+        'dart_isolate_name': runtimeInfo.isolateIdentifier,
+      };
+    }
+
+    if (!runtimeInfo.ownsSessionPersistence) {
+      return null;
+    }
+
+    try {
+      final persistence = await _sessionPersistenceFactory.create(
+        processIdentifier: runtimeInfo.processIdentifier,
+      );
+      if (!options.persistSession) {
+        await persistence.clear();
+        return null;
+      }
+
+      _sessionPersistence = persistence;
+      return (await persistence.load())?.currentSessionId;
+    } catch (error) {
+      log('Faro: Session persistence unavailable: $error');
+      _sessionPersistence = null;
+      return null;
+    }
+  }
+
+  Future<void> _flushSessionPersistence() async {
+    await _sessionPersistence?.flush();
+  }
+
   /// Ends the cold start interval at the first frame the engine rasterized.
   ///
   /// Using that frame rather than the next one after `init` limits how far the
@@ -367,7 +454,9 @@ class Faro {
     );
   }
 
-  void _tearDownForReset() {
+  Future<void> _tearDownForReset() async {
+    await _sessionPersistence?.flush();
+    _sessionPersistence = null;
     final widgetsBindingObserver = _widgetsBindingObserver;
     if (widgetsBindingObserver != null) {
       WidgetsBinding.instance.removeObserver(widgetsBindingObserver);
@@ -378,9 +467,9 @@ class Faro {
       _userActionUiActivityMonitor.detach();
       _didAttachUiActivityMonitor = false;
     }
-    // Evict the per-init singletons (session manager, app lifecycle
-    // service) so the next init resolves fresh instances. Disposable
-    // instances (e.g. NativeIntegration's vitals timer) are cleaned up here.
+    // Evict per-init session state so the next init resolves fresh instances.
+    // Disposable instances (e.g. NativeIntegration's vitals timer) are also
+    // cleaned up here.
     pod.clearScope(faroInitScope);
     _isInitialized = false;
   }

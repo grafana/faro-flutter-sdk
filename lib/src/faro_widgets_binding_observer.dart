@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
@@ -8,11 +10,14 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
   FaroWidgetsBindingObserver({
     required NativeIntegration nativeIntegration,
     required SessionManager sessionManager,
+    required Future<void> Function() onAppBackgrounded,
   }) : _nativeIntegration = nativeIntegration,
-       _sessionManager = sessionManager;
+       _sessionManager = sessionManager,
+       _onAppBackgrounded = onAppBackgrounded;
 
   final NativeIntegration _nativeIntegration;
   final SessionManager _sessionManager;
+  final Future<void> Function() _onAppBackgrounded;
   AppLifecycleState? _previousState;
 
   /// Whether the app has left the foreground since it last resumed.
@@ -43,6 +48,9 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
         'toState': state.name,
       },
     );
+    if (state != AppLifecycleState.resumed) {
+      unawaited(_onAppBackgrounded());
+    }
     _previousState = state;
   }
 

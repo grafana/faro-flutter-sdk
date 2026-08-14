@@ -395,6 +395,23 @@ data loss.
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 
+**Cold starts and persistence.** Faro stores a minimal versioned session record
+by default. A process start always creates a new session ID. When the prior ID
+is available, the new session links it through `previousSession`; Faro never
+resumes the same live session across a process start. The record contains only
+the current and previous IDs, start and last-activity timestamps, the sampling
+decision, and its schema version. Disable this behavior with
+`persistSession: false`; disabling it also clears the record owned by that
+process.
+
+Each Android process and iOS app or extension keeps its own session chain.
+Only the owning root Flutter isolate persists state, so secondary engines and
+background isolates cannot concurrently update that record. Ownership is not
+transferred to an already-running secondary engine if the owner detaches; that
+engine keeps its in-memory session until it initializes again. When native
+process identity is available, telemetry includes `process_name` and
+`dart_isolate_name` session attributes for correlation.
+
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,
 but only meaningful work refreshes the 15-minute inactivity window.
