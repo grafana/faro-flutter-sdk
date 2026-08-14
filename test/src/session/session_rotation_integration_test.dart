@@ -196,6 +196,30 @@ void main() {
       expect(session?.attributes?['previousSession'], initialSessionId);
     });
 
+    test('repeating an unnamed view does not refresh inactivity', () async {
+      await initFaro();
+      final initialSessionId = Faro().meta.session?.id;
+      final manager = pod.resolve(sessionManagerProvider);
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().setViewMeta(name: 'checkout');
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().setViewMeta();
+      final viewChangedAt = manager.lastActivityAt;
+
+      now = now.add(const Duration(minutes: 10));
+      Faro().setViewMeta();
+      expect(manager.lastActivityAt, viewChangedAt);
+
+      now = now.add(const Duration(minutes: 5));
+      Faro().pushEvent('poll_complete');
+
+      final session = Faro().meta.session;
+      expect(session?.id, isNot(initialSessionId));
+      expect(session?.attributes?['previousSession'], initialSessionId);
+    });
+
     test('rotates the session when inactivity reaches 15 minutes', () async {
       await initFaro();
       final initialSessionId = Faro().meta.session?.id;

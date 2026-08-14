@@ -551,7 +551,7 @@ class Faro {
   }
 
   void setViewMeta({String? name}) {
-    if (_instance.meta.view?.name == name) {
+    if ((_instance.meta.view?.name ?? '') == (name ?? '')) {
       return;
     }
     pod
