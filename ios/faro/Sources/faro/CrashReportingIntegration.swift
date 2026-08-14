@@ -1,6 +1,10 @@
 import CrashReporter
 
 class  CrashReportingIntegration {
+    static func shouldReportPendingCrash(config: [String: Any]) -> Bool {
+        return config["reportPendingCrash"] as? Bool ?? true
+    }
+
     init(crashReporterConfig: [String: Any]) throws {
         //if (!isDebuggerAttached()) {
         
@@ -25,7 +29,8 @@ class  CrashReportingIntegration {
             print("Warning: Could not enable crash reporter: \(error)")
         }
         // Try loading the crash report.
-        if crashReporter.hasPendingCrashReport() {
+        let reportPendingCrash = Self.shouldReportPendingCrash(config: crashReporterConfig)
+        if crashReporter.hasPendingCrashReport() && reportPendingCrash {
             do {
                 let data = try crashReporter.loadPendingCrashReportDataAndReturnError()
                 

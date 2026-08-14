@@ -58,6 +58,19 @@ class FaroTransport extends BaseTransport {
 
   @override
   Future<void> send(Map<String, dynamic> payloadJson) async {
+    await _send(payloadJson, processSessionInvalidation: true);
+  }
+
+  /// Sends historical telemetry without applying receiver session
+  /// invalidation to the live session.
+  Future<void> sendHistorical(Map<String, dynamic> payloadJson) async {
+    await _send(payloadJson, processSessionInvalidation: false);
+  }
+
+  Future<void> _send(
+    Map<String, dynamic> payloadJson, {
+    required bool processSessionInvalidation,
+  }) async {
     if (Faro().enableDataCollection == false) {
       log('Data collection is disabled. Skipping sending data.');
       return;
@@ -93,6 +106,7 @@ class FaroTransport extends BaseTransport {
       }
 
       if (response != null &&
+          processSessionInvalidation &&
           sentSessionId != null &&
           response.statusCode == _accepted &&
           _headerValue(response.headers, _sessionStatusHeader) ==

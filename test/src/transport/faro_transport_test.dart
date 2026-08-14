@@ -122,6 +122,26 @@ void main() {
         expect(invalidatedSessionIds, ['session-1']);
       });
 
+      test('historical sends do not invalidate the live session', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response(
+            '',
+            202,
+            headers: {'X-Faro-Session-Status': 'invalid'},
+          );
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          sessionIdResolver: () => 'live-session',
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).sendHistorical(payload());
+
+        expect(captured, hasLength(1));
+        expect(invalidatedSessionIds, isEmpty);
+      });
+
       test('reports the session id used by the request', () async {
         var currentSessionId = 'session-1';
         client = MockClient((request) async {

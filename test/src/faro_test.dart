@@ -103,6 +103,9 @@ void main() {
         () => mockBatchTransport.updatePayloadMeta(any()),
       ).thenAnswer((_) async {});
       when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
+      when(
+        () => mockFaroTransport.sendHistorical(any()),
+      ).thenAnswer((_) async {});
     });
 
     tearDown(() async {
@@ -512,7 +515,7 @@ void main() {
       expect(capturedException.fatal, isTrue);
     });
 
-    test('native Android crash forwards the captured trace', () {
+    test('native Android crash forwards the captured trace', () async {
       const nativeTrace = '''
 java.lang.NullPointerException: test crash
     at com.example.MainActivity.crash(MainActivity.kt:42)
@@ -527,7 +530,7 @@ java.lang.NullPointerException: test crash
         'processName': 'com.example.app',
       });
 
-      Faro().reportAndroidCrashesForTesting([crashReport]);
+      await Faro().reportAndroidCrashesForTesting([crashReport]);
 
       final capturedException =
           verify(
@@ -538,7 +541,7 @@ java.lang.NullPointerException: test crash
       expect(capturedException.context?['stacktrace'], nativeTrace);
     });
 
-    test('native Android crash accepts the legacy stacktrace key', () {
+    test('native Android crash accepts the legacy stacktrace key', () async {
       const nativeTrace = 'legacy native trace';
       final crashReport = json.encode({
         'reason': 'CRASH',
@@ -550,7 +553,7 @@ java.lang.NullPointerException: test crash
         'processName': 'com.example.app',
       });
 
-      Faro().reportAndroidCrashesForTesting([crashReport]);
+      await Faro().reportAndroidCrashesForTesting([crashReport]);
 
       final capturedException =
           verify(
@@ -560,7 +563,7 @@ java.lang.NullPointerException: test crash
       expect(capturedException.context?['stacktrace'], nativeTrace);
     });
 
-    test('native Android crash keeps the missing trace fallback', () {
+    test('native Android crash keeps the missing trace fallback', () async {
       final crashReport = json.encode({
         'reason': 'CRASH',
         'status': 0,
@@ -570,7 +573,7 @@ java.lang.NullPointerException: test crash
         'processName': 'com.example.app',
       });
 
-      Faro().reportAndroidCrashesForTesting([crashReport]);
+      await Faro().reportAndroidCrashesForTesting([crashReport]);
 
       final capturedException =
           verify(
@@ -578,6 +581,155 @@ java.lang.NullPointerException: test crash
               ).captured.single
               as FaroException;
       expect(capturedException.context?['stacktrace'], 'No stacktrace');
+    });
+
+    test('recovered crash is sent with the crashed session metadata', () async {
+      final currentSessionId = Faro().meta.session?.id;
+      final recoveredSession = PersistedSessionRecord(
+        currentSessionId: 'crashed-session',
+        previousSessionId: 'older-session',
+        startedAt: DateTime.utc(2026, 8, 14, 12),
+        lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+        isSampled: true,
+      );
+      final crashReport = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'description': 'Native crash',
+        'timestamp': '1786710000000',
+        'importance': 100,
+        'processName': 'com.example.app',
+      });
+
+      await Faro().reportAndroidCrashesForTesting([
+        crashReport,
+      ], recoveredSession: recoveredSession);
+
+      final payload =
+          verify(
+                () => mockFaroTransport.sendHistorical(captureAny()),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(payload['meta']['session']['id'], 'crashed-session');
+      expect(
+        payload['meta']['session']['attributes'],
+        containsPair('previousSession', 'older-session'),
+      );
+      expect(
+        payload['meta']['session']['attributes'],
+        containsPair('crashedSessionId', 'crashed-session'),
+      );
+      expect(
+        payload['meta']['session']['attributes'],
+        containsPair('isSampled', 'true'),
+      );
+      expect(payload['meta'], isNot(contains('view')));
+      expect(payload['meta'], isNot(contains('user')));
+      expect(payload['meta'], isNot(contains('page')));
+      expect(
+        payload['exceptions'][0]['context']['crashedSessionId'],
+        'crashed-session',
+      );
+      expect(
+        payload['exceptions'][0]['timestamp'],
+        DateTime.fromMillisecondsSinceEpoch(
+          1786710000000,
+          isUtc: true,
+        ).toIso8601String(),
+      );
+      expect(Faro().meta.session?.id, currentSessionId);
+      verifyNever(() => mockBatchTransport.addExceptions(any()));
+    });
+
+    test('recovered crash from an unsampled session is not sent', () async {
+      final recoveredSession = PersistedSessionRecord(
+        currentSessionId: 'unsampled-session',
+        previousSessionId: null,
+        startedAt: DateTime.utc(2026, 8, 14, 12),
+        lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+        isSampled: false,
+      );
+      final crashReport = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'timestamp': '1786710000000',
+      });
+
+      await Faro().reportAndroidCrashesForTesting([
+        crashReport,
+      ], recoveredSession: recoveredSession);
+
+      verifyNever(() => mockFaroTransport.sendHistorical(any()));
+      verifyNever(() => mockBatchTransport.addExceptions(any()));
+    });
+
+    test('recovered crash respects disabled data collection', () async {
+      Faro().dataCollectionPolicy = mockDataCollectionPolicy;
+      when(() => mockDataCollectionPolicy.isEnabled).thenReturn(false);
+      final recoveredSession = PersistedSessionRecord(
+        currentSessionId: 'crashed-session',
+        previousSessionId: null,
+        startedAt: DateTime.utc(2026, 8, 14, 12),
+        lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+        isSampled: true,
+      );
+
+      await Faro().reportAndroidCrashesForTesting([
+        json.encode({
+          'reason': 'CRASH',
+          'status': 0,
+          'timestamp': '1786710000000',
+        }),
+      ], recoveredSession: recoveredSession);
+
+      verifyNever(() => mockFaroTransport.sendHistorical(any()));
+    });
+
+    test('multiple recovered crashes are sent independently', () async {
+      final recoveredSession = PersistedSessionRecord(
+        currentSessionId: 'crashed-session',
+        previousSessionId: null,
+        startedAt: DateTime.utc(2026, 8, 14, 12),
+        lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+        isSampled: true,
+      );
+
+      await Faro().reportAndroidCrashesForTesting([
+        json.encode({
+          'reason': 'CRASH',
+          'status': 0,
+          'timestamp': '1786710000000',
+        }),
+        json.encode({
+          'reason': 'ANR',
+          'status': 0,
+          'timestamp': '1786710060000',
+        }),
+      ], recoveredSession: recoveredSession);
+
+      final payloads = verify(
+        () => mockFaroTransport.sendHistorical(captureAny()),
+      ).captured;
+      expect(payloads, hasLength(2));
+      expect(
+        payloads.map(
+          (payload) =>
+              (payload as Map<String, dynamic>)['meta']['session']['id'],
+        ),
+        everyElement('crashed-session'),
+      );
+    });
+
+    test('malformed recovered crash does not block later reports', () async {
+      final crashReport = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'timestamp': '1786710000000',
+      });
+
+      await Faro().reportAndroidCrashesForTesting(['not-json', crashReport]);
+
+      verify(() => mockBatchTransport.addExceptions(any())).called(1);
     });
 
     test('send custom measurement', () {

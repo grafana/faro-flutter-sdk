@@ -80,6 +80,9 @@ Notes:
   exits) are detected and reported on the **next launch**. The Android
   runtime **ANR watchdog** is different: it detects a blocked main thread
   **while the app is running** and reports within the same session.
+- With session persistence enabled, next-launch native crash reports retain
+  the prior session ID and include `crashedSessionId` in the session
+  attributes. Reporting them does not change the new live session.
 - Android low-memory exits from service and less important process states are
   filtered because they are normal system reclamation rather than user-facing
   crashes. Foreground, foreground-service, visible, and perceptible low-memory
