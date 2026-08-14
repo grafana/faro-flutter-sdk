@@ -126,6 +126,18 @@ void main() {
       },
     );
 
+    test('ends and dispatches the active action synchronously', () {
+      service.startUserAction('checkout');
+      service.tryBuffer(TelemetryItem.fromEvent(Event('event')));
+
+      service.endActiveUserAction();
+
+      // Buffered event plus the user-action summary.
+      verify(() => mockTransport.addEvent(any())).called(2);
+      expect(service.getActiveUserAction(), isNull);
+      verify(() => mockController.dispose()).called(1);
+    });
+
     test('dispose releases active action resources', () {
       final action = service.startUserAction('checkout')! as UserAction;
 

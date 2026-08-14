@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_redundant_argument_values, prefer_int_literals, lines_longer_than_80_chars
 
+import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/configurations/sampling.dart';
 import 'package:faro/src/faro.dart';
@@ -281,6 +282,47 @@ void main() {
       );
       expect(BatchTransportFactory().instance?.payloadSize(), 1);
     });
+
+    test(
+      'reset does not carry an unsampled user action into a sampled session',
+      () async {
+        RandomValueProviderFactory().setInstance(
+          SequenceRandomValueProvider(<double>[0.9, 0.1]),
+        );
+        await Faro().init(
+          optionsConfiguration: FaroConfig(
+            appName: appName,
+            appVersion: appVersion,
+            appEnv: appEnv,
+            apiKey: apiKey,
+            collectorUrl: 'https://some-url.com',
+            sampling: const SamplingRate(0.5),
+            batchConfig: BatchConfig(enabled: false),
+            cpuUsageVitals: false,
+            memoryUsageVitals: false,
+          ),
+        );
+        expect(Faro().isSampled, isFalse);
+        expect(Faro().startUserAction('old-session-action'), isNotNull);
+        Faro().pushEvent('old-session-event');
+
+        await Faro().resetSession();
+
+        expect(Faro().isSampled, isTrue);
+        expect(Faro().getActiveUserAction(), isNull);
+        final payloads = verify(
+          () => mockFaroTransport.send(captureAny()),
+        ).captured.cast<Map<String, dynamic>>();
+        final eventNames = payloads
+            .expand(
+              (payload) => payload['events'] as List<dynamic>? ?? const [],
+            )
+            .map((event) => (event as Map<String, dynamic>)['name'])
+            .toList();
+        expect(eventNames, contains('session_start'));
+        expect(eventNames, isNot(contains('old-session-event')));
+      },
+    );
 
     test('unsampled session drops events silently', () async {
       TestWidgetsFlutterBinding.ensureInitialized();

@@ -512,6 +512,8 @@ class Faro {
   /// Its lifetime, inactivity, and sampling windows start over, and Faro emits
   /// the normal `session_start` event. When session persistence is enabled, the
   /// returned future completes after the new record has been written.
+  /// Any active user action is ended first so its buffered telemetry remains in
+  /// the previous session.
   ///
   /// Calls made before [init] are ignored.
   ///
@@ -526,6 +528,7 @@ class Faro {
       return;
     }
 
+    _userActionsService.endActiveUserAction();
     pod.resolve(sessionManagerProvider).resetSession();
     await _sessionPersistence?.flush();
   }

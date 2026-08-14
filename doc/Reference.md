@@ -399,7 +399,8 @@ data loss.
 logout, account change, or application-defined boundary must start a new
 session. The call creates and links the new session immediately, restarts its
 timing and sampling windows, emits `session_start`, and persists the new record
-when session persistence is enabled.
+when session persistence is enabled. Any active user action ends before the
+rotation so its buffered telemetry remains in the previous session.
 
 ```dart
 // Logout
@@ -1298,7 +1299,8 @@ Faro().runApp(
 
 **How it works:**
 
-- The sampling decision is made once at initialization time and applies for the whole app run, including across [session rotations](#session-lifecycle--rotation)
+- The sampling decision is made at initialization and applies until an explicit session reset
+- Automatic expiry and receiver invalidation retain the current decision; [`resetSession`](#session-lifecycle--rotation) evaluates a new decision for the new session
 - When a session is not sampled, all telemetry (events, logs, exceptions, measurements, traces) is silently dropped
 - A debug log is emitted when a session is not sampled, for transparency during development
 - Invalid return values (< 0.0 or > 1.0) are clamped to the valid range
@@ -1318,8 +1320,8 @@ Faro().runApp(
 
 **Notes:**
 
-- Sampling is head-based: the decision is made at SDK initialization and remains consistent for the whole app run (it is not re-evaluated when the session rotates)
-- The broader [Faro sampling model](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/) re-samples per rotated session; matching that in the Flutter SDK is planned as a follow-up (#284)
+- Sampling is head-based: initialization and each explicit `resetSession` make one decision that remains fixed for that session
+- The broader [Faro sampling model](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/) also re-samples after automatic rotation; matching that behavior remains planned in #284
 
 **Use cases:**
 
