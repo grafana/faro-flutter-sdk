@@ -82,7 +82,9 @@ Notes:
   **while the app is running** and reports within the same session.
 - With session persistence enabled, next-launch native crash reports retain
   the prior session ID and include `crashedSessionId` in the session
-  attributes. Reporting them does not change the new live session.
+  attributes. Reporting them does not change the new live session. When
+  Android returns several historical exits, each report is matched by process
+  and timestamp to its retained session. Reports without a match are ignored.
 - Android low-memory exits from service and less important process states are
   filtered because they are normal system reclamation rather than user-facing
   crashes. Foreground, foreground-service, visible, and perceptible low-memory

@@ -49,13 +49,20 @@ void main() {
     );
   }
 
-  test('round-trips only the versioned minimal session record', () async {
+  test('round-trips a versioned history of minimal session records', () async {
     final sut = persistence();
     sut.record(state(), isSampled: true, immediate: true);
     await sut.flush();
 
     final decoded = jsonDecode(await stateFile.readAsString());
     expect((decoded as Map<String, dynamic>).keys, <String>{
+      'schemaVersion',
+      'records',
+    });
+    expect(decoded['schemaVersion'], 2);
+    final records = decoded['records'] as List<dynamic>;
+    expect(records, hasLength(1));
+    expect((records.single as Map<String, dynamic>).keys, <String>{
       'schemaVersion',
       'currentSessionId',
       'previousSessionId',
@@ -68,6 +75,25 @@ void main() {
     expect(loaded?.currentSessionId, 'current-session');
     expect(loaded?.previousSessionId, 'previous-session');
     expect(loaded?.isSampled, isTrue);
+  });
+
+  test('loads a legacy single-record file', () async {
+    await stateFile.writeAsString(
+      jsonEncode(
+        PersistedSessionRecord(
+          currentSessionId: 'legacy-session',
+          previousSessionId: null,
+          startedAt: DateTime.utc(2026, 8, 11, 12),
+          lastActivityAt: DateTime.utc(2026, 8, 11, 12, 5),
+          isSampled: true,
+        ).toJson(),
+      ),
+    );
+
+    final history = await persistence().loadHistory();
+
+    expect(history, hasLength(1));
+    expect(history.single.currentSessionId, 'legacy-session');
   });
 
   test('missing state starts an unlinked session', () async {
@@ -152,6 +178,7 @@ void main() {
       (await sut.load())?.lastActivityAt,
       start.add(const Duration(minutes: 1)),
     );
+    expect(await sut.loadHistory(), hasLength(1));
   });
 
   test('backward clock changes are clamped before persistence', () async {
@@ -192,6 +219,33 @@ void main() {
     expect(loaded?.currentSessionId, 'second');
     expect(loaded?.previousSessionId, 'first');
     expect(loaded?.isSampled, isTrue);
+    expect(
+      (await sut.loadHistory()).map((record) => record.currentSessionId),
+      <String>['first', 'second'],
+    );
+  });
+
+  test('keeps a bounded session history', () async {
+    const maxHistoryLength = 16;
+    final sut = persistence();
+    final start = DateTime.utc(2026, 8, 11, 12);
+    for (var index = 0; index <= maxHistoryLength; index++) {
+      sut.record(
+        state(
+          currentSessionId: 'session-$index',
+          previousSessionId: index == 0 ? null : 'session-${index - 1}',
+          startedAt: start.add(Duration(minutes: index)),
+        ),
+        isSampled: true,
+        immediate: true,
+      );
+    }
+    await sut.flush();
+
+    final history = await sut.loadHistory();
+    expect(history, hasLength(maxHistoryLength));
+    expect(history.first.currentSessionId, 'session-1');
+    expect(history.last.currentSessionId, 'session-$maxHistoryLength');
   });
 
   test('a failed write remains pending for the next flush', () async {

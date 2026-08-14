@@ -641,6 +641,35 @@ java.lang.NullPointerException: test crash
       verifyNever(() => mockBatchTransport.addExceptions(any()));
     });
 
+    test('iOS crash metadata uses Faro session attribute values', () async {
+      Faro().iosPlatformResolver = () => true;
+      Faro().androidPlatformResolver = () => false;
+      final recoveredSession = PersistedSessionRecord(
+        currentSessionId: 'crashed-session',
+        previousSessionId: 'older-session',
+        startedAt: DateTime.utc(2026, 8, 14, 12),
+        lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+        isSampled: true,
+      );
+
+      await Faro().enableCrashReporter(
+        app: App(name: appName, version: appVersion, environment: appEnv),
+        apiKey: apiKey,
+        collectorUrl: 'https://some-url.com',
+        recoveredSession: recoveredSession,
+      );
+
+      final config =
+          verify(
+                () => mockFaroNativeMethods.enableCrashReporter(captureAny()),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(
+        config['session']['attributes'],
+        containsPair('isSampled', 'true'),
+      );
+    });
+
     test('recovered crash from an unsampled session is not sent', () async {
       final recoveredSession = PersistedSessionRecord(
         currentSessionId: 'unsampled-session',
@@ -685,27 +714,55 @@ java.lang.NullPointerException: test crash
       verifyNever(() => mockFaroTransport.sendHistorical(any()));
     });
 
-    test('multiple recovered crashes are sent independently', () async {
-      final recoveredSession = PersistedSessionRecord(
-        currentSessionId: 'crashed-session',
+    test('multiple recovered crashes use their matching sessions', () async {
+      final firstSession = PersistedSessionRecord(
+        currentSessionId: 'first-session',
         previousSessionId: null,
         startedAt: DateTime.utc(2026, 8, 14, 12),
         lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
         isSampled: true,
       );
+      final secondSession = PersistedSessionRecord(
+        currentSessionId: 'second-session',
+        previousSessionId: 'first-session',
+        startedAt: DateTime.utc(2026, 8, 14, 12, 10),
+        lastActivityAt: DateTime.utc(2026, 8, 14, 12, 15),
+        isSampled: true,
+      );
 
-      await Faro().reportAndroidCrashesForTesting([
-        json.encode({
-          'reason': 'CRASH',
-          'status': 0,
-          'timestamp': '1786710000000',
-        }),
-        json.encode({
-          'reason': 'ANR',
-          'status': 0,
-          'timestamp': '1786710060000',
-        }),
-      ], recoveredSession: recoveredSession);
+      await Faro().reportAndroidCrashesForTesting(
+        [
+          json.encode({
+            'reason': 'CRASH',
+            'status': 0,
+            'timestamp': DateTime.utc(
+              2026,
+              8,
+              14,
+              12,
+              5,
+            ).millisecondsSinceEpoch,
+            'processName': 'com.example.app',
+          }),
+          json.encode({
+            'reason': 'ANR',
+            'status': 0,
+            'timestamp': DateTime.utc(
+              2026,
+              8,
+              14,
+              12,
+              20,
+            ).millisecondsSinceEpoch,
+            'processName': 'com.example.app',
+          }),
+        ],
+        recoveredSessions: <PersistedSessionRecord>[
+          firstSession,
+          secondSession,
+        ],
+        processIdentifier: 'com.example.app',
+      );
 
       final payloads = verify(
         () => mockFaroTransport.sendHistorical(captureAny()),
@@ -716,8 +773,40 @@ java.lang.NullPointerException: test crash
           (payload) =>
               (payload as Map<String, dynamic>)['meta']['session']['id'],
         ),
-        everyElement('crashed-session'),
+        <String>['first-session', 'second-session'],
       );
+    });
+
+    test('recovered crash from another process is ignored', () async {
+      final recoveredSession = PersistedSessionRecord(
+        currentSessionId: 'main-process-session',
+        previousSessionId: null,
+        startedAt: DateTime.utc(2026, 8, 14, 12),
+        lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+        isSampled: true,
+      );
+
+      await Faro().reportAndroidCrashesForTesting(
+        [
+          json.encode({
+            'reason': 'CRASH',
+            'status': 0,
+            'timestamp': DateTime.utc(
+              2026,
+              8,
+              14,
+              12,
+              5,
+            ).millisecondsSinceEpoch,
+            'processName': 'com.example.app:worker',
+          }),
+        ],
+        recoveredSessions: <PersistedSessionRecord>[recoveredSession],
+        processIdentifier: 'com.example.app',
+      );
+
+      verifyNever(() => mockFaroTransport.sendHistorical(any()));
+      verifyNever(() => mockBatchTransport.addExceptions(any()));
     });
 
     test('malformed recovered crash does not block later reports', () async {

@@ -73,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Attribute recovered Android and iOS native crashes to the persisted session
   in which they occurred without changing the new live session. Recovered
   crash metadata includes `crashedSessionId` and preserves the original
-  session sampling decision
+  session sampling decision. Historical Android exits are matched to their
+  retained per-process sessions
   ([#151](https://github.com/grafana/faro-flutter-sdk/issues/151)).
 - Filter Android `LOW_MEMORY` exits for service and less important process
   states regardless of whether Android records status `0` or `SIGKILL`.

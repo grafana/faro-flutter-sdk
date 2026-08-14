@@ -90,6 +90,11 @@ class Faro {
       SessionPersistenceFactory();
   bool Function() _isMobilePlatform = () =>
       Platform.isAndroid || Platform.isIOS;
+  bool Function() _isAndroidPlatform = () => Platform.isAndroid;
+  bool Function() _isIOSPlatform = () => Platform.isIOS;
+  List<PersistedSessionRecord> _recoveredSessionHistory =
+      const <PersistedSessionRecord>[];
+  String? _sessionProcessIdentifier;
   bool _isSampled = true;
   bool _isInitialized = false;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
@@ -165,6 +170,16 @@ class Faro {
   @visibleForTesting
   set mobilePlatformResolver(bool Function() resolver) {
     _isMobilePlatform = resolver;
+  }
+
+  @visibleForTesting
+  set androidPlatformResolver(bool Function() resolver) {
+    _isAndroidPlatform = resolver;
+  }
+
+  @visibleForTesting
+  set iosPlatformResolver(bool Function() resolver) {
+    _isIOSPlatform = resolver;
   }
 
   Future<void> init({required FaroConfig optionsConfiguration}) async {
@@ -408,6 +423,7 @@ class Faro {
     if (runtimeInfo == null) {
       return null;
     }
+    _sessionProcessIdentifier = runtimeInfo.processIdentifier;
 
     final session = meta.session;
     if (session != null) {
@@ -432,7 +448,10 @@ class Faro {
       }
 
       _sessionPersistence = persistence;
-      return persistence.load();
+      _recoveredSessionHistory = await persistence.loadHistory();
+      return _recoveredSessionHistory.isEmpty
+          ? null
+          : _recoveredSessionHistory.last;
     } catch (error) {
       log('Faro: Session persistence unavailable: $error');
       _sessionPersistence = null;
@@ -996,24 +1015,31 @@ class Faro {
       final recoveredCrashMeta = recoveredSession == null
           ? null
           : _metaForRecoveredSession(recoveredSession);
-      final metadata = (recoveredCrashMeta ?? meta).toJson();
+      final metadata = (recoveredCrashMeta ?? meta).toFaroJson();
       metadata['app'] = app.toJson();
       metadata['apiKey'] = apiKey;
       metadata['collectorUrl'] = collectorUrl;
       metadata['reportPendingCrash'] =
           (recoveredSession?.isSampled ?? true) && enableDataCollection;
-      if (Platform.isIOS) {
+      if (_isIOSPlatform()) {
         _nativeChannel?.enableCrashReporter(metadata);
       }
-      if (Platform.isAndroid) {
+      if (_isAndroidPlatform()) {
         final crashReports = await _nativeChannel?.getCrashReport();
         if (crashReports != null) {
+          final recoveredSessions = _sessionPersistence != null
+              ? _recoveredSessionHistory
+              : recoveredSession == null
+              ? null
+              : <PersistedSessionRecord>[recoveredSession];
           // Recovery sends must not hold up the next app launch.
           unawaited(
             _reportAndroidCrashReports(
               crashReports,
-              recoveredSession: recoveredSession,
-              recoveredCrashMeta: recoveredCrashMeta,
+              recoveredSessions: recoveredSessions,
+              processIdentifier: _sessionPersistence == null
+                  ? null
+                  : _sessionProcessIdentifier,
             ),
           );
         }
@@ -1030,13 +1056,17 @@ class Faro {
   Future<void> reportAndroidCrashesForTesting(
     List<String> crashReports, {
     PersistedSessionRecord? recoveredSession,
+    List<PersistedSessionRecord>? recoveredSessions,
+    String? processIdentifier,
   }) {
     return _reportAndroidCrashReports(
       crashReports,
-      recoveredSession: recoveredSession,
-      recoveredCrashMeta: recoveredSession == null
-          ? null
-          : _metaForRecoveredSession(recoveredSession),
+      recoveredSessions:
+          recoveredSessions ??
+          (recoveredSession == null
+              ? null
+              : <PersistedSessionRecord>[recoveredSession]),
+      processIdentifier: processIdentifier,
     );
   }
 
@@ -1064,15 +1094,28 @@ class Faro {
 
   Future<void> _reportAndroidCrashReports(
     List<String> crashReports, {
-    required PersistedSessionRecord? recoveredSession,
-    required Meta? recoveredCrashMeta,
+    required List<PersistedSessionRecord>? recoveredSessions,
+    required String? processIdentifier,
   }) async {
     for (final crashInfo in crashReports) {
       late final FaroException exception;
+      PersistedSessionRecord? recoveredSession;
       try {
         final decoded = json.decode(crashInfo);
         if (decoded is! Map<String, dynamic>) {
           throw const FormatException('Crash report must be an object');
+        }
+
+        if (recoveredSessions != null) {
+          recoveredSession = _matchRecoveredSession(
+            decoded,
+            recoveredSessions,
+            processIdentifier: processIdentifier,
+          );
+          if (recoveredSession == null) {
+            log('Faro: Ignoring Android crash without a matching session');
+            continue;
+          }
         }
 
         exception = _androidCrashException(
@@ -1088,7 +1131,7 @@ class Faro {
       }
 
       try {
-        if (recoveredSession == null || recoveredCrashMeta == null) {
+        if (recoveredSession == null) {
           _instance.pushError(
             type: exception.type,
             value: exception.value,
@@ -1096,7 +1139,10 @@ class Faro {
             context: exception.context,
           );
         } else if (recoveredSession.isSampled) {
-          await _sendRecoveredCrash(exception, recoveredCrashMeta);
+          await _sendRecoveredCrash(
+            exception,
+            _metaForRecoveredSession(recoveredSession),
+          );
         }
       } catch (error, stacktrace) {
         log(
@@ -1105,6 +1151,42 @@ class Faro {
         );
       }
     }
+  }
+
+  PersistedSessionRecord? _matchRecoveredSession(
+    Map<String, dynamic> crashInfo,
+    List<PersistedSessionRecord> recoveredSessions, {
+    required String? processIdentifier,
+  }) {
+    if (processIdentifier != null &&
+        crashInfo['processName'] != processIdentifier) {
+      return null;
+    }
+
+    final timestampValue = crashInfo['timestamp'];
+    final timestamp = timestampValue is int
+        ? timestampValue
+        : int.tryParse(timestampValue?.toString() ?? '');
+    if (timestamp == null || timestamp < 0) {
+      return null;
+    }
+    final crashTime = DateTime.fromMillisecondsSinceEpoch(
+      timestamp,
+      isUtc: true,
+    );
+
+    PersistedSessionRecord? match;
+    for (final session in recoveredSessions) {
+      if (session.startedAt.isAfter(crashTime)) {
+        continue;
+      }
+      // The most recently started eligible session owned the process when the
+      // exit occurred. Equal timestamps prefer the later persisted record.
+      if (match == null || !session.startedAt.isBefore(match.startedAt)) {
+        match = session;
+      }
+    }
+    return match;
   }
 
   FaroException _androidCrashException(
