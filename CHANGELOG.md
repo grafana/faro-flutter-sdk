@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `Faro.resetSession()` for logout, account changes, and custom session
+  boundaries. It immediately starts and links a new session, restarts timing
+  and sampling, emits `session_start`, and updates persisted session state
+  ([#315](https://github.com/grafana/faro-flutter-sdk/issues/315)).
 - Persist a minimal, versioned session record by default. Every cold start
   creates a new session and links the prior session ID when known instead of
   resuming the same live session. Independent native processes use separate

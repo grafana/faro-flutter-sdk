@@ -240,6 +240,24 @@ void main() {
         expect(stored?.isSampled, isTrue);
       });
 
+      test('explicit reset replaces the persisted session record', () async {
+        stubRuntimeInfo(ownsPersistence: true);
+        await Faro().init(optionsConfiguration: createConfig());
+        final initialSessionId = Faro().meta.session?.id;
+
+        await Faro().resetSession();
+
+        final currentSessionId = Faro().meta.session?.id;
+        final persistence = await persistenceFactory.create(
+          processIdentifier: 'com.example.app',
+        );
+        final stored = await persistence.load();
+        expect(currentSessionId, isNot(initialSessionId));
+        expect(stored?.currentSessionId, currentSessionId);
+        expect(stored?.previousSessionId, initialSessionId);
+        expect(stored?.isSampled, Faro().isSampled);
+      });
+
       test('disabling persistence clears the owned record', () async {
         await seedPersistedSession('persisted-session');
         stubRuntimeInfo(ownsPersistence: true);
@@ -313,6 +331,15 @@ void main() {
       final app = Faro().meta.app;
       expect(app?.name, appName);
       verify(() => mockBatchTransport.addEvent(any())).called(1);
+    });
+
+    test('resetSession before init leaves the session unchanged', () async {
+      final initialSessionId = Faro().meta.session?.id;
+
+      await Faro().resetSession();
+
+      expect(Faro().meta.session?.id, initialSessionId);
+      verifyNever(() => mockBatchTransport.addEvent(any()));
     });
 
     test('resetForTesting clears OpenTelemetry global state', () async {

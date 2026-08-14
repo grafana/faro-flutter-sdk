@@ -22,6 +22,21 @@ class MockFaroTransport extends Mock implements FaroTransport {}
 
 class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
+class SequenceRandomValueProvider implements RandomValueProvider {
+  SequenceRandomValueProvider(this._values);
+
+  final List<double> _values;
+  var _index = 0;
+
+  @override
+  double nextDouble() {
+    if (_index >= _values.length) {
+      throw StateError('No random value configured for decision $_index');
+    }
+    return _values[_index++];
+  }
+}
+
 void main() {
   group('Sampling integration:', () {
     const appName = 'TestApp';
@@ -213,6 +228,58 @@ void main() {
         BatchTransportFactory().instance,
         isNot(isA<NoOpBatchTransport>()),
       );
+    });
+
+    test('explicit reset starts a new unsampled window', () async {
+      RandomValueProviderFactory().setInstance(
+        SequenceRandomValueProvider(<double>[0.1, 0.9]),
+      );
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.5),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        ),
+      );
+      expect(Faro().isSampled, isTrue);
+
+      await Faro().resetSession();
+
+      expect(Faro().isSampled, isFalse);
+      expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
+    });
+
+    test('explicit reset starts a new sampled window', () async {
+      RandomValueProviderFactory().setInstance(
+        SequenceRandomValueProvider(<double>[0.9, 0.1]),
+      );
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.5),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        ),
+      );
+      expect(Faro().isSampled, isFalse);
+
+      await Faro().resetSession();
+
+      expect(Faro().isSampled, isTrue);
+      expect(
+        BatchTransportFactory().instance,
+        isNot(isA<NoOpBatchTransport>()),
+      );
+      expect(BatchTransportFactory().instance?.payloadSize(), 1);
     });
 
     test('unsampled session drops events silently', () async {

@@ -390,10 +390,26 @@ data loss.
 
 | Event           | When                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |
-| `session_start` | The initial session, emitted once when the SDK initializes                           |
+| `session_start` | The initial session or an explicit reset                                              |
 | `session_extend` | A rotation: a new session was auto-created after local expiry or receiver invalidation |
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
+
+**Explicit reset.** Use `resetSession` after updating user identity when a
+logout, account change, or application-defined boundary must start a new
+session. The call creates and links the new session immediately, restarts its
+timing and sampling windows, emits `session_start`, and persists the new record
+when session persistence is enabled.
+
+```dart
+// Logout
+await Faro().setUser(const FaroUser.cleared());
+await Faro().resetSession();
+
+// Switch accounts
+await Faro().setUser(const FaroUser(id: 'account-456'));
+await Faro().resetSession();
+```
 
 **Cold starts and persistence.** Faro stores a minimal versioned session record
 by default. A process start always creates a new session ID. When the prior ID
@@ -424,7 +440,10 @@ response. Faro rotates that session immediately. Delayed or duplicate
 responses for an older session are ignored, so they cannot rotate the current
 session again.
 
-> **Sampling note:** the session sampling decision is made once at initialization and is **not** re-evaluated on rotation (see [Session Sampling](#session-sampling)).
+> **Sampling note:** the session sampling decision is made once per session.
+> Automatic expiry and receiver invalidation retain the current decision for
+> compatibility. An explicit `resetSession` starts a new sampling window (see
+> [Session Sampling](#session-sampling)).
 
 ---
 

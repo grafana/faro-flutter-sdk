@@ -159,6 +159,22 @@ void main() {
       expect(eventNames, isNot(contains('session_extend')));
     });
 
+    test(
+      'explicit reset links a new session and emits session_start',
+      () async {
+        await initFaro();
+        final initialSessionId = Faro().meta.session?.id;
+        clearInteractions(mockBatchTransport);
+
+        await Faro().resetSession();
+
+        final session = Faro().meta.session;
+        expect(session?.id, isNot(initialSessionId));
+        expect(session?.attributes?['previousSession'], initialSessionId);
+        expect(capturedEventNames(), <String>['session_start']);
+      },
+    );
+
     test('keeps the session when activity stays within thresholds', () async {
       await initFaro();
       final initialSessionId = Faro().meta.session?.id;

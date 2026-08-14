@@ -260,5 +260,24 @@ void main() {
       expect(provider1.isSampled, isTrue);
       expect(provider2.isSampled, isFalse);
     });
+
+    test('creates a fresh decision for a new session', () {
+      final provider1 = sut.create(
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
+        randomValueProvider: FakeRandomValueProvider(0.3),
+      );
+
+      final provider2 = sut.createForNewSession(
+        sampling: const SamplingRate(0.5),
+        meta: testMeta,
+        randomValueProvider: FakeRandomValueProvider(0.7),
+      );
+
+      expect(identical(provider1, provider2), isFalse);
+      expect(provider1.isSampled, isTrue);
+      expect(provider2.isSampled, isFalse);
+      expect(identical(sut.create(meta: testMeta), provider2), isTrue);
+    });
   });
 }

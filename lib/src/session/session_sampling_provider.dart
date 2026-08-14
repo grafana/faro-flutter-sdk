@@ -61,6 +61,23 @@ class SessionSamplingProviderFactory {
     return _instance!;
   }
 
+  /// Creates and stores a fresh sampling decision for a new session.
+  ///
+  /// Unlike [create], this always replaces the cached decision. Use it when an
+  /// explicit session reset starts a new sampling window in the same process.
+  SessionSamplingProvider createForNewSession({
+    Sampling? sampling,
+    required Meta meta,
+    RandomValueProvider? randomValueProvider,
+  }) {
+    return _instance = SessionSamplingProvider(
+      sampling: sampling,
+      meta: meta,
+      randomValueProvider:
+          randomValueProvider ?? RandomValueProviderFactory().create(),
+    );
+  }
+
   /// Resets the singleton instance. Primarily for testing purposes.
   @visibleForTesting
   void reset() => _instance = null;
