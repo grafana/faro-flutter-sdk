@@ -74,6 +74,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Session lifecycle events now use `session_start` for every new session.**
+  Flutter no longer emits the Web-only `session_extend` event when rotation
+  creates a new session. **Expect `session_extend` volume to drop to zero on
+  Flutter and `session_start` volume to increase by the same number of rotation
+  events.** Dashboards and alerts matching `session_extend` should match
+  `session_start` and read `meta.session.attributes.previousSession` to
+  identify linked sessions
+  ([#316](https://github.com/grafana/faro-flutter-sdk/issues/316)).
 - **Accurate Android runtime metadata.** Root Flutter engines that never attach
   to an Activity now report `dart_isolate_name=headless` instead of `main`.
   Activity-backed engines remain `main`; dashboards filtering only for

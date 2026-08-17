@@ -19,7 +19,7 @@ enum SessionStartTrigger {
 
 /// Called when a new session becomes active.
 ///
-/// [trigger] identifies whether this is the initial session or a rotation.
+/// [trigger] identifies why the session became active.
 typedef SessionChangedListener =
     void Function({
       required String currentId,
