@@ -435,9 +435,13 @@ With automatic detection, iOS root isolates continue to use `main`.
 
 If an Android app pre-warms its foreground `FlutterEngine` and initializes
 Faro before attaching that engine to an Activity, set
-`engineRole: FaroEngineRole.foreground` in `FaroConfig`. Configure background
-entrypoints separately; reusing the foreground override in a headless engine
-would label that engine as `main`.
+`engineRole: FaroEngineRole.foreground` in `FaroConfig`. This records
+`dart_isolate_name=main`. Android or iOS background entrypoints can set
+`FaroEngineRole.headless` to record `dart_isolate_name=headless` when automatic
+detection is unavailable or insufficient. Overrides apply only to the root
+isolate and are not checked against the native signal, so configure each
+entrypoint separately. Reusing either override for an engine with the opposite
+role would mislabel that engine.
 
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,

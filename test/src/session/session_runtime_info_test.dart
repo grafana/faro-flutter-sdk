@@ -132,6 +132,7 @@ void main() {
     final provider = SessionRuntimeInfoProvider(
       nativeMethods: nativeMethods,
       isRootIsolate: () => false,
+      engineRole: FaroEngineRole.headless,
     );
 
     final info = await provider.getRuntimeInfo();

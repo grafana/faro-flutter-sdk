@@ -13,8 +13,5 @@ public class FaroPluginTest {
 
         tracker.onActivityAttached();
         assertEquals("main", tracker.getEngineRole());
-
-        tracker.onActivityDetached();
-        assertEquals("main", tracker.getEngineRole());
     }
 }
