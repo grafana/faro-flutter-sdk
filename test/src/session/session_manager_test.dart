@@ -270,6 +270,47 @@ void main() {
       expect(observer.startedCount, 0);
     });
 
+    test('explicit reset starts and links a fresh session immediately', () {
+      final manager = createManager();
+      final initialId = manager.currentSessionId;
+      now = now.add(const Duration(minutes: 5));
+
+      manager.resetSession();
+
+      expect(manager.currentSessionId, isNot(initialId));
+      expect(manager.previousSessionId, initialId);
+      expect(manager.startedAt, now);
+      expect(manager.lastActivityAt, now);
+      expect(observer.startedCount, 1);
+      expect(observer.lastTrigger, SessionStartTrigger.explicitReset);
+    });
+
+    test('explicit reset links each repeated reset to its predecessor', () {
+      final manager = buildManager()..start(previousSessionId: 'persisted');
+      final initialId = manager.currentSessionId;
+      observer.reset();
+
+      manager.resetSession();
+      final secondId = manager.currentSessionId;
+      manager.resetSession();
+
+      expect(secondId, isNot(initialId));
+      expect(manager.currentSessionId, isNot(secondId));
+      expect(manager.previousSessionId, secondId);
+      expect(observer.startedCount, 2);
+    });
+
+    test('explicit reset is inert before session tracking starts', () {
+      final manager = buildManager();
+      final initialId = manager.currentSessionId;
+
+      manager.resetSession();
+
+      expect(manager.currentSessionId, initialId);
+      expect(manager.previousSessionId, isNull);
+      expect(observer.startedCount, 0);
+    });
+
     test('records activity to keep the session alive', () {
       final manager = createManager();
 

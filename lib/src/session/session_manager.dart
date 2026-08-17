@@ -12,6 +12,9 @@ enum SessionStartTrigger {
 
   /// A rotation triggered by expiry or receiver invalidation.
   rotation,
+
+  /// A rotation explicitly requested by the application.
+  explicitReset,
 }
 
 /// Called when a new session becomes active.
@@ -173,8 +176,23 @@ class SessionManager {
     _rotate(_currentTimeProvider());
   }
 
+  /// Starts a new session at an application-defined boundary.
+  ///
+  /// The new session starts immediately, links the current session, and resets
+  /// both lifetime and inactivity timing. Calls made before [start] or while a
+  /// rotation is already in progress are ignored.
+  void resetSession() {
+    if (!_isActive || _isRotating) {
+      return;
+    }
+    _rotate(_currentTimeProvider(), trigger: SessionStartTrigger.explicitReset);
+  }
+
   /// Rotates the session and notifies listeners.
-  void _rotate(DateTime now) {
+  void _rotate(
+    DateTime now, {
+    SessionStartTrigger trigger = SessionStartTrigger.rotation,
+  }) {
     _isRotating = true;
     try {
       final previousId = _sessionIdProvider.sessionId;
@@ -182,7 +200,7 @@ class SessionManager {
       _startedAt = now;
       _lastActivityAt = now;
       _previousSessionId = previousId;
-      _notifySessionStarted(trigger: SessionStartTrigger.rotation);
+      _notifySessionStarted(trigger: trigger);
       _notifyStateChanged(SessionStateChangeKind.sessionStarted);
     } finally {
       _isRotating = false;

@@ -141,6 +141,40 @@ class BatchTransportFactory {
       return _instance!;
     }
 
+    return _instance = _build(
+      initialPayload: initialPayload,
+      batchConfig: batchConfig,
+      transports: transports,
+      isSampled: isSampled,
+    );
+  }
+
+  /// Replaces the active transport for a new sampling decision.
+  ///
+  /// The caller must flush or discard any pending payload before replacing the
+  /// transport. The previous transport is disposed so its timer cannot keep
+  /// sending after the session boundary.
+  BatchTransport replace({
+    required Payload initialPayload,
+    required BatchConfig batchConfig,
+    required List<BaseTransport> transports,
+    required bool isSampled,
+  }) {
+    _instance?.dispose();
+    return _instance = _build(
+      initialPayload: initialPayload,
+      batchConfig: batchConfig,
+      transports: transports,
+      isSampled: isSampled,
+    );
+  }
+
+  BatchTransport _build({
+    required Payload initialPayload,
+    required BatchConfig batchConfig,
+    required List<BaseTransport> transports,
+    required bool isSampled,
+  }) {
     final BatchTransport instance;
     if (isSampled) {
       instance = BatchTransport(
@@ -152,7 +186,6 @@ class BatchTransportFactory {
       instance = NoOpBatchTransport();
     }
 
-    _instance = instance;
     return instance;
   }
 
