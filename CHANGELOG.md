@@ -77,9 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Session lifecycle events now use `session_start` for every new session.**
   Flutter no longer emits the Web-only `session_extend` event when rotation
   creates a new session. **Expect `session_extend` volume to drop to zero on
-  Flutter.** Dashboards and alerts matching it should match `session_start`
-  and read `meta.session.attributes.previousSession` to identify linked
-  sessions
+  Flutter and `session_start` volume to increase by the same number of rotation
+  events.** Dashboards and alerts matching `session_extend` should match
+  `session_start` and read `meta.session.attributes.previousSession` to
+  identify linked sessions
   ([#316](https://github.com/grafana/faro-flutter-sdk/issues/316)).
 - Filter Android `LOW_MEMORY` exits for service and less important process
   states regardless of whether Android records status `0` or `SIGKILL`.
