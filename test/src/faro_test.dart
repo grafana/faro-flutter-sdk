@@ -352,18 +352,28 @@ void main() {
 
       test('storage failures fall back to an unlinked session', () async {
         stubRuntimeInfo(ownsPersistence: true);
+        Faro().iosPlatformResolver = () => true;
+        Faro().androidPlatformResolver = () => false;
         Faro().sessionPersistenceFactory = SessionPersistenceFactory(
           applicationSupportDirectory: () =>
               Future<Directory>.error(StateError('storage unavailable')),
         );
 
-        await Faro().init(optionsConfiguration: createConfig());
+        await Faro().init(
+          optionsConfiguration: createConfig(enableCrashReporting: true),
+        );
 
         expect(Faro().meta.session?.id, isNotEmpty);
         expect(
           Faro().meta.session?.attributes?.containsKey('previousSession'),
           isFalse,
         );
+        final config =
+            verify(
+                  () => mockFaroNativeMethods.enableCrashReporter(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(config['reportPendingCrash'], isTrue);
       });
     });
 
