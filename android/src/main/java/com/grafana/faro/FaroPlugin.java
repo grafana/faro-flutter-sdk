@@ -63,8 +63,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private @Nullable Window window;
     private @Nullable Application application;
     private boolean ownsSessionPersistence = false;
-    // Engine role is stable across Activity detach/reattach cycles.
-    private boolean hasAttachedToActivity = false;
+    private final EngineRoleTracker engineRoleTracker = new EngineRoleTracker();
 
     private FlutterPluginBinding pluginBinding;
     private long lastFrameTimeNanos = 0;
@@ -188,7 +187,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "attached to Activity");
         
         if (binding.getActivity() != null) {
-            hasAttachedToActivity = true;
+            engineRoleTracker.onActivityAttached();
             activity = new WeakReference<>(binding.getActivity());
             window = activity.get().getWindow();
             // Update application context from activity if needed
@@ -237,6 +236,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     @Override
     public void onDetachedFromActivityForConfigChanges() {
         Log.d(TAG, "detached from Activity (config change)");
+        engineRoleTracker.onActivityDetached();
         
         // Set isActivityResumed to false during config changes
         isActivityResumed = false;
@@ -267,7 +267,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "reattached to Activity");
         
         if (binding.getActivity() != null) {
-            hasAttachedToActivity = true;
+            engineRoleTracker.onActivityAttached();
             activity = new WeakReference<>(binding.getActivity());
             window = activity.get().getWindow();
             
@@ -307,6 +307,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     @Override
     public void onDetachedFromActivity() {
         Log.d(TAG, "detached from Activity");
+        engineRoleTracker.onActivityDetached();
         
         // Stop ANR tracking if running
         if (isAnrTrackerRunning && anrTracker != null) {
@@ -416,7 +417,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         Map<String, Object> runtimeInfo = new HashMap<>();
                         runtimeInfo.put("processIdentifier", processIdentifier);
                         runtimeInfo.put("ownsSessionPersistence", ownsSessionPersistence);
-                        runtimeInfo.put("engineRole", getEngineRole(hasAttachedToActivity));
+                        runtimeInfo.put("engineRole", engineRoleTracker.getEngineRole());
                         result.success(runtimeInfo);
                         break;
                     default:
@@ -568,8 +569,21 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         }
     }
 
-    static String getEngineRole(boolean isAttachedToActivity) {
-        return isAttachedToActivity ? "ui" : "headless";
+    /** Tracks whether this Flutter engine has ever been attached to an Activity. */
+    static final class EngineRoleTracker {
+        private boolean hasAttachedToActivity = false;
+
+        void onActivityAttached() {
+            hasAttachedToActivity = true;
+        }
+
+        void onActivityDetached() {
+            // Keep the main role stable across configuration changes and detaches.
+        }
+
+        String getEngineRole() {
+            return hasAttachedToActivity ? "main" : "headless";
+        }
     }
 
     private void handleFrameDrop() {

@@ -6,12 +6,15 @@ import org.junit.Test;
 
 public class FaroPluginTest {
     @Test
-    public void attachedActivityIdentifiesUiEngine() {
-        assertEquals("ui", FaroPlugin.getEngineRole(true));
-    }
+    public void engineRoleTracksActivityAttachment() {
+        FaroPlugin.EngineRoleTracker tracker = new FaroPlugin.EngineRoleTracker();
 
-    @Test
-    public void missingActivityIdentifiesHeadlessEngine() {
-        assertEquals("headless", FaroPlugin.getEngineRole(false));
+        assertEquals("headless", tracker.getEngineRole());
+
+        tracker.onActivityAttached();
+        assertEquals("main", tracker.getEngineRole());
+
+        tracker.onActivityDetached();
+        assertEquals("main", tracker.getEngineRole());
     }
 }

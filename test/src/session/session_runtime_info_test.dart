@@ -1,3 +1,4 @@
+import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_runtime_info.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +20,7 @@ void main() {
       (_) async => <String, dynamic>{
         'processIdentifier': 'com.example.app',
         'ownsSessionPersistence': true,
-        'engineRole': 'ui',
+        'engineRole': 'main',
       },
     );
     final provider = SessionRuntimeInfoProvider(
@@ -33,6 +34,48 @@ void main() {
     expect(info?.isolateIdentifier, 'main');
     expect(info?.ownsSessionPersistence, isTrue);
   });
+
+  test('allows a pre-warmed UI engine to override native inference', () async {
+    when(
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
+    ).thenAnswer(
+      (_) async => <String, dynamic>{
+        'processIdentifier': 'com.example.app',
+        'ownsSessionPersistence': true,
+        'engineRole': 'headless',
+      },
+    );
+    final provider = SessionRuntimeInfoProvider(
+      nativeMethods: nativeMethods,
+      isRootIsolate: () => true,
+      engineRole: FaroEngineRole.foreground,
+    );
+
+    expect((await provider.getRuntimeInfo())?.isolateIdentifier, 'main');
+  });
+
+  test(
+    'allows an explicit headless role to override native inference',
+    () async {
+      when(
+        () =>
+            nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
+      ).thenAnswer(
+        (_) async => <String, dynamic>{
+          'processIdentifier': 'com.example.app',
+          'ownsSessionPersistence': true,
+          'engineRole': 'main',
+        },
+      );
+      final provider = SessionRuntimeInfoProvider(
+        nativeMethods: nativeMethods,
+        isRootIsolate: () => true,
+        engineRole: FaroEngineRole.headless,
+      );
+
+      expect((await provider.getRuntimeInfo())?.isolateIdentifier, 'headless');
+    },
+  );
 
   test('identifies a root isolate in a headless Android engine', () async {
     when(
@@ -83,6 +126,7 @@ void main() {
       (_) async => <String, dynamic>{
         'processIdentifier': 'com.example.app',
         'ownsSessionPersistence': true,
+        'engineRole': 'headless',
       },
     );
     final provider = SessionRuntimeInfoProvider(

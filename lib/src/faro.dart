@@ -405,6 +405,7 @@ class Faro {
 
     final runtimeInfo = await SessionRuntimeInfoProvider(
       nativeMethods: nativeChannel,
+      engineRole: options.engineRole,
     ).getRuntimeInfo();
     if (runtimeInfo == null) {
       return null;

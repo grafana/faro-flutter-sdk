@@ -431,7 +431,13 @@ process identity is available, telemetry includes `process_name` and
 has attached to an Activity is identified as `main`; a root engine that has
 never attached to an Activity is identified as `headless`. Secondary Dart
 isolates use their debug name when available and otherwise use `background`.
-iOS root isolates continue to use `main`.
+With automatic detection, iOS root isolates continue to use `main`.
+
+If an Android app pre-warms its foreground `FlutterEngine` and initializes
+Faro before attaching that engine to an Activity, set
+`engineRole: FaroEngineRole.foreground` in `FaroConfig`. Configure background
+entrypoints separately; reusing the foreground override in a headless engine
+would label that engine as `main`.
 
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,
