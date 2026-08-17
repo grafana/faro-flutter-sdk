@@ -325,7 +325,7 @@ void main() {
     test('ignores re-entrant calls during rotation', () {
       final manager = createManager();
       // Set the hook after start()/reset so it only fires on rotation.
-      // Simulates the rotation emitting a session_extend event that
+      // Simulates the rotation emitting a session_start event that
       // flows back through the ingestion path.
       observer.onStarted = () =>
           manager.checkSession(activity: SessionActivityKind.meaningful);
@@ -373,7 +373,7 @@ void main() {
         final manager = createManager();
         final sessionStart = now;
 
-        // SDK lifecycle events (e.g. session_extend) never move
+        // SDK lifecycle events (e.g. session_start) never move
         // lastActivity forward.
         now = now.add(const Duration(minutes: 5));
         manager.checkSession(activity: SessionActivityKind.passive);
