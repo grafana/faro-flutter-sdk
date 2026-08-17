@@ -247,7 +247,7 @@ void main() {
       final session = Faro().meta.session;
       expect(session?.id, isNot(initialSessionId));
       expect(session?.attributes?['previousSession'], initialSessionId);
-      expect(capturedEventNames(), contains('session_start'));
+      expect(capturedEventNames(), <String>['session_start', 'some_event']);
     });
 
     test('rotates the session when lifetime reaches 4 hours', () async {

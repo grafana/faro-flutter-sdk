@@ -386,15 +386,12 @@ receiver enforces the same windows server-side and drops telemetry from
 sessions that exceed them, so a longer client-side value would cause silent
 data loss.
 
-**Lifecycle events.** Faro emits an event whenever the session id changes, so you can follow the user journey in Grafana:
-
-| Event           | When                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------- |
-| `session_start` | A session is created on cold start, expiry, explicit reset, or receiver invalidation |
-
-Faro does not emit `session_extend` for rotations because each rotation creates
-a new session ID. The new session instead emits `session_start` and links its
-predecessor through `previousSession`.
+**Lifecycle events.** Faro emits `session_start` whenever it creates a session
+on cold start, expiry, explicit reset, or receiver invalidation.
+`session_extend` is a web-only event that means user activity kept an existing
+session alive, so it does not apply when Flutter rotation creates a new session
+ID. Use `previousSession` rather than the event name to identify linked
+sessions.
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 
