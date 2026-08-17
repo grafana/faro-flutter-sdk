@@ -82,6 +82,18 @@ class UserActionsService {
     _releaseActiveAction();
   }
 
+  /// Ends and dispatches the active action before a session boundary.
+  ///
+  /// Dispatch is synchronous so buffered telemetry uses the transport for the
+  /// session in which the action started.
+  void endActiveUserAction() {
+    final active = _activeUserAction;
+    if (active == null) return;
+
+    active.end();
+    _onActionTerminated(active);
+  }
+
   void _dispatchPendingItems(UserAction userAction) {
     final transport = _transportResolver();
     if (transport == null) return;

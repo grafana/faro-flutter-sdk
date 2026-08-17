@@ -382,9 +382,15 @@ class Faro {
     });
     _batchTransport?.updatePayloadMeta(meta);
 
-    final eventName = trigger == SessionStartTrigger.initial
-        ? 'session_start'
-        : 'session_extend';
+    if (trigger == SessionStartTrigger.explicitReset) {
+      _restartSamplingForNewSession();
+    }
+
+    final eventName = switch (trigger) {
+      SessionStartTrigger.initial ||
+      SessionStartTrigger.explicitReset => 'session_start',
+      SessionStartTrigger.rotation => 'session_extend',
+    };
     // Lifecycle events bypass user-action buffering and never count as
     // session activity (SDK-emitted, not app/user behavior).
     _telemetryRouter.ingest(
@@ -463,6 +469,30 @@ class Faro {
     await _sessionPersistence?.flush();
   }
 
+  void _restartSamplingForNewSession() {
+    final previousDecision = _isSampled;
+    _isSampled = SessionSamplingProviderFactory()
+        .createForNewSession(sampling: config?.sampling, meta: meta)
+        .isSampled;
+
+    if (_isSampled == previousDecision) {
+      return;
+    }
+
+    final batchTransport = BatchTransportFactory().replace(
+      initialPayload: Payload(meta),
+      batchConfig: config?.batchConfig ?? BatchConfig(),
+      transports: _transports,
+      isSampled: _isSampled,
+    );
+    _batchTransport = batchTransport;
+    pod.overrideProvider(batchTransportProvider, (_) => batchTransport);
+
+    if (!_isSampled) {
+      log('Faro: Session not sampled. Telemetry will be dropped.');
+    }
+  }
+
   /// Ends the cold start interval at the first frame the engine rasterized.
   ///
   /// Using that frame rather than the next one after `init` limits how far the
@@ -496,6 +526,33 @@ class Faro {
     // cleaned up here.
     pod.clearScope(faroInitScope);
     _isInitialized = false;
+  }
+
+  /// Starts a new session for logout, account changes, or a custom boundary.
+  ///
+  /// The new session is created immediately and links the previous session ID.
+  /// Its lifetime, inactivity, and sampling windows start over, and Faro emits
+  /// the normal `session_start` event. When session persistence is enabled, the
+  /// returned future completes after the new record has been written.
+  /// Any active user action is ended first so its buffered telemetry remains in
+  /// the previous session.
+  ///
+  /// Calls made before [init] are ignored.
+  ///
+  /// Example:
+  /// ```dart
+  /// await Faro().setUser(const FaroUser.cleared());
+  /// await Faro().resetSession();
+  /// ```
+  Future<void> resetSession() async {
+    if (!_isInitialized) {
+      log('Faro: resetSession() called before initialization; ignoring.');
+      return;
+    }
+
+    _userActionsService.endActiveUserAction();
+    pod.resolve(sessionManagerProvider).resetSession();
+    await _sessionPersistence?.flush();
   }
 
   /// Sets the user for all subsequent telemetry.
