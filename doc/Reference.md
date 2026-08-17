@@ -427,7 +427,11 @@ background isolates cannot concurrently update that record. Ownership is not
 transferred to an already-running secondary engine if the owner detaches; that
 engine keeps its in-memory session until it initializes again. When native
 process identity is available, telemetry includes `process_name` and
-`dart_isolate_name` session attributes for correlation.
+`dart_isolate_name` session attributes for correlation. An Android engine that
+has attached to an Activity is identified as `main`; a root engine that has
+never attached to an Activity is identified as `headless`. Secondary Dart
+isolates use their debug name when available and otherwise use `background`.
+iOS root isolates continue to use `main`.
 
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,

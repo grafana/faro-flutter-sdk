@@ -19,6 +19,7 @@ void main() {
       (_) async => <String, dynamic>{
         'processIdentifier': 'com.example.app',
         'ownsSessionPersistence': true,
+        'engineRole': 'ui',
       },
     );
     final provider = SessionRuntimeInfoProvider(
@@ -31,6 +32,44 @@ void main() {
     expect(info?.processIdentifier, 'com.example.app');
     expect(info?.isolateIdentifier, 'main');
     expect(info?.ownsSessionPersistence, isTrue);
+  });
+
+  test('identifies a root isolate in a headless Android engine', () async {
+    when(
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
+    ).thenAnswer(
+      (_) async => <String, dynamic>{
+        'processIdentifier': 'com.example.app',
+        'ownsSessionPersistence': true,
+        'engineRole': 'headless',
+      },
+    );
+    final provider = SessionRuntimeInfoProvider(
+      nativeMethods: nativeMethods,
+      isRootIsolate: () => true,
+    );
+
+    final info = await provider.getRuntimeInfo();
+
+    expect(info?.isolateIdentifier, 'headless');
+    expect(info?.ownsSessionPersistence, isTrue);
+  });
+
+  test('keeps iOS root classification when engine role is unavailable', () async {
+    when(
+      () => nativeMethods.getSessionRuntimeInfo(claimSessionPersistence: true),
+    ).thenAnswer(
+      (_) async => <String, dynamic>{
+        'processIdentifier': 'com.example.app',
+        'ownsSessionPersistence': true,
+      },
+    );
+    final provider = SessionRuntimeInfoProvider(
+      nativeMethods: nativeMethods,
+      isRootIsolate: () => true,
+    );
+
+    expect((await provider.getRuntimeInfo())?.isolateIdentifier, 'main');
   });
 
   test('secondary isolates keep identity but cannot persist', () async {

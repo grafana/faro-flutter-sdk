@@ -63,6 +63,8 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private @Nullable Window window;
     private @Nullable Application application;
     private boolean ownsSessionPersistence = false;
+    // Engine role is stable across Activity detach/reattach cycles.
+    private boolean hasAttachedToActivity = false;
 
     private FlutterPluginBinding pluginBinding;
     private long lastFrameTimeNanos = 0;
@@ -186,6 +188,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "attached to Activity");
         
         if (binding.getActivity() != null) {
+            hasAttachedToActivity = true;
             activity = new WeakReference<>(binding.getActivity());
             window = activity.get().getWindow();
             // Update application context from activity if needed
@@ -264,6 +267,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "reattached to Activity");
         
         if (binding.getActivity() != null) {
+            hasAttachedToActivity = true;
             activity = new WeakReference<>(binding.getActivity());
             window = activity.get().getWindow();
             
@@ -412,6 +416,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         Map<String, Object> runtimeInfo = new HashMap<>();
                         runtimeInfo.put("processIdentifier", processIdentifier);
                         runtimeInfo.put("ownsSessionPersistence", ownsSessionPersistence);
+                        runtimeInfo.put("engineRole", getEngineRole(hasAttachedToActivity));
                         result.success(runtimeInfo);
                         break;
                     default:
@@ -561,6 +566,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             && SESSION_PERSISTENCE_OWNER_CLAIMED.compareAndSet(false, true)) {
             ownsSessionPersistence = true;
         }
+    }
+
+    static String getEngineRole(boolean isAttachedToActivity) {
+        return isAttachedToActivity ? "ui" : "headless";
     }
 
     private void handleFrameDrop() {

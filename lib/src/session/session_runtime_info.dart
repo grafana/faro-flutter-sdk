@@ -43,8 +43,11 @@ class SessionRuntimeInfoProvider {
       }
 
       final debugName = Isolate.current.debugName;
+      final isHeadlessEngine = nativeInfo?['engineRole'] == 'headless';
       final isolateIdentifier = isRootIsolate
-          ? 'main'
+          ? isHeadlessEngine
+                ? 'headless'
+                : 'main'
           : debugName != null && debugName != 'main'
           ? debugName
           : 'background';
