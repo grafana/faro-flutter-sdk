@@ -368,15 +368,10 @@ class Faro {
       _restartSamplingForNewSession();
     }
 
-    final eventName = switch (trigger) {
-      SessionStartTrigger.initial ||
-      SessionStartTrigger.explicitReset => 'session_start',
-      SessionStartTrigger.rotation => 'session_extend',
-    };
     // Lifecycle events bypass user-action buffering and never count as
     // session activity (SDK-emitted, not app/user behavior).
     _telemetryRouter.ingest(
-      TelemetryItem.fromEvent(Event(eventName)),
+      TelemetryItem.fromEvent(Event('session_start')),
       skipBuffer: true,
       activity: SessionActivityKind.passive,
     );

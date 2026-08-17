@@ -388,10 +388,13 @@ data loss.
 
 **Lifecycle events.** Faro emits an event whenever the session id changes, so you can follow the user journey in Grafana:
 
-| Event           | When                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------ |
-| `session_start` | The initial session or an explicit reset                                              |
-| `session_extend` | A rotation: a new session was auto-created after local expiry or receiver invalidation |
+| Event           | When                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `session_start` | A session is created on cold start, expiry, explicit reset, or receiver invalidation |
+
+Faro does not emit `session_extend` for rotations because each rotation creates
+a new session ID. The new session instead emits `session_start` and links its
+predecessor through `previousSession`.
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 

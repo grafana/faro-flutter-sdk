@@ -74,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Emit `session_start` whenever Faro creates a session after cold start,
+  expiry, explicit reset, or receiver invalidation. Rotations previously
+  emitted `session_extend` even though they created a new session ID
+  ([#316](https://github.com/grafana/faro-flutter-sdk/issues/316)).
 - Filter Android `LOW_MEMORY` exits for service and less important process
   states regardless of whether Android records status `0` or `SIGKILL`.
   Foreground, foreground-service, visible, and perceptible exits remain
