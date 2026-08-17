@@ -151,7 +151,7 @@ void main() {
     });
 
     test('forwards SessionActivityKind.passive', () {
-      final item = TelemetryItem.fromEvent(Event('session_extend'));
+      final item = TelemetryItem.fromEvent(Event('session_start'));
       final router = buildRouter();
 
       router.ingest(

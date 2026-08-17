@@ -157,7 +157,10 @@ void main() {
       late Directory temporaryDirectory;
       late SessionPersistenceFactory persistenceFactory;
 
-      FaroConfig createConfig({bool persistSession = true}) {
+      FaroConfig createConfig({
+        bool persistSession = true,
+        bool enableCrashReporting = false,
+      }) {
         return FaroConfig(
           appName: appName,
           appVersion: appVersion,
@@ -165,6 +168,7 @@ void main() {
           apiKey: apiKey,
           collectorUrl: 'https://some-url.com',
           persistSession: persistSession,
+          enableCrashReporting: enableCrashReporting,
         );
       }
 
@@ -278,6 +282,51 @@ void main() {
           isFalse,
         );
       });
+
+      test(
+        'iOS skips an unmatched crash when session persistence is active',
+        () async {
+          stubRuntimeInfo(ownsPersistence: true);
+          Faro().iosPlatformResolver = () => true;
+          Faro().androidPlatformResolver = () => false;
+
+          await Faro().init(
+            optionsConfiguration: createConfig(enableCrashReporting: true),
+          );
+
+          final config =
+              verify(
+                    () =>
+                        mockFaroNativeMethods.enableCrashReporter(captureAny()),
+                  ).captured.single
+                  as Map<String, dynamic>;
+          expect(config['reportPendingCrash'], isFalse);
+        },
+      );
+
+      test(
+        'iOS keeps the crash fallback when persistence is disabled',
+        () async {
+          stubRuntimeInfo(ownsPersistence: true);
+          Faro().iosPlatformResolver = () => true;
+          Faro().androidPlatformResolver = () => false;
+
+          await Faro().init(
+            optionsConfiguration: createConfig(
+              persistSession: false,
+              enableCrashReporting: true,
+            ),
+          );
+
+          final config =
+              verify(
+                    () =>
+                        mockFaroNativeMethods.enableCrashReporter(captureAny()),
+                  ).captured.single
+                  as Map<String, dynamic>;
+          expect(config['reportPendingCrash'], isTrue);
+        },
+      );
 
       test(
         'a non-owner stays in memory and preserves the owned record',
@@ -695,6 +744,7 @@ java.lang.NullPointerException: test crash
         config['session']['attributes'],
         containsPair('isSampled', 'true'),
       );
+      expect(config['reportPendingCrash'], isTrue);
     });
 
     test('recovered crash from an unsampled session is not sent', () async {
@@ -835,6 +885,33 @@ java.lang.NullPointerException: test crash
       verifyNever(() => mockFaroTransport.sendHistorical(any()));
       verifyNever(() => mockBatchTransport.addExceptions(any()));
     });
+
+    test(
+      'recovered crash is ignored when persisted history is empty',
+      () async {
+        await Faro().reportAndroidCrashesForTesting(
+          [
+            json.encode({
+              'reason': 'CRASH',
+              'status': 0,
+              'timestamp': DateTime.utc(
+                2026,
+                8,
+                14,
+                12,
+                5,
+              ).millisecondsSinceEpoch,
+              'processName': 'com.example.app',
+            }),
+          ],
+          recoveredSessions: const <PersistedSessionRecord>[],
+          processIdentifier: 'com.example.app',
+        );
+
+        verifyNever(() => mockFaroTransport.sendHistorical(any()));
+        verifyNever(() => mockBatchTransport.addExceptions(any()));
+      },
+    );
 
     test('malformed recovered crash does not block later reports', () async {
       final crashReport = json.encode({

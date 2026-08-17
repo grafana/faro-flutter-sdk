@@ -386,12 +386,12 @@ receiver enforces the same windows server-side and drops telemetry from
 sessions that exceed them, so a longer client-side value would cause silent
 data loss.
 
-**Lifecycle events.** Faro emits an event whenever the session id changes, so you can follow the user journey in Grafana:
-
-| Event           | When                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------ |
-| `session_start` | The initial session or an explicit reset                                              |
-| `session_extend` | A rotation: a new session was auto-created after local expiry or receiver invalidation |
+**Lifecycle events.** Faro emits `session_start` whenever it creates a session
+on cold start, expiry, explicit reset, or receiver invalidation.
+`session_extend` is a web-only event that means user activity kept an existing
+session alive, so it does not apply when Flutter rotation creates a new session
+ID. Use `previousSession` rather than the event name to identify linked
+sessions.
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 
@@ -436,8 +436,11 @@ payload also includes `crashedSessionId` in the session attributes and uses
 that session's persisted sampling decision. Sending the recovered crash does
 not rotate or otherwise change the new live session. Android continues to
 deduplicate historical `ApplicationExitInfo` records, while iOS purges the
-pending PLCrashReporter record after processing it. If session persistence is
-disabled or unavailable, the SDK cannot recover the prior session identity.
+pending PLCrashReporter record after processing it. If persistence is active
+but a recovered crash cannot be matched to a persisted session, the SDK
+discards that crash rather than attributing it to the new live session. If
+persistence is disabled or unavailable, the SDK cannot recover the prior
+session identity and retains the legacy live-session fallback.
 
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,

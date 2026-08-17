@@ -74,12 +74,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Attribute recovered Android and iOS native crashes to the persisted session
-  in which they occurred without changing the new live session. Recovered
-  crash metadata includes `crashedSessionId` and preserves the original
-  session sampling decision. Historical Android exits are matched to their
-  retained per-process sessions
+- **Recovered native crashes retain their original session.** Android and iOS
+  crash metadata includes `crashedSessionId` and preserves the persisted
+  sampling decision without changing the new live session. Historical Android
+  exits are matched to their retained per-process sessions. **When persistence
+  is active, crashes without a matching session are discarded instead of being
+  attributed to the new session**
   ([#151](https://github.com/grafana/faro-flutter-sdk/issues/151)).
+- **Session lifecycle events now use `session_start` for every new session.**
+  Flutter no longer emits the Web-only `session_extend` event when rotation
+  creates a new session. **Expect `session_extend` volume to drop to zero on
+  Flutter and `session_start` volume to increase by the same number of rotation
+  events.** Dashboards and alerts matching `session_extend` should match
+  `session_start` and read `meta.session.attributes.previousSession` to
+  identify linked sessions
+  ([#316](https://github.com/grafana/faro-flutter-sdk/issues/316)).
 - Filter Android `LOW_MEMORY` exits for service and less important process
   states regardless of whether Android records status `0` or `SIGKILL`.
   Foreground, foreground-service, visible, and perceptible exits remain

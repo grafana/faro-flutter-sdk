@@ -239,6 +239,7 @@ void main() {
     test('rotates the session when inactivity reaches 15 minutes', () async {
       await initFaro();
       final initialSessionId = Faro().meta.session?.id;
+      clearInteractions(mockBatchTransport);
 
       now = now.add(const Duration(minutes: 15));
       Faro().pushEvent('some_event');
@@ -246,6 +247,7 @@ void main() {
       final session = Faro().meta.session;
       expect(session?.id, isNot(initialSessionId));
       expect(session?.attributes?['previousSession'], initialSessionId);
+      expect(capturedEventNames(), <String>['session_start', 'some_event']);
     });
 
     test('rotates the session when lifetime reaches 4 hours', () async {
@@ -258,6 +260,7 @@ void main() {
         Faro().setViewMeta(name: 'view_$i');
       }
       expect(Faro().meta.session?.id, initialSessionId);
+      clearInteractions(mockBatchTransport);
 
       now = now.add(const Duration(minutes: 10));
       Faro().setViewMeta(name: 'after_lifetime');
@@ -265,9 +268,10 @@ void main() {
       final session = Faro().meta.session;
       expect(session?.id, isNot(initialSessionId));
       expect(session?.attributes?['previousSession'], initialSessionId);
+      expect(capturedEventNames(), <String>['session_start']);
     });
 
-    test('emits session_extend for the new session and attributes the '
+    test('emits session_start for the new session and attributes the '
         'triggering telemetry to it', () async {
       await initFaro();
       clearInteractions(mockBatchTransport);
@@ -276,7 +280,7 @@ void main() {
       Faro().pushEvent('trigger_event');
 
       // Rotation updates the payload meta first, then emits
-      // session_extend, then the triggering event follows — so both
+      // session_start, then the triggering event follows — so both
       // events belong to the new session.
       final rotatedSessionId = Faro().meta.session?.id;
       verifyInOrder([
@@ -291,7 +295,7 @@ void main() {
         ),
         () => mockBatchTransport.addEvent(
           any(
-            that: isA<Event>().having((e) => e.name, 'name', 'session_extend'),
+            that: isA<Event>().having((e) => e.name, 'name', 'session_start'),
           ),
         ),
         () => mockBatchTransport.addEvent(
@@ -354,7 +358,7 @@ void main() {
               that: isA<Event>().having(
                 (event) => event.name,
                 'name',
-                'session_extend',
+                'session_start',
               ),
             ),
           ),
@@ -407,7 +411,7 @@ void main() {
         () => mockBatchTransport.updatePayloadMeta(any()),
         () => mockBatchTransport.addEvent(
           any(
-            that: isA<Event>().having((e) => e.name, 'name', 'session_extend'),
+            that: isA<Event>().having((e) => e.name, 'name', 'session_start'),
           ),
         ),
         () => mockBatchTransport.addLog(any()),
@@ -444,11 +448,7 @@ void main() {
           () => mockBatchTransport.updatePayloadMeta(any()),
           () => mockBatchTransport.addEvent(
             any(
-              that: isA<Event>().having(
-                (e) => e.name,
-                'name',
-                'session_extend',
-              ),
+              that: isA<Event>().having((e) => e.name, 'name', 'session_start'),
             ),
           ),
           () => mockBatchTransport.addMeasurement(any()),
@@ -527,7 +527,7 @@ void main() {
               that: isA<Event>().having(
                 (event) => event.name,
                 'name',
-                'session_extend',
+                'session_start',
               ),
             ),
           ),
@@ -593,17 +593,19 @@ void main() {
       expect(session?.attributes?['previousSession'], initialSessionId);
     });
 
-    test('emits a single session_extend on rotation', () async {
+    test('emits a single session_start on rotation', () async {
       await initFaro();
       clearInteractions(mockBatchTransport);
 
       now = now.add(const Duration(minutes: 16));
       Faro().pushEvent('trigger_event');
 
-      final sessionExtends = capturedEventNames()
-          .where((name) => name == 'session_extend')
+      final eventNames = capturedEventNames();
+      final sessionStarts = eventNames
+          .where((name) => name == 'session_start')
           .length;
-      expect(sessionExtends, 1);
+      expect(sessionStarts, 1);
+      expect(eventNames, isNot(contains('session_extend')));
     });
   });
 }
