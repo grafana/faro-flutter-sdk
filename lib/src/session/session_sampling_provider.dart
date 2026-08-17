@@ -63,8 +63,9 @@ class SessionSamplingProviderFactory {
 
   /// Creates and stores a fresh sampling decision for a new session.
   ///
-  /// Unlike [create], this always replaces the cached decision. Use it when an
-  /// explicit session reset starts a new sampling window in the same process.
+  /// Unlike [create], this always replaces the cached decision. Use it when a
+  /// rotation or explicit reset starts a new sampling window in the same
+  /// process.
   SessionSamplingProvider createForNewSession({
     Sampling? sampling,
     required Meta meta,

@@ -364,7 +364,7 @@ class Faro {
     });
     _batchTransport?.updatePayloadMeta(meta);
 
-    if (trigger == SessionStartTrigger.explicitReset) {
+    if (trigger != SessionStartTrigger.initial) {
       _restartSamplingForNewSession();
     }
 

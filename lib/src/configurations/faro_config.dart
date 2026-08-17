@@ -104,7 +104,9 @@ class FaroConfig {
   /// is not sampled, no telemetry (events, logs, exceptions, measurements,
   /// traces) is sent for that session.
   ///
-  /// The sampling decision is made once per session at initialization time.
+  /// A fresh sampling decision is made whenever a session starts, including
+  /// after automatic expiry, receiver invalidation, or an explicit reset. The
+  /// decision remains fixed for that session.
   ///
   /// If not provided, defaults to [SamplingRate(1.0)] (all sessions sampled).
   ///

@@ -462,10 +462,9 @@ response. Faro rotates that session immediately. Delayed or duplicate
 responses for an older session are ignored, so they cannot rotate the current
 session again.
 
-> **Sampling note:** the session sampling decision is made once per session.
-> Automatic expiry and receiver invalidation retain the current decision for
-> compatibility. An explicit `resetSession` starts a new sampling window (see
-> [Session Sampling](#session-sampling)).
+> **Sampling note:** every new session makes an independent sampling decision,
+> including sessions created by automatic expiry, receiver invalidation, or
+> `resetSession` (see [Session Sampling](#session-sampling)).
 
 ---
 
@@ -1320,8 +1319,8 @@ Faro().runApp(
 
 **How it works:**
 
-- The sampling decision is made at initialization and applies until an explicit session reset
-- Automatic expiry and receiver invalidation retain the current decision; [`resetSession`](#session-lifecycle--rotation) evaluates a new decision for the new session
+- A fresh sampling decision is made when each session starts
+- Automatic expiry, receiver invalidation, and [`resetSession`](#session-lifecycle--rotation) each start a new sampling window
 - When a session is not sampled, all telemetry (events, logs, exceptions, measurements, traces) is silently dropped
 - A debug log is emitted when a session is not sampled, for transparency during development
 - Invalid return values (< 0.0 or > 1.0) are clamped to the valid range
@@ -1341,8 +1340,10 @@ Faro().runApp(
 
 **Notes:**
 
-- Sampling is head-based: initialization and each explicit `resetSession` make one decision that remains fixed for that session
-- The broader [Faro sampling model](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/) also re-samples after automatic rotation; matching that behavior remains planned in #284
+- Sampling is head-based: each new session makes one decision that remains fixed
+  until the next rotation
+- `SamplingFunction` receives the new session ID and its `previousSession`
+  attribute when a rotation links it to an earlier session
 
 **Use cases:**
 
