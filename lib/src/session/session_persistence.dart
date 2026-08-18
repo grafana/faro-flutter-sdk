@@ -134,26 +134,41 @@ class SessionPersistence {
   final SessionFileStore _store;
   final Duration activityWriteDelay;
 
+  // Android returns at most 15 historical exits. Keep those sessions plus the
+  // session that becomes current after recovery.
+  static const int _maxHistoryLength = 16;
+  static const int _historySchemaVersion = 2;
+
   Timer? _activityWriteTimer;
-  PersistedSessionRecord? _pendingRecord;
-  PersistedSessionRecord? _enqueuedRecord;
+  List<PersistedSessionRecord> _history = <PersistedSessionRecord>[];
+  List<PersistedSessionRecord>? _pendingHistory;
+  List<PersistedSessionRecord>? _enqueuedHistory;
   Future<void> _writeQueue = Future<void>.value();
 
   Future<PersistedSessionRecord?> load() async {
+    final history = await loadHistory();
+    return history.isEmpty ? null : history.last;
+  }
+
+  Future<List<PersistedSessionRecord>> loadHistory() async {
     try {
       final persistedValue = await _store.read();
       if (persistedValue == null) {
-        return null;
+        _history = <PersistedSessionRecord>[];
+        return const <PersistedSessionRecord>[];
       }
       final decoded = jsonDecode(persistedValue);
       if (decoded is! Map<String, dynamic>) {
         throw const FormatException('Session record must be an object');
       }
-      return PersistedSessionRecord.fromJson(decoded);
+      final history = _decodeHistory(decoded);
+      _history = List<PersistedSessionRecord>.of(history);
+      return List<PersistedSessionRecord>.unmodifiable(history);
     } catch (error) {
       log('Faro: Ignoring invalid persisted session state: $error');
       await _deleteSafely();
-      return null;
+      _history = <PersistedSessionRecord>[];
+      return const <PersistedSessionRecord>[];
     }
   }
 
@@ -165,13 +180,24 @@ class SessionPersistence {
     final lastActivityAt = state.lastActivityAt.isBefore(state.startedAt)
         ? state.startedAt
         : state.lastActivityAt;
-    _pendingRecord = PersistedSessionRecord(
+    final record = PersistedSessionRecord(
       currentSessionId: state.currentSessionId,
       previousSessionId: state.previousSessionId,
       startedAt: state.startedAt,
       lastActivityAt: lastActivityAt,
       isSampled: isSampled,
     );
+    final existingIndex = _history.indexWhere(
+      (item) => item.currentSessionId == record.currentSessionId,
+    );
+    if (existingIndex != -1) {
+      _history.removeAt(existingIndex);
+    }
+    _history.add(record);
+    if (_history.length > _maxHistoryLength) {
+      _history.removeRange(0, _history.length - _maxHistoryLength);
+    }
+    _pendingHistory = List<PersistedSessionRecord>.unmodifiable(_history);
 
     if (immediate) {
       _activityWriteTimer?.cancel();
@@ -189,7 +215,8 @@ class SessionPersistence {
   Future<void> clear() async {
     _activityWriteTimer?.cancel();
     _activityWriteTimer = null;
-    _pendingRecord = null;
+    _history = <PersistedSessionRecord>[];
+    _pendingHistory = null;
     _writeQueue = _writeQueue.then((_) => _deleteSafely());
     await _writeQueue;
   }
@@ -202,25 +229,30 @@ class SessionPersistence {
   }
 
   void _enqueuePendingWrite() {
-    final record = _pendingRecord;
-    if (record == null || identical(record, _enqueuedRecord)) {
+    final history = _pendingHistory;
+    if (history == null || identical(history, _enqueuedHistory)) {
       return;
     }
-    _enqueuedRecord = record;
+    _enqueuedHistory = history;
     _writeQueue = _writeQueue.then((_) async {
-      final writeSucceeded = await _writeSafely(record);
-      if (identical(_enqueuedRecord, record)) {
-        _enqueuedRecord = null;
+      final writeSucceeded = await _writeSafely(history);
+      if (identical(_enqueuedHistory, history)) {
+        _enqueuedHistory = null;
       }
-      if (writeSucceeded && identical(_pendingRecord, record)) {
-        _pendingRecord = null;
+      if (writeSucceeded && identical(_pendingHistory, history)) {
+        _pendingHistory = null;
       }
     });
   }
 
-  Future<bool> _writeSafely(PersistedSessionRecord record) async {
+  Future<bool> _writeSafely(List<PersistedSessionRecord> history) async {
     try {
-      await _store.write(jsonEncode(record.toJson()));
+      await _store.write(
+        jsonEncode(<String, dynamic>{
+          'schemaVersion': _historySchemaVersion,
+          'records': history.map((record) => record.toJson()).toList(),
+        }),
+      );
       return true;
     } catch (error) {
       log('Faro: Failed to persist session state: $error');
@@ -234,6 +266,30 @@ class SessionPersistence {
     } catch (error) {
       log('Faro: Failed to clear persisted session state: $error');
     }
+  }
+
+  List<PersistedSessionRecord> _decodeHistory(Map<String, dynamic> json) {
+    if (json['schemaVersion'] == PersistedSessionRecord.schemaVersion) {
+      return <PersistedSessionRecord>[PersistedSessionRecord.fromJson(json)];
+    }
+    if (json['schemaVersion'] != _historySchemaVersion) {
+      throw const FormatException('Unsupported session schema version');
+    }
+
+    final encodedRecords = json['records'];
+    if (encodedRecords is! List) {
+      throw const FormatException('Session history must contain records');
+    }
+    final records = encodedRecords.map((encodedRecord) {
+      if (encodedRecord is! Map<String, dynamic>) {
+        throw const FormatException('Session history record must be an object');
+      }
+      return PersistedSessionRecord.fromJson(encodedRecord);
+    }).toList();
+    if (records.length <= _maxHistoryLength) {
+      return records;
+    }
+    return records.sublist(records.length - _maxHistoryLength);
   }
 }
 

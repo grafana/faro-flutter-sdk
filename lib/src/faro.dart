@@ -90,6 +90,11 @@ class Faro {
       SessionPersistenceFactory();
   bool Function() _isMobilePlatform = () =>
       Platform.isAndroid || Platform.isIOS;
+  bool Function() _isAndroidPlatform = () => Platform.isAndroid;
+  bool Function() _isIOSPlatform = () => Platform.isIOS;
+  List<PersistedSessionRecord> _recoveredSessionHistory =
+      const <PersistedSessionRecord>[];
+  String? _sessionProcessIdentifier;
   bool _isSampled = true;
   bool _isInitialized = false;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
@@ -167,6 +172,16 @@ class Faro {
     _isMobilePlatform = resolver;
   }
 
+  @visibleForTesting
+  set androidPlatformResolver(bool Function() resolver) {
+    _isAndroidPlatform = resolver;
+  }
+
+  @visibleForTesting
+  set iosPlatformResolver(bool Function() resolver) {
+    _isIOSPlatform = resolver;
+  }
+
   Future<void> init({required FaroConfig optionsConfiguration}) async {
     if (_isInitialized) {
       log('Faro: init() called after initialization; ignoring.');
@@ -214,7 +229,7 @@ class Faro {
       installationId: '$installationId',
     );
 
-    final persistedPreviousSessionId = await _initializeSessionPersistence(
+    final persistedPreviousSession = await _initializeSessionPersistence(
       optionsConfiguration,
     );
 
@@ -265,6 +280,7 @@ class Faro {
         app: _instance.meta.app!,
         apiKey: optionsConfiguration.apiKey,
         collectorUrl: optionsConfiguration.collectorUrl ?? '',
+        recoveredSession: persistedPreviousSession,
       );
     }
     if (Platform.isAndroid || Platform.isIOS) {
@@ -278,7 +294,9 @@ class Faro {
     }
     await FaroOtelBootstrap.initialize();
     // Announce the initial session; the listener emits `session_start`.
-    sessionManager.start(previousSessionId: persistedPreviousSessionId);
+    sessionManager.start(
+      previousSessionId: persistedPreviousSession?.currentSessionId,
+    );
     await _sessionPersistence?.flush();
     _reportColdStartAfterFirstFrame();
 
@@ -388,7 +406,9 @@ class Faro {
     );
   }
 
-  Future<String?> _initializeSessionPersistence(FaroConfig options) async {
+  Future<PersistedSessionRecord?> _initializeSessionPersistence(
+    FaroConfig options,
+  ) async {
     if (!_isMobilePlatform()) {
       return null;
     }
@@ -404,6 +424,7 @@ class Faro {
     if (runtimeInfo == null) {
       return null;
     }
+    _sessionProcessIdentifier = runtimeInfo.processIdentifier;
 
     final session = meta.session;
     if (session != null) {
@@ -428,7 +449,10 @@ class Faro {
       }
 
       _sessionPersistence = persistence;
-      return (await persistence.load())?.currentSessionId;
+      _recoveredSessionHistory = await persistence.loadHistory();
+      return _recoveredSessionHistory.isEmpty
+          ? null
+          : _recoveredSessionHistory.last;
     } catch (error) {
       log('Faro: Session persistence unavailable: $error');
       _sessionPersistence = null;
@@ -1037,19 +1061,41 @@ class Faro {
     required App app,
     required String apiKey,
     required String collectorUrl,
+    PersistedSessionRecord? recoveredSession,
   }) async {
     try {
-      final metadata = meta.toJson();
+      final recoveredCrashMeta = recoveredSession == null
+          ? null
+          : _metaForRecoveredSession(recoveredSession);
+      final metadata = (recoveredCrashMeta ?? meta).toFaroJson();
       metadata['app'] = app.toJson();
       metadata['apiKey'] = apiKey;
       metadata['collectorUrl'] = collectorUrl;
-      if (Platform.isIOS) {
+      metadata['reportPendingCrash'] =
+          (_sessionPersistence == null || recoveredSession != null) &&
+          (recoveredSession?.isSampled ?? true) &&
+          enableDataCollection;
+      if (_isIOSPlatform()) {
         _nativeChannel?.enableCrashReporter(metadata);
       }
-      if (Platform.isAndroid) {
+      if (_isAndroidPlatform()) {
         final crashReports = await _nativeChannel?.getCrashReport();
         if (crashReports != null) {
-          _reportAndroidCrashReports(crashReports);
+          final recoveredSessions = _sessionPersistence != null
+              ? _recoveredSessionHistory
+              : recoveredSession == null
+              ? null
+              : <PersistedSessionRecord>[recoveredSession];
+          // Recovery sends must not hold up the next app launch.
+          unawaited(
+            _reportAndroidCrashReports(
+              crashReports,
+              recoveredSessions: recoveredSessions,
+              processIdentifier: _sessionPersistence == null
+                  ? null
+                  : _sessionProcessIdentifier,
+            ),
+          );
         }
       }
     } catch (error, stacktrace) {
@@ -1061,45 +1107,199 @@ class Faro {
   }
 
   @visibleForTesting
-  void reportAndroidCrashesForTesting(List<String> crashReports) {
-    _reportAndroidCrashReports(crashReports);
+  Future<void> reportAndroidCrashesForTesting(
+    List<String> crashReports, {
+    PersistedSessionRecord? recoveredSession,
+    List<PersistedSessionRecord>? recoveredSessions,
+    String? processIdentifier,
+  }) {
+    return _reportAndroidCrashReports(
+      crashReports,
+      recoveredSessions:
+          recoveredSessions ??
+          (recoveredSession == null
+              ? null
+              : <PersistedSessionRecord>[recoveredSession]),
+      processIdentifier: processIdentifier,
+    );
   }
 
-  void _reportAndroidCrashReports(List<String> crashReports) {
+  Meta _metaForRecoveredSession(PersistedSessionRecord recoveredSession) {
+    final attributes = <String, dynamic>{
+      'crashedSessionId': recoveredSession.currentSessionId,
+      'isSampled': recoveredSession.isSampled,
+    };
+    final previousSessionId = recoveredSession.previousSessionId;
+    if (previousSessionId != null) {
+      attributes['previousSession'] = previousSessionId;
+    }
+
+    return Meta(
+      session: Session(
+        recoveredSession.currentSessionId,
+        attributes: attributes,
+      ),
+      sdk: meta.sdk,
+      app: meta.app,
+      device: meta.device,
+      os: meta.os,
+    );
+  }
+
+  Future<void> _reportAndroidCrashReports(
+    List<String> crashReports, {
+    required List<PersistedSessionRecord>? recoveredSessions,
+    required String? processIdentifier,
+  }) async {
     for (final crashInfo in crashReports) {
-      final crashInfoJson = json.decode(crashInfo);
-      final String reason = crashInfoJson['reason'];
-      final int status = crashInfoJson['status'];
+      late final FaroException exception;
+      PersistedSessionRecord? recoveredSession;
+      try {
+        final decoded = json.decode(crashInfo);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('Crash report must be an object');
+        }
 
-      final stringifiedContext = <String, String>{};
-      crashInfoJson.forEach((String key, dynamic value) {
-        stringifiedContext[key] = value?.toString() ?? '';
-      });
+        if (recoveredSessions != null) {
+          recoveredSession = _matchRecoveredSession(
+            decoded,
+            recoveredSessions,
+            processIdentifier: processIdentifier,
+          );
+          if (recoveredSession == null) {
+            log('Faro: Ignoring Android crash without a matching session');
+            continue;
+          }
+        }
 
-      final description = stringifiedContext['description'] ?? 'No description';
-      final stacktrace =
+        exception = _androidCrashException(
+          decoded,
+          crashedSessionId: recoveredSession?.currentSessionId,
+        );
+      } catch (error, stacktrace) {
+        log(
+          'Faro: Ignoring malformed Android crash report: $error',
+          stackTrace: stacktrace,
+        );
+        continue;
+      }
+
+      try {
+        if (recoveredSession == null) {
+          _instance.pushError(
+            type: exception.type,
+            value: exception.value,
+            fatal: exception.fatal,
+            context: exception.context,
+          );
+        } else if (recoveredSession.isSampled) {
+          await _sendRecoveredCrash(
+            exception,
+            _metaForRecoveredSession(recoveredSession),
+          );
+        }
+      } catch (error, stacktrace) {
+        log(
+          'Faro: Failed to report recovered Android crash: $error',
+          stackTrace: stacktrace,
+        );
+      }
+    }
+  }
+
+  PersistedSessionRecord? _matchRecoveredSession(
+    Map<String, dynamic> crashInfo,
+    List<PersistedSessionRecord> recoveredSessions, {
+    required String? processIdentifier,
+  }) {
+    if (processIdentifier != null &&
+        crashInfo['processName'] != processIdentifier) {
+      return null;
+    }
+
+    final timestampValue = crashInfo['timestamp'];
+    final timestamp = timestampValue is int
+        ? timestampValue
+        : int.tryParse(timestampValue?.toString() ?? '');
+    if (timestamp == null || timestamp < 0) {
+      return null;
+    }
+    final crashTime = DateTime.fromMillisecondsSinceEpoch(
+      timestamp,
+      isUtc: true,
+    );
+
+    PersistedSessionRecord? match;
+    for (final session in recoveredSessions) {
+      if (session.startedAt.isAfter(crashTime)) {
+        continue;
+      }
+      // The most recently started eligible session owned the process when the
+      // exit occurred. Equal timestamps prefer the later persisted record.
+      if (match == null || !session.startedAt.isBefore(match.startedAt)) {
+        match = session;
+      }
+    }
+    return match;
+  }
+
+  FaroException _androidCrashException(
+    Map<String, dynamic> crashInfo, {
+    String? crashedSessionId,
+  }) {
+    final stringifiedContext = <String, String>{};
+    crashInfo.forEach((key, value) {
+      stringifiedContext[key] = value?.toString() ?? '';
+    });
+
+    final reason = stringifiedContext['reason'] ?? 'UNKNOWN';
+    final status = stringifiedContext['status'] ?? 'unknown';
+    final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
+    final readableTimestamp = timestamp.toHumanReadableTimestamp();
+    final context = <String, String>{
+      'description': stringifiedContext['description'] ?? 'No description',
+      'stacktrace':
           stringifiedContext['trace'] ??
           stringifiedContext['stacktrace'] ??
-          'No stacktrace';
-      final timestamp = stringifiedContext['timestamp'] ?? 'No timestamp';
-      final humanReadableTimestamp = timestamp.toHumanReadableTimestamp();
+          'No stacktrace',
+      'timestamp': timestamp,
+      'timestamp_readable_utc': readableTimestamp,
+      'importance': stringifiedContext['importance'] ?? 'No importance',
+      'processName': stringifiedContext['processName'] ?? 'No processName',
+    };
+    if (crashedSessionId != null) {
+      context['crashedSessionId'] = crashedSessionId;
+    }
+    final exception = FaroException(
+      'crash',
+      '$reason, status: $status',
+      const <String, dynamic>{},
+      fatal: true,
+      context: context,
+    );
+    if (DateTime.tryParse(readableTimestamp) != null) {
+      exception.timestamp = readableTimestamp;
+    }
+    return exception;
+  }
 
-      final importance = stringifiedContext['importance'] ?? 'No importance';
-      final processName = stringifiedContext['processName'] ?? 'No processName';
-
-      _instance.pushError(
-        type: 'crash',
-        value: '$reason , status: $status',
-        fatal: true,
-        context: {
-          'description': description,
-          'stacktrace': stacktrace,
-          'timestamp': timestamp,
-          'timestamp_readable_utc': humanReadableTimestamp,
-          'importance': importance,
-          'processName': processName,
-        },
-      );
+  Future<void> _sendRecoveredCrash(
+    FaroException exception,
+    Meta recoveredCrashMeta,
+  ) async {
+    if (_dataCollectionPolicy?.isEnabled == false) {
+      return;
+    }
+    // The live batch carries the new session metadata, so recovered crashes
+    // must use an isolated payload.
+    final payload = Payload(recoveredCrashMeta)..exceptions.add(exception);
+    final payloadJson = payload.toJson();
+    for (final transport in List<BaseTransport>.of(_transports)) {
+      if (transport is FaroTransport) {
+        await transport.sendHistorical(payloadJson);
+      } else {
+        await transport.send(payloadJson);
+      }
     }
   }
 }
