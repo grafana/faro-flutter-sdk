@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_redundant_argument_values, prefer_int_literals, lines_longer_than_80_chars
 
+import 'dart:io';
+
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/configurations/sampling.dart';
@@ -9,6 +11,8 @@ import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/sampling_context.dart';
+import 'package:faro/src/session/session_manager.dart';
+import 'package:faro/src/session/session_persistence.dart';
 import 'package:faro/src/session/session_sampling_provider.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
@@ -401,6 +405,125 @@ void main() {
         contexts.last.meta.session?.attributes?['previousSession'],
         initialSessionId,
       );
+    });
+
+    test('maximum lifetime starts a new sampling window', () async {
+      final random = SequenceRandomValueProvider(<double>[0.1, 0.9]);
+      RandomValueProviderFactory().setInstance(random);
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.5),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        ),
+      );
+      final initialSessionId = Faro().meta.session?.id;
+
+      // Keep inactivity fresh so only the four-hour lifetime can rotate.
+      for (var index = 0; index < 23; index++) {
+        now = now.add(const Duration(minutes: 10));
+        Faro().setViewMeta(name: 'view_$index');
+      }
+      expect(Faro().meta.session?.id, initialSessionId);
+
+      now = now.add(const Duration(minutes: 10));
+      Faro().setViewMeta(name: 'after-lifetime');
+
+      expect(random.callCount, 2);
+      expect(Faro().meta.session?.id, isNot(initialSessionId));
+      expect(Faro().isSampled, isFalse);
+      expect(BatchTransportFactory().instance, isA<NoOpBatchTransport>());
+    });
+
+    test('receiver invalidation starts a new sampled window', () async {
+      final random = SequenceRandomValueProvider(<double>[0.9, 0.1]);
+      RandomValueProviderFactory().setInstance(random);
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.5),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        ),
+      );
+      final initialSessionId = Faro().meta.session!.id!;
+
+      pod.resolve(sessionManagerProvider).invalidateSession(initialSessionId);
+
+      expect(random.callCount, 2);
+      expect(Faro().meta.session?.id, isNot(initialSessionId));
+      expect(Faro().isSampled, isTrue);
+      expect(
+        BatchTransportFactory().instance,
+        isNot(isA<NoOpBatchTransport>()),
+      );
+      expect(BatchTransportFactory().instance?.payloadSize(), 1);
+    });
+
+    test('automatic rotation persists the new sampling decision', () async {
+      final temporaryDirectory = await Directory.systemTemp.createTemp(
+        'faro-sampling-persistence-',
+      );
+      addTearDown(() {
+        if (temporaryDirectory.existsSync()) {
+          temporaryDirectory.deleteSync(recursive: true);
+        }
+      });
+      final persistenceFactory = SessionPersistenceFactory(
+        applicationSupportDirectory: () async => temporaryDirectory,
+      );
+      final random = SequenceRandomValueProvider(<double>[0.1, 0.9]);
+      RandomValueProviderFactory().setInstance(random);
+      Faro().mobilePlatformResolver = () => true;
+      Faro().sessionPersistenceFactory = persistenceFactory;
+      when(
+        () => mockFaroNativeMethods.getSessionRuntimeInfo(
+          claimSessionPersistence: true,
+        ),
+      ).thenAnswer(
+        (_) async => <String, dynamic>{
+          'processIdentifier': 'com.grafana.sampling-test',
+          'ownsSessionPersistence': true,
+        },
+      );
+
+      await Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          sampling: const SamplingRate(0.5),
+          cpuUsageVitals: false,
+          memoryUsageVitals: false,
+        ),
+      );
+      final initialSessionId = Faro().meta.session!.id!;
+
+      now = now.add(const Duration(minutes: 15));
+      Faro().pushEvent('new-session-event');
+      final rotatedSessionId = Faro().meta.session!.id!;
+      await Faro.resetForTesting();
+
+      final persisted = await (await persistenceFactory.create(
+        processIdentifier: 'com.grafana.sampling-test',
+      )).loadHistory();
+      expect(persisted, hasLength(2));
+      expect(persisted.first.currentSessionId, initialSessionId);
+      expect(persisted.first.isSampled, isTrue);
+      expect(persisted.last.currentSessionId, rotatedSessionId);
+      expect(persisted.last.previousSessionId, initialSessionId);
+      expect(persisted.last.isSampled, isFalse);
     });
 
     test(

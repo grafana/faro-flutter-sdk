@@ -1330,6 +1330,10 @@ Faro().runApp(
 );
 ```
 
+The function runs synchronously whenever a new session starts. Keep it fast and
+side-effect free; use values already available in the sampling context or
+locally cached configuration.
+
 **How it works:**
 
 - A fresh sampling decision is made when each session starts
