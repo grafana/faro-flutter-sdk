@@ -427,7 +427,21 @@ background isolates cannot concurrently update that record. Ownership is not
 transferred to an already-running secondary engine if the owner detaches; that
 engine keeps its in-memory session until it initializes again. When native
 process identity is available, telemetry includes `process_name` and
-`dart_isolate_name` session attributes for correlation.
+`dart_isolate_name` session attributes for correlation. An Android engine that
+has attached to an Activity is identified as `main`; a root engine that has
+never attached to an Activity is identified as `headless`. Secondary Dart
+isolates use their debug name when available and otherwise use `background`.
+With automatic detection, iOS root isolates continue to use `main`.
+
+If an Android app pre-warms its foreground `FlutterEngine` and initializes
+Faro before attaching that engine to an Activity, set
+`engineRole: FaroEngineRole.foreground` in `FaroConfig`. This records
+`dart_isolate_name=main`. Android or iOS background entrypoints can set
+`FaroEngineRole.headless` to record `dart_isolate_name=headless` when automatic
+detection is unavailable or insufficient. Overrides apply only to the root
+isolate and are not checked against the native signal, so configure each
+entrypoint separately. Reusing either override for an engine with the opposite
+role would mislabel that engine.
 
 **Recovered crashes.** When crash reporting and session persistence are
 enabled, Android and iOS native crashes recovered on the next launch retain

@@ -95,6 +95,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `session_start` and read `meta.session.attributes.previousSession` to
   identify linked sessions
   ([#316](https://github.com/grafana/faro-flutter-sdk/issues/316)).
+- **Accurate Android runtime metadata.** Root Flutter engines that never attach
+  to an Activity now report `dart_isolate_name=headless` instead of `main`.
+  Activity-backed engines remain `main`; dashboards filtering only for
+  `dart_isolate_name=main` no longer include Android background engines.
+  Pre-warmed UI engines can opt into `FaroEngineRole.foreground`, and
+  session-persistence ownership is unchanged
+  ([#333](https://github.com/grafana/faro-flutter-sdk/issues/333)).
 - Filter Android `LOW_MEMORY` exits for service and less important process
   states regardless of whether Android records status `0` or `SIGKILL`.
   Foreground, foreground-service, visible, and perceptible exits remain
