@@ -1272,6 +1272,7 @@ class Faro {
           await _sendRecoveredCrash(
             exception,
             _metaForRecoveredSession(recoveredSession),
+            nativeRetryAvailable: false,
           );
         }
       } catch (error, stacktrace) {
@@ -1336,7 +1337,11 @@ class Faro {
             // Keep the structured native frames and wait for the transport.
             // pushError would reconstruct a Dart stack and batch delivery would
             // acknowledge the native report before an async send completed.
-            final sent = await _sendRecoveredCrash(exception, meta);
+            final sent = await _sendRecoveredCrash(
+              exception,
+              meta,
+              nativeRetryAvailable: true,
+            );
             accepted = accepted && sent;
           }
         } else if (recoveredSession.isSampled) {
@@ -1346,6 +1351,7 @@ class Faro {
               recoveredSession,
               includeCurrentContext: true,
             ),
+            nativeRetryAvailable: true,
           );
           accepted = accepted && sent;
         }
@@ -1476,8 +1482,9 @@ class Faro {
 
   Future<bool> _sendRecoveredCrash(
     FaroException exception,
-    Meta recoveredCrashMeta,
-  ) async {
+    Meta recoveredCrashMeta, {
+    required bool nativeRetryAvailable,
+  }) async {
     if (_dataCollectionPolicy?.isEnabled == false) {
       return false;
     }
@@ -1488,10 +1495,12 @@ class Faro {
     var accepted = true;
     var hasDirectTransport = false;
     for (final transport in List<BaseTransport>.of(_transports)) {
-      // The native crash report is already the durable retry copy. Sending it
-      // to OfflineTransport as well would create a second retry owner and can
-      // deliver the same crash twice after connectivity returns.
-      if (transport is OfflineTransport) {
+      // PLCrashReporter keeps the iOS report until this handoff succeeds.
+      // Sending it to OfflineTransport as well would create a second retry
+      // owner and can deliver the same crash twice after connectivity returns.
+      // Android ApplicationExitInfo has no retained native copy, so Android
+      // must continue using OfflineTransport when it is configured.
+      if (nativeRetryAvailable && transport is OfflineTransport) {
         continue;
       }
       hasDirectTransport = true;
@@ -1504,6 +1513,6 @@ class Faro {
         await transport.send(payloadJson);
       }
     }
-    return hasDirectTransport && accepted;
+    return accepted && (!nativeRetryAvailable || hasDirectTransport);
   }
 }

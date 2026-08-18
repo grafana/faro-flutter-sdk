@@ -814,6 +814,9 @@ java.lang.NullPointerException: test crash
     });
 
     test('recovered crash is sent with the crashed session metadata', () async {
+      final offlineTransport = MockOfflineTransport();
+      when(() => offlineTransport.send(any())).thenAnswer((_) async {});
+      Faro().transports = <BaseTransport>[offlineTransport, mockFaroTransport];
       final currentSessionId = Faro().meta.session?.id;
       final recoveredSession = PersistedSessionRecord(
         currentSessionId: 'crashed-session',
@@ -857,6 +860,7 @@ java.lang.NullPointerException: test crash
       expect(payload['meta'], isNot(contains('view')));
       expect(payload['meta'], isNot(contains('user')));
       expect(payload['meta'], isNot(contains('page')));
+      verify(() => offlineTransport.send(any())).called(1);
       expect(
         payload['exceptions'][0]['context']['crashedSessionId'],
         'crashed-session',
