@@ -429,6 +429,19 @@ engine keeps its in-memory session until it initializes again. When native
 process identity is available, telemetry includes `process_name` and
 `dart_isolate_name` session attributes for correlation.
 
+**Recovered crashes.** When crash reporting and session persistence are
+enabled, Android and iOS native crashes recovered on the next launch retain
+the persisted session ID that was active when the process stopped. The crash
+payload also includes `crashedSessionId` in the session attributes and uses
+that session's persisted sampling decision. Sending the recovered crash does
+not rotate or otherwise change the new live session. Android continues to
+deduplicate historical `ApplicationExitInfo` records, while iOS purges the
+pending PLCrashReporter record after processing it. If persistence is active
+but a recovered crash cannot be matched to a persisted session, the SDK
+discards that crash rather than attributing it to the new live session. If
+persistence is disabled or unavailable, the SDK cannot recover the prior
+session identity and retains the legacy live-session fallback.
+
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,
 but only meaningful work refreshes the 15-minute inactivity window.

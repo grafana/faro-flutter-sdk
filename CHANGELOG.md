@@ -80,6 +80,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Recovered native crashes retain their original session.** Android and iOS
+  crash metadata includes `crashedSessionId` and preserves the persisted
+  sampling decision without changing the new live session. Historical Android
+  exits are matched to their retained per-process sessions. **When persistence
+  is active, crashes without a matching session are discarded instead of being
+  attributed to the new session**
+  ([#151](https://github.com/grafana/faro-flutter-sdk/issues/151)).
 - **Session lifecycle events now use `session_start` for every new session.**
   Flutter no longer emits the Web-only `session_extend` event when rotation
   creates a new session. **Expect `session_extend` volume to drop to zero on

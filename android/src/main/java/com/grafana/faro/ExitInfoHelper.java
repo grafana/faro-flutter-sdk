@@ -106,9 +106,8 @@ public class ExitInfoHelper {
 
         for (ApplicationExitInfo exitInfo : exitInfoList) {
             String exitInfoKey = ApplicationExitInfoExt.getUniqueId(exitInfo);
-            if (!handledExitInfo.contains(exitInfoKey)) {
+            if (updatedHandledExitInfo.add(exitInfoKey)) {
                 newExitInfo.add(exitInfo);
-                updatedHandledExitInfo.add(exitInfoKey);
             }
         }
 
@@ -214,5 +213,4 @@ public class ExitInfoHelper {
         }
     }
 }
-
 
