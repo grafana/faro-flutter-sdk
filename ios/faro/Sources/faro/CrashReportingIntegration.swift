@@ -4,7 +4,7 @@ import Foundation
 final class CrashReportingIntegration {
     private let hasPendingCrashReport: () -> Bool
     private let loadPendingCrashReport: () throws -> Data
-    private let purgePendingCrashReport: () -> Bool
+    private let purgePendingCrashReportHandler: () -> Bool
     private let exportCrashReport: (Data) throws -> [String: Any]
 
     convenience init() throws {
@@ -40,7 +40,7 @@ final class CrashReportingIntegration {
                 let report = try PLCrashReport(data: data)
                 var crashReport = try CrashReport(from: report)
                 CrashReportMinifier().minify(crashReport: &crashReport)
-                return CrashReportExporter().export(crashReport: crashReport)
+                return try CrashReportExporter().export(crashReport: crashReport)
             }
         )
 
@@ -59,7 +59,7 @@ final class CrashReportingIntegration {
     ) {
         self.hasPendingCrashReport = hasPendingCrashReport
         self.loadPendingCrashReport = loadPendingCrashReport
-        self.purgePendingCrashReport = purgePendingCrashReport
+        self.purgePendingCrashReportHandler = purgePendingCrashReport
         self.exportCrashReport = exportCrashReport
     }
 
@@ -68,14 +68,13 @@ final class CrashReportingIntegration {
             return []
         }
 
-        defer {
-            if !purgePendingCrashReport() {
-                print("Faro: Could not purge the pending iOS crash report.")
-            }
-        }
-
         do {
             let crash = try exportCrashReport(loadPendingCrashReport())
+            guard JSONSerialization.isValidJSONObject(crash) else {
+                throw CrashReportException(
+                    description: "Pending crash report is not valid JSON."
+                )
+            }
             let data = try JSONSerialization.data(withJSONObject: crash)
             guard let json = String(data: data, encoding: .utf8) else {
                 throw CrashReportException(
@@ -85,12 +84,22 @@ final class CrashReportingIntegration {
             return [json]
         } catch {
             // Discard malformed reports so they do not fail every app launch.
+            _ = purgePendingCrashReport()
             print(
                 "Faro: Failed to load pending crash report; discarding it. " +
                 "Error: \(error)"
             )
             return []
         }
+    }
+
+    @discardableResult
+    func purgePendingCrashReport() -> Bool {
+        let purged = purgePendingCrashReportHandler()
+        if !purged {
+            print("Faro: Could not purge the pending iOS crash report.")
+        }
+        return purged
     }
 }
 
@@ -231,14 +240,19 @@ internal struct CrashReportExporter{
         "SIGUSR1": "User defined signal 1",
         "SIGUSR2": "User defined signal 2",
     ]
-    func export(crashReport: CrashReport) -> Dictionary<String,Any>{
+    func export(crashReport: CrashReport) throws -> Dictionary<String,Any>{
+        guard let timestamp = crashReport.systemInfo?.timestamp else {
+            throw CrashReportException(
+                description: "Pending crash report has no timestamp."
+            )
+        }
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
         dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
 
         return (RumExceptionFormat(type: formattedType(for: crashReport), value: formattedValue(for: crashReport), stacktrace: ["frames":formattedStack(for: crashReport)],
-                           timestamp: dateFormatter.string(from: crashReport.systemInfo?.timestamp ?? Date()),
+                           timestamp: dateFormatter.string(from: timestamp),
                            fatal: true
                            // TODO: add context: binaryImages, ThreadInfo,contextData, Meta,truncation
                            //                           context: [

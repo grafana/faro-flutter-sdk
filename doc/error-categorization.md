@@ -81,8 +81,8 @@ Notes:
   runtime **ANR watchdog** is different: it detects a blocked main thread
   **while the app is running** and reports within the same session.
 - iOS pending crashes return to Dart on the next launch and use the configured
-  collector and custom transports. The original signal name remains available
-  as `context.nativeType`.
+  collector and custom transports. The original signal name and code remain
+  available as `context.nativeType`.
 - With session persistence enabled, next-launch native crash reports retain
   the prior session ID and include `crashedSessionId` in the session
   attributes. Reporting them does not change the new live session. When

@@ -450,10 +450,10 @@ payload also includes `crashedSessionId` in the session attributes and uses
 that session's persisted sampling decision. Sending the recovered crash does
 not rotate or otherwise change the new live session. Android continues to
 deduplicate historical `ApplicationExitInfo` records, while iOS purges the
-pending PLCrashReporter record after encoding it for Dart. The iOS report then
+pending PLCrashReporter record after Dart accepts it for transport. The report
 uses the configured collector and custom transports, sampling decision, data
-collection policy, collector headers, and `type: crash`; its native signal is
-preserved in `context.nativeType`. If persistence is active
+collection policy, collector headers, and `type: crash`; its native signal and
+code are preserved in `context.nativeType`. If persistence is active
 but a recovered crash cannot be matched to a persisted session, the SDK
 discards that crash rather than attributing it to the new live session. If
 persistence is disabled or unavailable, the SDK cannot recover the prior

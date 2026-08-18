@@ -30,7 +30,7 @@ struct CrashReportingIntegrationTests {
     #expect(purgeCount == 0)
   }
 
-  @Test("returns a structured pending crash and purges it once")
+  @Test("returns a structured pending crash and purges it after acknowledgement")
   func pendingCrash() throws {
     var purgeCount = 0
     let integration = CrashReportingIntegration(
@@ -66,6 +66,9 @@ struct CrashReportingIntegrationTests {
     #expect(reports.count == 1)
     #expect(object["type"] as? String == "SIGSEGV")
     #expect(frames.first?["filename"] as? String == "Runner")
+    #expect(purgeCount == 0)
+
+    #expect(integration.purgePendingCrashReport())
     #expect(purgeCount == 1)
   }
 
@@ -80,6 +83,23 @@ struct CrashReportingIntegrationTests {
         return true
       },
       exportCrashReport: { _ in [:] }
+    )
+
+    #expect(integration.takePendingCrashReports().isEmpty)
+    #expect(purgeCount == 1)
+  }
+
+  @Test("purges a pending crash that cannot be encoded as JSON")
+  func unencodablePendingCrash() {
+    var purgeCount = 0
+    let integration = CrashReportingIntegration(
+      hasPendingCrashReport: { true },
+      loadPendingCrashReport: { Data() },
+      purgePendingCrashReport: {
+        purgeCount += 1
+        return true
+      },
+      exportCrashReport: { _ in ["invalid": Date()] }
     )
 
     #expect(integration.takePendingCrashReports().isEmpty)

@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (behavioral): iOS recovered crashes now use `type: crash`.**
+  The native signal and code remain available in `context.nativeType`.
+  Dashboards and alerts matching signal names in `exception.type` should match
+  `crash` and read `context.nativeType` instead
+  ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
 - **BREAKING (behavioral)**: Session inactivity now refreshes only for
   user interactions, view or navigation changes, foreground returns,
   explicit user actions, and spans linked to those actions. Generic telemetry,
@@ -72,13 +77,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   iOS prewarmed the process, `0` otherwise). `appStartDuration` and `coldStart`
   are unchanged, so existing dashboards keep working.
 
+### Deprecated
+
+- Deprecate direct calls to `Faro.enableCrashReporter`. Enable crash reporting
+  and configure its transports through `FaroConfig` instead.
+
 ### Fixed
 
 - **iOS crash reports now use the configured SDK transports.** Pending
   PLCrashReporter data returns to Dart on the next launch and follows the
   configured collector and custom transport paths, sampling, data collection
-  policy, and collector headers. iOS reports now use `type: crash` while
-  retaining the native signal in context
+  policy, and collector headers. Successfully handed-off reports are purged;
+  opted-out reports and reports rejected by a custom transport remain pending
   ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
 - **Recovered native crashes retain their original session.** Android and iOS
   crash metadata includes `crashedSessionId` and preserves the persisted
