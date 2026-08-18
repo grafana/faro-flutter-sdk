@@ -9,6 +9,7 @@ import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/offline_transport.dart';
 import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/session/session_persistence.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
@@ -28,6 +29,8 @@ class MockFaroTransport extends Mock implements FaroTransport {}
 class MockBatchTransport extends Mock implements BatchTransport {}
 
 class MockBaseTransport extends Mock implements BaseTransport {}
+
+class MockOfflineTransport extends Mock implements OfflineTransport {}
 
 class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
@@ -371,6 +374,7 @@ void main() {
       test('iOS retains the pending crash when delivery is rejected', () async {
         final deliveryStarted = Completer<void>();
         final deliveryResult = Completer<bool>();
+        final offlineTransport = MockOfflineTransport();
         stubRuntimeInfo(ownsPersistence: true);
         Faro().iosPlatformResolver = () => true;
         Faro().androidPlatformResolver = () => false;
@@ -389,6 +393,10 @@ void main() {
           deliveryStarted.complete();
           return deliveryResult.future;
         });
+        Faro().transports = <BaseTransport>[
+          offlineTransport,
+          mockFaroTransport,
+        ];
 
         await Faro().init(
           optionsConfiguration: createConfig(
@@ -400,6 +408,7 @@ void main() {
         await deliveryStarted.future;
         deliveryResult.complete(false);
         await Future<void>.delayed(Duration.zero);
+        verifyNever(() => offlineTransport.send(any()));
         verifyNever(() => mockFaroNativeMethods.purgeCrashReport());
       });
 
@@ -1039,6 +1048,24 @@ java.lang.NullPointerException: test crash
 
       expect(accepted, isFalse);
     });
+
+    test(
+      'iOS keeps the native report when only offline retry is configured',
+      () async {
+        final offlineTransport = MockOfflineTransport();
+        Faro().transports = <BaseTransport>[offlineTransport];
+        final crashReport = json.encode({
+          'type': 'SIGSEGV',
+          'value': 'Application crash',
+          'timestamp': '2026-08-14T12:03:00.000Z',
+        });
+
+        final accepted = await Faro().reportIOSCrashesForTesting([crashReport]);
+
+        expect(accepted, isFalse);
+        verifyNever(() => offlineTransport.send(any()));
+      },
+    );
 
     test('recovered iOS crash from an unsampled session is not sent', () async {
       final recoveredSession = PersistedSessionRecord(

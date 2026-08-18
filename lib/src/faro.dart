@@ -18,6 +18,7 @@ import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/offline_transport.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_manager.dart';
@@ -1485,7 +1486,15 @@ class Faro {
     final payload = Payload(recoveredCrashMeta)..exceptions.add(exception);
     final payloadJson = payload.toJson();
     var accepted = true;
+    var hasDirectTransport = false;
     for (final transport in List<BaseTransport>.of(_transports)) {
+      // The native crash report is already the durable retry copy. Sending it
+      // to OfflineTransport as well would create a second retry owner and can
+      // deliver the same crash twice after connectivity returns.
+      if (transport is OfflineTransport) {
+        continue;
+      }
+      hasDirectTransport = true;
       if (transport is FaroTransport) {
         final transportAccepted = await transport.sendHistoricalAcknowledged(
           payloadJson,
@@ -1495,6 +1504,6 @@ class Faro {
         await transport.send(payloadJson);
       }
     }
-    return accepted;
+    return hasDirectTransport && accepted;
   }
 }

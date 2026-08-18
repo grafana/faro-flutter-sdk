@@ -90,6 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configured collector and custom transport paths, sampling, data collection
   policy, and collector headers. Successfully handed-off reports are purged;
   opted-out reports and reports rejected by a custom transport remain pending
+  instead of also entering `OfflineTransport`, because the native report is
+  already the durable retry copy
   ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
 - **Recovered native crashes retain their original session.** Android and iOS
   crash metadata includes `crashedSessionId` and preserves the persisted
