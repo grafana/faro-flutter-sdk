@@ -1192,7 +1192,10 @@ class Faro {
     );
   }
 
-  Meta _metaForRecoveredSession(PersistedSessionRecord recoveredSession) {
+  Meta _metaForRecoveredSession(
+    PersistedSessionRecord recoveredSession, {
+    bool includeCurrentContext = false,
+  }) {
     final attributes = <String, dynamic>{
       'crashedSessionId': recoveredSession.currentSessionId,
       'isSampled': recoveredSession.isSampled,
@@ -1209,6 +1212,10 @@ class Faro {
       ),
       sdk: meta.sdk,
       app: meta.app,
+      view: includeCurrentContext ? meta.view : null,
+      browser: includeCurrentContext ? meta.browser : null,
+      page: includeCurrentContext ? meta.page : null,
+      user: includeCurrentContext ? meta.user : null,
       device: meta.device,
       os: meta.os,
     );
@@ -1328,13 +1335,18 @@ class Faro {
             // Keep the structured native frames and wait for the transport.
             // pushError would reconstruct a Dart stack and batch delivery would
             // acknowledge the native report before an async send completed.
-            await _sendRecoveredCrash(exception, meta);
+            final sent = await _sendRecoveredCrash(exception, meta);
+            accepted = accepted && sent;
           }
         } else if (recoveredSession.isSampled) {
-          await _sendRecoveredCrash(
+          final sent = await _sendRecoveredCrash(
             exception,
-            _metaForRecoveredSession(recoveredSession),
+            _metaForRecoveredSession(
+              recoveredSession,
+              includeCurrentContext: true,
+            ),
           );
+          accepted = accepted && sent;
         }
       } catch (error, stacktrace) {
         accepted = false;
@@ -1461,23 +1473,28 @@ class Faro {
     return exception;
   }
 
-  Future<void> _sendRecoveredCrash(
+  Future<bool> _sendRecoveredCrash(
     FaroException exception,
     Meta recoveredCrashMeta,
   ) async {
     if (_dataCollectionPolicy?.isEnabled == false) {
-      return;
+      return false;
     }
     // The live batch carries the new session metadata, so recovered crashes
     // must use an isolated payload.
     final payload = Payload(recoveredCrashMeta)..exceptions.add(exception);
     final payloadJson = payload.toJson();
+    var accepted = true;
     for (final transport in List<BaseTransport>.of(_transports)) {
       if (transport is FaroTransport) {
-        await transport.sendHistorical(payloadJson);
+        final transportAccepted = await transport.sendHistoricalAcknowledged(
+          payloadJson,
+        );
+        accepted = accepted && transportAccepted;
       } else {
         await transport.send(payloadJson);
       }
     }
+    return accepted;
   }
 }

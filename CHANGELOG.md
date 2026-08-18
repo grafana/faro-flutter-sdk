@@ -79,8 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- Deprecate direct calls to `Faro.enableCrashReporter`. Enable crash reporting
-  and configure its transports through `FaroConfig` instead.
+- **Direct crash-reporter setup is deprecated.** Enable crash reporting and
+  configure its transports through `FaroConfig` instead of calling
+  `Faro.enableCrashReporter`.
 
 ### Fixed
 
