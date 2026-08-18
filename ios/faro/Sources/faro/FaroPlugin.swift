@@ -8,6 +8,7 @@ public class FaroPlugin: NSObject, FlutterPlugin {
   private static let sessionPersistenceOwnerLock = NSLock()
   private static var sessionPersistenceOwnerClaimed = false
   private var ownsSessionPersistence = false
+  private var crashReportingIntegration: CrashReportingIntegration?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     // First thing the SDK does. iOS clears the prewarm flag once the app has
@@ -40,11 +41,24 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "enableCrashReporter":
-            do{
-                _ = try CrashReportingIntegration(crashReporterConfig: call.arguments as! [String: Any])
+            do {
+                crashReportingIntegration = try CrashReportingIntegration()
+                result(nil)
             } catch {
-                print("crash reporter not initialized")
+                result(
+                    FlutterError(
+                        code: "crash_reporter_initialization_failed",
+                        message: "Could not initialize the iOS crash reporter.",
+                        details: error.localizedDescription
+                    )
+                )
             }
+        case "getCrashReport":
+            guard ownsSessionPersistence else {
+                result([String]())
+                return
+            }
+            result(crashReportingIntegration?.takePendingCrashReports() ?? [])
         case "getPlatformVersion":
                 result("iOS " + UIDevice.current.systemVersion);
             case "uptimeUI":

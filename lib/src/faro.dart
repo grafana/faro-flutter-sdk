@@ -95,6 +95,7 @@ class Faro {
   List<PersistedSessionRecord> _recoveredSessionHistory =
       const <PersistedSessionRecord>[];
   String? _sessionProcessIdentifier;
+  bool _ownsSessionPersistence = false;
   bool _isSampled = true;
   bool _isInitialized = false;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
@@ -426,6 +427,7 @@ class Faro {
       return null;
     }
     _sessionProcessIdentifier = runtimeInfo.processIdentifier;
+    _ownsSessionPersistence = runtimeInfo.ownsSessionPersistence;
 
     final session = meta.session;
     if (session != null) {
@@ -507,6 +509,7 @@ class Faro {
   Future<void> _tearDownForReset() async {
     await _sessionPersistence?.flush();
     _sessionPersistence = null;
+    _ownsSessionPersistence = false;
     final widgetsBindingObserver = _widgetsBindingObserver;
     if (widgetsBindingObserver != null) {
       WidgetsBinding.instance.removeObserver(widgetsBindingObserver);
@@ -1065,19 +1068,23 @@ class Faro {
     PersistedSessionRecord? recoveredSession,
   }) async {
     try {
-      final recoveredCrashMeta = recoveredSession == null
-          ? null
-          : _metaForRecoveredSession(recoveredSession);
-      final metadata = (recoveredCrashMeta ?? meta).toFaroJson();
-      metadata['app'] = app.toJson();
-      metadata['apiKey'] = apiKey;
-      metadata['collectorUrl'] = collectorUrl;
-      metadata['reportPendingCrash'] =
-          (_sessionPersistence == null || recoveredSession != null) &&
-          (recoveredSession?.isSampled ?? true) &&
-          enableDataCollection;
       if (_isIOSPlatform()) {
-        _nativeChannel?.enableCrashReporter(metadata);
+        await _nativeChannel?.enableCrashReporter(const <String, dynamic>{});
+        if (_ownsSessionPersistence) {
+          final crashReports = await _nativeChannel?.getCrashReport();
+          if (crashReports != null) {
+            final recoveredSessions = _sessionPersistence != null
+                ? _recoveredSessionHistory
+                : null;
+            // Recovery sends must not hold up the next app launch.
+            unawaited(
+              _reportIOSCrashReports(
+                crashReports,
+                recoveredSessions: recoveredSessions,
+              ),
+            );
+          }
+        }
       }
       if (_isAndroidPlatform()) {
         final crashReports = await _nativeChannel?.getCrashReport();
@@ -1105,6 +1112,22 @@ class Faro {
         stackTrace: stacktrace,
       );
     }
+  }
+
+  @visibleForTesting
+  Future<void> reportIOSCrashesForTesting(
+    List<String> crashReports, {
+    PersistedSessionRecord? recoveredSession,
+    List<PersistedSessionRecord>? recoveredSessions,
+  }) {
+    return _reportIOSCrashReports(
+      crashReports,
+      recoveredSessions:
+          recoveredSessions ??
+          (recoveredSession == null
+              ? null
+              : <PersistedSessionRecord>[recoveredSession]),
+    );
   }
 
   @visibleForTesting
@@ -1208,6 +1231,73 @@ class Faro {
     }
   }
 
+  Future<void> _reportIOSCrashReports(
+    List<String> crashReports, {
+    required List<PersistedSessionRecord>? recoveredSessions,
+  }) async {
+    for (final crashInfo in crashReports) {
+      late final FaroException exception;
+      PersistedSessionRecord? recoveredSession;
+      try {
+        final decoded = json.decode(crashInfo);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('Crash report must be an object');
+        }
+
+        final timestamp = DateTime.tryParse(
+          decoded['timestamp']?.toString() ?? '',
+        )?.toUtc();
+        if (recoveredSessions != null) {
+          if (timestamp != null) {
+            recoveredSession = _matchRecoveredSessionAt(
+              timestamp,
+              recoveredSessions,
+            );
+          }
+          if (recoveredSession == null) {
+            log('Faro: Ignoring iOS crash without a matching session');
+            continue;
+          }
+        }
+
+        exception = _iosCrashException(
+          decoded,
+          timestamp: timestamp,
+          crashedSessionId: recoveredSession?.currentSessionId,
+        );
+      } catch (error, stacktrace) {
+        log(
+          'Faro: Ignoring malformed iOS crash report: $error',
+          stackTrace: stacktrace,
+        );
+        continue;
+      }
+
+      try {
+        if (_dataCollectionPolicy?.isEnabled == false) {
+          continue;
+        }
+        if (recoveredSession == null) {
+          _telemetryRouter.ingest(
+            TelemetryItem.fromException(exception),
+            activity: SessionActivityKind.passive,
+            skipBuffer: true,
+          );
+        } else if (recoveredSession.isSampled) {
+          await _sendRecoveredCrash(
+            exception,
+            _metaForRecoveredSession(recoveredSession),
+          );
+        }
+      } catch (error, stacktrace) {
+        log(
+          'Faro: Failed to report recovered iOS crash: $error',
+          stackTrace: stacktrace,
+        );
+      }
+    }
+  }
+
   PersistedSessionRecord? _matchRecoveredSession(
     Map<String, dynamic> crashInfo,
     List<PersistedSessionRecord> recoveredSessions, {
@@ -1230,6 +1320,13 @@ class Faro {
       isUtc: true,
     );
 
+    return _matchRecoveredSessionAt(crashTime, recoveredSessions);
+  }
+
+  PersistedSessionRecord? _matchRecoveredSessionAt(
+    DateTime crashTime,
+    List<PersistedSessionRecord> recoveredSessions,
+  ) {
     PersistedSessionRecord? match;
     for (final session in recoveredSessions) {
       if (session.startedAt.isAfter(crashTime)) {
@@ -1242,6 +1339,37 @@ class Faro {
       }
     }
     return match;
+  }
+
+  FaroException _iosCrashException(
+    Map<String, dynamic> crashInfo, {
+    required DateTime? timestamp,
+    String? crashedSessionId,
+  }) {
+    final nativeType = crashInfo['type']?.toString();
+    final context = <String, String>{};
+    if (nativeType != null && nativeType.isNotEmpty) {
+      context['nativeType'] = nativeType;
+    }
+    if (crashedSessionId != null) {
+      context['crashedSessionId'] = crashedSessionId;
+    }
+
+    final rawStacktrace = crashInfo['stacktrace'];
+    final stacktrace = rawStacktrace is Map
+        ? Map<String, dynamic>.from(rawStacktrace)
+        : <String, dynamic>{};
+    final exception = FaroException(
+      'crash',
+      crashInfo['value']?.toString() ?? 'Application crash',
+      stacktrace,
+      fatal: true,
+      context: context.isEmpty ? null : context,
+    );
+    if (timestamp != null) {
+      exception.timestamp = timestamp.toIso8601String();
+    }
+    return exception;
   }
 
   FaroException _androidCrashException(

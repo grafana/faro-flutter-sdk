@@ -63,7 +63,7 @@ The SDK organizes error-like signals into four categories:
 | Manual `Faro().pushError(...)` | `lib/src/faro.dart` | exception | caller-defined | caller-defined (default `false`) |
 | Android previous-session exits via `ApplicationExitInfo` | `lib/src/faro.dart` (`enableCrashReporter`), `android/.../ExitInfoHelper.java` | fatal exception | `crash` | `true` |
 | Android runtime ANR watchdog (main thread blocked) | `android/.../ANRTracker.java`, `lib/src/integrations/native_integration.dart` | exception (plus an `anr` measurement) | `flutter_error` | `true` |
-| iOS previous-session crashes (PLCrashReporter) | `ios/faro/Sources/faro/CrashReportingIntegration.swift` | fatal exception | signal name (e.g. `SIGSEGV`) | `true` |
+| iOS previous-session crashes (PLCrashReporter) | `ios/faro/Sources/faro/CrashReportingIntegration.swift`, `lib/src/faro.dart` | fatal exception | `crash` | `true` |
 | Manual `Faro().pushLog(..., level: LogLevel.error)` | `lib/src/faro.dart` | log | — | — |
 
 Notes:
@@ -80,6 +80,9 @@ Notes:
   exits) are detected and reported on the **next launch**. The Android
   runtime **ANR watchdog** is different: it detects a blocked main thread
   **while the app is running** and reports within the same session.
+- iOS pending crashes return to Dart on the next launch and use the configured
+  collector and custom transports. The original signal name remains available
+  as `context.nativeType`.
 - With session persistence enabled, next-launch native crash reports retain
   the prior session ID and include `crashedSessionId` in the session
   attributes. Reporting them does not change the new live session. When
