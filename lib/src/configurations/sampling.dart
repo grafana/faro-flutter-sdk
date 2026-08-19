@@ -63,6 +63,8 @@ class SamplingRate extends Sampling {
 ///
 /// Use this when you want to make sampling decisions based on session
 /// metadata like user attributes, app environment, or other context.
+/// The function runs synchronously whenever a new session starts, so it should
+/// be fast and side-effect free.
 ///
 /// Example:
 /// ```dart
