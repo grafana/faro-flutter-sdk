@@ -76,6 +76,9 @@ public class FaroPlugin: NSObject, FlutterPlugin {
                 }
             }
         case "purgeCrashReport":
+            // Match getCrashReport's fallback when runtime discovery could not
+            // establish the owner before crash recovery starts.
+            claimSessionPersistenceOwnership()
             guard ownsSessionPersistence,
                   let crashReportingIntegration else {
                 result(nil)

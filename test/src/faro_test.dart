@@ -509,20 +509,97 @@ void main() {
         },
       );
 
-      test('iOS leaves a pending crash while collection is disabled', () async {
-        SharedPreferences.setMockInitialValues({
-          'faro_enable_data_collection': false,
-        });
+      test(
+        'iOS discards an opted-out crash when collection is re-enabled',
+        () async {
+          final enableStarted = Completer<void>();
+          final enableResult = Completer<void>();
+          when(
+            () => mockFaroNativeMethods.enableCrashReporter(any()),
+          ).thenAnswer((_) {
+            enableStarted.complete();
+            return enableResult.future;
+          });
+          SharedPreferences.setMockInitialValues({
+            'faro_enable_data_collection': false,
+          });
+          stubRuntimeInfo(ownsPersistence: true);
+          Faro().iosPlatformResolver = () => true;
+          Faro().androidPlatformResolver = () => false;
+
+          await Faro().init(
+            optionsConfiguration: createConfig(enableCrashReporting: true),
+          );
+
+          await enableStarted.future;
+          Faro().enableDataCollection = true;
+          enableResult.complete();
+          await untilCalled(() => mockFaroNativeMethods.purgeCrashReport());
+
+          verifyNever(() => mockFaroNativeMethods.getCrashReport());
+          verify(() => mockFaroNativeMethods.purgeCrashReport()).called(1);
+        },
+      );
+
+      test(
+        'iOS discards a crash when collection is disabled during setup',
+        () async {
+          final enableStarted = Completer<void>();
+          final enableResult = Completer<void>();
+          when(
+            () => mockFaroNativeMethods.enableCrashReporter(any()),
+          ).thenAnswer((_) {
+            enableStarted.complete();
+            return enableResult.future;
+          });
+          stubRuntimeInfo(ownsPersistence: true);
+          Faro().iosPlatformResolver = () => true;
+          Faro().androidPlatformResolver = () => false;
+
+          await Faro().init(
+            optionsConfiguration: createConfig(enableCrashReporting: true),
+          );
+
+          await enableStarted.future;
+          Faro().enableDataCollection = false;
+          enableResult.complete();
+          await untilCalled(() => mockFaroNativeMethods.purgeCrashReport());
+
+          verifyNever(() => mockFaroNativeMethods.getCrashReport());
+          verify(() => mockFaroNativeMethods.purgeCrashReport()).called(1);
+        },
+      );
+
+      test('iOS retains the pending crash when purge fails', () async {
         stubRuntimeInfo(ownsPersistence: true);
         Faro().iosPlatformResolver = () => true;
         Faro().androidPlatformResolver = () => false;
+        when(() => mockFaroNativeMethods.getCrashReport()).thenAnswer(
+          (_) async => <String>[
+            json.encode({
+              'type': 'SIGABRT',
+              'value': 'Application crash',
+              'timestamp': '2026-08-14T12:03:00.000Z',
+            }),
+          ],
+        );
+        when(
+          () => mockFaroNativeMethods.purgeCrashReport(),
+        ).thenThrow(StateError('purge failed'));
 
         await Faro().init(
-          optionsConfiguration: createConfig(enableCrashReporting: true),
+          optionsConfiguration: createConfig(
+            persistSession: false,
+            enableCrashReporting: true,
+          ),
         );
 
-        verifyNever(() => mockFaroNativeMethods.getCrashReport());
-        verifyNever(() => mockFaroNativeMethods.purgeCrashReport());
+        await untilCalled(() => mockFaroNativeMethods.purgeCrashReport());
+        await Future<void>.delayed(Duration.zero);
+        verify(
+          () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+        ).called(1);
+        verify(() => mockFaroNativeMethods.purgeCrashReport()).called(1);
       });
 
       test(
@@ -969,9 +1046,9 @@ java.lang.NullPointerException: test crash
           payload['meta']['session']['attributes'],
           containsPair('isSampled', 'true'),
         );
-        expect(payload['meta']['user']['id'], 'current-user');
-        expect(payload['meta']['view']['name'], 'current-view');
-        expect(payload['meta']['page']['url'], 'https://example.com/current');
+        expect(payload['meta'], isNot(contains('user')));
+        expect(payload['meta'], isNot(contains('view')));
+        expect(payload['meta'], isNot(contains('page')));
         expect(exception['type'], 'crash');
         expect(exception['fatal'], isTrue);
         expect(exception['context']['nativeType'], 'SIGSEGV (SEGV_MAPERR)');
@@ -1005,6 +1082,40 @@ java.lang.NullPointerException: test crash
       ).called(1);
       verify(() => mockBaseTransport.send(any())).called(1);
     });
+
+    test(
+      'recovered iOS crash continues after a custom transport throws',
+      () async {
+        Faro().transports = <BaseTransport>[
+          mockBaseTransport,
+          mockFaroTransport,
+        ];
+        when(
+          () => mockBaseTransport.send(any()),
+        ).thenThrow(StateError('transport unavailable'));
+        final recoveredSession = PersistedSessionRecord(
+          currentSessionId: 'crashed-session',
+          previousSessionId: null,
+          startedAt: DateTime.utc(2026, 8, 14, 12),
+          lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+          isSampled: true,
+        );
+        final crashReport = json.encode({
+          'type': 'SIGSEGV',
+          'value': 'Application crash',
+          'timestamp': '2026-08-14T12:03:00.000Z',
+        });
+
+        final accepted = await Faro().reportIOSCrashesForTesting([
+          crashReport,
+        ], recoveredSession: recoveredSession);
+
+        expect(accepted, isFalse);
+        verify(
+          () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+        ).called(1);
+      },
+    );
 
     test('iOS live-session fallback preserves the structured stack', () async {
       final crashReport = json.encode({

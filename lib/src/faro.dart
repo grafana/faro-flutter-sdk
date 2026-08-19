@@ -1103,17 +1103,24 @@ class Faro {
   Future<void> _enableCrashReporterOnce({
     PersistedSessionRecord? recoveredSession,
   }) async {
+    // Preserve the launch-time consent decision across the native method call.
+    // An app may update the policy while crash reporter setup is in flight.
+    final collectionEnabledAtStart = enableDataCollection;
     try {
       if (_isIOSPlatform()) {
         await _nativeChannel?.enableCrashReporter(const <String, dynamic>{});
-        if (!enableDataCollection) {
-          return;
-        }
-
         final shouldAttemptRecovery =
             _ownsSessionPersistence == true ||
             (_ownsSessionPersistence == null &&
                 RootIsolateToken.instance != null);
+        if (!collectionEnabledAtStart || !enableDataCollection) {
+          if (shouldAttemptRecovery) {
+            // Do not upload a pending crash while collection is disabled.
+            await _nativeChannel?.purgeCrashReport();
+          }
+          return;
+        }
+
         if (shouldAttemptRecovery) {
           final crashReports = await _nativeChannel?.getCrashReport();
           if (crashReports != null && crashReports.isNotEmpty) {
@@ -1213,10 +1220,7 @@ class Faro {
     );
   }
 
-  Meta _metaForRecoveredSession(
-    PersistedSessionRecord recoveredSession, {
-    bool includeCurrentContext = false,
-  }) {
+  Meta _metaForRecoveredSession(PersistedSessionRecord recoveredSession) {
     final attributes = <String, dynamic>{
       'crashedSessionId': recoveredSession.currentSessionId,
       'isSampled': recoveredSession.isSampled,
@@ -1233,10 +1237,6 @@ class Faro {
       ),
       sdk: meta.sdk,
       app: meta.app,
-      view: includeCurrentContext ? meta.view : null,
-      browser: includeCurrentContext ? meta.browser : null,
-      page: includeCurrentContext ? meta.page : null,
-      user: includeCurrentContext ? meta.user : null,
       device: meta.device,
       os: meta.os,
     );
@@ -1367,10 +1367,7 @@ class Faro {
         } else if (recoveredSession.isSampled) {
           final sent = await _sendRecoveredCrash(
             exception,
-            _metaForRecoveredSession(
-              recoveredSession,
-              includeCurrentContext: true,
-            ),
+            _metaForRecoveredSession(recoveredSession),
             nativeRetryAvailable: true,
           );
           accepted = accepted && sent;
@@ -1524,13 +1521,21 @@ class Faro {
         continue;
       }
       hasDirectTransport = true;
-      if (transport is FaroTransport) {
-        final transportAccepted = await transport.sendHistoricalAcknowledged(
-          payloadJson,
+      try {
+        if (transport is FaroTransport) {
+          final transportAccepted = await transport.sendHistoricalAcknowledged(
+            payloadJson,
+          );
+          accepted = accepted && transportAccepted;
+        } else {
+          await transport.send(payloadJson);
+        }
+      } catch (error, stacktrace) {
+        accepted = false;
+        log(
+          'Faro: ${transport.runtimeType} failed for recovered crash: $error',
+          stackTrace: stacktrace,
         );
-        accepted = accepted && transportAccepted;
-      } else {
-        await transport.send(payloadJson);
       }
     }
     return accepted && (!nativeRetryAvailable || hasDirectTransport);

@@ -105,4 +105,16 @@ struct CrashReportingIntegrationTests {
     #expect(integration.takePendingCrashReports().isEmpty)
     #expect(purgeCount == 1)
   }
+
+  @Test("reports when a pending crash cannot be purged")
+  func purgeFailure() {
+    let integration = CrashReportingIntegration(
+      hasPendingCrashReport: { true },
+      loadPendingCrashReport: { Data() },
+      purgePendingCrashReport: { false },
+      exportCrashReport: { _ in [:] }
+    )
+
+    #expect(!integration.purgePendingCrashReport())
+  }
 }
