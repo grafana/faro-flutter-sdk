@@ -8,6 +8,11 @@ public class FaroPlugin: NSObject, FlutterPlugin {
   private static let sessionPersistenceOwnerLock = NSLock()
   private static var sessionPersistenceOwnerClaimed = false
   private var ownsSessionPersistence = false
+  private var crashReportingIntegration: CrashReportingIntegration?
+  private let crashReportQueue = DispatchQueue(
+    label: "com.grafana.faro.crash-report",
+    qos: .utility
+  )
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     // First thing the SDK does. iOS clears the prewarm flag once the app has
@@ -40,10 +45,60 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "enableCrashReporter":
-            do{
-                _ = try CrashReportingIntegration(crashReporterConfig: call.arguments as! [String: Any])
+            do {
+                crashReportingIntegration = try CrashReportingIntegration()
+                result(nil)
             } catch {
-                print("crash reporter not initialized")
+                result(
+                    FlutterError(
+                        code: "crash_reporter_initialization_failed",
+                        message: "Could not initialize the iOS crash reporter.",
+                        details: error.localizedDescription
+                    )
+                )
+            }
+        case "getCrashReport":
+            // If runtime discovery failed before claiming an owner, let the
+            // first root engine reaching recovery claim the pending report.
+            claimSessionPersistenceOwnership()
+            guard ownsSessionPersistence else {
+                result([String]())
+                return
+            }
+            guard let crashReportingIntegration else {
+                result([String]())
+                return
+            }
+            crashReportQueue.async {
+                let reports = crashReportingIntegration.takePendingCrashReports()
+                DispatchQueue.main.async {
+                    result(reports)
+                }
+            }
+        case "purgeCrashReport":
+            // Match getCrashReport's fallback when runtime discovery could not
+            // establish the owner before crash recovery starts.
+            claimSessionPersistenceOwnership()
+            guard ownsSessionPersistence,
+                  let crashReportingIntegration else {
+                result(nil)
+                return
+            }
+            crashReportQueue.async {
+                let purged = crashReportingIntegration.purgePendingCrashReport()
+                DispatchQueue.main.async {
+                    if purged {
+                        result(nil)
+                    } else {
+                        result(
+                            FlutterError(
+                                code: "crash_report_purge_failed",
+                                message: "Could not purge the iOS crash report.",
+                                details: nil
+                            )
+                        )
+                    }
+                }
             }
         case "getPlatformVersion":
                 result("iOS " + UIDevice.current.systemVersion);

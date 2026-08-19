@@ -67,13 +67,21 @@ class FaroTransport extends BaseTransport {
     await _send(payloadJson, processSessionInvalidation: false);
   }
 
-  Future<void> _send(
+  /// Sends historical telemetry and reports whether the collector accepted it.
+  ///
+  /// This is used when the caller owns the only durable copy and must not
+  /// discard it until the collector returns a successful response.
+  Future<bool> sendHistoricalAcknowledged(Map<String, dynamic> payloadJson) {
+    return _send(payloadJson, processSessionInvalidation: false);
+  }
+
+  Future<bool> _send(
     Map<String, dynamic> payloadJson, {
     required bool processSessionInvalidation,
   }) async {
     if (Faro().enableDataCollection == false) {
       log('Data collection is disabled. Skipping sending data.');
-      return;
+      return false;
     }
 
     try {
@@ -103,6 +111,11 @@ class FaroTransport extends BaseTransport {
           'Error sending payload: ${response.statusCode}, '
           'body: ${response.body} payload:$encodedPayload',
         );
+        return false;
+      }
+
+      if (response == null) {
+        return false;
       }
 
       if (response != null &&
@@ -114,8 +127,10 @@ class FaroTransport extends BaseTransport {
         log('Faro: Receiver reported the submitted session as invalid.');
         _onSessionInvalidated?.call(sentSessionId);
       }
+      return true;
     } catch (error) {
       log('Error sending payload: $error');
+      return false;
     }
   }
 

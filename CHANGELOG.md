@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (behavioral): iOS recovered crashes now use `type: crash`.**
+  The native signal and code remain available in `context.nativeType`.
+  Dashboards and alerts matching signal names in `exception.type` should match
+  `crash` and read `context.nativeType` instead
+  ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
 - **Automatic session rotations now re-evaluate sampling.** Sessions created
   after inactivity, maximum lifetime, or receiver invalidation make an
   independent sampling decision, matching explicit resets and Faro Web.
@@ -78,8 +83,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   iOS prewarmed the process, `0` otherwise). `appStartDuration` and `coldStart`
   are unchanged, so existing dashboards keep working.
 
+### Deprecated
+
+- **Direct crash-reporter setup is deprecated.** Enable crash reporting and
+  configure its transports through `FaroConfig` instead of calling
+  `Faro.enableCrashReporter`.
+
 ### Fixed
 
+- **iOS crash reports now use the configured SDK transports.** Pending
+  PLCrashReporter data returns to Dart on the next launch and follows the
+  configured collector and custom transport paths, sampling, data collection
+  policy, and collector headers. Successfully handed-off reports are purged.
+  Collector rejections and thrown transport failures remain pending. Reports
+  are discarded when data collection is disabled during launch recovery.
+  Pending native reports do not also enter `OfflineTransport`, because the
+  native report is already the durable retry copy
+  ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
 - **Recovered native crashes retain their original session.** Android and iOS
   crash metadata includes `crashedSessionId` and preserves the persisted
   sampling decision without changing the new live session. Historical Android

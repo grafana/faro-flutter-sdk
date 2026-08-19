@@ -31,12 +31,14 @@ void main() {
       SessionIdResolver? sessionIdResolver,
       SessionInvalidatedHandler? onSessionInvalidated,
       Map<String, String>? headers,
+      int? maxBufferLimit,
     }) {
       final transport = FaroTransport(
         collectorUrl: 'https://collector.example/collect',
         apiKey: 'test-key',
         sessionIdResolver: sessionIdResolver ?? () => 'session-id',
         headers: headers,
+        maxBufferLimit: maxBufferLimit,
         httpClient: client,
       );
       if (onSessionInvalidated != null) {
@@ -74,6 +76,51 @@ void main() {
         expect(headers['x-api-key'], 'test-key');
         expect(headers['content-type'], contains('application/json'));
         expect(headers['x-custom'], 'custom-value');
+      });
+    });
+
+    group('historical acknowledgement:', () {
+      test('returns true for a successful collector response', () async {
+        final accepted = await buildTransport().sendHistoricalAcknowledged(
+          payload(),
+        );
+
+        expect(accepted, isTrue);
+      });
+
+      test('returns false for a rejected collector response', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response('rejected', 500);
+        });
+
+        final accepted = await buildTransport().sendHistoricalAcknowledged(
+          payload(),
+        );
+
+        expect(accepted, isFalse);
+      });
+
+      test('returns false when the request fails', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          throw http.ClientException('collector unavailable');
+        });
+
+        final accepted = await buildTransport().sendHistoricalAcknowledged(
+          payload(),
+        );
+
+        expect(accepted, isFalse);
+      });
+
+      test('returns false when the transport buffer is full', () async {
+        final accepted = await buildTransport(
+          maxBufferLimit: 0,
+        ).sendHistoricalAcknowledged(payload());
+
+        expect(accepted, isFalse);
+        expect(captured, isEmpty);
       });
     });
 

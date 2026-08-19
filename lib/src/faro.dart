@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+import 'dart:ui' show RootIsolateToken;
 
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
@@ -17,6 +18,7 @@ import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/offline_transport.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/session/session_manager.dart';
@@ -95,8 +97,10 @@ class Faro {
   List<PersistedSessionRecord> _recoveredSessionHistory =
       const <PersistedSessionRecord>[];
   String? _sessionProcessIdentifier;
+  bool? _ownsSessionPersistence;
   bool _isSampled = true;
   bool _isInitialized = false;
+  Future<void>? _iosCrashReporterEnablement;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
   bool _didAttachUiActivityMonitor = false;
 
@@ -276,11 +280,10 @@ class Faro {
       ignoreUrls: optionsConfiguration.ignoreUrls,
     );
     if (config?.enableCrashReporting == true) {
-      _instance.enableCrashReporter(
-        app: _instance.meta.app!,
-        apiKey: optionsConfiguration.apiKey,
-        collectorUrl: optionsConfiguration.collectorUrl ?? '',
-        recoveredSession: persistedPreviousSession,
+      unawaited(
+        _instance._enableCrashReporter(
+          recoveredSession: persistedPreviousSession,
+        ),
       );
     }
     if (Platform.isAndroid || Platform.isIOS) {
@@ -433,6 +436,7 @@ class Faro {
       return null;
     }
     _sessionProcessIdentifier = runtimeInfo.processIdentifier;
+    _ownsSessionPersistence = runtimeInfo.ownsSessionPersistence;
 
     final session = meta.session;
     if (session != null) {
@@ -514,6 +518,7 @@ class Faro {
   Future<void> _tearDownForReset() async {
     await _sessionPersistence?.flush();
     _sessionPersistence = null;
+    _ownsSessionPersistence = null;
     final widgetsBindingObserver = _widgetsBindingObserver;
     if (widgetsBindingObserver != null) {
       WidgetsBinding.instance.removeObserver(widgetsBindingObserver);
@@ -1066,26 +1071,71 @@ class Faro {
     eventMark.remove(key);
   }
 
+  /// Deprecated. Enable crash reporting and configure transports through
+  /// [FaroConfig] instead.
+  @Deprecated(
+    'Use FaroConfig.enableCrashReporting and FaroConfig transports instead.',
+  )
   Future<void>? enableCrashReporter({
     required App app,
     required String apiKey,
     required String collectorUrl,
     PersistedSessionRecord? recoveredSession,
+  }) {
+    log(
+      'Faro: enableCrashReporter() is deprecated. Its app, apiKey, and '
+      'collectorUrl arguments no longer override FaroConfig.',
+    );
+    return _enableCrashReporter(recoveredSession: recoveredSession);
+  }
+
+  Future<void> _enableCrashReporter({
+    PersistedSessionRecord? recoveredSession,
+  }) {
+    if (!_isIOSPlatform() || _nativeChannel == null) {
+      return _enableCrashReporterOnce(recoveredSession: recoveredSession);
+    }
+    return _iosCrashReporterEnablement ??= _enableCrashReporterOnce(
+      recoveredSession: recoveredSession,
+    );
+  }
+
+  Future<void> _enableCrashReporterOnce({
+    PersistedSessionRecord? recoveredSession,
   }) async {
+    // Preserve the launch-time consent decision across the native method call.
+    // An app may update the policy while crash reporter setup is in flight.
+    final collectionEnabledAtStart = enableDataCollection;
     try {
-      final recoveredCrashMeta = recoveredSession == null
-          ? null
-          : _metaForRecoveredSession(recoveredSession);
-      final metadata = (recoveredCrashMeta ?? meta).toFaroJson();
-      metadata['app'] = app.toJson();
-      metadata['apiKey'] = apiKey;
-      metadata['collectorUrl'] = collectorUrl;
-      metadata['reportPendingCrash'] =
-          (_sessionPersistence == null || recoveredSession != null) &&
-          (recoveredSession?.isSampled ?? true) &&
-          enableDataCollection;
       if (_isIOSPlatform()) {
-        _nativeChannel?.enableCrashReporter(metadata);
+        await _nativeChannel?.enableCrashReporter(const <String, dynamic>{});
+        final shouldAttemptRecovery =
+            _ownsSessionPersistence == true ||
+            (_ownsSessionPersistence == null &&
+                RootIsolateToken.instance != null);
+        if (!collectionEnabledAtStart || !enableDataCollection) {
+          if (shouldAttemptRecovery) {
+            // Do not upload a pending crash while collection is disabled.
+            await _nativeChannel?.purgeCrashReport();
+          }
+          return;
+        }
+
+        if (shouldAttemptRecovery) {
+          final crashReports = await _nativeChannel?.getCrashReport();
+          if (crashReports != null && crashReports.isNotEmpty) {
+            final recoveredSessions = _sessionPersistence != null
+                ? _recoveredSessionHistory
+                : null;
+            // Recovery sends must not hold up the next app launch.
+            unawaited(
+              _reportAndPurgeIOSCrashReports(
+                crashReports,
+                recoveredSessions: recoveredSessions,
+              ),
+            );
+          }
+        }
       }
       if (_isAndroidPlatform()) {
         final crashReports = await _nativeChannel?.getCrashReport();
@@ -1113,6 +1163,43 @@ class Faro {
         stackTrace: stacktrace,
       );
     }
+  }
+
+  Future<void> _reportAndPurgeIOSCrashReports(
+    List<String> crashReports, {
+    required List<PersistedSessionRecord>? recoveredSessions,
+  }) async {
+    try {
+      final accepted = await _reportIOSCrashReports(
+        crashReports,
+        recoveredSessions: recoveredSessions,
+      );
+      if (accepted) {
+        await _nativeChannel?.purgeCrashReport();
+      }
+    } catch (error, stacktrace) {
+      // Keep the native report so the next launch can retry it.
+      log(
+        'Faro: Failed to acknowledge recovered iOS crash: $error',
+        stackTrace: stacktrace,
+      );
+    }
+  }
+
+  @visibleForTesting
+  Future<bool> reportIOSCrashesForTesting(
+    List<String> crashReports, {
+    PersistedSessionRecord? recoveredSession,
+    List<PersistedSessionRecord>? recoveredSessions,
+  }) {
+    return _reportIOSCrashReports(
+      crashReports,
+      recoveredSessions:
+          recoveredSessions ??
+          (recoveredSession == null
+              ? null
+              : <PersistedSessionRecord>[recoveredSession]),
+    );
   }
 
   @visibleForTesting
@@ -1205,6 +1292,7 @@ class Faro {
           await _sendRecoveredCrash(
             exception,
             _metaForRecoveredSession(recoveredSession),
+            nativeRetryAvailable: false,
           );
         }
       } catch (error, stacktrace) {
@@ -1214,6 +1302,85 @@ class Faro {
         );
       }
     }
+  }
+
+  Future<bool> _reportIOSCrashReports(
+    List<String> crashReports, {
+    required List<PersistedSessionRecord>? recoveredSessions,
+  }) async {
+    var accepted = true;
+    for (final crashInfo in crashReports) {
+      late final FaroException exception;
+      PersistedSessionRecord? recoveredSession;
+      try {
+        final decoded = json.decode(crashInfo);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('Crash report must be an object');
+        }
+
+        final timestamp = DateTime.tryParse(
+          decoded['timestamp']?.toString() ?? '',
+        )?.toUtc();
+        if (timestamp == null) {
+          throw const FormatException('Crash report must include a timestamp');
+        }
+        if (recoveredSessions != null) {
+          recoveredSession = _matchRecoveredSessionAt(
+            timestamp,
+            recoveredSessions,
+          );
+          if (recoveredSession == null) {
+            log('Faro: Ignoring iOS crash without a matching session');
+            continue;
+          }
+        }
+
+        exception = _iosCrashException(
+          decoded,
+          timestamp: timestamp,
+          crashedSessionId: recoveredSession?.currentSessionId,
+        );
+      } catch (error, stacktrace) {
+        log(
+          'Faro: Ignoring malformed iOS crash report: $error',
+          stackTrace: stacktrace,
+        );
+        continue;
+      }
+
+      try {
+        if (_dataCollectionPolicy?.isEnabled == false) {
+          return false;
+        }
+        if (recoveredSession == null) {
+          if (_isSampled) {
+            // Keep the structured native frames and wait for the transport.
+            // pushError would reconstruct a Dart stack and batch delivery would
+            // acknowledge the native report before an async send completed.
+            final sent = await _sendRecoveredCrash(
+              exception,
+              meta,
+              nativeRetryAvailable: true,
+            );
+            accepted = accepted && sent;
+          }
+        } else if (recoveredSession.isSampled) {
+          final sent = await _sendRecoveredCrash(
+            exception,
+            _metaForRecoveredSession(recoveredSession),
+            nativeRetryAvailable: true,
+          );
+          accepted = accepted && sent;
+        }
+      } catch (error, stacktrace) {
+        accepted = false;
+        log(
+          'Faro: Failed to report recovered iOS crash: $error',
+          stackTrace: stacktrace,
+        );
+      }
+    }
+    return accepted;
   }
 
   PersistedSessionRecord? _matchRecoveredSession(
@@ -1238,6 +1405,13 @@ class Faro {
       isUtc: true,
     );
 
+    return _matchRecoveredSessionAt(crashTime, recoveredSessions);
+  }
+
+  PersistedSessionRecord? _matchRecoveredSessionAt(
+    DateTime crashTime,
+    List<PersistedSessionRecord> recoveredSessions,
+  ) {
     PersistedSessionRecord? match;
     for (final session in recoveredSessions) {
       if (session.startedAt.isAfter(crashTime)) {
@@ -1250,6 +1424,37 @@ class Faro {
       }
     }
     return match;
+  }
+
+  FaroException _iosCrashException(
+    Map<String, dynamic> crashInfo, {
+    required DateTime? timestamp,
+    String? crashedSessionId,
+  }) {
+    final nativeType = crashInfo['type']?.toString();
+    final context = <String, String>{};
+    if (nativeType != null && nativeType.isNotEmpty) {
+      context['nativeType'] = nativeType;
+    }
+    if (crashedSessionId != null) {
+      context['crashedSessionId'] = crashedSessionId;
+    }
+
+    final rawStacktrace = crashInfo['stacktrace'];
+    final stacktrace = rawStacktrace is Map
+        ? Map<String, dynamic>.from(rawStacktrace)
+        : <String, dynamic>{};
+    final exception = FaroException(
+      'crash',
+      crashInfo['value']?.toString() ?? 'Application crash',
+      stacktrace,
+      fatal: true,
+      context: context.isEmpty ? null : context,
+    );
+    if (timestamp != null) {
+      exception.timestamp = timestamp.toIso8601String();
+    }
+    return exception;
   }
 
   FaroException _androidCrashException(
@@ -1292,23 +1497,47 @@ class Faro {
     return exception;
   }
 
-  Future<void> _sendRecoveredCrash(
+  Future<bool> _sendRecoveredCrash(
     FaroException exception,
-    Meta recoveredCrashMeta,
-  ) async {
+    Meta recoveredCrashMeta, {
+    required bool nativeRetryAvailable,
+  }) async {
     if (_dataCollectionPolicy?.isEnabled == false) {
-      return;
+      return false;
     }
     // The live batch carries the new session metadata, so recovered crashes
     // must use an isolated payload.
     final payload = Payload(recoveredCrashMeta)..exceptions.add(exception);
     final payloadJson = payload.toJson();
+    var accepted = true;
+    var hasDirectTransport = false;
     for (final transport in List<BaseTransport>.of(_transports)) {
-      if (transport is FaroTransport) {
-        await transport.sendHistorical(payloadJson);
-      } else {
-        await transport.send(payloadJson);
+      // PLCrashReporter keeps the iOS report until this handoff succeeds.
+      // Sending it to OfflineTransport as well would create a second retry
+      // owner and can deliver the same crash twice after connectivity returns.
+      // Android ApplicationExitInfo has no retained native copy, so Android
+      // must continue using OfflineTransport when it is configured.
+      if (nativeRetryAvailable && transport is OfflineTransport) {
+        continue;
+      }
+      hasDirectTransport = true;
+      try {
+        if (transport is FaroTransport) {
+          final transportAccepted = await transport.sendHistoricalAcknowledged(
+            payloadJson,
+          );
+          accepted = accepted && transportAccepted;
+        } else {
+          await transport.send(payloadJson);
+        }
+      } catch (error, stacktrace) {
+        accepted = false;
+        log(
+          'Faro: ${transport.runtimeType} failed for recovered crash: $error',
+          stackTrace: stacktrace,
+        );
       }
     }
+    return accepted && (!nativeRetryAvailable || hasDirectTransport);
   }
 }
