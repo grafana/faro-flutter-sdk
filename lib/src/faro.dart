@@ -100,6 +100,7 @@ class Faro {
   bool? _ownsSessionPersistence;
   bool _isSampled = true;
   bool _isInitialized = false;
+  Future<void>? _iosCrashReporterEnablement;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
   bool _didAttachUiActivityMonitor = false;
 
@@ -1089,6 +1090,17 @@ class Faro {
   }
 
   Future<void> _enableCrashReporter({
+    PersistedSessionRecord? recoveredSession,
+  }) {
+    if (!_isIOSPlatform() || _nativeChannel == null) {
+      return _enableCrashReporterOnce(recoveredSession: recoveredSession);
+    }
+    return _iosCrashReporterEnablement ??= _enableCrashReporterOnce(
+      recoveredSession: recoveredSession,
+    );
+  }
+
+  Future<void> _enableCrashReporterOnce({
     PersistedSessionRecord? recoveredSession,
   }) async {
     try {

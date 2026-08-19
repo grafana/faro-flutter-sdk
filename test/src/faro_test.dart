@@ -334,6 +334,57 @@ void main() {
         },
       );
 
+      test('iOS enables crash recovery only once', () async {
+        stubRuntimeInfo(ownsPersistence: true);
+        Faro().iosPlatformResolver = () => true;
+        Faro().androidPlatformResolver = () => false;
+
+        await Faro().init(
+          optionsConfiguration: createConfig(enableCrashReporting: true),
+        );
+        await Faro().enableCrashReporter(
+          app: App(name: appName, version: appVersion, environment: appEnv),
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        );
+        await Faro().enableCrashReporter(
+          app: App(name: appName, version: appVersion, environment: appEnv),
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+        );
+
+        verify(
+          () => mockFaroNativeMethods.enableCrashReporter(any()),
+        ).called(1);
+        verify(() => mockFaroNativeMethods.getCrashReport()).called(1);
+      });
+
+      test(
+        'an iOS pre-init call does not suppress configured recovery',
+        () async {
+          stubRuntimeInfo(ownsPersistence: true);
+          Faro().iosPlatformResolver = () => true;
+          Faro().androidPlatformResolver = () => false;
+          Faro().nativeChannel = null;
+
+          await Faro().enableCrashReporter(
+            app: App(name: appName, version: appVersion, environment: appEnv),
+            apiKey: apiKey,
+            collectorUrl: 'https://some-url.com',
+          );
+          Faro().nativeChannel = mockFaroNativeMethods;
+          await Faro().init(
+            optionsConfiguration: createConfig(enableCrashReporting: true),
+          );
+          await untilCalled(() => mockFaroNativeMethods.getCrashReport());
+
+          verify(
+            () => mockFaroNativeMethods.enableCrashReporter(any()),
+          ).called(1);
+          verify(() => mockFaroNativeMethods.getCrashReport()).called(1);
+        },
+      );
+
       test(
         'iOS keeps the crash fallback when persistence is disabled',
         () async {
