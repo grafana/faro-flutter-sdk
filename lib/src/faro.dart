@@ -373,6 +373,13 @@ class Faro {
     String? previousId,
     required SessionStartTrigger trigger,
   }) {
+    final startsNewSamplingWindow = trigger != SessionStartTrigger.initial;
+    if (startsNewSamplingWindow) {
+      // Buffered action telemetry belongs to the session where the action
+      // started and must be dispatched before metadata or transport changes.
+      _userActionsService.endActiveUserAction();
+    }
+
     final attributes = <String, dynamic>{...?meta.session?.attributes};
     if (previousId != null) {
       attributes['previousSession'] = previousId;
@@ -384,7 +391,7 @@ class Faro {
     });
     _batchTransport?.updatePayloadMeta(meta);
 
-    if (trigger == SessionStartTrigger.explicitReset) {
+    if (startsNewSamplingWindow) {
       _restartSamplingForNewSession();
     }
 
@@ -978,23 +985,24 @@ class Faro {
   /// ```
   ///
   /// **Note:** The action lifecycle is managed automatically by internal
-  /// user-action services.
+  /// user-action services. If the current session has expired, Faro rotates it
+  /// before the new action starts.
   UserActionHandle? startUserAction(
     String name, {
     Map<String, String>? attributes,
     StartUserActionOptions? options,
   }) {
-    final action = _userActionsService.startUserAction(
-      name,
-      attributes: attributes,
-      options: options,
-    );
-    if (action != null) {
+    if (_isInitialized && _userActionsService.getActiveUserAction() == null) {
       pod
           .resolve(sessionManagerProvider)
           .checkSession(activity: SessionActivityKind.meaningful);
     }
-    return action;
+
+    return _userActionsService.startUserAction(
+      name,
+      attributes: attributes,
+      options: options,
+    );
   }
 
   /// Returns the currently active user action, if any.

@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Dashboards and alerts matching signal names in `exception.type` should match
   `crash` and read `context.nativeType` instead
   ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
+- **Automatic session rotations now re-evaluate sampling.** Sessions created
+  after inactivity, maximum lifetime, or receiver invalidation make an
+  independent sampling decision, matching explicit resets and Faro Web.
+  **Telemetry collection can now start or stop when a session rotates instead
+  of retaining the previous session's decision.**
+  ([#284](https://github.com/grafana/faro-flutter-sdk/issues/284))
 - **BREAKING (behavioral)**: Session inactivity now refreshes only for
   user interactions, view or navigation changes, foreground returns,
   explicit user actions, and spans linked to those actions. Generic telemetry,
