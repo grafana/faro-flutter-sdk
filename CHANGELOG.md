@@ -94,11 +94,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **iOS crash reports now use the configured SDK transports.** Pending
   PLCrashReporter data returns to Dart on the next launch and follows the
   configured collector and custom transport paths, sampling, data collection
-  policy, and collector headers. Successfully handed-off reports are purged.
-  Collector rejections and thrown transport failures remain pending. Reports
-  are discarded when data collection is disabled during launch recovery.
-  Pending native reports do not also enter `OfflineTransport`, because the
-  native report is already the durable retry copy
+  policy, and collector headers. Accepted reports are purged; collector
+  rejections and transport errors remain pending. Custom transports must
+  complete with an error when handoff fails because returning normally counts
+  as acceptance. Reports are discarded when data collection is disabled.
+  Pending native reports skip `OfflineTransport` because the native report is
+  already the durable retry copy
   ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
 - **Recovered native crashes retain their original session.** Android and iOS
   crash metadata includes `crashedSessionId` and preserves the persisted
