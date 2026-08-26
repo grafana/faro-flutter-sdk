@@ -578,9 +578,8 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     boolean canRecoverCrashReports() {
-        // Fail closed when process discovery did not establish ownership. A
-        // non-owner must never consume an exit before the durable-session
-        // owner starts and attributes it correctly.
+        // Dart checks the same ownership before invoking this method. Keep the
+        // native guard for direct channel callers and future call-site changes.
         return ownsSessionPersistence;
     }
 

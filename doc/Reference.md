@@ -454,12 +454,14 @@ On Android, only the root Flutter engine that owns the process-scoped session
 record attempts to read historical `ApplicationExitInfo` records. Other
 engines skip recovery so an old crash cannot be emitted with an unrelated live
 session. Enable crash reporting on every root-engine entrypoint that may
-initialize Faro first. An already initialized non-owner does not take over
-recovery when the owner detaches; a new engine can claim ownership after the
-previous owner is destroyed. If native runtime identity is unavailable, Faro
-does not read or mark historical exits as handled. A later process launch may
-recover them if Android still retains the records and ownership can then be
-resolved. Android continues to deduplicate historical exit records.
+initialize Faro first. Recovery delivery is asynchronous, so the owning engine
+must remain alive until its configured transport accepts the payload. An
+already initialized non-owner does not take over recovery when the owner
+detaches; a new engine can claim ownership after the previous owner is
+destroyed. If native runtime identity is unavailable, Faro does not read or
+mark historical exits as handled. A later process launch may recover them if
+Android still retains the records and ownership can then be resolved. Android
+continues to deduplicate historical exit records.
 
 On iOS, Faro purges the pending PLCrashReporter record after Dart accepts it
 for transport. The report uses the configured collector and custom transports,

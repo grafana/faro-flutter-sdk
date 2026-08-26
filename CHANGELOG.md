@@ -95,9 +95,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Only the root Flutter engine that owns the durable session chain reads
   historical application exits. Other engines, including those whose native
   process identity cannot be resolved, skip recovery instead of emitting an
-  old crash with an unrelated live session. **This can reduce recovered-crash
-  volume when runtime identity is unavailable.** Enable crash reporting on
-  every root-engine entrypoint that may initialize Faro first
+  old crash with an unrelated live session. If ownership cannot be established
+  during startup, recovery is deferred to a later launch. Enable crash
+  reporting on every root-engine entrypoint that may initialize Faro first
   ([#340](https://github.com/grafana/faro-flutter-sdk/issues/340)).
 - **iOS crash reports now use the configured SDK transports.** Pending
   PLCrashReporter data returns to Dart on the next launch and follows the
