@@ -18,36 +18,40 @@ public class FaroPluginTest {
     }
 
     @Test
-    public void crashRecoveryClaimDoesNotTakeSessionPersistenceOwnership() {
-        FaroPlugin crashOwner = new FaroPlugin();
+    public void crashRecoveryRequiresSessionPersistenceOwnership() {
+        FaroPlugin unidentifiedEngine = new FaroPlugin();
         FaroPlugin persistenceOwner = new FaroPlugin();
 
         try {
-            assertTrue(crashOwner.claimCrashRecoveryOwnership());
+            assertFalse(unidentifiedEngine.canRecoverCrashReports());
             assertTrue(persistenceOwner.claimSessionPersistenceOwnership());
-            assertFalse(crashOwner.claimSessionPersistenceOwnership());
+            assertTrue(persistenceOwner.canRecoverCrashReports());
+            assertFalse(unidentifiedEngine.canRecoverCrashReports());
         } finally {
-            crashOwner.releaseCrashRecoveryOwnership();
-            crashOwner.releaseSessionPersistenceOwnership();
-            persistenceOwner.releaseCrashRecoveryOwnership();
+            unidentifiedEngine.releaseSessionPersistenceOwnership();
             persistenceOwner.releaseSessionPersistenceOwnership();
         }
     }
 
     @Test
-    public void persistenceOwnerExcludesSecondaryCrashRecovery() {
-        FaroPlugin owner = new FaroPlugin();
-        FaroPlugin secondary = new FaroPlugin();
+    public void crashRecoveryTransfersWithSessionPersistenceOwnership() {
+        FaroPlugin firstOwner = new FaroPlugin();
+        FaroPlugin replacement = new FaroPlugin();
 
         try {
-            assertTrue(owner.claimSessionPersistenceOwnership());
-            assertTrue(owner.claimCrashRecoveryOwnership());
-            assertFalse(secondary.claimCrashRecoveryOwnership());
+            assertTrue(firstOwner.claimSessionPersistenceOwnership());
+            assertTrue(firstOwner.canRecoverCrashReports());
+            assertFalse(replacement.claimSessionPersistenceOwnership());
+            assertFalse(replacement.canRecoverCrashReports());
+
+            firstOwner.releaseSessionPersistenceOwnership();
+
+            assertTrue(replacement.claimSessionPersistenceOwnership());
+            assertTrue(replacement.canRecoverCrashReports());
+            assertFalse(firstOwner.canRecoverCrashReports());
         } finally {
-            owner.releaseCrashRecoveryOwnership();
-            owner.releaseSessionPersistenceOwnership();
-            secondary.releaseCrashRecoveryOwnership();
-            secondary.releaseSessionPersistenceOwnership();
+            firstOwner.releaseSessionPersistenceOwnership();
+            replacement.releaseSessionPersistenceOwnership();
         }
     }
 }

@@ -491,24 +491,21 @@ void main() {
         verifyNever(() => mockFaroNativeMethods.getCrashReport());
       });
 
-      test(
-        'Android recovery falls back when runtime info is unavailable',
-        () async {
-          when(
-            () => mockFaroNativeMethods.getSessionRuntimeInfo(
-              claimSessionPersistence: true,
-            ),
-          ).thenAnswer((_) async => null);
-          Faro().iosPlatformResolver = () => false;
-          Faro().androidPlatformResolver = () => true;
+      test('Android recovery stops when runtime info is unavailable', () async {
+        when(
+          () => mockFaroNativeMethods.getSessionRuntimeInfo(
+            claimSessionPersistence: true,
+          ),
+        ).thenAnswer((_) async => null);
+        Faro().iosPlatformResolver = () => false;
+        Faro().androidPlatformResolver = () => true;
 
-          await Faro().init(
-            optionsConfiguration: createConfig(enableCrashReporting: true),
-          );
+        await Faro().init(
+          optionsConfiguration: createConfig(enableCrashReporting: true),
+        );
 
-          verify(() => mockFaroNativeMethods.getCrashReport()).called(1);
-        },
-      );
+        verifyNever(() => mockFaroNativeMethods.getCrashReport());
+      });
 
       test(
         'iOS recovery falls back when runtime info is unavailable',

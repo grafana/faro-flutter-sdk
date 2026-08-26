@@ -51,7 +51,6 @@ import io.flutter.plugin.common.MethodChannel.Result;
  */
 public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
     private static final AtomicBoolean SESSION_PERSISTENCE_OWNER_CLAIMED = new AtomicBoolean(false);
-    private static final AtomicBoolean CRASH_RECOVERY_OWNER_CLAIMED = new AtomicBoolean(false);
 
     /// The MethodChannel that will the communication between Flutter and native Android
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
@@ -64,7 +63,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private @Nullable Window window;
     private @Nullable Application application;
     private boolean ownsSessionPersistence = false;
-    private boolean ownsCrashRecovery = false;
     // Once attached, this engine remains the main engine across Activity detaches.
     private final EngineRoleTracker engineRoleTracker = new EngineRoleTracker();
 
@@ -339,7 +337,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "onDetachedFromEngine");
         channel.setMethodCallHandler(null);
         channel = null;
-        releaseCrashRecoveryOwnership();
         releaseSessionPersistenceOwnership();
     }
 
@@ -367,7 +364,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         }
                         break;
                     case "getCrashReport":
-                        if (!claimCrashRecoveryOwnership()) {
+                        if (!canRecoverCrashReports()) {
                             result.success(new ArrayList<>());
                             break;
                         }
@@ -580,27 +577,11 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         }
     }
 
-    boolean claimCrashRecoveryOwnership() {
-        if (ownsCrashRecovery) {
-            return true;
-        }
-        // A known secondary engine must not recover a crash with its unrelated
-        // live session. Runtime-discovery fallbacks use a separate claim so
-        // they cannot take session-persistence ownership as a side effect.
-        if (!ownsSessionPersistence && SESSION_PERSISTENCE_OWNER_CLAIMED.get()) {
-            return false;
-        }
-        if (CRASH_RECOVERY_OWNER_CLAIMED.compareAndSet(false, true)) {
-            ownsCrashRecovery = true;
-        }
-        return ownsCrashRecovery;
-    }
-
-    void releaseCrashRecoveryOwnership() {
-        if (ownsCrashRecovery) {
-            CRASH_RECOVERY_OWNER_CLAIMED.set(false);
-            ownsCrashRecovery = false;
-        }
+    boolean canRecoverCrashReports() {
+        // Fail closed when process discovery did not establish ownership. A
+        // non-owner must never consume an exit before the durable-session
+        // owner starts and attributes it correctly.
+        return ownsSessionPersistence;
     }
 
     /** Tracks whether this Flutter engine has ever been attached to an Activity. */

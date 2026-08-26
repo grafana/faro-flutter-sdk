@@ -1161,9 +1161,15 @@ class Faro {
     }
   }
 
-  bool get _shouldAttemptCrashRecovery =>
-      _ownsSessionPersistence == true ||
-      (_ownsSessionPersistence == null && RootIsolateToken.instance != null);
+  bool get _shouldAttemptCrashRecovery {
+    if (_isAndroidPlatform()) {
+      // An unresolved runtime must not consume a historical exit before the
+      // process-scoped session owner can attribute it correctly.
+      return _ownsSessionPersistence == true;
+    }
+    return _ownsSessionPersistence == true ||
+        (_ownsSessionPersistence == null && RootIsolateToken.instance != null);
+  }
 
   Future<void> _reportAndPurgeIOSCrashReports(
     List<String> crashReports, {
