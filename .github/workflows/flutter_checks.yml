@@ -77,6 +77,10 @@ jobs:
         working-directory: example/android
         run: ./gradlew :faro:testDebugUnitTest
 
+      - name: Compile Android instrumentation tests
+        working-directory: example/android
+        run: ./gradlew :app:assembleDebugAndroidTest
+
   test-ios:
     name: build & test iOS
     runs-on: macos-latest

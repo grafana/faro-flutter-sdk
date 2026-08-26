@@ -367,6 +367,13 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         }
                         break;
                     case "getCrashReport":
+                        // Runtime discovery normally claims the owner first. Keep
+                        // this fallback for callers that could not discover it.
+                        claimSessionPersistenceOwnership();
+                        if (!ownsSessionPersistence) {
+                            result.success(new ArrayList<>());
+                            break;
+                        }
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                             // Check if exitInfoHelper is initialized
                             if (exitInfoHelper == null) {

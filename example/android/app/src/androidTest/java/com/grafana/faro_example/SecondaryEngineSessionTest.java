@@ -6,10 +6,10 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import android.app.Activity;
 import android.content.Context;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.test.core.app.ActivityScenario;
@@ -48,8 +48,13 @@ import io.flutter.plugin.common.MethodChannel;
 
 @RunWith(AndroidJUnit4.class)
 public final class SecondaryEngineSessionTest {
+    private static final String TAG = "FaroSessionEngineTest";
     private static final String REPORT_CHANNEL = "faro_example/session_engine_harness";
+    private static final String COMMAND_CHANNEL =
+        "faro_example/session_engine_harness_commands";
     private static final long ENGINE_START_TIMEOUT_SECONDS = 45;
+    private static final long COMMAND_TIMEOUT_SECONDS = 20;
+    private static final long PERSISTENCE_TIMEOUT_MILLIS = 5_000;
 
     private final List<EngineHandle> engines = new ArrayList<>();
     private Context context;
@@ -59,7 +64,7 @@ public final class SecondaryEngineSessionTest {
     public void setUp() {
         context = ApplicationProvider.getApplicationContext();
         sessionDirectory = new File(context.getFilesDir(), "faro/sessions");
-        deleteRecursively(sessionDirectory);
+        deleteRecursively(sessionDirectory, true);
     }
 
     @After
@@ -68,37 +73,75 @@ public final class SecondaryEngineSessionTest {
             destroyEngine(engines.get(index));
         }
         engines.clear();
-        deleteRecursively(sessionDirectory);
+        deleteRecursively(sessionDirectory, false);
     }
 
     @Test
-    public void secondaryEngineCannotMutateTheDurableSessionChain() throws Exception {
+    public void firstEngineOwnsPersistenceAndSecondaryCannotMutateIt() throws Exception {
         try (ActivityScenario<SessionEngineHarnessActivity> scenario =
                  ActivityScenario.launch(SessionEngineHarnessActivity.class)) {
             AtomicReference<SessionEngineHarnessActivity> activity = new AtomicReference<>();
             scenario.onActivity(activity::set);
+            assertNotNull("harness Activity did not launch", activity.get());
 
             EngineHandle owner = startEngine("owner", activity.get());
             EngineHandle secondary = startEngine("secondary", null);
 
             assertTrue(owner.report.ownsSessionPersistence);
+            assertNotNull(owner.report.processName);
             assertEquals("main", owner.report.engineRole);
             assertEquals("main", owner.report.isolateName);
+            assertTrue(owner.report.previousSessionPresent);
             assertNull(owner.report.previousSession);
+            assertNotNull(owner.report.sessionDirectory);
+            assertEquals(
+                sessionDirectory.getCanonicalPath(),
+                new File(owner.report.sessionDirectory).getCanonicalPath()
+            );
 
             assertFalse(secondary.report.ownsSessionPersistence);
+            assertNotNull(secondary.report.processName);
             assertEquals("headless", secondary.report.engineRole);
             assertEquals("headless", secondary.report.isolateName);
+            assertTrue(secondary.report.previousSessionPresent);
             assertNull(secondary.report.previousSession);
             assertEquals(owner.report.processName, secondary.report.processName);
             assertNotEquals(owner.report.sessionId, secondary.report.sessionId);
             assertTelemetryMatchesEngine(owner);
             assertTelemetryMatchesEngine(secondary);
 
-            List<PersistedRecord> whileSecondaryIsRunning = readPersistedRecords();
+            List<PersistedRecord> whileSecondaryIsRunning = waitForPersistedRecords(
+                1,
+                owner.report.sessionId
+            );
             assertEquals(1, whileSecondaryIsRunning.size());
             assertEquals(owner.report.sessionId, whileSecondaryIsRunning.get(0).sessionId);
             assertNull(whileSecondaryIsRunning.get(0).previousSessionId);
+            assertTrue(whileSecondaryIsRunning.get(0).isSampled);
+
+            Map<String, Object> secondaryReset = resetSession(secondary);
+            assertEquals(
+                secondary.report.sessionId,
+                secondaryReset.get("previousSessionId")
+            );
+            assertNotEquals(
+                secondary.report.sessionId,
+                secondaryReset.get("sessionId")
+            );
+            List<PersistedRecord> afterSecondaryReset = waitForPersistedRecords(
+                1,
+                owner.report.sessionId
+            );
+            assertEquals(owner.report.sessionId, afterSecondaryReset.get(0).sessionId);
+
+            Map<String, Object> secondaryCrash = reportRecoveredCrash(
+                secondary,
+                afterSecondaryReset,
+                owner.report.sessionId,
+                owner.report.processName
+            );
+            assertEquals(Boolean.FALSE, secondaryCrash.get("recoveryAttempted"));
+            assertEquals(0, ((Number) secondaryCrash.get("crashPayloadCount")).intValue());
 
             destroyEngine(owner);
 
@@ -107,12 +150,16 @@ public final class SecondaryEngineSessionTest {
             assertEquals("headless", replacement.report.engineRole);
             assertEquals("headless", replacement.report.isolateName);
             assertEquals(owner.report.processName, replacement.report.processName);
+            assertTrue(replacement.report.previousSessionPresent);
             assertEquals(owner.report.sessionId, replacement.report.previousSession);
             assertNotEquals(owner.report.sessionId, replacement.report.sessionId);
             assertNotEquals(secondary.report.sessionId, replacement.report.sessionId);
             assertTelemetryMatchesEngine(replacement);
 
-            List<PersistedRecord> afterOwnershipTransfer = readPersistedRecords();
+            List<PersistedRecord> afterOwnershipTransfer = waitForPersistedRecords(
+                2,
+                replacement.report.sessionId
+            );
             assertEquals(2, afterOwnershipTransfer.size());
             assertEquals(owner.report.sessionId, afterOwnershipTransfer.get(0).sessionId);
             assertNull(afterOwnershipTransfer.get(0).previousSessionId);
@@ -122,6 +169,7 @@ public final class SecondaryEngineSessionTest {
             Set<String> persistedSessionIds = new HashSet<>();
             for (PersistedRecord record : afterOwnershipTransfer) {
                 assertTrue("duplicate persisted session", persistedSessionIds.add(record.sessionId));
+                assertTrue(record.isSampled);
             }
             assertFalse(persistedSessionIds.contains(secondary.report.sessionId));
 
@@ -131,6 +179,8 @@ public final class SecondaryEngineSessionTest {
                 owner.report.sessionId,
                 owner.report.processName
             );
+            assertEquals(Boolean.TRUE, crashResult.get("recoveryAttempted"));
+            assertEquals("historicalAcknowledged", crashResult.get("deliveryMethod"));
             assertEquals(owner.report.sessionId, crashResult.get("payloadSessionId"));
             assertNull(crashResult.get("payloadPreviousSession"));
             assertEquals(owner.report.sessionId, crashResult.get("crashedSessionId"));
@@ -140,12 +190,45 @@ public final class SecondaryEngineSessionTest {
             assertNotEquals(secondary.report.sessionId, crashResult.get("payloadSessionId"));
             assertNotEquals(replacement.report.sessionId, crashResult.get("payloadSessionId"));
 
-            System.out.println(
+            Log.i(
+                TAG,
                 "Faro session engine harness: process=" + owner.report.processName
                     + ", owner=" + owner.report.sessionId
                     + ", secondary=" + secondary.report.sessionId
                     + ", replacement=" + replacement.report.sessionId
                     + ", replacement.previous=" + replacement.report.previousSession
+            );
+        }
+    }
+
+    @Test
+    public void headlessEngineCanOwnPersistenceWhenItStartsFirst() throws Exception {
+        try (ActivityScenario<SessionEngineHarnessActivity> scenario =
+                 ActivityScenario.launch(SessionEngineHarnessActivity.class)) {
+            AtomicReference<SessionEngineHarnessActivity> activity = new AtomicReference<>();
+            scenario.onActivity(activity::set);
+            assertNotNull("harness Activity did not launch", activity.get());
+
+            EngineHandle first = startEngine("headless-owner", null);
+            EngineHandle activityEngine = startEngine("activity-secondary", activity.get());
+
+            assertTrue(first.report.ownsSessionPersistence);
+            assertEquals("headless", first.report.engineRole);
+            assertFalse(activityEngine.report.ownsSessionPersistence);
+            assertEquals("main", activityEngine.report.engineRole);
+            assertEquals(first.report.processName, activityEngine.report.processName);
+            assertNotEquals(first.report.sessionId, activityEngine.report.sessionId);
+
+            List<PersistedRecord> records = waitForPersistedRecords(
+                1,
+                first.report.sessionId
+            );
+            assertEquals(first.report.sessionId, records.get(0).sessionId);
+            assertTrue(records.get(0).isSampled);
+            assertFalse(
+                records.stream().anyMatch(
+                    record -> record.sessionId.equals(activityEngine.report.sessionId)
+                )
             );
         }
     }
@@ -166,7 +249,7 @@ public final class SecondaryEngineSessionTest {
         CountDownLatch reportReceived = new CountDownLatch(1);
         AtomicReference<FlutterEngine> engineReference = new AtomicReference<>();
         AtomicReference<EngineReport> reportReference = new AtomicReference<>();
-        AtomicReference<MethodChannel> channelReference = new AtomicReference<>();
+        AtomicReference<MethodChannel> commandChannelReference = new AtomicReference<>();
         AtomicReference<Throwable> startFailure = new AtomicReference<>();
 
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
@@ -184,7 +267,6 @@ public final class SecondaryEngineSessionTest {
                     engine.getDartExecutor().getBinaryMessenger(),
                     REPORT_CHANNEL
                 );
-                channelReference.set(reportChannel);
                 reportChannel.setMethodCallHandler((call, result) -> {
                     if (!"report".equals(call.method) || !(call.arguments instanceof Map)) {
                         result.notImplemented();
@@ -194,6 +276,10 @@ public final class SecondaryEngineSessionTest {
                     reportReceived.countDown();
                     result.success(null);
                 });
+                commandChannelReference.set(new MethodChannel(
+                    engine.getDartExecutor().getBinaryMessenger(),
+                    COMMAND_CHANNEL
+                ));
 
                 DartExecutor.DartEntrypoint entrypoint = new DartExecutor.DartEntrypoint(
                     FlutterInjector.instance().flutterLoader().findAppBundlePath(),
@@ -210,30 +296,46 @@ public final class SecondaryEngineSessionTest {
         });
 
         if (!reportReceived.await(ENGINE_START_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-            fail("Timed out waiting for the " + label + " engine report");
+            destroyFlutterEngine(engineReference.get(), activity != null);
+            throw new AssertionError("Timed out waiting for the " + label + " engine report");
         }
         if (startFailure.get() != null) {
+            destroyFlutterEngine(engineReference.get(), activity != null);
             throw new AssertionError("Failed to start the " + label + " engine", startFailure.get());
         }
 
         FlutterEngine engine = engineReference.get();
         EngineReport report = reportReference.get();
-        MethodChannel reportChannel = channelReference.get();
-        assertNotNull(engine);
-        assertNotNull(report);
-        assertNotNull(reportChannel);
+        MethodChannel commandChannel = commandChannelReference.get();
+        if (engine == null || report == null || commandChannel == null) {
+            destroyFlutterEngine(engine, activity != null);
+            throw new AssertionError(label + " engine returned an incomplete harness report");
+        }
         if (report.error != null) {
-            fail(label + " engine failed: " + report.error + "\n" + report.stackTrace);
+            destroyFlutterEngine(engine, activity != null);
+            throw new AssertionError(
+                label + " engine failed: " + report.error + "\n" + report.stackTrace
+            );
         }
 
         EngineHandle handle = new EngineHandle(
             engine,
-            reportChannel,
+            commandChannel,
             activity != null,
             report
         );
         engines.add(handle);
         return handle;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> resetSession(EngineHandle engine) throws InterruptedException {
+        return (Map<String, Object>) invokeCommand(
+            engine,
+            "resetSession",
+            null,
+            COMMAND_TIMEOUT_SECONDS
+        );
     }
 
     @SuppressWarnings("unchecked")
@@ -243,9 +345,6 @@ public final class SecondaryEngineSessionTest {
         String crashedSessionId,
         String processName
     ) throws InterruptedException {
-        CountDownLatch resultReceived = new CountDownLatch(1);
-        AtomicReference<Object> resultReference = new AtomicReference<>();
-        AtomicReference<Throwable> errorReference = new AtomicReference<>();
         List<Map<String, Object>> encodedRecords = new ArrayList<>();
         for (PersistedRecord record : records) {
             encodedRecords.add(record.toMap());
@@ -255,9 +354,29 @@ public final class SecondaryEngineSessionTest {
         arguments.put("crashedSessionId", crashedSessionId);
         arguments.put("processName", processName);
 
+        Object result = invokeCommand(
+            engine,
+            "reportRecoveredCrash",
+            arguments,
+            COMMAND_TIMEOUT_SECONDS
+        );
+        assertTrue(result instanceof Map);
+        return (Map<String, Object>) result;
+    }
+
+    private Object invokeCommand(
+        EngineHandle engine,
+        String method,
+        @Nullable Object arguments,
+        long timeoutSeconds
+    ) throws InterruptedException {
+        CountDownLatch resultReceived = new CountDownLatch(1);
+        AtomicReference<Object> resultReference = new AtomicReference<>();
+        AtomicReference<Throwable> errorReference = new AtomicReference<>();
+
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
-            engine.reportChannel.invokeMethod(
-                "reportRecoveredCrash",
+            engine.commandChannel.invokeMethod(
+                method,
                 arguments,
                 new MethodChannel.Result() {
                     @Override
@@ -281,7 +400,7 @@ public final class SecondaryEngineSessionTest {
                     @Override
                     public void notImplemented() {
                         errorReference.set(
-                            new AssertionError("Harness method not implemented")
+                            new AssertionError("Harness method not implemented: " + method)
                         );
                         resultReceived.countDown();
                     }
@@ -289,30 +408,63 @@ public final class SecondaryEngineSessionTest {
             )
         );
 
-        if (!resultReceived.await(ENGINE_START_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-            fail("Timed out waiting for the recovered crash report");
+        if (!resultReceived.await(timeoutSeconds, TimeUnit.SECONDS)) {
+            throw new AssertionError("Timed out waiting for harness method " + method);
         }
         if (errorReference.get() != null) {
-            throw new AssertionError(
-                "Failed to report recovered crash",
-                errorReference.get()
-            );
+            throw new AssertionError("Harness method failed: " + method, errorReference.get());
         }
-        assertTrue(resultReference.get() instanceof Map);
-        return (Map<String, Object>) resultReference.get();
+        return resultReference.get();
     }
 
     private void destroyEngine(EngineHandle handle) {
         if (handle.destroyed) {
             return;
         }
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            if (handle.attachedToActivity) {
-                handle.engine.getActivityControlSurface().detachFromActivity();
-            }
-            handle.engine.destroy();
-        });
+        destroyFlutterEngine(handle.engine, handle.attachedToActivity);
         handle.destroyed = true;
+    }
+
+    private void destroyFlutterEngine(
+        @Nullable FlutterEngine engine,
+        boolean attachedToActivity
+    ) {
+        if (engine == null) {
+            return;
+        }
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            if (attachedToActivity) {
+                engine.getActivityControlSurface().detachFromActivity();
+            }
+            engine.destroy();
+        });
+    }
+
+    private List<PersistedRecord> waitForPersistedRecords(
+        int expectedCount,
+        String expectedLastSessionId
+    ) throws Exception {
+        long deadline = System.currentTimeMillis() + PERSISTENCE_TIMEOUT_MILLIS;
+        Throwable lastFailure = null;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                List<PersistedRecord> records = readPersistedRecords();
+                if (records.size() == expectedCount
+                    && expectedLastSessionId.equals(
+                        records.get(records.size() - 1).sessionId
+                    )) {
+                    return records;
+                }
+            } catch (Exception | AssertionError error) {
+                lastFailure = error;
+            }
+            Thread.sleep(25);
+        }
+        throw new AssertionError(
+            "Timed out waiting for " + expectedCount
+                + " persisted records ending at " + expectedLastSessionId,
+            lastFailure
+        );
     }
 
     private List<PersistedRecord> readPersistedRecords() throws Exception {
@@ -352,17 +504,20 @@ public final class SecondaryEngineSessionTest {
         return decoded;
     }
 
-    private static void deleteRecursively(File file) {
+    private static void deleteRecursively(File file, boolean strict) {
         if (!file.exists()) {
             return;
         }
         File[] children = file.listFiles();
         if (children != null) {
             for (File child : children) {
-                deleteRecursively(child);
+                deleteRecursively(child, strict);
             }
         }
-        assertTrue("failed to delete " + file, file.delete());
+        boolean deleted = file.delete();
+        if (strict && !deleted && file.exists()) {
+            throw new AssertionError("failed to delete " + file);
+        }
     }
 
     private static final class TestActivityComponent
@@ -384,19 +539,19 @@ public final class SecondaryEngineSessionTest {
 
     private static final class EngineHandle {
         private final FlutterEngine engine;
-        private final MethodChannel reportChannel;
+        private final MethodChannel commandChannel;
         private final boolean attachedToActivity;
         private final EngineReport report;
         private boolean destroyed;
 
         private EngineHandle(
             FlutterEngine engine,
-            MethodChannel reportChannel,
+            MethodChannel commandChannel,
             boolean attachedToActivity,
             EngineReport report
         ) {
             this.engine = engine;
-            this.reportChannel = reportChannel;
+            this.commandChannel = commandChannel;
             this.attachedToActivity = attachedToActivity;
             this.report = report;
         }
@@ -405,11 +560,13 @@ public final class SecondaryEngineSessionTest {
     private static final class EngineReport {
         private final String label;
         private final String sessionId;
+        private final boolean previousSessionPresent;
         private final @Nullable String previousSession;
         private final String processName;
         private final String isolateName;
         private final boolean ownsSessionPersistence;
         private final String engineRole;
+        private final String sessionDirectory;
         private final String telemetrySessionId;
         private final @Nullable String telemetryPreviousSession;
         private final String telemetryProcessName;
@@ -422,11 +579,13 @@ public final class SecondaryEngineSessionTest {
         private EngineReport(
             String label,
             String sessionId,
+            boolean previousSessionPresent,
             @Nullable String previousSession,
             String processName,
             String isolateName,
             boolean ownsSessionPersistence,
             String engineRole,
+            String sessionDirectory,
             String telemetrySessionId,
             @Nullable String telemetryPreviousSession,
             String telemetryProcessName,
@@ -438,11 +597,13 @@ public final class SecondaryEngineSessionTest {
         ) {
             this.label = label;
             this.sessionId = sessionId;
+            this.previousSessionPresent = previousSessionPresent;
             this.previousSession = previousSession;
             this.processName = processName;
             this.isolateName = isolateName;
             this.ownsSessionPersistence = ownsSessionPersistence;
             this.engineRole = engineRole;
+            this.sessionDirectory = sessionDirectory;
             this.telemetrySessionId = telemetrySessionId;
             this.telemetryPreviousSession = telemetryPreviousSession;
             this.telemetryProcessName = telemetryProcessName;
@@ -459,11 +620,13 @@ public final class SecondaryEngineSessionTest {
             return new EngineReport(
                 (String) values.get("label"),
                 (String) values.get("sessionId"),
+                values.containsKey("previousSession"),
                 (String) values.get("previousSession"),
                 (String) values.get("processName"),
                 (String) values.get("isolateName"),
                 Boolean.TRUE.equals(values.get("ownsSessionPersistence")),
                 (String) values.get("engineRole"),
+                (String) values.get("sessionDirectory"),
                 (String) values.get("telemetrySessionId"),
                 (String) values.get("telemetryPreviousSession"),
                 (String) values.get("telemetryProcessName"),

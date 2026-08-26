@@ -1109,19 +1109,15 @@ class Faro {
     try {
       if (_isIOSPlatform()) {
         await _nativeChannel?.enableCrashReporter(const <String, dynamic>{});
-        final shouldAttemptRecovery =
-            _ownsSessionPersistence == true ||
-            (_ownsSessionPersistence == null &&
-                RootIsolateToken.instance != null);
         if (!collectionEnabledAtStart || !enableDataCollection) {
-          if (shouldAttemptRecovery) {
+          if (_shouldAttemptCrashRecovery) {
             // Do not upload a pending crash while collection is disabled.
             await _nativeChannel?.purgeCrashReport();
           }
           return;
         }
 
-        if (shouldAttemptRecovery) {
+        if (_shouldAttemptCrashRecovery) {
           final crashReports = await _nativeChannel?.getCrashReport();
           if (crashReports != null && crashReports.isNotEmpty) {
             final recoveredSessions = _sessionPersistence != null
@@ -1137,7 +1133,7 @@ class Faro {
           }
         }
       }
-      if (_isAndroidPlatform()) {
+      if (_isAndroidPlatform() && _shouldAttemptCrashRecovery) {
         final crashReports = await _nativeChannel?.getCrashReport();
         if (crashReports != null) {
           final recoveredSessions = _sessionPersistence != null
@@ -1164,6 +1160,10 @@ class Faro {
       );
     }
   }
+
+  bool get _shouldAttemptCrashRecovery =>
+      _ownsSessionPersistence == true ||
+      (_ownsSessionPersistence == null && RootIsolateToken.instance != null);
 
   Future<void> _reportAndPurgeIOSCrashReports(
     List<String> crashReports, {
@@ -1218,6 +1218,25 @@ class Faro {
               : <PersistedSessionRecord>[recoveredSession]),
       processIdentifier: processIdentifier,
     );
+  }
+
+  @visibleForTesting
+  Future<bool> attemptAndroidCrashRecoveryForTesting(
+    List<String> crashReports, {
+    PersistedSessionRecord? recoveredSession,
+    List<PersistedSessionRecord>? recoveredSessions,
+    String? processIdentifier,
+  }) async {
+    if (!_shouldAttemptCrashRecovery) {
+      return false;
+    }
+    await reportAndroidCrashesForTesting(
+      crashReports,
+      recoveredSession: recoveredSession,
+      recoveredSessions: recoveredSessions,
+      processIdentifier: processIdentifier,
+    );
+    return true;
   }
 
   Meta _metaForRecoveredSession(PersistedSessionRecord recoveredSession) {

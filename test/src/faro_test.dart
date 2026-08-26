@@ -479,6 +479,37 @@ void main() {
         verifyNever(() => mockFaroNativeMethods.purgeCrashReport());
       });
 
+      test('Android non-owner does not consume the pending crash', () async {
+        stubRuntimeInfo(ownsPersistence: false);
+        Faro().iosPlatformResolver = () => false;
+        Faro().androidPlatformResolver = () => true;
+
+        await Faro().init(
+          optionsConfiguration: createConfig(enableCrashReporting: true),
+        );
+
+        verifyNever(() => mockFaroNativeMethods.getCrashReport());
+      });
+
+      test(
+        'Android recovery falls back when runtime info is unavailable',
+        () async {
+          when(
+            () => mockFaroNativeMethods.getSessionRuntimeInfo(
+              claimSessionPersistence: true,
+            ),
+          ).thenAnswer((_) async => null);
+          Faro().iosPlatformResolver = () => false;
+          Faro().androidPlatformResolver = () => true;
+
+          await Faro().init(
+            optionsConfiguration: createConfig(enableCrashReporting: true),
+          );
+
+          verify(() => mockFaroNativeMethods.getCrashReport()).called(1);
+        },
+      );
+
       test(
         'iOS recovery falls back when runtime info is unavailable',
         () async {

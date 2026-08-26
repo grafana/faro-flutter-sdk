@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Android crash recovery is now limited to the Flutter engine that owns the
+  process-scoped session record, preventing a secondary engine from replaying
+  a recovered crash with unrelated session metadata.
 - **BREAKING (behavioral): iOS recovered crashes now use `type: crash`.**
   The native signal and code remain available in `context.nativeType`.
   Dashboards and alerts matching signal names in `exception.type` should match

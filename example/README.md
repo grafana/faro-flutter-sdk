@@ -213,14 +213,19 @@ Invalid JSON is silently ignored, falling back to the normal initial user.
 
 ## Secondary engine session harness
 
-The Android instrumentation test starts an Activity-backed Flutter engine and a
-headless engine in the same process. It verifies that only the first engine owns
-the durable session file, then destroys that owner and confirms that a newly
-created engine can claim persistence without linking through the headless
-session. Each engine also emits a Faro event so the test can verify its session
-and runtime metadata. Finally, the replacement engine replays a synthetic
-Android crash against the persisted history and verifies that it is attributed
-to the original owner, not the secondary or current live session.
+The Android instrumentation test starts Activity-backed and headless Flutter
+engines in the same process, in both startup orders. It verifies that ownership
+is first-come rather than tied to an engine role. The non-owner resets its live
+session and attempts crash recovery without changing the durable session file
+or consuming the recovered crash. After the owner is destroyed, a newly created
+engine claims persistence without linking through the non-owner session and
+replays the crash through the historical transport with the original owner's
+metadata. Each engine also emits a Faro event so the test can verify its session
+and runtime metadata.
+
+The test deletes the example app's `faro/sessions` directory before and after
+the run. Use a disposable debug install rather than an app whose local session
+history needs to be retained.
 
 Run it on a connected Android device or emulator:
 
@@ -228,9 +233,7 @@ Run it on a connected Android device or emulator:
 cd example
 flutter pub get
 cd android
-./gradlew :app:connectedDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=\
-com.grafana.faro_example.SecondaryEngineSessionTest
+./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.grafana.faro_example.SecondaryEngineSessionTest
 ```
 
 ## WebView Tracing Feature
