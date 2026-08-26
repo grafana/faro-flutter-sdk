@@ -211,6 +211,28 @@ Non-string attribute values (booleans, numbers) in the user JSON are
 automatically converted to strings to match the `FaroUser.attributes` contract.
 Invalid JSON is silently ignored, falling back to the normal initial user.
 
+## Secondary engine session harness
+
+The Android instrumentation test starts an Activity-backed Flutter engine and a
+headless engine in the same process. It verifies that only the first engine owns
+the durable session file, then destroys that owner and confirms that a newly
+created engine can claim persistence without linking through the headless
+session. Each engine also emits a Faro event so the test can verify its session
+and runtime metadata. Finally, the replacement engine replays a synthetic
+Android crash against the persisted history and verifies that it is attributed
+to the original owner, not the secondary or current live session.
+
+Run it on a connected Android device or emulator:
+
+```bash
+cd example
+flutter pub get
+cd android
+./gradlew :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=\
+com.grafana.faro_example.SecondaryEngineSessionTest
+```
+
 ## WebView Tracing Feature
 
 The example app includes a `WebView Tracing` feature page. It opens an
