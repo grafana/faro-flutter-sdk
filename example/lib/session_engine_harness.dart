@@ -129,6 +129,9 @@ Future<void> runSessionEngineHarness(List<String> args) async {
         'recoveryAttempted': true,
         'deliveryMethod': crashPayload.deliveryMethod.name,
         'payloadSessionId': crashSession['id'],
+        'payloadPreviousSessionPresent': crashAttributes.containsKey(
+          'previousSession',
+        ),
         'payloadPreviousSession': crashAttributes['previousSession'],
         'crashedSessionId': crashContext['crashedSessionId'],
         'fatal': crashException['fatal'],
@@ -140,6 +143,8 @@ Future<void> runSessionEngineHarness(List<String> args) async {
     await _reportChannel.invokeMethod<void>('report', <String, Object?>{
       'label': label,
       'sessionId': session?.id,
+      'previousSessionPresent':
+          attributes?.containsKey('previousSession') ?? false,
       'previousSession': attributes?['previousSession'],
       'processName': attributes?['process_name'],
       'isolateName': attributes?['dart_isolate_name'],

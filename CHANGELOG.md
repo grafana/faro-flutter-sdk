@@ -41,9 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Android crash recovery is now limited to the Flutter engine that owns the
-  process-scoped session record, preventing a secondary engine from replaying
-  a recovered crash with unrelated session metadata.
 - **BREAKING (behavioral): iOS recovered crashes now use `type: crash`.**
   The native signal and code remain available in `context.nativeType`.
   Dashboards and alerts matching signal names in `exception.type` should match
@@ -94,6 +91,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Recovered Android crashes now respect process-scoped session ownership.**
+  When ownership is known, only the root Flutter engine that owns the durable
+  session chain reads historical application exits. Other engines skip
+  recovery instead of emitting an old crash with an unrelated live session.
+  Enable crash reporting on every root-engine entrypoint that may initialize
+  Faro first
+  ([#340](https://github.com/grafana/faro-flutter-sdk/issues/340)).
 - **iOS crash reports now use the configured SDK transports.** Pending
   PLCrashReporter data returns to Dart on the next launch and follows the
   configured collector and custom transport paths, sampling, data collection

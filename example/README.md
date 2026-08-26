@@ -216,12 +216,12 @@ Invalid JSON is silently ignored, falling back to the normal initial user.
 The Android instrumentation test starts Activity-backed and headless Flutter
 engines in the same process, in both startup orders. It verifies that ownership
 is first-come rather than tied to an engine role. The non-owner resets its live
-session and attempts crash recovery without changing the durable session file
-or consuming the recovered crash. After the owner is destroyed, a newly created
-engine claims persistence without linking through the non-owner session and
-replays the crash through the historical transport with the original owner's
-metadata. Each engine also emits a Faro event so the test can verify its session
-and runtime metadata.
+session and is refused by the SDK recovery gate before synthetic crash
+delivery, without changing the durable session file. After the owner is
+destroyed, a newly created engine claims persistence without linking through
+the non-owner session and replays the crash through the historical transport
+with the original owner's metadata. Each engine also emits a Faro event so the
+test can verify its session and runtime metadata.
 
 The test deletes the example app's `faro/sessions` directory before and after
 the run. Use a disposable debug install rather than an app whose local session

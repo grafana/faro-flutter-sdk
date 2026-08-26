@@ -448,21 +448,35 @@ enabled, Android and iOS native crashes recovered on the next launch retain
 the persisted session ID that was active when the process stopped. The crash
 payload also includes `crashedSessionId` in the session attributes and uses
 that session's persisted sampling decision. Sending the recovered crash does
-not rotate or otherwise change the new live session. Android continues to
-deduplicate historical `ApplicationExitInfo` records, while iOS purges the
-pending PLCrashReporter record after Dart accepts it for transport. The report
-uses the configured collector and custom transports, sampling decision, data
-collection policy, collector headers, and `type: crash`; its native signal and
-code are preserved in `context.nativeType`. `FaroTransport` uses the collector
-response to confirm the handoff. For a custom `BaseTransport`, a completed
-`send` call counts as acceptance. Custom transports must complete with an error
-when they cannot accept or durably queue the payload; hiding that failure can
-cause the SDK to purge the retained native report. A pending iOS report is
-discarded without being sent when data collection was disabled at launch. If
-persistence is active but a recovered crash cannot be matched to a persisted
-session, the SDK discards that crash rather than attributing it to the new live
-session. If persistence is disabled or unavailable, the SDK cannot recover the
-prior session identity and retains the legacy live-session fallback.
+not rotate or otherwise change the new live session.
+
+On Android, when runtime ownership is known, only the root Flutter engine that
+owns the process-scoped session record attempts to read historical
+`ApplicationExitInfo` records. Other engines skip recovery so an old crash
+cannot be emitted with an unrelated live session. Enable crash reporting on
+every root-engine entrypoint that may initialize Faro first. An already
+initialized non-owner does not take over recovery when the owner detaches; a
+new engine can claim ownership after the previous owner is destroyed. If
+native runtime identity is unavailable, a root engine retains the legacy
+recovery fallback without claiming session persistence. Android continues to
+deduplicate historical exit records.
+
+On iOS, Faro purges the pending PLCrashReporter record after Dart accepts it
+for transport. The report uses the configured collector and custom transports,
+sampling decision, data collection policy, collector headers, and
+`type: crash`; its native signal and code are preserved in
+`context.nativeType`. `FaroTransport` uses the collector response to confirm
+the handoff. For a custom `BaseTransport`, a completed `send` call counts as
+acceptance. Custom transports must complete with an error when they cannot
+accept or durably queue the payload; hiding that failure can cause the SDK to
+purge the retained native report. A pending iOS report is discarded without
+being sent when data collection was disabled at launch.
+
+If persistence is active but a recovered crash cannot be matched to a
+persisted session, the SDK discards that crash rather than attributing it to
+the new live session. If persistence is disabled or unavailable, the SDK
+cannot recover the prior session identity and retains the legacy live-session
+fallback.
 
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,

@@ -55,6 +55,7 @@ public final class SecondaryEngineSessionTest {
     private static final long ENGINE_START_TIMEOUT_SECONDS = 45;
     private static final long COMMAND_TIMEOUT_SECONDS = 20;
     private static final long PERSISTENCE_TIMEOUT_MILLIS = 5_000;
+    private static final long NEGATIVE_ASSERTION_SETTLE_MILLIS = 500;
 
     private final List<EngineHandle> engines = new ArrayList<>();
     private Context context;
@@ -91,7 +92,7 @@ public final class SecondaryEngineSessionTest {
             assertNotNull(owner.report.processName);
             assertEquals("main", owner.report.engineRole);
             assertEquals("main", owner.report.isolateName);
-            assertTrue(owner.report.previousSessionPresent);
+            assertFalse(owner.report.previousSessionPresent);
             assertNull(owner.report.previousSession);
             assertNotNull(owner.report.sessionDirectory);
             assertEquals(
@@ -103,7 +104,7 @@ public final class SecondaryEngineSessionTest {
             assertNotNull(secondary.report.processName);
             assertEquals("headless", secondary.report.engineRole);
             assertEquals("headless", secondary.report.isolateName);
-            assertTrue(secondary.report.previousSessionPresent);
+            assertFalse(secondary.report.previousSessionPresent);
             assertNull(secondary.report.previousSession);
             assertEquals(owner.report.processName, secondary.report.processName);
             assertNotEquals(owner.report.sessionId, secondary.report.sessionId);
@@ -128,7 +129,10 @@ public final class SecondaryEngineSessionTest {
                 secondary.report.sessionId,
                 secondaryReset.get("sessionId")
             );
-            List<PersistedRecord> afterSecondaryReset = waitForPersistedRecords(
+            assertTrue(secondaryReset.get("sessionId") instanceof String);
+            String secondaryResetSessionId =
+                (String) secondaryReset.get("sessionId");
+            List<PersistedRecord> afterSecondaryReset = assertPersistedRecordsRemain(
                 1,
                 owner.report.sessionId
             );
@@ -172,6 +176,7 @@ public final class SecondaryEngineSessionTest {
                 assertTrue(record.isSampled);
             }
             assertFalse(persistedSessionIds.contains(secondary.report.sessionId));
+            assertFalse(persistedSessionIds.contains(secondaryResetSessionId));
 
             Map<String, Object> crashResult = reportRecoveredCrash(
                 replacement,
@@ -182,6 +187,7 @@ public final class SecondaryEngineSessionTest {
             assertEquals(Boolean.TRUE, crashResult.get("recoveryAttempted"));
             assertEquals("historicalAcknowledged", crashResult.get("deliveryMethod"));
             assertEquals(owner.report.sessionId, crashResult.get("payloadSessionId"));
+            assertEquals(Boolean.FALSE, crashResult.get("payloadPreviousSessionPresent"));
             assertNull(crashResult.get("payloadPreviousSession"));
             assertEquals(owner.report.sessionId, crashResult.get("crashedSessionId"));
             assertEquals(Boolean.TRUE, crashResult.get("fatal"));
@@ -214,8 +220,10 @@ public final class SecondaryEngineSessionTest {
 
             assertTrue(first.report.ownsSessionPersistence);
             assertEquals("headless", first.report.engineRole);
+            assertFalse(first.report.previousSessionPresent);
             assertFalse(activityEngine.report.ownsSessionPersistence);
             assertEquals("main", activityEngine.report.engineRole);
+            assertFalse(activityEngine.report.previousSessionPresent);
             assertEquals(first.report.processName, activityEngine.report.processName);
             assertNotEquals(first.report.sessionId, activityEngine.report.sessionId);
 
@@ -504,6 +512,25 @@ public final class SecondaryEngineSessionTest {
         return decoded;
     }
 
+    private List<PersistedRecord> assertPersistedRecordsRemain(
+        int expectedCount,
+        String expectedLastSessionId
+    ) throws Exception {
+        long deadline = System.currentTimeMillis() + NEGATIVE_ASSERTION_SETTLE_MILLIS;
+        List<PersistedRecord> records = null;
+        while (System.currentTimeMillis() < deadline) {
+            records = readPersistedRecords();
+            assertEquals(expectedCount, records.size());
+            assertEquals(
+                expectedLastSessionId,
+                records.get(records.size() - 1).sessionId
+            );
+            Thread.sleep(25);
+        }
+        assertNotNull(records);
+        return records;
+    }
+
     private static void deleteRecursively(File file, boolean strict) {
         if (!file.exists()) {
             return;
@@ -620,7 +647,7 @@ public final class SecondaryEngineSessionTest {
             return new EngineReport(
                 (String) values.get("label"),
                 (String) values.get("sessionId"),
-                values.containsKey("previousSession"),
+                Boolean.TRUE.equals(values.get("previousSessionPresent")),
                 (String) values.get("previousSession"),
                 (String) values.get("processName"),
                 (String) values.get("isolateName"),
