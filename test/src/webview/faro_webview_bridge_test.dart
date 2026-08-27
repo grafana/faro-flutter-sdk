@@ -8,6 +8,55 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MockBaseTransport extends Mock implements BaseTransport {}
 
+/// Wraps a real span and records every mutating call, so tests can assert
+/// that the bridge leaves an app-owned span alone.
+class RecordingSpan implements Span {
+  RecordingSpan(this._delegate);
+
+  final Span _delegate;
+  final List<String> mutations = [];
+
+  @override
+  String get traceparent => _delegate.traceparent;
+
+  @override
+  String get traceId => _delegate.traceId;
+
+  @override
+  String get spanId => _delegate.spanId;
+
+  @override
+  bool get wasEnded => mutations.contains('end');
+
+  @override
+  SpanStatusCode get status => SpanStatusCode.unset;
+
+  @override
+  bool get statusHasBeenSet => mutations.contains('setStatus');
+
+  @override
+  void setStatus(SpanStatusCode statusCode, {String? message}) =>
+      mutations.add('setStatus');
+
+  @override
+  void addEvent(String message, {Map<String, Object> attributes = const {}}) =>
+      mutations.add('addEvent');
+
+  @override
+  void setAttributes(Map<String, Object> attributes) =>
+      mutations.add('setAttributes');
+
+  @override
+  void setAttribute(String key, Object value) => mutations.add('setAttribute');
+
+  @override
+  void recordException(dynamic exception, {StackTrace? stackTrace}) =>
+      mutations.add('recordException');
+
+  @override
+  void end() => mutations.add('end');
+}
+
 void main() {
   const testUrl = 'https://example.com/login?existing=param';
 
@@ -160,6 +209,109 @@ void main() {
         final result = bridge.instrumentedUrl(url, spanName: 'CustomWebView');
 
         expect(result.queryParameters.containsKey('traceparent'), isTrue);
+      });
+    });
+
+    group('instrumentedUrl with an app-owned span:', () {
+      test('should propagate the traceparent of the provided span', () {
+        final bridge = FaroWebViewBridge();
+        final appSpan = faro.startSpanManual('webview');
+
+        final result = bridge.instrumentedUrl(
+          Uri.parse(testUrl),
+          span: appSpan,
+        );
+
+        expect(
+          result.queryParameters['traceparent'],
+          equals(appSpan.traceparent),
+        );
+
+        appSpan.end();
+      });
+
+      test('should keep the traceparent stable across repeated calls', () {
+        final bridge = FaroWebViewBridge();
+        final appSpan = faro.startSpanManual('webview');
+
+        final first = bridge.instrumentedUrl(Uri.parse(testUrl), span: appSpan);
+        final second = bridge.instrumentedUrl(
+          Uri.parse('https://example.com/profile'),
+          span: appSpan,
+        );
+
+        expect(
+          first.queryParameters['traceparent'],
+          equals(second.queryParameters['traceparent']),
+        );
+
+        appSpan.end();
+      });
+
+      test('should not modify the provided span', () {
+        final bridge = FaroWebViewBridge();
+        final appSpan = RecordingSpan(faro.startSpanManual('webview'));
+
+        bridge.instrumentedUrl(Uri.parse(testUrl), span: appSpan);
+
+        expect(appSpan.mutations, isEmpty);
+      });
+
+      test('should still append the session correlation parameters', () {
+        final bridge = FaroWebViewBridge();
+        final appSpan = faro.startSpanManual('webview');
+
+        final result = bridge.instrumentedUrl(
+          Uri.parse(testUrl),
+          span: appSpan,
+        );
+
+        expect(
+          result.queryParameters['session.parent_id'],
+          equals(faro.meta.session?.id),
+        );
+        expect(
+          result.queryParameters['session.parent_app'],
+          equals('TestFlutterApp'),
+        );
+
+        appSpan.end();
+      });
+
+      test('should not end the provided span on end()', () {
+        final bridge = FaroWebViewBridge();
+        final appSpan = RecordingSpan(faro.startSpanManual('webview'));
+
+        bridge.instrumentedUrl(Uri.parse(testUrl), span: appSpan);
+        bridge.end();
+
+        expect(appSpan.wasEnded, isFalse);
+        expect(appSpan.mutations, isEmpty);
+      });
+
+      test('should not end the provided span on a later call', () {
+        final bridge = FaroWebViewBridge();
+        final appSpan = RecordingSpan(faro.startSpanManual('webview'));
+
+        bridge.instrumentedUrl(Uri.parse(testUrl), span: appSpan);
+        bridge.instrumentedUrl(Uri.parse(testUrl), span: appSpan);
+        bridge.instrumentedUrl(Uri.parse(testUrl));
+
+        expect(appSpan.wasEnded, isFalse);
+        expect(appSpan.mutations, isEmpty);
+      });
+
+      test('should not end the provided span when it supersedes a '
+          'bridge-created span', () {
+        final bridge = FaroWebViewBridge();
+        final appSpan = RecordingSpan(faro.startSpanManual('webview'));
+
+        bridge.instrumentedUrl(Uri.parse(testUrl));
+        bridge.instrumentedUrl(Uri.parse(testUrl), span: appSpan);
+        bridge.end();
+
+        expect(appSpan.wasEnded, isFalse);
+        expect(appSpan.mutations, isEmpty);
       });
     });
 
