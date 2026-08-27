@@ -33,6 +33,14 @@ class WebViewHandoffPage extends ConsumerWidget {
             icon: const Icon(Icons.open_in_new),
             label: const Text('Open React demo in WebView'),
           ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: uiState.isConfigured
+                ? () => _openWebView(context, actions, useAppOwnedSpan: true)
+                : null,
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open with an app-owned span'),
+          ),
         ],
       ),
     );
@@ -40,12 +48,16 @@ class WebViewHandoffPage extends ConsumerWidget {
 
   Future<void> _openWebView(
     BuildContext context,
-    WebViewHandoffPageActions actions,
-  ) async {
+    WebViewHandoffPageActions actions, {
+    bool useAppOwnedSpan = false,
+  }) async {
     final url = actions.getBaseUrl();
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute<Map<String, dynamic>>(
-        builder: (_) => WebViewHandoffWebViewPage(url: url),
+        builder: (_) => WebViewHandoffWebViewPage(
+          url: url,
+          useAppOwnedSpan: useAppOwnedSpan,
+        ),
       ),
     );
 
@@ -89,6 +101,13 @@ class _OverviewCard extends StatelessWidget {
               'traceparent so the web app can continue the native trace. '
               'Use Grafana Tempo to verify the Flutter and React spans '
               'share the same trace ID.',
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'The second option hands the bridge a span this app owns, so '
+              'reloading the WebView keeps the same traceparent instead of '
+              'starting a new trace. Reload from the WebView page to compare '
+              'the two.',
             ),
           ],
         ),

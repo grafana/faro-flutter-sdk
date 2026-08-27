@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   takes precedence over the active span. Span context is captured at push
   time, so buffered signals keep the span that was active when they were
   recorded.
+- **App-owned spans in `FaroWebViewBridge`.** `instrumentedUrl` accepts an
+  optional `span` and propagates that span's `traceparent` instead of
+  creating a span of its own, so repeated calls during one WebView session
+  keep injecting the same `traceparent`. The bridge leaves a span you pass
+  in untouched — no attributes, no status, and `end()` will not end it. See
+  the Reference docs for details.
 - **`FaroStartupProvider`**, a content provider merged into your Android
   manifest automatically. It samples process importance at startup so the SDK
   can tell a user-initiated launch from a background one; it stores no data and
