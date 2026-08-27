@@ -13,9 +13,15 @@ import 'package:faro_example/features/user_settings/user_settings_page.dart';
 import 'package:faro_example/features/user_settings/user_settings_service.dart';
 import 'package:faro_example/features/webview_handoff/presentation/webview_handoff_page.dart';
 import 'package:faro_example/qa_config.dart';
+import 'package:faro_example/session_engine_harness.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+@pragma('vm:entry-point')
+Future<void> faroSessionEngineHarnessMain(List<String> args) {
+  return runSessionEngineHarness(args);
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
