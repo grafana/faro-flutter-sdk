@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import faro
@@ -5,26 +6,115 @@ import Testing
 @Suite("CrashReportingIntegration")
 struct CrashReportingIntegrationTests {
 
-  @Test("reports pending crashes by default")
-  func reportsPendingCrashByDefault() {
-    #expect(CrashReportingIntegration.shouldReportPendingCrash(config: [:]))
+  private struct TestError: Error {}
+
+  @Test("leaves the reporter untouched when no crash is pending")
+  func noPendingCrash() {
+    var loadCount = 0
+    var purgeCount = 0
+    let integration = CrashReportingIntegration(
+      hasPendingCrashReport: { false },
+      loadPendingCrashReport: {
+        loadCount += 1
+        return Data()
+      },
+      purgePendingCrashReport: {
+        purgeCount += 1
+        return true
+      },
+      exportCrashReport: { _ in [:] }
+    )
+
+    #expect(integration.takePendingCrashReports().isEmpty)
+    #expect(loadCount == 0)
+    #expect(purgeCount == 0)
   }
 
-  @Test("does not report a crash from an unsampled session")
-  func skipsPendingCrashForUnsampledSession() {
-    #expect(
-      !CrashReportingIntegration.shouldReportPendingCrash(
-        config: ["reportPendingCrash": false]
-      )
+  @Test("returns a structured pending crash and purges it after acknowledgement")
+  func pendingCrash() throws {
+    var purgeCount = 0
+    let integration = CrashReportingIntegration(
+      hasPendingCrashReport: { true },
+      loadPendingCrashReport: { Data([1, 2, 3]) },
+      purgePendingCrashReport: {
+        purgeCount += 1
+        return true
+      },
+      exportCrashReport: { data in
+        #expect(data == Data([1, 2, 3]))
+        return [
+          "type": "SIGSEGV",
+          "value": "Application crash",
+          "stacktrace": [
+            "frames": [["filename": "Runner", "lineno": 42]]
+          ],
+          "timestamp": "2026-08-18T12:00:00.000Z",
+          "fatal": true,
+        ]
+      }
     )
+
+    let reports = integration.takePendingCrashReports()
+    let report = try #require(reports.first)
+    let object = try #require(
+      try JSONSerialization.jsonObject(with: Data(report.utf8))
+        as? [String: Any]
+    )
+    let stacktrace = try #require(object["stacktrace"] as? [String: Any])
+    let frames = try #require(stacktrace["frames"] as? [[String: Any]])
+
+    #expect(reports.count == 1)
+    #expect(object["type"] as? String == "SIGSEGV")
+    #expect(frames.first?["filename"] as? String == "Runner")
+    #expect(purgeCount == 0)
+
+    #expect(integration.purgePendingCrashReport())
+    #expect(purgeCount == 1)
   }
 
-  @Test("ignores malformed sampling configuration")
-  func ignoresMalformedSamplingConfiguration() {
-    #expect(
-      CrashReportingIntegration.shouldReportPendingCrash(
-        config: ["reportPendingCrash": "false"]
-      )
+  @Test("purges a pending crash that cannot be loaded")
+  func malformedPendingCrash() {
+    var purgeCount = 0
+    let integration = CrashReportingIntegration(
+      hasPendingCrashReport: { true },
+      loadPendingCrashReport: { throw TestError() },
+      purgePendingCrashReport: {
+        purgeCount += 1
+        return true
+      },
+      exportCrashReport: { _ in [:] }
     )
+
+    #expect(integration.takePendingCrashReports().isEmpty)
+    #expect(purgeCount == 1)
+  }
+
+  @Test("purges a pending crash that cannot be encoded as JSON")
+  func unencodablePendingCrash() {
+    var purgeCount = 0
+    let integration = CrashReportingIntegration(
+      hasPendingCrashReport: { true },
+      loadPendingCrashReport: { Data() },
+      purgePendingCrashReport: {
+        purgeCount += 1
+        return true
+      },
+      exportCrashReport: { _ in ["invalid": Date()] }
+    )
+
+    #expect(integration.takePendingCrashReports().isEmpty)
+    #expect(purgeCount == 1)
+  }
+
+  @Test("reports when a pending crash cannot be purged")
+  func purgeFailure() {
+    let integration = CrashReportingIntegration(
+      hasPendingCrashReport: { true },
+      loadPendingCrashReport: { Data() },
+      purgePendingCrashReport: { false },
+      exportCrashReport: { _ in [:] }
+    )
+
+    #expect(!integration.purgePendingCrashReport())
   }
 }

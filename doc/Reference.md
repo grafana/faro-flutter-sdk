@@ -427,7 +427,21 @@ background isolates cannot concurrently update that record. Ownership is not
 transferred to an already-running secondary engine if the owner detaches; that
 engine keeps its in-memory session until it initializes again. When native
 process identity is available, telemetry includes `process_name` and
-`dart_isolate_name` session attributes for correlation.
+`dart_isolate_name` session attributes for correlation. An Android engine that
+has attached to an Activity is identified as `main`; a root engine that has
+never attached to an Activity is identified as `headless`. Secondary Dart
+isolates use their debug name when available and otherwise use `background`.
+With automatic detection, iOS root isolates continue to use `main`.
+
+If an Android app pre-warms its foreground `FlutterEngine` and initializes
+Faro before attaching that engine to an Activity, set
+`engineRole: FaroEngineRole.foreground` in `FaroConfig`. This records
+`dart_isolate_name=main`. Android or iOS background entrypoints can set
+`FaroEngineRole.headless` to record `dart_isolate_name=headless` when automatic
+detection is unavailable or insufficient. Overrides apply only to the root
+isolate and are not checked against the native signal, so configure each
+entrypoint separately. Reusing either override for an engine with the opposite
+role would mislabel that engine.
 
 **Recovered crashes.** When crash reporting and session persistence are
 enabled, Android and iOS native crashes recovered on the next launch retain
@@ -436,11 +450,19 @@ payload also includes `crashedSessionId` in the session attributes and uses
 that session's persisted sampling decision. Sending the recovered crash does
 not rotate or otherwise change the new live session. Android continues to
 deduplicate historical `ApplicationExitInfo` records, while iOS purges the
-pending PLCrashReporter record after processing it. If persistence is active
-but a recovered crash cannot be matched to a persisted session, the SDK
-discards that crash rather than attributing it to the new live session. If
-persistence is disabled or unavailable, the SDK cannot recover the prior
-session identity and retains the legacy live-session fallback.
+pending PLCrashReporter record after Dart accepts it for transport. The report
+uses the configured collector and custom transports, sampling decision, data
+collection policy, collector headers, and `type: crash`; its native signal and
+code are preserved in `context.nativeType`. `FaroTransport` uses the collector
+response to confirm the handoff. For a custom `BaseTransport`, a completed
+`send` call counts as acceptance. Custom transports must complete with an error
+when they cannot accept or durably queue the payload; hiding that failure can
+cause the SDK to purge the retained native report. A pending iOS report is
+discarded without being sent when data collection was disabled at launch. If
+persistence is active but a recovered crash cannot be matched to a persisted
+session, the SDK discards that crash rather than attributing it to the new live
+session. If persistence is disabled or unavailable, the SDK cannot recover the
+prior session identity and retains the legacy live-session fallback.
 
 **What counts as activity.** Faro classifies telemetry as meaningful work or
 passive telemetry. Every item checks session expiry before it is attributed,
@@ -475,10 +497,9 @@ response. Faro rotates that session immediately. Delayed or duplicate
 responses for an older session are ignored, so they cannot rotate the current
 session again.
 
-> **Sampling note:** the session sampling decision is made once per session.
-> Automatic expiry and receiver invalidation retain the current decision for
-> compatibility. An explicit `resetSession` starts a new sampling window (see
-> [Session Sampling](#session-sampling)).
+> **Sampling note:** every new session makes an independent sampling decision,
+> including sessions created by automatic expiry, receiver invalidation, or
+> `resetSession` (see [Session Sampling](#session-sampling)).
 
 ---
 
@@ -1331,10 +1352,14 @@ Faro().runApp(
 );
 ```
 
+The function runs synchronously whenever a new session starts. Keep it fast and
+side-effect free; use values already available in the sampling context or
+locally cached configuration.
+
 **How it works:**
 
-- The sampling decision is made at initialization and applies until an explicit session reset
-- Automatic expiry and receiver invalidation retain the current decision; [`resetSession`](#session-lifecycle--rotation) evaluates a new decision for the new session
+- A fresh sampling decision is made when each session starts
+- Automatic expiry, receiver invalidation, and [`resetSession`](#session-lifecycle--rotation) each start a new sampling window
 - When a session is not sampled, all telemetry (events, logs, exceptions, measurements, traces) is silently dropped
 - A debug log is emitted when a session is not sampled, for transparency during development
 - Invalid return values (< 0.0 or > 1.0) are clamped to the valid range
@@ -1354,8 +1379,10 @@ Faro().runApp(
 
 **Notes:**
 
-- Sampling is head-based: initialization and each explicit `resetSession` make one decision that remains fixed for that session
-- The broader [Faro sampling model](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/) also re-samples after automatic rotation; matching that behavior remains planned in #284
+- Sampling is head-based: each new session makes one decision that remains fixed
+  until the next rotation
+- `SamplingFunction` receives the new session ID and its `previousSession`
+  attribute when a rotation links it to an earlier session
 
 **Use cases:**
 

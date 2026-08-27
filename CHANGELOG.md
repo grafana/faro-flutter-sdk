@@ -41,6 +41,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (behavioral): iOS recovered crashes now use `type: crash`.**
+  The native signal and code remain available in `context.nativeType`.
+  Dashboards and alerts matching signal names in `exception.type` should match
+  `crash` and read `context.nativeType` instead
+  ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
+- **Automatic session rotations now re-evaluate sampling.** Sessions created
+  after inactivity, maximum lifetime, or receiver invalidation make an
+  independent sampling decision, matching explicit resets and Faro Web.
+  **Telemetry collection can now start or stop when a session rotates instead
+  of retaining the previous session's decision.**
+  ([#284](https://github.com/grafana/faro-flutter-sdk/issues/284))
 - **BREAKING (behavioral)**: Session inactivity now refreshes only for
   user interactions, view or navigation changes, foreground returns,
   explicit user actions, and spans linked to those actions. Generic telemetry,
@@ -72,8 +83,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   iOS prewarmed the process, `0` otherwise). `appStartDuration` and `coldStart`
   are unchanged, so existing dashboards keep working.
 
+### Deprecated
+
+- **Direct crash-reporter setup is deprecated.** Enable crash reporting and
+  configure its transports through `FaroConfig` instead of calling
+  `Faro.enableCrashReporter`.
+
 ### Fixed
 
+- **iOS crash reports now use the configured SDK transports.** Pending
+  PLCrashReporter data returns to Dart on the next launch and follows the
+  configured collector and custom transport paths, sampling, data collection
+  policy, and collector headers. Accepted reports are purged; collector
+  rejections and transport errors remain pending. Custom transports must
+  complete with an error when handoff fails because returning normally counts
+  as acceptance. Reports are discarded when data collection is disabled.
+  Pending native reports skip `OfflineTransport` because the native report is
+  already the durable retry copy
+  ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
 - **Recovered native crashes retain their original session.** Android and iOS
   crash metadata includes `crashedSessionId` and preserves the persisted
   sampling decision without changing the new live session. Historical Android
@@ -89,6 +116,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `session_start` and read `meta.session.attributes.previousSession` to
   identify linked sessions
   ([#316](https://github.com/grafana/faro-flutter-sdk/issues/316)).
+- **Accurate Android runtime metadata.** Root Flutter engines that never attach
+  to an Activity now report `dart_isolate_name=headless` instead of `main`.
+  Activity-backed engines remain `main`; dashboards filtering only for
+  `dart_isolate_name=main` no longer include Android background engines.
+  Pre-warmed UI engines can opt into `FaroEngineRole.foreground`, and
+  session-persistence ownership is unchanged
+  ([#333](https://github.com/grafana/faro-flutter-sdk/issues/333)).
 - Filter Android `LOW_MEMORY` exits for service and less important process
   states regardless of whether Android records status `0` or `SIGKILL`.
   Foreground, foreground-service, visible, and perceptible exits remain

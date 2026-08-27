@@ -1,118 +1,106 @@
 import CrashReporter
+import Foundation
 
-class  CrashReportingIntegration {
-    static func shouldReportPendingCrash(config: [String: Any]) -> Bool {
-        return config["reportPendingCrash"] as? Bool ?? true
-    }
+final class CrashReportingIntegration {
+    private let hasPendingCrashReport: () -> Bool
+    private let loadPendingCrashReport: () throws -> Data
+    private let purgePendingCrashReportHandler: () -> Bool
+    private let exportCrashReport: (Data) throws -> [String: Any]
 
-    init(crashReporterConfig: [String: Any]) throws {
-        //if (!isDebuggerAttached()) {
-        
-        // It is strongly recommended that local symbolication only be enabled for non-release builds.
-        // Use [] for release versions.
-            guard let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
-                throw CrashReportException(description: "Cannot obtain `/Library/Caches/` url.")
-            }
+    convenience init() throws {
+        guard let cache = FileManager.default.urls(
+            for: .cachesDirectory,
+            in: .userDomainMask
+        ).first else {
+            throw CrashReportException(
+                description: "Cannot obtain `/Library/Caches/` url."
+            )
+        }
 
-        // Add Cache Directory
-        let directory = cache.appendingPathComponent("com.rumflutter.crash-reporting", isDirectory: true)
-        let config = PLCrashReporterConfig(signalHandlerType: .BSD, symbolicationStrategy:[],basePath: directory.path )
+        let directory = cache.appendingPathComponent(
+            "com.rumflutter.crash-reporting",
+            isDirectory: true
+        )
+        let config = PLCrashReporterConfig(
+            signalHandlerType: .BSD,
+            symbolicationStrategy: [],
+            basePath: directory.path
+        )
         guard let crashReporter = PLCrashReporter(configuration: config) else {
-            print("Could not create an instance of PLCrashReporter")
-            return
+            throw CrashReportException(
+                description: "Could not create an instance of PLCrashReporter."
+            )
         }
-        
-        // Enable the Crash Reporter.
-        do {
-            try crashReporter.enableAndReturnError()
-        } catch let error {
-            print("Warning: Could not enable crash reporter: \(error)")
-        }
-        // Try loading the crash report.
-        let reportPendingCrash = Self.shouldReportPendingCrash(config: crashReporterConfig)
-        if crashReporter.hasPendingCrashReport() && reportPendingCrash {
-            do {
-                let data = try crashReporter.loadPendingCrashReportDataAndReturnError()
-                
-                // Retrieving crash reporter data.
+
+        self.init(
+            hasPendingCrashReport: crashReporter.hasPendingCrashReport,
+            loadPendingCrashReport: crashReporter.loadPendingCrashReportDataAndReturnError,
+            purgePendingCrashReport: crashReporter.purgePendingCrashReport,
+            exportCrashReport: { data in
                 let report = try PLCrashReport(data: data)
                 var crashReport = try CrashReport(from: report)
-                
-                let minifier = CrashReportMinifier()
-                minifier.minify(crashReport: &crashReport)
-                let exporter = CrashReportExporter()
-                // format crash report to send to grafana / send to separate storage
-                sendCrashReport(crash: exporter.export(crashReport: crashReport), config: crashReporterConfig)
-            } catch let error {
-                // The pending report is purged below even on failure, so a
-                // corrupt report cannot cause repeated failures on every
-                // launch — but it also means this crash report is lost.
-                print(
-                    "Faro CrashReportingIntegration: failed to load/parse " +
-                    "pending crash report; discarding it. Error: \(error)"
+                CrashReportMinifier().minify(crashReport: &crashReport)
+                return try CrashReportExporter().export(crashReport: crashReport)
+            }
+        )
+
+        do {
+            try crashReporter.enableAndReturnError()
+        } catch {
+            print("Faro: Could not enable crash reporter: \(error)")
+        }
+    }
+
+    init(
+        hasPendingCrashReport: @escaping () -> Bool,
+        loadPendingCrashReport: @escaping () throws -> Data,
+        purgePendingCrashReport: @escaping () -> Bool,
+        exportCrashReport: @escaping (Data) throws -> [String: Any]
+    ) {
+        self.hasPendingCrashReport = hasPendingCrashReport
+        self.loadPendingCrashReport = loadPendingCrashReport
+        self.purgePendingCrashReportHandler = purgePendingCrashReport
+        self.exportCrashReport = exportCrashReport
+    }
+
+    func takePendingCrashReports() -> [String] {
+        guard hasPendingCrashReport() else {
+            return []
+        }
+
+        do {
+            let crash = try exportCrashReport(loadPendingCrashReport())
+            guard JSONSerialization.isValidJSONObject(crash) else {
+                throw CrashReportException(
+                    description: "Pending crash report is not valid JSON."
                 )
             }
-        }
-
-        crashReporter.purgePendingCrashReport()
-        
-    }
-    func sendCrashReport(crash:Dictionary<String,Any>, config: Dictionary<String, Any>){
-        let  meta = [
-            "app":config["app"],
-            "session": config["session"],
-        ]
-        var crashPayload:Dictionary<String,Any> = [:]
-        crashPayload["exceptions"] = [crash]
-        crashPayload["meta"] = meta
-        sendPostRequest(collector: config["collectorUrl"] as! String,apiToken: config["apiKey"] as! String, payload: crashPayload) { (error) in
-            if let error = error {
-                print("Error: \(error)")
-            } else {
-                print("Request successful")
+            let data = try JSONSerialization.data(withJSONObject: crash)
+            guard let json = String(data: data, encoding: .utf8) else {
+                throw CrashReportException(
+                    description: "Could not encode pending crash report as UTF-8."
+                )
             }
-        }
-    
-        
-    }
-    func sendPostRequest(collector: String, apiToken: String, payload: [String: Any], completion: @escaping (Error?) -> Void) {
-        
-        guard let url = URL(string: collector) else {
-            print("Invalid URL")
-            return
-        }
-
-        // Convert the payload dictionary to JSON data
-        do {
-            let jsonData = try JSONSerialization.data(withJSONObject: payload, options: [])
-            
-            _ = String(data: jsonData, encoding: .utf8)
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            
-            request.addValue(apiToken, forHTTPHeaderField: "x-api-token")
-            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            
-            request.httpBody = jsonData
-            
-            let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                if let error = error {
-                    completion(error)
-                    return
-                }
-
-
-                completion(nil)
-            }
-            
-            task.resume()
-
+            return [json]
         } catch {
-            completion(error)
+            // Discard malformed reports so they do not fail every app launch.
+            _ = purgePendingCrashReport()
+            print(
+                "Faro: Failed to load pending crash report; discarding it. " +
+                "Error: \(error)"
+            )
+            return []
         }
     }
-    
-    
+
+    @discardableResult
+    func purgePendingCrashReport() -> Bool {
+        let purged = purgePendingCrashReportHandler()
+        if !purged {
+            print("Faro: Could not purge the pending iOS crash report.")
+        }
+        return purged
+    }
 }
 
 internal struct RumMeta{
@@ -252,13 +240,19 @@ internal struct CrashReportExporter{
         "SIGUSR1": "User defined signal 1",
         "SIGUSR2": "User defined signal 2",
     ]
-    func export(crashReport: CrashReport) -> Dictionary<String,Any>{
+    func export(crashReport: CrashReport) throws -> Dictionary<String,Any>{
+        guard let timestamp = crashReport.systemInfo?.timestamp else {
+            throw CrashReportException(
+                description: "Pending crash report has no timestamp."
+            )
+        }
         let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
         dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
 
         return (RumExceptionFormat(type: formattedType(for: crashReport), value: formattedValue(for: crashReport), stacktrace: ["frames":formattedStack(for: crashReport)],
-                           timestamp: dateFormatter.string(from: crashReport.systemInfo?.timestamp ?? Date()),
+                           timestamp: dateFormatter.string(from: timestamp),
                            fatal: true
                            // TODO: add context: binaryImages, ThreadInfo,contextData, Meta,truncation
                            //                           context: [

@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:isolate';
 import 'dart:ui' show RootIsolateToken;
 
+import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 
 class SessionRuntimeInfo {
@@ -21,11 +22,14 @@ class SessionRuntimeInfoProvider {
   SessionRuntimeInfoProvider({
     required FaroNativeMethods nativeMethods,
     bool Function()? isRootIsolate,
+    FaroEngineRole engineRole = FaroEngineRole.automatic,
   }) : _nativeMethods = nativeMethods,
+       _engineRole = engineRole,
        _isRootIsolate =
            isRootIsolate ?? (() => RootIsolateToken.instance != null);
 
   final FaroNativeMethods _nativeMethods;
+  final FaroEngineRole _engineRole;
   final bool Function() _isRootIsolate;
 
   Future<SessionRuntimeInfo?> getRuntimeInfo() async {
@@ -44,7 +48,12 @@ class SessionRuntimeInfoProvider {
 
       final debugName = Isolate.current.debugName;
       final isolateIdentifier = isRootIsolate
-          ? 'main'
+          ? switch (_engineRole) {
+              FaroEngineRole.automatic =>
+                nativeInfo?['engineRole'] == 'headless' ? 'headless' : 'main',
+              FaroEngineRole.foreground => 'main',
+              FaroEngineRole.headless => 'headless',
+            }
           : debugName != null && debugName != 'main'
           ? debugName
           : 'background';
