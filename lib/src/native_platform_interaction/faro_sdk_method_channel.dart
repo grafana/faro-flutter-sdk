@@ -77,4 +77,19 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
     );
     return crashInfo;
   }
+
+  @override
+  Future<void> purgeCrashReport() async {
+    await methodChannel.invokeMethod<void>('purgeCrashReport');
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getSessionRuntimeInfo({
+    required bool claimSessionPersistence,
+  }) {
+    return methodChannel.invokeMapMethod<String, dynamic>(
+      'getSessionRuntimeInfo',
+      <String, dynamic>{'claimSessionPersistence': claimSessionPersistence},
+    );
+  }
 }

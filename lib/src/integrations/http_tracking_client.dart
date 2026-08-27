@@ -6,6 +6,7 @@ import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/log_level.dart';
+import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/constants.dart';
 
@@ -288,9 +289,8 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
           'method': innerContext.method,
           'request_size': '${innerContext.contentLength}',
           'url': innerContext.uri.toString(),
-          'trace_id': _httpSpan.traceId,
-          'span_id': _httpSpan.spanId,
         },
+        spanContext: _httpSpan.spanContext,
         onFinish: _finishOperation,
         onStreamError: _recordOperationError,
       );
@@ -409,12 +409,15 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
   FaroTrackingHttpResponse(
     this.innerResponse,
     this.userAttributes, {
+    required FaroSpanContext spanContext,
     required void Function() onFinish,
     required void Function(Object error, StackTrace stackTrace) onStreamError,
-  }) : _onFinish = onFinish,
+  }) : _spanContext = spanContext,
+       _onFinish = onFinish,
        _onStreamError = onStreamError;
   final HttpClientResponse innerResponse;
   final Map<String, Object?> userAttributes;
+  final FaroSpanContext _spanContext;
   final void Function() _onFinish;
   final void Function(Object error, StackTrace stackTrace) _onStreamError;
   Object? lastError;
@@ -454,6 +457,7 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
               // ignore: lines_longer_than_80_chars
               "network_error on : ${userAttributes["method"]} : ${userAttributes["url"]}",
               level: LogLevel.error,
+              spanContext: _spanContext,
             );
           }
         },

@@ -10,6 +10,8 @@ void main() {
       String apiKey = 'test-api-key',
       String collectorUrl = 'https://example.com',
       Sampling? sampling,
+      bool persistSession = true,
+      FaroEngineRole engineRole = FaroEngineRole.automatic,
     }) {
       return FaroConfig(
         appName: appName,
@@ -17,6 +19,8 @@ void main() {
         apiKey: apiKey,
         collectorUrl: collectorUrl,
         sampling: sampling,
+        persistSession: persistSession,
+        engineRole: engineRole,
       );
     }
 
@@ -41,6 +45,29 @@ void main() {
         );
 
         expect(config.sampling, isA<SamplingFunction>());
+      });
+    });
+
+    group('session persistence:', () {
+      test('is enabled by default', () {
+        expect(createConfig().persistSession, isTrue);
+      });
+
+      test('can be disabled', () {
+        expect(createConfig(persistSession: false).persistSession, isFalse);
+      });
+    });
+
+    group('engine role:', () {
+      test('is inferred automatically by default', () {
+        expect(createConfig().engineRole, FaroEngineRole.automatic);
+      });
+
+      test('can identify a pre-warmed foreground engine', () {
+        expect(
+          createConfig(engineRole: FaroEngineRole.foreground).engineRole,
+          FaroEngineRole.foreground,
+        );
       });
     });
   });

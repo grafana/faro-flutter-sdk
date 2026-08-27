@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 /// ANSI color codes for console output
@@ -89,6 +90,66 @@ class PreReleaseChecker {
     return result.exitCode == 0;
   }
 
+  /// The UDID of an available iPhone simulator, or null if there is none.
+  ///
+  /// Resolved rather than hardcoded because the installed devices differ
+  /// between machines and change as Xcode is updated.
+  Future<String?> _findSimulator() async {
+    final result = await Process.run('xcrun', [
+      'simctl',
+      'list',
+      'devices',
+      'available',
+      '--json',
+    ]);
+    if (result.exitCode != 0) return null;
+
+    final devices =
+        (jsonDecode(result.stdout as String) as Map)['devices'] as Map;
+    final runtimes = devices.keys.cast<String>().toList()..sort();
+    for (final runtime in runtimes.reversed) {
+      for (final device in devices[runtime] as List) {
+        final name = (device as Map)['name'] as String;
+        if (name.contains('iPhone')) {
+          return device['udid'] as String;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Run iOS native unit tests via xcodebuild
+  ///
+  /// The example app has to be built first so that the platform build files
+  /// exist, which is why this is far slower than its Android counterpart.
+  Future<bool> _checkIosTests() async {
+    if (!Platform.isMacOS) return false;
+
+    final build = await Process.run('flutter', [
+      'build',
+      'ios',
+      '--debug',
+      '--simulator',
+    ], workingDirectory: 'example');
+    if (build.exitCode != 0) return false;
+
+    final simulator = await _findSimulator();
+    if (simulator == null) return false;
+
+    final result = await Process.run('xcodebuild', [
+      'test',
+      '-workspace',
+      'Runner.xcworkspace',
+      '-scheme',
+      'Runner',
+      '-configuration',
+      'Debug',
+      '-destination',
+      'id=$simulator',
+    ], workingDirectory: 'example/ios');
+    return result.exitCode == 0;
+  }
+
   /// Run Flutter analyzer
   Future<bool> _checkAnalyzer() async {
     final result = await Process.run('flutter', ['analyze']);
@@ -122,7 +183,7 @@ class PreReleaseChecker {
   }
 
   /// Run pre-version-bump checks
-  Future<bool> runPreChecks() async {
+  Future<bool> runPreChecks({bool includeIosTests = false}) async {
     // ignore: avoid_print
     print(
       '${Colors.blue}🔍 Running pre-version-bump checks...'
@@ -139,9 +200,23 @@ class PreReleaseChecker {
     await _runCheck('Run analyzer', _checkAnalyzer);
     await _runCheck('Run tests', _checkTests);
     await _runCheck('Run Android unit tests', _checkAndroidTests);
+    if (includeIosTests) {
+      await _runCheck(
+        'Run iOS unit tests (builds the example app first)',
+        _checkIosTests,
+      );
+    }
 
     // Release readiness
     await _runCheck('Check CHANGELOG has unreleased content', _checkChangelog);
+
+    if (!includeIosTests && Platform.isMacOS) {
+      // ignore: avoid_print
+      print(
+        '\n${Colors.yellow}ℹ${Colors.reset}  iOS unit tests were not run. '
+        'Pass --ios when changing Swift code.',
+      );
+    }
 
     // Summary
     // ignore: avoid_print
@@ -216,7 +291,9 @@ Future<void> main(List<String> args) async {
     );
   } else {
     // Pre-version-bump checks
-    final success = await checker.runPreChecks();
+    final success = await checker.runPreChecks(
+      includeIosTests: args.contains('--ios'),
+    );
     if (!success) {
       exit(1);
     }

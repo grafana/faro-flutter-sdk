@@ -4,6 +4,19 @@ import 'package:faro/src/models/faro_user.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 
+/// Identifies the role of the Flutter engine that initializes Faro.
+enum FaroEngineRole {
+  /// Infer the role from whether the Android engine has attached to an
+  /// Activity. iOS root isolates continue to use `main`.
+  automatic,
+
+  /// Treat this engine as the application's foreground engine.
+  foreground,
+
+  /// Treat this engine as a background or headless engine.
+  headless,
+}
+
 class FaroConfig {
   FaroConfig({
     required this.appName,
@@ -28,6 +41,8 @@ class FaroConfig {
     this.sessionAttributes,
     this.initialUser,
     this.persistUser = true,
+    this.persistSession = true,
+    this.engineRole = FaroEngineRole.automatic,
     this.sampling,
     this.spanExceptionOptions = SpanExceptionOptions.defaults,
   }) : assert(appName.isNotEmpty, 'appName cannot be empty'),
@@ -89,13 +104,32 @@ class FaroConfig {
   /// Set to `false` to disable user persistence.
   final bool persistUser;
 
+  /// Whether to persist minimal session state between process starts.
+  ///
+  /// When enabled (default), a cold start always creates a new session and
+  /// links the previous session ID when it is available. The persisted record
+  /// contains only session identity, timing, sampling, and schema information.
+  /// It never resumes the same live session across a process start.
+  final bool persistSession;
+
+  /// The role of the Flutter engine that initializes Faro.
+  ///
+  /// The default, [FaroEngineRole.automatic], identifies Android engines that
+  /// have attached to an Activity as `main` and unattached engines as
+  /// `headless`. Set this to [FaroEngineRole.foreground] when a pre-warmed UI
+  /// engine initializes Faro before it attaches to an Activity. Use
+  /// [FaroEngineRole.headless] only when the engine's role is known explicitly.
+  final FaroEngineRole engineRole;
+
   /// Session sampling configuration.
   ///
   /// Controls the probability that a session will be sampled. When a session
   /// is not sampled, no telemetry (events, logs, exceptions, measurements,
   /// traces) is sent for that session.
   ///
-  /// The sampling decision is made once per session at initialization time.
+  /// A fresh sampling decision is made whenever a session starts, including
+  /// after automatic expiry, receiver invalidation, or an explicit reset. The
+  /// decision remains fixed for that session.
   ///
   /// If not provided, defaults to [SamplingRate(1.0)] (all sessions sampled).
   ///

@@ -63,7 +63,7 @@ The SDK organizes error-like signals into four categories:
 | Manual `Faro().pushError(...)` | `lib/src/faro.dart` | exception | caller-defined | caller-defined (default `false`) |
 | Android previous-session exits via `ApplicationExitInfo` | `lib/src/faro.dart` (`enableCrashReporter`), `android/.../ExitInfoHelper.java` | fatal exception | `crash` | `true` |
 | Android runtime ANR watchdog (main thread blocked) | `android/.../ANRTracker.java`, `lib/src/integrations/native_integration.dart` | exception (plus an `anr` measurement) | `flutter_error` | `true` |
-| iOS previous-session crashes (PLCrashReporter) | `ios/faro/Sources/faro/CrashReportingIntegration.swift` | fatal exception | signal name (e.g. `SIGSEGV`) | `true` |
+| iOS previous-session crashes (PLCrashReporter) | `ios/faro/Sources/faro/CrashReportingIntegration.swift`, `lib/src/faro.dart` | fatal exception | `crash` | `true` |
 | Manual `Faro().pushLog(..., level: LogLevel.error)` | `lib/src/faro.dart` | log | — | — |
 
 Notes:
@@ -73,14 +73,25 @@ Notes:
   `enableCrashReporting` / `anrTracking`.
 - Dart-level errors currently share the generic `type: 'flutter_error'`
   rather than the underlying error class.
-- `FlutterError.onError` currently only reports framework errors that carry a
-  stack trace (`details.stack != null`); framework errors without one are not
-  emitted today (tracked in #271).
+- `FlutterError.onError` reports framework errors even when Flutter does not
+  provide a stack trace. The error type and message are still emitted.
 - Reporting timing differs by source. Previous-run native **crashes** (iOS
   PLCrashReporter, Android `ApplicationExitInfo` exits — including `ANR`
   exits) are detected and reported on the **next launch**. The Android
   runtime **ANR watchdog** is different: it detects a blocked main thread
   **while the app is running** and reports within the same session.
+- iOS pending crashes return to Dart on the next launch and use the configured
+  collector and custom transports. The original signal name and code remain
+  available as `context.nativeType`.
+- With session persistence enabled, next-launch native crash reports retain
+  the prior session ID and include `crashedSessionId` in the session
+  attributes. Reporting them does not change the new live session. When
+  Android returns several historical exits, each report is matched by process
+  and timestamp to its retained session. Reports without a match are ignored.
+- Android low-memory exits from service and less important process states are
+  filtered because they are normal system reclamation rather than user-facing
+  crashes. Foreground, foreground-service, visible, and perceptible low-memory
+  exits remain reportable.
 
 ---
 

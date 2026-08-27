@@ -8,4 +8,15 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application>
+        <!-- Samples process importance before Application.onCreate so that
+             background process starts are not reported as cold starts.
+             See FaroStartupProvider. -->
+        <provider
+            android:name="com.grafana.faro.FaroStartupProvider"
+            android:authorities="${applicationId}.farostartupprovider"
+            android:exported="false"
+            android:initOrder="200" />
+    </application>
 </manifest>

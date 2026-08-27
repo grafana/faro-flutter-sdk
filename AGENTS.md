@@ -89,6 +89,33 @@ Android-specific Java code (in `android/src/main/java/`) has JUnit tests in
 cd example/android && ./gradlew :faro:testDebugUnitTest
 ```
 
+### iOS Native Unit Tests
+
+Swift code (in `ios/faro/Sources/faro/`) has
+[Swift Testing](https://developer.apple.com/xcode/swift-testing/) tests in
+`example/ios/RunnerTests/`. They live under `example/` because they are run via
+the example app's Xcode project, which is the convention for Flutter plugins.
+
+Build the example app at least once so the platform build files exist, then run
+the tests against any available simulator:
+
+```bash
+cd example/ios && xcodebuild test -workspace Runner.xcworkspace \
+  -scheme Runner -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+```
+
+CI runs these on a macOS runner in the `build & test iOS` job, which also gives
+us the only iOS compile coverage we have.
+
+Locally they are opt-in, because a run needs a simulator and takes about a
+minute, against a second for the Android JUnit tests. Pass `--ios` to include
+them whenever you have touched Swift:
+
+```bash
+dart tool/pre_release_check.dart --ios
+```
+
 ---
 
 ## Code Style Guidelines
@@ -124,6 +151,24 @@ try {
 Follow `.gitmessage` template: `type(scope): description`
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+
+## Changelog Entries
+
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com). Entries
+are written for SDK users, not for us. Wrap at 80 characters.
+
+- **One change per bullet.** Don't bundle unrelated changes into one entry.
+- **Lead with impact**, then the explanation. Bold the opening noun phrase so
+  the file is skimmable.
+- **Keep entries under ~10 lines.** If it runs longer, the detail belongs in
+  `doc/Reference.md` — end with "See the Reference docs for details."
+- **Don't restate what the docs already cover.** Platform internals, API names
+  and algorithm details go in the docs, not here.
+- **Bold anything that changes the user's data or app**, such as a drop in
+  telemetry volume, a new manifest component, or a breaking API change.
+- Group under Added / Changed / Deprecated / Removed / Fixed / Security, and
+  link the issue as a full URL rather than a bare number:
+  `([#123](https://github.com/grafana/faro-flutter-sdk/issues/123))`.
 
 
 ## Pull Requests
@@ -282,19 +327,36 @@ Then run as usual: `flutter run --dart-define-from-file api-config.json`
 
 See `example/README.md` § "QA Smoke Test Configuration" for the full reference.
 
-### Before opening a PR
+### Before pushing to a PR (run on EVERY push, not just the first)
 
-Run the pre-release check script before committing/opening a PR. It validates formatting, static analysis, tests, and CHANGELOG content in one step:
+Run the pre-release check script before **every** push to a PR branch — not only when first opening the PR. CI runs these same gates on every push, so validating locally first avoids wasted CI cycles. Formatting is by far the most common cause of red CI:
 
 ```bash
 dart tool/pre_release_check.dart
 ```
+
+This validates formatting (`dart format --set-exit-if-changed .`), static analysis, tests, and CHANGELOG content in one step. Run the full script every time — do not substitute a partial check like `flutter analyze`, which does not catch formatting.
+
+Add `--ios` when the change touches Swift, to also run the iOS native tests.
 
 See `CONTRIBUTING.md` for the full contributor workflow.
 
 ### Real-device testing via BrowserStack
 
 If `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` are set, the example APK can be tested on a real Android device using BrowserStack App Automate. Upload via the BrowserStack REST API with `custom_id=faro-flutter-example`, then use Appium REST calls to interact with the app. Flutter exposes UI elements through the Accessibility Bridge, so `accessibility id` element lookups work for buttons with text labels (e.g., `"Change Route"`, `"Simple Span"`). For card-style `ListTile` widgets, the accessibility label is the concatenated title and subtitle separated by `\n`.
+
+### Validating telemetry changes against Grafana Cloud
+
+When a change affects emitted telemetry (logs, events, exceptions, measurements,
+spans, trace/span context, or any `structuredMetadata` field), validate it
+end-to-end against the real data in Grafana Cloud (Loki + Tempo), not just unit
+tests. The `tool/telemetry/` directory has generic, dependency-free Dart helpers
+for this — verifying log↔trace correlation, diffing the emitted telemetry shape
+before/after a change (e.g. branch vs `main`), and listing a session's full
+signal timeline. They shell out to the `gcx` CLI.
+
+See `tool/telemetry/README.md` for the full workflow, inputs to gather, and the
+gcx/Loki/Tempo gotchas.
 
 ### Gotchas
 
@@ -316,3 +378,4 @@ Flutter is installed at `/opt/flutter`. The `PATH` is set in `~/.bashrc` to incl
 The Android SDK is installed at `/opt/android-sdk`. The `ANDROID_HOME` env var and PATH additions are set in `~/.bashrc`. Flutter is already configured to use this SDK via `flutter config --android-sdk`.
 
 No Android emulator is available in these environments. Use `flutter build apk` to verify compilation, or use BrowserStack for on-device testing (see above).
+- Security issues should be reported via [Grafana's security issue reporting page](https://grafana.com/legal/report-a-security-issue/) and not directly in this repository.

@@ -10,6 +10,9 @@ import 'package:http/http.dart' as http;
 /// Resolves the current session id to send in the `x-faro-session-id` header.
 typedef SessionIdResolver = String Function();
 
+/// Called when the receiver reports that a submitted session is invalid.
+typedef SessionInvalidatedHandler = void Function(String sessionId);
+
 class FaroTransport extends BaseTransport {
   FaroTransport({
     required this.collectorUrl,
@@ -22,6 +25,12 @@ class FaroTransport extends BaseTransport {
        _httpClient = httpClient {
     _taskBuffer = TaskBuffer(maxBufferLimit ?? 30);
   }
+
+  static const _accepted = 202;
+  static const _sessionIdHeader = 'x-faro-session-id';
+  static const _sessionStatusHeader = 'x-faro-session-status';
+  static const _invalidSessionStatus = 'invalid';
+
   final String collectorUrl;
   final String apiKey;
 
@@ -34,6 +43,7 @@ class FaroTransport extends BaseTransport {
   /// active session even when a rotation happened after this transport was
   /// created, or when an older cached payload is replayed offline.
   final SessionIdResolver _sessionIdResolver;
+  SessionInvalidatedHandler? _onSessionInvalidated;
   TaskBuffer<dynamic>? _taskBuffer;
   final Map<String, String>? headers;
 
@@ -41,11 +51,37 @@ class FaroTransport extends BaseTransport {
   /// [http.post] is used so production behavior is unchanged.
   final http.Client? _httpClient;
 
+  /// Connects receiver invalidation responses to the SDK session manager.
+  set sessionInvalidatedHandler(SessionInvalidatedHandler handler) {
+    _onSessionInvalidated = handler;
+  }
+
   @override
   Future<void> send(Map<String, dynamic> payloadJson) async {
+    await _send(payloadJson, processSessionInvalidation: true);
+  }
+
+  /// Sends historical telemetry without applying receiver session
+  /// invalidation to the live session.
+  Future<void> sendHistorical(Map<String, dynamic> payloadJson) async {
+    await _send(payloadJson, processSessionInvalidation: false);
+  }
+
+  /// Sends historical telemetry and reports whether the collector accepted it.
+  ///
+  /// This is used when the caller owns the only durable copy and must not
+  /// discard it until the collector returns a successful response.
+  Future<bool> sendHistoricalAcknowledged(Map<String, dynamic> payloadJson) {
+    return _send(payloadJson, processSessionInvalidation: false);
+  }
+
+  Future<bool> _send(
+    Map<String, dynamic> payloadJson, {
+    required bool processSessionInvalidation,
+  }) async {
     if (Faro().enableDataCollection == false) {
       log('Data collection is disabled. Skipping sending data.');
-      return;
+      return false;
     }
 
     try {
@@ -54,9 +90,12 @@ class FaroTransport extends BaseTransport {
       final headers = {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'x-faro-session-id': _sessionIdResolver(),
+        _sessionIdHeader: _sessionIdResolver(),
         ...?this.headers,
       };
+      // Capture the effective request value before awaiting the response.
+      // Custom headers may override the resolver value using different casing.
+      final sentSessionId = _headerValue(headers, _sessionIdHeader);
 
       final post = _httpClient?.post ?? http.post;
       final response = await _taskBuffer?.add(() {
@@ -72,9 +111,38 @@ class FaroTransport extends BaseTransport {
           'Error sending payload: ${response.statusCode}, '
           'body: ${response.body} payload:$encodedPayload',
         );
+        return false;
       }
+
+      if (response == null) {
+        return false;
+      }
+
+      if (response != null &&
+          processSessionInvalidation &&
+          sentSessionId != null &&
+          response.statusCode == _accepted &&
+          _headerValue(response.headers, _sessionStatusHeader) ==
+              _invalidSessionStatus) {
+        log('Faro: Receiver reported the submitted session as invalid.');
+        _onSessionInvalidated?.call(sentSessionId);
+      }
+      return true;
     } catch (error) {
-      log('Error encoding payload: $error');
+      log('Error sending payload: $error');
+      return false;
     }
+  }
+
+  static String? _headerValue(Map<String, String> headers, String name) {
+    String? value;
+    // Custom headers are merged last, so the last case-insensitive match is
+    // the effective value sent by the HTTP client.
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == name) {
+        value = entry.value;
+      }
+    }
+    return value;
   }
 }

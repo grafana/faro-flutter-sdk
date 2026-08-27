@@ -68,7 +68,7 @@ void main() {
     ),
     appRunner: () => runApp(
       FaroAssetTracking(                  // tracks asset loading times and sizes
-        child: FaroUserInteractionWidget( // tracks user taps and gestures
+        child: FaroUserInteractionWidget( // tracks pointer session activity
           child: MyApp()
         )
       )
@@ -172,7 +172,82 @@ Faro().runApp(
 
 ### Cold/Warm Start
 
-App startup times are automatically captured and sent as events.
+App startup times are automatically captured and sent as `app_startup` measurements:
+
+| Value              | Meaning                                                         |
+| ------------------ | --------------------------------------------------------------- |
+| `appStartDuration` | Milliseconds the start took                                       |
+| `coldStart`        | `1` for a cold start, `0` for a warm start                        |
+| `prewarmed`        | `1` when iOS prewarmed the process, `0` otherwise (always `0` on Android) |
+
+A **cold start** is measured from process start until the first frame is
+rasterized. An app that calls `Faro.init` after that frame is measured up to
+`init` instead, since by then the frame has already passed unobserved.
+A **warm start** is measured from the app returning to the
+foreground until the next frame, and is only reported when the app had actually
+been backgrounded. A launch reports a cold start alone, and a momentary loss of
+focus such as a notification banner reports nothing.
+
+#### Which cold starts are reported
+
+Both platforms start app processes without any user involvement. Android forks
+a process to deliver a push message, run a scheduled job or handle a broadcast,
+and that process then stays in the LRU cache indefinitely. iOS *prewarms* apps,
+creating the process and loading its libraries ahead of the user tapping the
+icon. In both cases the time since process start can be hours, and reporting it
+as a cold start makes any percentile over the metric meaningless.
+
+How much of that the SDK can rule out differs by platform:
+
+- **Android 7+**: `FaroStartupProvider`, a content provider merged into your
+  manifest automatically, samples the process importance before
+  `Application.onCreate` runs. That is the only point at which the answer is
+  still meaningful, because once an activity exists every process reports
+  foreground importance. A process Android forked for background work is not
+  foreground at that moment; one brought up to show UI is.
+- **Android 6 and below**: no cold start is reported, because the platform
+  exposes no process start time.
+- **iOS**: a background launch cannot be told apart from a user-initiated one,
+  so every launch with a usable anchor is reported. Prewarmed launches are
+  re-based onto a monotonic anchor taken when the SDK loads, so they measure
+  the launch rather than the idle time before it, and are flagged with
+  `prewarmed`. Beyond that re-basing, the 60-second cap below is the only
+  guard on iOS.
+
+As a final guard, any cold start longer than 60 seconds is discarded on both
+platforms. This is the same bound commonly used across mobile RUM tooling, so
+the metric stays comparable with what you may collect elsewhere.
+
+> **Known limitation — prewarmed launches on iOS undercount.** The anchor above
+> is taken during plugin registration, which runs inside
+> `application(_:didFinishLaunchingWithOptions:)`. Apple documents prewarming as
+> stopping before that point, but on apps adopting the `UIScene` lifecycle —
+> which Flutter's iOS template does — iOS may run it during the prewarm itself.
+> The anchor is then set long before the user taps, and because the uptime clock
+> keeps running the measured duration includes the idle gap. A long prewarm
+> trips the 60 second guard and is dropped, so treat `prewarmed=1` as a lower
+> bound on volume; a short one is reported with the idle gap included, so treat
+> `prewarmed=1` durations as an upper bound on the real launch time.
+
+> **Known limitation — split screen.** The importance sample reads
+> `IMPORTANCE_FOREGROUND`. A launch into a split-screen or multi-window slot can
+> report the process as merely visible instead, in which case the cold start is
+> discarded. This affects all Android versions.
+
+If you do not want the content provider in your app, remove it in your
+`AndroidManifest.xml`. Its sample is the only way the SDK can prove a launch was
+user-visible, so without it no cold start is reported on any Android version:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <provider
+            android:name="com.grafana.faro.FaroStartupProvider"
+            tools:node="remove" />
+    </application>
+</manifest>
+```
 
 ---
 
@@ -306,24 +381,125 @@ Faro tracks a session id that groups all telemetry from a single period of use. 
 - **Inactivity**: no app/user activity for 15 minutes, or
 - **Max lifetime**: the session has been alive for 4 hours.
 
-These thresholds are fixed and not configurable: the Grafana Cloud Faro receiver enforces the same windows server-side and drops telemetry from sessions that exceed them, so a longer client-side value would cause silent data loss.
+These thresholds are fixed and not configurable: the Grafana Cloud Faro
+receiver enforces the same windows server-side and drops telemetry from
+sessions that exceed them, so a longer client-side value would cause silent
+data loss.
 
-**Lifecycle events.** Faro emits an event whenever the session id changes, so you can follow the user journey in Grafana:
-
-| Event           | When                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------ |
-| `session_start` | The initial session, emitted once when the SDK initializes                           |
-| `session_extend` | A rotation: a new session was auto-created because the inactivity or lifetime timeout was reached |
+**Lifecycle events.** Faro emits `session_start` whenever it creates a session
+on cold start, expiry, explicit reset, or receiver invalidation.
+`session_extend` is a web-only event that means user activity kept an existing
+session alive, so it does not apply when Flutter rotation creates a new session
+ID. Use `previousSession` rather than the event name to identify linked
+sessions.
 
 **Linking rotated sessions.** On rotation, the previous session id is recorded in the `previousSession` session attribute, so backends can link a rotated session back to its predecessor. Existing custom session attributes are preserved across rotation. All telemetry created after a rotation — events, logs, exceptions, and spans — automatically carries the new session id.
 
-**What counts as activity.** Telemetry that originates from app or user behavior extends the inactivity window: events, logs, exceptions, app-developer measurements, user interactions, view changes, and app lifecycle events. Spans count too — each exported span emits a Faro event that flows through the same path, so tracked HTTP requests and custom spans keep the session alive.
+**Explicit reset.** Use `resetSession` after updating user identity when a
+logout, account change, or application-defined boundary must start a new
+session. The call creates and links the new session immediately, restarts its
+timing and sampling windows, emits `session_start`, and persists the new record
+when session persistence is enabled. Any active user action ends before the
+rotation so its buffered telemetry remains in the previous session.
 
-Automatic vitals measurements pushed by the SDK itself (CPU, memory, refresh rate, frame stats, ANR count, app start) count as activity **only while the app is in the foreground**. This keeps a single session for a foregrounded but idle app (e.g. a user reading a screen without tapping), while ensuring a backgrounded app's session still expires — the Dart isolate keeps running while backgrounded on Android, so if background vitals counted they would keep the session alive indefinitely.
+```dart
+// Logout
+await Faro().setUser(const FaroUser.cleared());
+await Faro().resetSession();
+
+// Switch accounts
+await Faro().setUser(const FaroUser(id: 'account-456'));
+await Faro().resetSession();
+```
+
+**Cold starts and persistence.** Faro stores a minimal versioned session record
+by default. A process start always creates a new session ID. When the prior ID
+is available, the new session links it through `previousSession`; Faro never
+resumes the same live session across a process start. The record contains only
+the current and previous IDs, start and last-activity timestamps, the sampling
+decision, and its schema version. Disable this behavior with
+`persistSession: false`; disabling it also clears the record owned by that
+process.
+
+Each Android process and iOS app or extension keeps its own session chain.
+Only the owning root Flutter isolate persists state, so secondary engines and
+background isolates cannot concurrently update that record. Ownership is not
+transferred to an already-running secondary engine if the owner detaches; that
+engine keeps its in-memory session until it initializes again. When native
+process identity is available, telemetry includes `process_name` and
+`dart_isolate_name` session attributes for correlation. An Android engine that
+has attached to an Activity is identified as `main`; a root engine that has
+never attached to an Activity is identified as `headless`. Secondary Dart
+isolates use their debug name when available and otherwise use `background`.
+With automatic detection, iOS root isolates continue to use `main`.
+
+If an Android app pre-warms its foreground `FlutterEngine` and initializes
+Faro before attaching that engine to an Activity, set
+`engineRole: FaroEngineRole.foreground` in `FaroConfig`. This records
+`dart_isolate_name=main`. Android or iOS background entrypoints can set
+`FaroEngineRole.headless` to record `dart_isolate_name=headless` when automatic
+detection is unavailable or insufficient. Overrides apply only to the root
+isolate and are not checked against the native signal, so configure each
+entrypoint separately. Reusing either override for an engine with the opposite
+role would mislabel that engine.
+
+**Recovered crashes.** When crash reporting and session persistence are
+enabled, Android and iOS native crashes recovered on the next launch retain
+the persisted session ID that was active when the process stopped. The crash
+payload also includes `crashedSessionId` in the session attributes and uses
+that session's persisted sampling decision. Sending the recovered crash does
+not rotate or otherwise change the new live session. Android continues to
+deduplicate historical `ApplicationExitInfo` records, while iOS purges the
+pending PLCrashReporter record after Dart accepts it for transport. The report
+uses the configured collector and custom transports, sampling decision, data
+collection policy, collector headers, and `type: crash`; its native signal and
+code are preserved in `context.nativeType`. `FaroTransport` uses the collector
+response to confirm the handoff. For a custom `BaseTransport`, a completed
+`send` call counts as acceptance. Custom transports must complete with an error
+when they cannot accept or durably queue the payload; hiding that failure can
+cause the SDK to purge the retained native report. A pending iOS report is
+discarded without being sent when data collection was disabled at launch. If
+persistence is active but a recovered crash cannot be matched to a persisted
+session, the SDK discards that crash rather than attributing it to the new live
+session. If persistence is disabled or unavailable, the SDK cannot recover the
+prior session identity and retains the legacy live-session fallback.
+
+**What counts as activity.** Faro classifies telemetry as meaningful work or
+passive telemetry. Every item checks session expiry before it is attributed,
+but only meaningful work refreshes the 15-minute inactivity window.
+
+| Source | Category | Session effect |
+| ------ | -------- | -------------- |
+| Pointer interactions observed by `FaroUserInteractionWidget` | Meaningful | Refreshes inactivity |
+| Navigation and screen updates from `FaroNavigationObserver` or `setViewMeta` | Meaningful | Refreshes inactivity |
+| `startUserAction` | Meaningful | Refreshes inactivity in the foreground or background |
+| Spans linked to an active user action | Meaningful | Refreshes inactivity |
+| Return to `AppLifecycleState.resumed` | Meaningful | Checks expiry first, then refreshes the valid session |
+| `pushEvent`, `pushLog`, `pushError`, and `pushMeasurement` | Passive | Checks expiry but does not refresh inactivity |
+| Unmarked HTTP and custom spans | Passive | Checks expiry but does not refresh inactivity |
+| Session events, other lifecycle events, asset loads, and automatic vitals | Passive | Checks expiry but does not refresh inactivity |
+
+Use `startUserAction` when application work should explicitly keep a session
+active. Network work refreshes inactivity only when its span is linked to that
+tracked action. This prevents passive polling, measurements, and SDK
+housekeeping from keeping an idle session alive.
+
+`FaroUserInteractionWidget` treats completed taps and drags as meaningful
+session activity. It still emits `user_interaction` events only for supported
+tap targets. Keeping an app visible without pointer, navigation, or explicit
+application activity does not refresh inactivity.
 
 Session expiry is evaluated lazily on the next ingested telemetry item (there is no periodic rotation timer). The triggering telemetry is attributed to the new session.
 
-> **Sampling note:** the session sampling decision is made once at initialization and is **not** re-evaluated on rotation (see [Session Sampling](#session-sampling)).
+The Grafana Cloud receiver can also report that a submitted session has
+expired by returning `X-Faro-Session-Status: invalid` with its accepted
+response. Faro rotates that session immediately. Delayed or duplicate
+responses for an older session are ignored, so they cannot rotate the current
+session again.
+
+> **Sampling note:** every new session makes an independent sampling decision,
+> including sessions created by automatic expiry, receiver invalidation, or
+> `resetSession` (see [Session Sampling](#session-sampling)).
 
 ---
 
@@ -578,6 +754,47 @@ Faro().pushLog(
 Faro().pushMeasurement(
   {'checkout_duration_ms': 4500, 'items_count': 3},
   'checkout_metrics',
+);
+```
+
+### Automatic Trace Correlation
+
+When you push a log, event, exception, or measurement while a span is active,
+the SDK automatically stamps the signal with the active span's `trace_id` and
+`span_id`. This lets you jump from a log line straight to its trace in Grafana,
+following the OpenTelemetry logs data model.
+
+```dart
+await Faro().startSpan('checkout', (span) async {
+  // No trace argument needed — the active span is picked up automatically.
+  Faro().pushLog('Payment authorized', level: LogLevel.info);
+  Faro().pushEvent('payment_authorized');
+  Faro().pushMeasurement({'amount': 29.99}, 'payment');
+});
+```
+
+Correlation applies to signals emitted inside a `startSpan()` callback (the
+active span is tracked per zone). Signals pushed with no active span carry no
+trace context.
+
+To attach or override the span context explicitly, pass a `FaroSpanContext`.
+An explicit `spanContext` always takes precedence over the active span:
+
+```dart
+Faro().pushLog(
+  'Correlated with a specific span',
+  level: LogLevel.info,
+  spanContext: FaroSpanContext(traceId: myTraceId, spanId: mySpanId),
+);
+```
+
+If you already hold a `Span`, use its `spanContext` getter:
+
+```dart
+Faro().pushLog(
+  'Correlated with a span I have a reference to',
+  level: LogLevel.info,
+  spanContext: span.spanContext,
 );
 ```
 
@@ -1135,9 +1352,14 @@ Faro().runApp(
 );
 ```
 
+The function runs synchronously whenever a new session starts. Keep it fast and
+side-effect free; use values already available in the sampling context or
+locally cached configuration.
+
 **How it works:**
 
-- The sampling decision is made once at initialization time and applies for the whole app run, including across [session rotations](#session-lifecycle--rotation)
+- A fresh sampling decision is made when each session starts
+- Automatic expiry, receiver invalidation, and [`resetSession`](#session-lifecycle--rotation) each start a new sampling window
 - When a session is not sampled, all telemetry (events, logs, exceptions, measurements, traces) is silently dropped
 - A debug log is emitted when a session is not sampled, for transparency during development
 - Invalid return values (< 0.0 or > 1.0) are clamped to the valid range
@@ -1157,8 +1379,10 @@ Faro().runApp(
 
 **Notes:**
 
-- Sampling is head-based: the decision is made at SDK initialization and remains consistent for the whole app run (it is not re-evaluated when the session rotates)
-- The broader [Faro sampling model](https://grafana.com/docs/grafana-cloud/monitor-applications/frontend-observability/instrument/sampling/) re-samples per rotated session; matching that in the Flutter SDK is planned as a follow-up (#284)
+- Sampling is head-based: each new session makes one decision that remains fixed
+  until the next rotation
+- `SamplingFunction` receives the new session ID and its `previousSession`
+  attribute when a rotation links it to an earlier session
 
 **Use cases:**
 

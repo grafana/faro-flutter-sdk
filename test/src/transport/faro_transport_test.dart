@@ -29,15 +29,22 @@ void main() {
 
     FaroTransport buildTransport({
       SessionIdResolver? sessionIdResolver,
+      SessionInvalidatedHandler? onSessionInvalidated,
       Map<String, String>? headers,
+      int? maxBufferLimit,
     }) {
-      return FaroTransport(
+      final transport = FaroTransport(
         collectorUrl: 'https://collector.example/collect',
         apiKey: 'test-key',
         sessionIdResolver: sessionIdResolver ?? () => 'session-id',
         headers: headers,
+        maxBufferLimit: maxBufferLimit,
         httpClient: client,
       );
+      if (onSessionInvalidated != null) {
+        transport.sessionInvalidatedHandler = onSessionInvalidated;
+      }
+      return transport;
     }
 
     Map<String, dynamic> payload() => {
@@ -72,6 +79,51 @@ void main() {
       });
     });
 
+    group('historical acknowledgement:', () {
+      test('returns true for a successful collector response', () async {
+        final accepted = await buildTransport().sendHistoricalAcknowledged(
+          payload(),
+        );
+
+        expect(accepted, isTrue);
+      });
+
+      test('returns false for a rejected collector response', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response('rejected', 500);
+        });
+
+        final accepted = await buildTransport().sendHistoricalAcknowledged(
+          payload(),
+        );
+
+        expect(accepted, isFalse);
+      });
+
+      test('returns false when the request fails', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          throw http.ClientException('collector unavailable');
+        });
+
+        final accepted = await buildTransport().sendHistoricalAcknowledged(
+          payload(),
+        );
+
+        expect(accepted, isFalse);
+      });
+
+      test('returns false when the transport buffer is full', () async {
+        final accepted = await buildTransport(
+          maxBufferLimit: 0,
+        ).sendHistoricalAcknowledged(payload());
+
+        expect(accepted, isFalse);
+        expect(captured, isEmpty);
+      });
+    });
+
     group('x-faro-session-id header:', () {
       // The payload body always carries a fixed session id; the header should
       // follow the live resolver instead, not this value.
@@ -94,6 +146,140 @@ void main() {
           'session-1',
           'session-2',
         ]);
+      });
+    });
+
+    group('session invalidation response:', () {
+      test('reports an invalid session from an accepted response', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response(
+            '',
+            202,
+            headers: {'X-Faro-Session-Status': 'invalid'},
+          );
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          sessionIdResolver: () => 'session-1',
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).send(payload());
+
+        expect(invalidatedSessionIds, ['session-1']);
+      });
+
+      test('historical sends do not invalidate the live session', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response(
+            '',
+            202,
+            headers: {'X-Faro-Session-Status': 'invalid'},
+          );
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          sessionIdResolver: () => 'live-session',
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).sendHistorical(payload());
+
+        expect(captured, hasLength(1));
+        expect(invalidatedSessionIds, isEmpty);
+      });
+
+      test('reports the session id used by the request', () async {
+        var currentSessionId = 'session-1';
+        client = MockClient((request) async {
+          captured.add(request);
+          currentSessionId = 'session-2';
+          return http.Response(
+            '',
+            202,
+            headers: {'x-faro-session-status': 'invalid'},
+          );
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          sessionIdResolver: () => currentSessionId,
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).send(payload());
+
+        expect(captured.single.headers['x-faro-session-id'], 'session-1');
+        expect(invalidatedSessionIds, ['session-1']);
+      });
+
+      test('reports an overridden request session id', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response(
+            '',
+            202,
+            headers: {'X-Faro-Session-Status': 'invalid'},
+          );
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          sessionIdResolver: () => 'resolver-session',
+          headers: {'X-Faro-Session-Id': 'header-session'},
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).send(payload());
+
+        expect(captured.single.headers['x-faro-session-id'], 'header-session');
+        expect(invalidatedSessionIds, ['header-session']);
+      });
+
+      test('ignores the header on a non-accepted response', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response(
+            '',
+            200,
+            headers: {'X-Faro-Session-Status': 'invalid'},
+          );
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).send(payload());
+
+        expect(invalidatedSessionIds, isEmpty);
+      });
+
+      test('ignores accepted responses without an invalid status', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response(
+            '',
+            202,
+            headers: {'X-Faro-Session-Status': 'valid'},
+          );
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).send(payload());
+
+        expect(invalidatedSessionIds, isEmpty);
+      });
+
+      test('ignores accepted responses without the status header', () async {
+        client = MockClient((request) async {
+          captured.add(request);
+          return http.Response('', 202);
+        });
+        final invalidatedSessionIds = <String>[];
+
+        await buildTransport(
+          onSessionInvalidated: invalidatedSessionIds.add,
+        ).send(payload());
+
+        expect(invalidatedSessionIds, isEmpty);
       });
     });
 

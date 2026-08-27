@@ -1,6 +1,7 @@
 package com.grafana.faro;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Application;
 import android.app.ApplicationExitInfo;
 import android.content.Context;
@@ -9,7 +10,6 @@ import android.os.Debug;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
-import android.os.SystemClock;
 import android.view.Choreographer;
 import android.view.Window;
 
@@ -50,6 +50,8 @@ import io.flutter.plugin.common.MethodChannel.Result;
  * - Frame rate monitoring
  */
 public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
+    private static final AtomicBoolean SESSION_PERSISTENCE_OWNER_CLAIMED = new AtomicBoolean(false);
+
     /// The MethodChannel that will the communication between Flutter and native Android
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
@@ -60,6 +62,9 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private @Nullable ExitInfoHelper exitInfoHelper;
     private @Nullable Window window;
     private @Nullable Application application;
+    private boolean ownsSessionPersistence = false;
+    // Once attached, this engine remains the main engine across Activity detaches.
+    private final EngineRoleTracker engineRoleTracker = new EngineRoleTracker();
 
     private FlutterPluginBinding pluginBinding;
     private long lastFrameTimeNanos = 0;
@@ -183,6 +188,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "attached to Activity");
         
         if (binding.getActivity() != null) {
+            engineRoleTracker.onActivityAttached();
             activity = new WeakReference<>(binding.getActivity());
             window = activity.get().getWindow();
             // Update application context from activity if needed
@@ -261,6 +267,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "reattached to Activity");
         
         if (binding.getActivity() != null) {
+            engineRoleTracker.onActivityAttached();
             activity = new WeakReference<>(binding.getActivity());
             window = activity.get().getWindow();
             
@@ -330,6 +337,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "onDetachedFromEngine");
         channel.setMethodCallHandler(null);
         channel = null;
+        if (ownsSessionPersistence) {
+            SESSION_PERSISTENCE_OWNER_CLAIMED.set(false);
+            ownsSessionPersistence = false;
+        }
     }
 
     // test
@@ -389,9 +400,24 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         result.success(anrStatuses);
                         break;
                     case "getAppStart":
-                        Map<String, Object> appStart = new HashMap<>();
-                        appStart.put("appStartDuration", getAppStart());
-                        result.success(appStart);
+                        result.success(AppStartTracker.getColdStartMetrics());
+                        break;
+                    case "getSessionRuntimeInfo":
+                        String processIdentifier = getProcessIdentifier();
+                        if (processIdentifier == null) {
+                            result.success(null);
+                            break;
+                        }
+                        Boolean shouldClaimPersistence =
+                            call.argument("claimSessionPersistence");
+                        if (Boolean.TRUE.equals(shouldClaimPersistence)) {
+                            claimSessionPersistenceOwnership();
+                        }
+                        Map<String, Object> runtimeInfo = new HashMap<>();
+                        runtimeInfo.put("processIdentifier", processIdentifier);
+                        runtimeInfo.put("ownsSessionPersistence", ownsSessionPersistence);
+                        runtimeInfo.put("engineRole", engineRoleTracker.getEngineRole());
+                        result.success(runtimeInfo);
                         break;
                     default:
                         result.notImplemented();
@@ -505,11 +531,54 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         lastFrameTimeNanos = frameTimeNanos;
     }
 
-    private long getAppStart(){
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime();
+    private @Nullable String getProcessIdentifier() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            return Application.getProcessName();
         }
-        return 0;
+        if (applicationContext == null) {
+            return null;
+        }
+
+        ActivityManager activityManager =
+            (ActivityManager) applicationContext.getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager != null) {
+            List<ActivityManager.RunningAppProcessInfo> processes =
+                activityManager.getRunningAppProcesses();
+            if (processes != null) {
+                int currentPid = Process.myPid();
+                for (ActivityManager.RunningAppProcessInfo process : processes) {
+                    if (process.pid == currentPid) {
+                        return process.processName;
+                    }
+                }
+            }
+        }
+
+        // Do not guess here. Using the package name for an unidentified
+        // secondary process could make two processes write the same file.
+        return null;
+    }
+
+    private void claimSessionPersistenceOwnership() {
+        // Registration also runs for pre-warmed engines. Claim only when a
+        // root Dart runtime actually initializes Faro.
+        if (!ownsSessionPersistence
+            && SESSION_PERSISTENCE_OWNER_CLAIMED.compareAndSet(false, true)) {
+            ownsSessionPersistence = true;
+        }
+    }
+
+    /** Tracks whether this Flutter engine has ever been attached to an Activity. */
+    static final class EngineRoleTracker {
+        private boolean hasAttachedToActivity = false;
+
+        void onActivityAttached() {
+            hasAttachedToActivity = true;
+        }
+
+        String getEngineRole() {
+            return hasAttachedToActivity ? "main" : "headless";
+        }
     }
 
     private void handleFrameDrop() {

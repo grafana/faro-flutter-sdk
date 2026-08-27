@@ -28,7 +28,7 @@ class Event {
     map['timestamp'] = timestamp;
     map['attributes'] = attributes;
 
-    if (trace != null) {
+    if (trace != null && trace!.isNotEmpty) {
       map['trace'] = trace;
     }
 

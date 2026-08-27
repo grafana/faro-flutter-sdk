@@ -20,8 +20,8 @@ class _RecordingRouter implements TelemetryRouter {
   @override
   void ingest(
     TelemetryItem item, {
+    required SessionActivityKind activity,
     bool skipBuffer = false,
-    SessionActivityKind activity = SessionActivityKind.active,
   }) {
     ingested.add(item);
     activities.add(activity);
@@ -79,18 +79,148 @@ void main() {
       expect(measurement?.type, 'app_startup');
     });
 
-    test(
-      'vitals measurements are ingested as foreground-gated telemetry',
-      () async {
-        nativeIntegration.setWarmStart();
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        nativeIntegration.getWarmStart();
+    test('vitals measurements are ingested as passive telemetry', () async {
+      nativeIntegration.setWarmStart();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      nativeIntegration.getWarmStart();
 
-        // Automatic vitals use foregroundOnly; SessionActivityPolicy decides
-        // whether they extend the session based on foreground state.
-        expect(router.activities, [SessionActivityKind.foregroundOnly]);
-      },
-    );
+      expect(router.activities, [SessionActivityKind.passive]);
+    });
+
+    group('getAppStart', () {
+      void stubAppStart(Map<String, dynamic>? value) {
+        when(() => mockNativeChannel.getAppStart()).thenAnswer((_) async {
+          return value;
+        });
+      }
+
+      test(
+        'pushes a cold start measurement for a user-visible launch',
+        () async {
+          stubAppStart({
+            'appStartDurationMillis': 1234,
+            'isUserVisibleColdStart': true,
+            'prewarmed': false,
+          });
+
+          await nativeIntegration.getAppStart();
+
+          final measurement = router.ingested.single.asMeasurement;
+          expect(measurement?.type, 'app_startup');
+          expect(measurement?.values, {
+            'appStartDuration': 1234,
+            'coldStart': 1,
+            'prewarmed': 0,
+          });
+        },
+      );
+
+      test('marks a prewarmed launch so it can be separated later', () async {
+        stubAppStart({
+          'appStartDurationMillis': 300,
+          'isUserVisibleColdStart': true,
+          'prewarmed': true,
+        });
+
+        await nativeIntegration.getAppStart();
+
+        expect(router.ingested.single.asMeasurement?.values?['prewarmed'], 1);
+      });
+
+      // The process was forked for a push, a job or a broadcast, so the time
+      // since it started is idle time, not a launch anyone waited for.
+      test(
+        'discards a start the platform says was not user-initiated',
+        () async {
+          stubAppStart({
+            'appStartDurationMillis': 1234,
+            'isUserVisibleColdStart': false,
+            'prewarmed': false,
+          });
+
+          await nativeIntegration.getAppStart();
+
+          expect(router.ingested, isEmpty);
+        },
+      );
+
+      test('discards a duration beyond the plausible bound', () async {
+        stubAppStart({
+          'appStartDurationMillis':
+              NativeIntegration.maxColdStartDuration.inMilliseconds + 1,
+          'isUserVisibleColdStart': true,
+          'prewarmed': false,
+        });
+
+        await nativeIntegration.getAppStart();
+
+        expect(router.ingested, isEmpty);
+      });
+
+      test('keeps a duration exactly at the plausible bound', () async {
+        stubAppStart({
+          'appStartDurationMillis':
+              NativeIntegration.maxColdStartDuration.inMilliseconds,
+          'isUserVisibleColdStart': true,
+          'prewarmed': false,
+        });
+
+        await nativeIntegration.getAppStart();
+
+        expect(router.ingested, hasLength(1));
+      });
+
+      // Android reports -1 below API 24, and a backwards clock correction on
+      // iOS can invert the wall-clock subtraction.
+      test('discards a negative duration', () async {
+        stubAppStart({
+          'appStartDurationMillis': -1,
+          'isUserVisibleColdStart': true,
+          'prewarmed': false,
+        });
+
+        await nativeIntegration.getAppStart();
+
+        expect(router.ingested, isEmpty);
+      });
+
+      test('discards a zero duration', () async {
+        stubAppStart({
+          'appStartDurationMillis': 0,
+          'isUserVisibleColdStart': true,
+          'prewarmed': false,
+        });
+
+        await nativeIntegration.getAppStart();
+
+        expect(router.ingested, isEmpty);
+      });
+
+      // Both platforms send a real boolean here. Anything else is a native
+      // change we did not intend, and labelling it as not prewarmed keeps a
+      // stray value from being reported as a prewarmed launch.
+      test('treats a non-boolean prewarmed value as not prewarmed', () async {
+        stubAppStart({
+          'appStartDurationMillis': 300,
+          'isUserVisibleColdStart': true,
+          'prewarmed': 1,
+        });
+
+        await nativeIntegration.getAppStart();
+
+        expect(router.ingested.single.asMeasurement?.values?['prewarmed'], 0);
+      });
+
+      test('ignores a missing or malformed native response', () async {
+        stubAppStart(null);
+        await nativeIntegration.getAppStart();
+
+        stubAppStart({'isUserVisibleColdStart': true});
+        await nativeIntegration.getAppStart();
+
+        expect(router.ingested, isEmpty);
+      });
+    });
 
     test('clearing faroInitScope stops the vitals timer', () {
       fakeAsync((async) {

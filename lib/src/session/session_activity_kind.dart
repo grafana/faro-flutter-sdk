@@ -1,11 +1,8 @@
 /// Classifies telemetry by how it affects the session inactivity window.
 enum SessionActivityKind {
-  /// Always extends the inactivity window.
-  active,
+  /// Represents user or application work that extends inactivity.
+  meaningful,
 
-  /// Extends the window only while the app is in the foreground.
-  foregroundOnly,
-
-  /// Never extends the window (e.g. SDK lifecycle events).
-  none,
+  /// Represents telemetry that checks expiry without extending inactivity.
+  passive,
 }

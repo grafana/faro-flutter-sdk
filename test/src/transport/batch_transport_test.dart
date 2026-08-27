@@ -340,6 +340,29 @@ void main() {
       expect(transport, isA<NoOpBatchTransport>());
       factory.reset();
     });
+
+    test('replace applies a new sampling decision', () {
+      final factory = BatchTransportFactory();
+      factory.reset();
+      final first = factory.create(
+        initialPayload: Payload(Meta()),
+        batchConfig: BatchConfig(),
+        transports: [],
+        isSampled: true,
+      );
+
+      final replacement = factory.replace(
+        initialPayload: Payload(Meta()),
+        batchConfig: BatchConfig(),
+        transports: [],
+        isSampled: false,
+      );
+
+      expect(replacement, isA<NoOpBatchTransport>());
+      expect(identical(first, replacement), isFalse);
+      expect(identical(factory.instance, replacement), isTrue);
+      factory.reset();
+    });
   });
 }
 

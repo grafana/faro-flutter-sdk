@@ -24,6 +24,7 @@ void main() {
     late MockBatchTransport mockBatchTransport;
     late FlutterErrorDetails flutterErrorDetails;
     late MockFunctions mockFunctions;
+    late FlutterExceptionHandler? previousOnError;
 
     setUpAll(() {
       registerFallbackValue(
@@ -33,6 +34,7 @@ void main() {
     });
 
     setUp(() {
+      previousOnError = FlutterError.onError;
       mockBatchTransport = MockBatchTransport();
       mockFunctions = MockFunctions();
       Faro().batchTransport = mockBatchTransport;
@@ -45,13 +47,35 @@ void main() {
       );
     });
 
-    tearDown(() {});
+    tearDown(() {
+      FlutterError.onError = previousOnError;
+    });
 
     test('call method should push errors to faro when error occurs ', () {
       FlutterError.onError = null;
       FlutterErrorIntegration().call();
       FlutterError.onError?.call(flutterErrorDetails);
       verify(() => mockBatchTransport.addExceptions(any())).called(1);
+    });
+
+    test('reports Flutter errors without a stack trace', () {
+      final detailsWithoutStack = FlutterErrorDetails(
+        exception: FlutterError('Test Error'),
+      );
+      FlutterError.onError = mockFunctions.defaultOnError;
+      FlutterErrorIntegration().call();
+
+      FlutterError.onError?.call(detailsWithoutStack);
+
+      final exception =
+          verify(
+                () => mockBatchTransport.addExceptions(captureAny()),
+              ).captured.single
+              as FaroException;
+      expect(exception.type, 'flutter_error');
+      expect(exception.value, 'Test Error');
+      expect(exception.stacktrace, isEmpty);
+      verify(() => mockFunctions.defaultOnError(detailsWithoutStack)).called(1);
     });
 
     test('Default error handler executes after Pushing Errors', () {

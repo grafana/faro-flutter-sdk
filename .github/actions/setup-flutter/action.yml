@@ -1,12 +1,19 @@
 name: "Setup Flutter"
 description: "Sets up the Flutter SDK version pinned in .fvmrc"
 
+inputs:
+  working-directory:
+    description: "Directory holding .fvmrc, for jobs that check out elsewhere"
+    required: false
+    default: "."
+
 runs:
   using: "composite"
   steps:
     - name: Read Flutter version from .fvmrc
       id: fvm
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         flutter_version="$(jq -r '.flutter // empty' .fvmrc)"
         if [ -z "$flutter_version" ]; then

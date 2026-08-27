@@ -35,8 +35,8 @@ class TelemetryRouter {
   /// window (see [SessionActivityKind]).
   void ingest(
     TelemetryItem item, {
+    required SessionActivityKind activity,
     bool skipBuffer = false,
-    SessionActivityKind activity = SessionActivityKind.active,
   }) {
     _sessionManager.checkSession(activity: activity);
 
