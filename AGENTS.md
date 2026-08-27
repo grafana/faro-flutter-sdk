@@ -378,3 +378,4 @@ Flutter is installed at `/opt/flutter`. The `PATH` is set in `~/.bashrc` to incl
 The Android SDK is installed at `/opt/android-sdk`. The `ANDROID_HOME` env var and PATH additions are set in `~/.bashrc`. Flutter is already configured to use this SDK via `flutter config --android-sdk`.
 
 No Android emulator is available in these environments. Use `flutter build apk` to verify compilation, or use BrowserStack for on-device testing (see above).
+- Security issues should be reported via [Grafana's security issue reporting page](https://grafana.com/legal/report-a-security-issue/) and not directly in this repository.
