@@ -148,6 +148,8 @@ The example app showcases various Faro SDK features:
 
 - Open a React app in a WebView using `FaroWebViewBridge` which appends
   `traceparent`, `session.parent_id`, and `session.parent_app` query params
+- Two span ownership models: the bridge's own `WebView` span, or a span
+  the app owns and passes in to keep the `traceparent` stable across reloads
 - The web app continues the native trace when making HTTP requests
 - The web app reports its own Faro session ID back to Flutter, which
   calls `bridge.linkChildSession()` to push a `session.linked` event
@@ -251,6 +253,22 @@ completing the bidirectional link.
    `http://localhost:5173` for the iOS simulator.
 
 3. Run the Flutter example app as usual.
+
+### Comparing span ownership
+
+The feature page offers two entry points:
+
+- **Open React demo in WebView** — the bridge starts and ends its own
+  `WebView` span. Reloading from the WebView page supersedes that span and
+  produces a new `traceparent`, so each load is its own trace.
+- **Open with an app-owned span** — the page starts a
+  `webview.lifecycle` span, passes it via `instrumentedUrl(url, span: ...)`,
+  and ends it in `dispose()`. Reloading keeps the same `traceparent`, so
+  every load stays in one trace.
+
+The WebView page shows the propagated trace ID and has a reload button, so
+you can watch the trace ID change in the first mode and stay put in the
+second.
 
 ### What to inspect
 

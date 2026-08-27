@@ -1117,9 +1117,9 @@ When your Flutter app opens a web page in a WebView, `FaroWebViewBridge` propaga
 
 ### How It Works
 
-1. **Flutter → Web**: `instrumentedUrl()` starts a span and appends `traceparent`, `session.parent_id`, and `session.parent_app` as query parameters. The web app reads these to continue the trace and identify the originating mobile session.
+1. **Flutter → Web**: `instrumentedUrl()` appends `traceparent`, `session.parent_id`, and `session.parent_app` as query parameters. The web app reads these to continue the trace and identify the originating mobile session. By default the bridge starts a span of its own to propagate; pass `span:` to propagate a span your app already holds instead.
 2. **Web → Flutter**: The web app sends its Faro session ID back (e.g. via a JavaScript channel). You call `linkChildSession()` to push a `session.linked` event that correlates the two sessions.
-3. **Span lifecycle**: Call `end()` when the WebView is dismissed so the span duration reflects how long the user spent in the WebView.
+3. **Span lifecycle**: Call `end()` when the WebView is dismissed so the span duration reflects how long the user spent in the WebView. If you passed your own span, end it yourself — the bridge never ends a span it did not create.
 
 ### Basic Usage
 
@@ -1187,9 +1187,31 @@ class _MyWebViewPageState extends State<MyWebViewPage> {
 }
 ```
 
+### Propagating a Span Your App Owns
+
+The default flow works well when the WebView is opened once and the bridge span matches the WebView lifetime. If your app already tracks the WebView with its own span — for example one that also covers setup work before the load, or a WebView that reloads several URLs — pass that span to `instrumentedUrl()` and it becomes the propagated trace context:
+
+```dart
+final webViewSpan = Faro().startSpanManual('webview.lifecycle');
+final bridge = FaroWebViewBridge();
+
+// Every call injects the same traceparent, so the whole WebView session
+// stays in one trace.
+controller.loadRequest(bridge.instrumentedUrl(loginUrl, span: webViewSpan));
+controller.loadRequest(bridge.instrumentedUrl(profileUrl, span: webViewSpan));
+
+// You own the span, so you end it — bridge.end() will not.
+webViewSpan.setStatus(SpanStatusCode.ok);
+webViewSpan.end();
+```
+
+The bridge reads only the `traceparent` from your span. It sets no attributes, no status, and never ends it, so nothing the bridge does can truncate a span that has to outlive a single load. Add the request context you want yourself, for example `span.addEvent('webview.url_loaded', attributes: {'url.full': url.toString()})`.
+
+Ownership is what decides lifecycle: `end()` and the superseding behaviour of repeated `instrumentedUrl()` calls apply only to spans the bridge created.
+
 ### API Reference
 
-#### `instrumentedUrl(Uri url, {String spanName = 'WebView'})`
+#### `instrumentedUrl(Uri url, {String spanName = 'WebView', Span? span})`
 
 Returns a new `Uri` with three query parameters appended:
 
@@ -1199,7 +1221,9 @@ Returns a new `Uri` with three query parameters appended:
 | `session.parent_id` | The current Flutter Faro session ID            |
 | `session.parent_app`| The Flutter app name from Faro config          |
 
-Starts a manual span named `spanName` (default `'WebView'`). If called while a previous span is still active, the previous span is ended with an error status.
+Without `span`, starts a manual span named `spanName` (default `'WebView'`) and propagates it. If called while a previous bridge-created span is still active, that span is ended with an error status.
+
+With `span`, propagates that span's `traceparent` and leaves the span untouched — `spanName` is ignored, and ending the span is up to you.
 
 #### `linkChildSession({required String sessionId, String? appName})`
 
@@ -1214,7 +1238,7 @@ The parent session info is automatically included via Faro's session context on 
 
 #### `end({SpanStatusCode status = SpanStatusCode.ok, String? message})`
 
-Ends the active WebView span. Safe to call multiple times or without a prior `instrumentedUrl()` call.
+Ends the WebView span the bridge created. Safe to call multiple times or without a prior `instrumentedUrl()` call. Does nothing when `instrumentedUrl()` was given a `span` — that span belongs to your app.
 
 ### Web-Side Setup
 
