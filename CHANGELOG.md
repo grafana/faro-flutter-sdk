@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0-beta.3] - 2026-08-27
+
 ### Added
 
 - Add `Faro.resetSession()` for logout, account changes, and custom session
