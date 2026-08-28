@@ -6,10 +6,16 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 /// Hosts the React demo inside a WebView.
 ///
-/// Uses [FaroWebViewBridge] to create a `WebView` span and inject
-/// `traceparent` and `session.parent_*` query parameters into the URL
-/// so the web app can continue the Flutter trace and identify its
-/// originating session.
+/// Uses [FaroWebViewBridge] to inject `traceparent` and `session.parent_*`
+/// query parameters into the URL so the web app can continue the Flutter
+/// trace and identify its originating session.
+///
+/// Demonstrates both span ownership models. With [useAppOwnedSpan] off,
+/// the bridge starts and ends its own `WebView` span, and each reload
+/// supersedes it with a new span and a new `traceparent`. With it on, this
+/// page starts a span covering the whole WebView lifecycle and passes it
+/// to `instrumentedUrl`, so reloads keep propagating the same
+/// `traceparent` and ending the span is up to this page.
 ///
 /// A `HandoffBridge` JavaScript channel is registered so the React app
 /// can send messages back. Supported message types:
@@ -17,9 +23,16 @@ import 'package:webview_flutter/webview_flutter.dart';
 ///   `session.linked` event with `session.child_*` attributes.
 /// - `login_result` — login result data; auto-pops the page.
 class WebViewHandoffWebViewPage extends StatefulWidget {
-  const WebViewHandoffWebViewPage({required this.url, super.key});
+  const WebViewHandoffWebViewPage({
+    required this.url,
+    this.useAppOwnedSpan = false,
+    super.key,
+  });
 
   final Uri url;
+
+  /// Whether this page owns the span whose trace context is propagated.
+  final bool useAppOwnedSpan;
 
   @override
   State<WebViewHandoffWebViewPage> createState() =>
@@ -29,6 +42,8 @@ class WebViewHandoffWebViewPage extends StatefulWidget {
 class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
   late final WebViewController _controller;
   late final FaroWebViewBridge _bridge;
+  Span? _appSpan;
+  String _traceparent = '';
   String _status = 'Opening WebView\u2026';
   bool _hasLoadError = false;
 
@@ -36,10 +51,16 @@ class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
   void initState() {
     super.initState();
 
-    // Starts a WebView span and appends traceparent + session correlation
-    // query params so the web app can continue the trace and link sessions.
     _bridge = FaroWebViewBridge();
-    final instrumentedUrl = _bridge.instrumentedUrl(widget.url);
+
+    if (widget.useAppOwnedSpan) {
+      // This span lives for as long as the WebView does, which keeps the
+      // propagated traceparent stable across reloads.
+      _appSpan = Faro().startSpanManual(
+        'webview.lifecycle',
+        attributes: {'component': 'webview', 'url.full': widget.url.toString()},
+      );
+    }
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -71,17 +92,47 @@ class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
             });
           },
         ),
-      )
-      ..loadRequest(instrumentedUrl);
+      );
+
+    _loadInstrumentedUrl();
   }
 
   @override
   void dispose() {
-    // End the WebView span started by instrumentedUrl(). Always call
-    // bridge.end() when the WebView is dismissed so the span duration
-    // accurately reflects the time the user spent in the WebView.
-    _bridge.end();
+    // Always close out the WebView span when the WebView is dismissed, so
+    // its duration reflects the time the user spent in the WebView. The
+    // bridge only ends spans it created itself, so an app-owned span has
+    // to be ended here.
+    final appSpan = _appSpan;
+    if (appSpan != null) {
+      appSpan.setStatus(SpanStatusCode.ok);
+      appSpan.end();
+    } else {
+      _bridge.end();
+    }
     super.dispose();
+  }
+
+  /// Decorates the URL with the trace and session parameters and loads it.
+  ///
+  /// Passing a null [Span] is the default behaviour: the bridge starts and
+  /// owns a span of its own.
+  void _loadInstrumentedUrl() {
+    final instrumentedUrl = _bridge.instrumentedUrl(widget.url, span: _appSpan);
+    _traceparent = instrumentedUrl.queryParameters['traceparent'] ?? '';
+    _controller.loadRequest(instrumentedUrl);
+  }
+
+  void _reload() {
+    _loadInstrumentedUrl();
+    setState(() => _status = 'Reloading\u2026');
+  }
+
+  /// Extracts the trace ID from a `traceparent`, so it can be pasted into
+  /// Tempo to compare traces across reloads.
+  String _traceIdOf(String traceparent) {
+    final parts = traceparent.split('-');
+    return parts.length >= 2 ? parts[1] : 'n/a';
   }
 
   void _handleBridgeMessage(JavaScriptMessage message) {
@@ -111,8 +162,18 @@ class _WebViewHandoffWebViewPageState extends State<WebViewHandoffWebViewPage> {
             color: Colors.indigo.shade50,
             child: ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('React demo app'),
-              subtitle: Text(_status),
+              isThreeLine: true,
+              title: Text(
+                widget.useAppOwnedSpan
+                    ? 'React demo \u2014 app-owned span'
+                    : 'React demo \u2014 SDK-owned span',
+              ),
+              subtitle: Text('$_status\ntrace: ${_traceIdOf(_traceparent)}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Reload with a freshly instrumented URL',
+                onPressed: _reload,
+              ),
             ),
           ),
           Expanded(

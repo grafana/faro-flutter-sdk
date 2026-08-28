@@ -337,10 +337,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "onDetachedFromEngine");
         channel.setMethodCallHandler(null);
         channel = null;
-        if (ownsSessionPersistence) {
-            SESSION_PERSISTENCE_OWNER_CLAIMED.set(false);
-            ownsSessionPersistence = false;
-        }
+        releaseSessionPersistenceOwnership();
     }
 
     // test
@@ -367,6 +364,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         }
                         break;
                     case "getCrashReport":
+                        if (!canRecoverCrashReports()) {
+                            result.success(new ArrayList<>());
+                            break;
+                        }
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                             // Check if exitInfoHelper is initialized
                             if (exitInfoHelper == null) {
@@ -559,13 +560,27 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         return null;
     }
 
-    private void claimSessionPersistenceOwnership() {
+    boolean claimSessionPersistenceOwnership() {
         // Registration also runs for pre-warmed engines. Claim only when a
         // root Dart runtime actually initializes Faro.
         if (!ownsSessionPersistence
             && SESSION_PERSISTENCE_OWNER_CLAIMED.compareAndSet(false, true)) {
             ownsSessionPersistence = true;
         }
+        return ownsSessionPersistence;
+    }
+
+    void releaseSessionPersistenceOwnership() {
+        if (ownsSessionPersistence) {
+            SESSION_PERSISTENCE_OWNER_CLAIMED.set(false);
+            ownsSessionPersistence = false;
+        }
+    }
+
+    boolean canRecoverCrashReports() {
+        // Dart checks the same ownership before invoking this method. Keep the
+        // native guard for direct channel callers and future call-site changes.
+        return ownsSessionPersistence;
     }
 
     /** Tracks whether this Flutter engine has ever been attached to an Activity. */

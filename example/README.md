@@ -148,6 +148,8 @@ The example app showcases various Faro SDK features:
 
 - Open a React app in a WebView using `FaroWebViewBridge` which appends
   `traceparent`, `session.parent_id`, and `session.parent_app` query params
+- Two span ownership models: the bridge's own `WebView` span, or a span
+  the app owns and passes in to keep the `traceparent` stable across reloads
 - The web app continues the native trace when making HTTP requests
 - The web app reports its own Faro session ID back to Flutter, which
   calls `bridge.linkChildSession()` to push a `session.linked` event
@@ -211,6 +213,31 @@ Non-string attribute values (booleans, numbers) in the user JSON are
 automatically converted to strings to match the `FaroUser.attributes` contract.
 Invalid JSON is silently ignored, falling back to the normal initial user.
 
+## Secondary engine session harness
+
+The Android instrumentation test starts Activity-backed and headless Flutter
+engines in the same process, in both startup orders. It verifies that ownership
+is first-come rather than tied to an engine role. The non-owner resets its live
+session and is refused by the SDK recovery gate before synthetic crash
+delivery, without changing the durable session file. After the owner is
+destroyed, a newly created engine claims persistence without linking through
+the non-owner session and replays the crash through the historical transport
+with the original owner's metadata. Each engine also emits a Faro event so the
+test can verify its session and runtime metadata.
+
+The test deletes the example app's `faro/sessions` directory before and after
+the run. Use a disposable debug install rather than an app whose local session
+history needs to be retained.
+
+Run it on a connected Android device or emulator:
+
+```bash
+cd example
+flutter pub get
+cd android
+./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.grafana.faro_example.SecondaryEngineSessionTest
+```
+
 ## WebView Tracing Feature
 
 The example app includes a `WebView Tracing` feature page. It opens an
@@ -251,6 +278,22 @@ completing the bidirectional link.
    `http://localhost:5173` for the iOS simulator.
 
 3. Run the Flutter example app as usual.
+
+### Comparing span ownership
+
+The feature page offers two entry points:
+
+- **Open React demo in WebView** — the bridge starts and ends its own
+  `WebView` span. Reloading from the WebView page supersedes that span and
+  produces a new `traceparent`, so each load is its own trace.
+- **Open with an app-owned span** — the page starts a
+  `webview.lifecycle` span, passes it via `instrumentedUrl(url, span: ...)`,
+  and ends it in `dispose()`. Reloading keeps the same `traceparent`, so
+  every load stays in one trace.
+
+The WebView page shows the propagated trace ID and has a reload button, so
+you can watch the trace ID change in the first mode and stay put in the
+second.
 
 ### What to inspect
 

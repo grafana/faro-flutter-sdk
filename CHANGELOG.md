@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0-beta.3] - 2026-08-27
+
 ### Added
 
 - Add `Faro.resetSession()` for logout, account changes, and custom session
@@ -32,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   takes precedence over the active span. Span context is captured at push
   time, so buffered signals keep the span that was active when they were
   recorded.
+- **App-owned spans in `FaroWebViewBridge`.** `instrumentedUrl` accepts an
+  optional `span` and propagates that span's `traceparent` instead of
+  creating a span of its own, so repeated calls during one WebView session
+  keep injecting the same `traceparent`. The bridge leaves a span you pass
+  in untouched — no attributes, no status, and `end()` will not end it. See
+  the Reference docs for details.
 - **`FaroStartupProvider`**, a content provider merged into your Android
   manifest automatically. It samples process importance at startup so the SDK
   can tell a user-initiated launch from a background one; it stores no data and
@@ -91,6 +99,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Recovered Android crashes now respect process-scoped session ownership.**
+  Only the root Flutter engine that owns the durable session chain reads
+  historical application exits. Other engines, including those whose native
+  process identity cannot be resolved, skip recovery instead of emitting an
+  old crash with an unrelated live session. If ownership cannot be established
+  during startup, recovery is deferred to a later launch. Enable crash
+  reporting on every root-engine entrypoint that may initialize Faro first
+  ([#340](https://github.com/grafana/faro-flutter-sdk/issues/340)).
 - **iOS crash reports now use the configured SDK transports.** Pending
   PLCrashReporter data returns to Dart on the next launch and follows the
   configured collector and custom transport paths, sampling, data collection
