@@ -61,6 +61,22 @@ class NetworkRequestsDemoService {
     );
   }
 
+  /// Sends a request to a non-routable host so no HTTP response is ever
+  /// received. This exercises the true network-failure path (as opposed to a
+  /// 4xx/5xx response), where the tracked span ends with an exception and no
+  /// status code.
+  Future<void> sendNetworkFailure(NetworkRequestLogCallback log) async {
+    await _runRequest(
+      label: 'GET (no response)',
+      expectedFailure: true,
+      // `.invalid` never resolves (RFC 2606), so the connection fails at DNS
+      // lookup and no HTTP response is ever received. This fails fast and
+      // deterministically, unlike a non-routable-host connect timeout.
+      request: () => http.get(Uri.parse('http://does-not-exist.invalid/')),
+      log: log,
+    );
+  }
+
   Future<void> _runRequest({
     required String label,
     required bool expectedFailure,
@@ -85,7 +101,11 @@ class NetworkRequestsDemoService {
         tone: tone,
       );
     } catch (error) {
-      log('$label -> threw $error', tone: DemoLogTone.error);
+      final tone = expectedFailure ? DemoLogTone.success : DemoLogTone.error;
+      final expectationLabel = expectedFailure
+          ? 'expected failure'
+          : 'expected success';
+      log('$label -> threw $error ($expectationLabel)', tone: tone);
     }
   }
 }

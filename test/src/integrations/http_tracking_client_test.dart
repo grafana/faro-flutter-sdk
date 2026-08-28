@@ -165,6 +165,7 @@ void main() {
 
       final response = await trackedRequest.close();
       verifyNever(() => mockSpan.end());
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
       response.listen((_) {});
       await Future<void>.delayed(Duration.zero);
 
@@ -181,12 +182,50 @@ void main() {
       await expectLater(trackedRequest.close, throwsA(isA<Exception>()));
       await Future<void>.delayed(Duration.zero);
 
+      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,
           message: any(named: 'message'),
         ),
       ).called(1);
+      verify(() => mockSpan.end()).called(1);
+    });
+
+    test('close should mark span error for 4xx/5xx response', () async {
+      when(
+        () => mockHttpClientRequest.close(),
+      ).thenAnswer((_) async => mockHttpClientResponse);
+      when(() => mockHttpClientResponse.statusCode).thenReturn(500);
+      when(
+        () => mockHttpClientResponse.headers,
+      ).thenReturn(mockResponseHeaders);
+      when(() => mockResponseHeaders.contentLength).thenReturn(128);
+      when(() => mockResponseHeaders.contentType).thenReturn(null);
+      when(
+        () => mockHttpClientResponse.listen(
+          any(),
+          onError: any(named: 'onError'),
+          onDone: any(named: 'onDone'),
+          cancelOnError: any(named: 'cancelOnError'),
+        ),
+      ).thenAnswer((invocation) {
+        final onDone = invocation.namedArguments[#onDone] as void Function()?;
+        onDone?.call();
+        return const Stream<List<int>>.empty().listen(null);
+      });
+
+      final response = await trackedRequest.close();
+      response.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
       verify(() => mockSpan.end()).called(1);
     });
 
@@ -217,6 +256,7 @@ void main() {
 
       expect(response, isA<FaroTrackingHttpResponse>());
       verifyNever(() => mockSpan.end());
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
 
       response.listen((_) {});
       await Future<void>.delayed(Duration.zero);
@@ -232,6 +272,7 @@ void main() {
       trackedRequest.abort(error, stackTrace);
 
       verify(() => mockHttpClientRequest.abort(error, stackTrace)).called(1);
+      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,
@@ -240,6 +281,41 @@ void main() {
       ).called(1);
       verify(
         () => mockSpan.recordException(error, stackTrace: stackTrace),
+      ).called(1);
+      verify(() => mockSpan.end()).called(1);
+    });
+
+    test('abort without exception still records status_code 0', () {
+      trackedRequest.abort();
+
+      verify(() => mockHttpClientRequest.abort(any(), any())).called(1);
+      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
+      verify(() => mockSpan.end()).called(1);
+    });
+
+    test('addStream failure records status_code 0 and ends the span', () async {
+      const stream = Stream<List<int>>.empty();
+      when(
+        () => mockHttpClientRequest.addStream(stream),
+      ).thenThrow(const SocketException('upload failed'));
+
+      await expectLater(
+        () => trackedRequest.addStream(stream),
+        throwsA(isA<SocketException>()),
+      );
+
+      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
       ).called(1);
       verify(() => mockSpan.end()).called(1);
     });
@@ -345,6 +421,8 @@ void main() {
       responseStreamController.addError(StateError('boom'), StackTrace.current);
       await Future<void>.delayed(Duration.zero);
 
+      verifyNever(() => mockSpan.setAttribute('http.status_code', 0));
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **HTTP spans now record `http.status_code` 0 on network failures.**
+  Requests that never receive a response (DNS failure, connection error,
+  dropped body, failed upload, or abort, including `abort()` with no
+  exception) were omitted from Grafana Frontend Observability HTTP and
+  network-error views. Those views key off `http.status_code` and treat `0`
+  as a network error, matching the Faro Web SDK. 4xx/5xx responses also
+  mark the span as error
+  ([#183](https://github.com/grafana/faro-flutter-sdk/issues/183)).
+- **HTTP spans wait to mark success until the response body completes.**
+  A 2xx status from headers no longer sets span status `OK` immediately, so
+  a later body-stream error can still be recorded as a failed request.
+
 ## [0.17.0-beta.3] - 2026-08-27
 
 ### Added

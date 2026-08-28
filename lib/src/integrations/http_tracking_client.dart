@@ -92,6 +92,7 @@ class FaroHttpTrackingClient implements HttpClient {
       final request = await innerClient.openUrl(method, url);
       return FaroTrackingHttpClientRequest(request, httpSpan: httpSpan);
     } catch (error, stackTrace) {
+      httpSpan.setAttribute('http.status_code', 0);
       httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
       httpSpan.recordException(error, stackTrace: stackTrace);
       httpSpan.end();
@@ -239,6 +240,8 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   final HttpClientRequest innerContext;
   final Span _httpSpan;
   var _operationFinished = false;
+  var _statusCodeRecorded = false;
+  var _errorStatusRecorded = false;
 
   void _finishOperation() {
     if (_operationFinished) {
@@ -249,8 +252,19 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   }
 
   void _recordOperationError(Object error, [StackTrace? stackTrace]) {
+    if (!_statusCodeRecorded) {
+      _httpSpan.setAttribute('http.status_code', 0);
+    }
+    _errorStatusRecorded = true;
     _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
     _httpSpan.recordException(error, stackTrace: stackTrace);
+  }
+
+  void _recordOperationSuccess() {
+    if (_errorStatusRecorded) {
+      return;
+    }
+    _httpSpan.setStatus(SpanStatusCode.ok);
   }
 
   Future<HttpClientResponse> _trackResponseFuture(
@@ -265,7 +279,14 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         'http.response_size': value.headers.contentLength,
         'http.content_type': '${value.headers.contentType}',
       });
-      _httpSpan.setStatus(SpanStatusCode.ok);
+      _statusCodeRecorded = true;
+      if (value.statusCode >= 400) {
+        _errorStatusRecorded = true;
+        _httpSpan.setStatus(
+          SpanStatusCode.error,
+          message: 'HTTP status code ${value.statusCode}',
+        );
+      }
 
       return FaroTrackingHttpResponse(
         value,
@@ -279,6 +300,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         },
         spanContext: _httpSpan.spanContext,
         onFinish: _finishOperation,
+        onSuccess: _recordOperationSuccess,
         onStreamError: _recordOperationError,
       );
     } catch (error, stackTrace) {
@@ -330,9 +352,10 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
 
   @override
   void abort([Object? exception, StackTrace? stackTrace]) {
-    if (exception != null) {
-      _recordOperationError(exception, stackTrace);
-    }
+    _recordOperationError(
+      exception ?? const HttpException('Request has been aborted'),
+      stackTrace,
+    );
     try {
       innerContext.abort(exception, stackTrace);
     } finally {
@@ -348,8 +371,14 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
       innerContext.addError(error, stackTrace);
 
   @override
-  Future<dynamic> addStream(Stream<List<int>> stream) {
-    return innerContext.addStream(stream);
+  Future<dynamic> addStream(Stream<List<int>> stream) async {
+    try {
+      return await innerContext.addStream(stream);
+    } catch (error, stackTrace) {
+      _recordOperationError(error, stackTrace);
+      _finishOperation();
+      rethrow;
+    }
   }
 
   @override
@@ -398,23 +427,29 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
     this.userAttributes, {
     required FaroSpanContext spanContext,
     required void Function() onFinish,
+    required void Function() onSuccess,
     required void Function(Object error, StackTrace stackTrace) onStreamError,
   }) : _spanContext = spanContext,
        _onFinish = onFinish,
+       _onSuccess = onSuccess,
        _onStreamError = onStreamError;
   final HttpClientResponse innerResponse;
   final Map<String, Object?> userAttributes;
   final FaroSpanContext _spanContext;
   final void Function() _onFinish;
+  final void Function() _onSuccess;
   final void Function(Object error, StackTrace stackTrace) _onStreamError;
   Object? lastError;
   var _finished = false;
 
-  void _finishOnce() {
+  void _finishOnce({bool succeeded = false}) {
     if (_finished) {
       return;
     }
     _finished = true;
+    if (succeeded) {
+      _onSuccess();
+    }
     _onFinish();
   }
 
@@ -449,13 +484,14 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
           }
         },
         onDone: () {
-          _finishOnce();
+          _finishOnce(succeeded: true);
           if (onDone != null) {
             onDone();
           }
         },
       ),
       onCancel: _finishOnce,
+      onComplete: () => _finishOnce(succeeded: true),
       onStreamError: _onStreamError,
     );
   }
@@ -513,12 +549,15 @@ class _FaroResponseSubscription implements StreamSubscription<List<int>> {
   _FaroResponseSubscription(
     this._inner, {
     required void Function() onCancel,
+    required void Function() onComplete,
     required void Function(Object error, StackTrace stackTrace) onStreamError,
   }) : _onCancel = onCancel,
+       _onComplete = onComplete,
        _onStreamError = onStreamError;
 
   final StreamSubscription<List<int>> _inner;
   final void Function() _onCancel;
+  final void Function() _onComplete;
   final void Function(Object error, StackTrace stackTrace) _onStreamError;
 
   @override
@@ -535,7 +574,7 @@ class _FaroResponseSubscription implements StreamSubscription<List<int>> {
   @override
   void onDone(void Function()? handleDone) {
     _inner.onDone(() {
-      _onCancel();
+      _onComplete();
       handleDone?.call();
     });
   }

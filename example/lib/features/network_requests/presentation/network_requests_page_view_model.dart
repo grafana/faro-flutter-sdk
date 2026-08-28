@@ -34,6 +34,7 @@ abstract interface class NetworkRequestsPageActions {
   Future<void> sendPostFailure();
   Future<void> sendGetSuccess();
   Future<void> sendGetFailure();
+  Future<void> sendNetworkFailure();
 }
 
 class _NetworkRequestsPageViewModel extends Notifier<NetworkRequestsPageUiState>
@@ -90,6 +91,11 @@ class _NetworkRequestsPageViewModel extends Notifier<NetworkRequestsPageUiState>
   @override
   Future<void> sendGetFailure() async {
     await _run(_service.sendGetFailure);
+  }
+
+  @override
+  Future<void> sendNetworkFailure() async {
+    await _run(_service.sendNetworkFailure);
   }
 }
 
