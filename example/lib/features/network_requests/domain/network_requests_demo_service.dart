@@ -101,7 +101,11 @@ class NetworkRequestsDemoService {
         tone: tone,
       );
     } catch (error) {
-      log('$label -> threw $error', tone: DemoLogTone.error);
+      final tone = expectedFailure ? DemoLogTone.success : DemoLogTone.error;
+      final expectationLabel = expectedFailure
+          ? 'expected failure'
+          : 'expected success';
+      log('$label -> threw $error ($expectationLabel)', tone: tone);
     }
   }
 }

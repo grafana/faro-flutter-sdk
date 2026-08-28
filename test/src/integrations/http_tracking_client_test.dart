@@ -282,6 +282,20 @@ void main() {
       ).called(1);
       verify(() => mockSpan.end()).called(1);
     });
+
+    test('abort without exception still records status_code 0', () {
+      trackedRequest.abort();
+
+      verify(() => mockHttpClientRequest.abort(any(), any())).called(1);
+      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
+      verify(() => mockSpan.end()).called(1);
+    });
   });
 
   group('FaroTrackingHttpResponse subscription handlers:', () {

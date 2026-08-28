@@ -343,9 +343,10 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
 
   @override
   void abort([Object? exception, StackTrace? stackTrace]) {
-    if (exception != null) {
-      _recordOperationError(exception, stackTrace);
-    }
+    _recordOperationError(
+      exception ?? const HttpException('Request has been aborted'),
+      stackTrace,
+    );
     try {
       innerContext.abort(exception, stackTrace);
     } finally {
