@@ -165,6 +165,7 @@ void main() {
 
       final response = await trackedRequest.close();
       verifyNever(() => mockSpan.end());
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
       response.listen((_) {});
       await Future<void>.delayed(Duration.zero);
 
@@ -255,6 +256,7 @@ void main() {
 
       expect(response, isA<FaroTrackingHttpResponse>());
       verifyNever(() => mockSpan.end());
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
 
       response.listen((_) {});
       await Future<void>.delayed(Duration.zero);
@@ -287,6 +289,27 @@ void main() {
       trackedRequest.abort();
 
       verify(() => mockHttpClientRequest.abort(any(), any())).called(1);
+      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verify(
+        () => mockSpan.setStatus(
+          SpanStatusCode.error,
+          message: any(named: 'message'),
+        ),
+      ).called(1);
+      verify(() => mockSpan.end()).called(1);
+    });
+
+    test('addStream failure records status_code 0 and ends the span', () async {
+      const stream = Stream<List<int>>.empty();
+      when(
+        () => mockHttpClientRequest.addStream(stream),
+      ).thenThrow(const SocketException('upload failed'));
+
+      await expectLater(
+        () => trackedRequest.addStream(stream),
+        throwsA(isA<SocketException>()),
+      );
+
       verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
       verify(
         () => mockSpan.setStatus(
@@ -399,6 +422,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       verifyNever(() => mockSpan.setAttribute('http.status_code', 0));
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,
