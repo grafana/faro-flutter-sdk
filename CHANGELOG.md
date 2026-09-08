@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Use Dartastic OpenTelemetry stable `0.11.0`**, which preserves unset span
+  status when a span ends. This also includes upstream sampling fixes: child
+  spans respect an unsampled parent, and only sampled spans are exported.
+
 ### Fixed
 
 - **HTTP spans now record `http.status_code` 0 on network failures.**
