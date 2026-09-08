@@ -247,7 +247,16 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
       return;
     }
     _operationFinished = true;
-    _httpSpan.end();
+    final span = _httpSpan;
+    if (span is InternalSpan && span.status == SpanStatusCode.unset) {
+      // Older supported Dartastic versions promote UNSET to OK in end().
+      // Preserve UNSET explicitly for HTTP spans only. Newer versions ignore
+      // this deprecated argument for UNSET and already preserve the status.
+      // ignore: deprecated_member_use
+      span.otelSpan.end(spanStatus: span.otelSpan.status);
+    } else {
+      span.end();
+    }
   }
 
   void _recordOperationError(Object error, [StackTrace? stackTrace]) {

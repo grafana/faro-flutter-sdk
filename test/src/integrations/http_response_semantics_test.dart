@@ -120,6 +120,7 @@ void main() {
         : await tracked.close();
     expect(recordingSpan.isEnded, isFalse);
     await trackedResponse.drain<void>();
+    expect(span.wasEnded, isTrue);
     expect(processor.ended, [same(recordingSpan)]);
     return recordingSpan;
   }
