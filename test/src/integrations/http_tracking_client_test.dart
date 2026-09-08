@@ -124,6 +124,8 @@ void main() {
       mockResponseHeaders = MockHttpHeaders();
       mockSpan = MockSpan();
 
+      when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
+
       when(() => mockSpan.traceId).thenReturn('trace-id');
       when(() => mockSpan.spanId).thenReturn('span-id');
       when(() => mockSpan.traceparent).thenReturn('00-trace-id-span-id-01');
@@ -170,7 +172,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(response, isA<HttpClientResponse>());
-      verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
       verify(() => mockSpan.end()).called(1);
     });
 
@@ -261,7 +263,7 @@ void main() {
       response.listen((_) {});
       await Future<void>.delayed(Duration.zero);
 
-      verify(() => mockSpan.setStatus(SpanStatusCode.ok)).called(1);
+      verifyNever(() => mockSpan.setStatus(SpanStatusCode.ok));
       verify(() => mockSpan.end()).called(1);
     });
 

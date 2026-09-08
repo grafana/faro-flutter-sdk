@@ -241,7 +241,6 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   final Span _httpSpan;
   var _operationFinished = false;
   var _statusCodeRecorded = false;
-  var _errorStatusRecorded = false;
 
   void _finishOperation() {
     if (_operationFinished) {
@@ -255,16 +254,8 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     if (!_statusCodeRecorded) {
       _httpSpan.setAttribute('http.status_code', 0);
     }
-    _errorStatusRecorded = true;
     _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
     _httpSpan.recordException(error, stackTrace: stackTrace);
-  }
-
-  void _recordOperationSuccess() {
-    if (_errorStatusRecorded) {
-      return;
-    }
-    _httpSpan.setStatus(SpanStatusCode.ok);
   }
 
   Future<HttpClientResponse> _trackResponseFuture(
@@ -280,12 +271,11 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         'http.content_type': '${value.headers.contentType}',
       });
       _statusCodeRecorded = true;
-      if (value.statusCode >= 400) {
-        _errorStatusRecorded = true;
-        _httpSpan.setStatus(
-          SpanStatusCode.error,
-          message: 'HTTP status code ${value.statusCode}',
-        );
+      // Successful responses leave status unset. Preserve an error already
+      // recorded on the span instead of replacing its diagnostic information.
+      if (value.statusCode >= 400 && _httpSpan.status != SpanStatusCode.error) {
+        _httpSpan.setAttribute('error.type', value.statusCode.toString());
+        _httpSpan.setStatus(SpanStatusCode.error);
       }
 
       return FaroTrackingHttpResponse(
@@ -300,7 +290,6 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
         },
         spanContext: _httpSpan.spanContext,
         onFinish: _finishOperation,
-        onSuccess: _recordOperationSuccess,
         onStreamError: _recordOperationError,
       );
     } catch (error, stackTrace) {
@@ -427,29 +416,23 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
     this.userAttributes, {
     required FaroSpanContext spanContext,
     required void Function() onFinish,
-    required void Function() onSuccess,
     required void Function(Object error, StackTrace stackTrace) onStreamError,
   }) : _spanContext = spanContext,
        _onFinish = onFinish,
-       _onSuccess = onSuccess,
        _onStreamError = onStreamError;
   final HttpClientResponse innerResponse;
   final Map<String, Object?> userAttributes;
   final FaroSpanContext _spanContext;
   final void Function() _onFinish;
-  final void Function() _onSuccess;
   final void Function(Object error, StackTrace stackTrace) _onStreamError;
   Object? lastError;
   var _finished = false;
 
-  void _finishOnce({bool succeeded = false}) {
+  void _finishOnce() {
     if (_finished) {
       return;
     }
     _finished = true;
-    if (succeeded) {
-      _onSuccess();
-    }
     _onFinish();
   }
 
@@ -484,14 +467,14 @@ class FaroTrackingHttpResponse extends Stream<List<int>>
           }
         },
         onDone: () {
-          _finishOnce(succeeded: true);
+          _finishOnce();
           if (onDone != null) {
             onDone();
           }
         },
       ),
       onCancel: _finishOnce,
-      onComplete: () => _finishOnce(succeeded: true),
+      onComplete: _finishOnce,
       onStreamError: _onStreamError,
     );
   }
