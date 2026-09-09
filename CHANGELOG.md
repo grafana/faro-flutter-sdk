@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Use Dartastic OpenTelemetry stable `0.11.0`**, which preserves unset span
+  status when a span ends. This also includes upstream sampling fixes: child
+  spans respect an unsampled parent, and only sampled spans are exported.
+
 ### Fixed
 
 - **HTTP spans now record `http.status_code` 0 on network failures.**
@@ -17,9 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as a network error, matching the Faro Web SDK. 4xx/5xx responses also
   mark the span as error
   ([#183](https://github.com/grafana/faro-flutter-sdk/issues/183)).
-- **HTTP spans wait to mark success until the response body completes.**
-  A 2xx status from headers no longer sets span status `OK` immediately, so
-  a later body-stream error can still be recorded as a failed request.
+- **Successful HTTP spans leave status unset**, following OpenTelemetry HTTP
+  conventions. Response completion preserves any previously recorded error
+  ([#24](https://github.com/grafana/faro-flutter-sdk/issues/24)).
+- **HTTP error responses include a string `error.type`**, such as `"404"` or
+  `"500"`, and omit the redundant status description. The HTTP event also
+  includes this attribute
+  ([#24](https://github.com/grafana/faro-flutter-sdk/issues/24)).
 
 ## [0.17.0-beta.3] - 2026-08-27
 
