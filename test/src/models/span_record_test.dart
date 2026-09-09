@@ -52,6 +52,28 @@ void main() {
 
   group('SpanRecord:', () {
     group('getFaroEventName:', () {
+      for (final attributes in [
+        {'http.request.method': 'GET'},
+        {'http.request.method': 'GET', 'http.method': 'GET'},
+      ]) {
+        test(
+          'recognizes HTTP attributes $attributes with method-only name',
+          () {
+            final span = makeEndedSpan('GET', attributes: attributes);
+            final record = SpanRecord(otelReadOnlySpan: span);
+            expect(record.getFaroEventName(), 'faro.tracing.fetch');
+          },
+        );
+      }
+
+      test('does not classify a custom span named GET as HTTP', () {
+        final span = makeEndedSpan('GET');
+        expect(
+          SpanRecord(otelReadOnlySpan: span).getFaroEventName(),
+          'span.GET',
+        );
+      });
+
       test('returns "faro.tracing.fetch" for HTTP spans with http.scheme', () {
         final span = makeEndedSpan(
           'HTTP GET',

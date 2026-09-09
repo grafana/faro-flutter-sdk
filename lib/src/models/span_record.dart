@@ -103,13 +103,16 @@ class SpanRecord {
 
   String getFaroEventName() {
     final attributes = _spanAttributes;
+    final requestMethod = attributes.getString('http.request.method');
     final httpScheme = attributes.getString('http.scheme');
     final httpMethod = attributes.getString('http.method');
 
     final hasHttpScheme = httpScheme != null && httpScheme.isNotEmpty;
     final hasHttpMethod = httpMethod != null && httpMethod.isNotEmpty;
 
-    if (hasHttpScheme || hasHttpMethod) {
+    final hasRequestMethod = requestMethod != null && requestMethod.isNotEmpty;
+
+    if (hasRequestMethod || hasHttpScheme || hasHttpMethod) {
       return 'faro.tracing.fetch';
     } else {
       return 'span.${name()}';
