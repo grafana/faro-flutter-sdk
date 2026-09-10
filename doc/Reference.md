@@ -729,6 +729,40 @@ HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
 > **Important**: HTTP tracking only captures requests made from the Flutter/Dart layer (using packages like `http`, `dio`, etc.). Native HTTP calls made directly from Android/iOS code are not tracked.
 
+### HTTP span names and method attributes
+
+Automatically instrumented HTTP spans use the instrumentation scope
+`faro-mobile-flutter.http`, with the SDK version as the scope version.
+Application spans and WebView lifetime spans use `faro-mobile-flutter`.
+
+The HTTP scope identifies spans whose accompanying event is
+`faro.tracing.fetch`. For compatibility, spans with a nonempty `http.method`
+or `http.scheme` also produce fetch events. The `http.request.method`
+attribute alone does not classify a span as an HTTP request. Other spans,
+including WebView lifetime spans, produce `span.<name>` events.
+
+Automatically instrumented HTTP client spans use the request method as their
+name for `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`,
+`PATCH`, and `QUERY`. For example, a request to `/users/123` using `GET`
+produces a span named `GET`. The URL is recorded separately in `http.url`;
+URL templates are not supported.
+
+For these methods, spans and HTTP events include the string attributes
+`http.request.method` and `http.method`, both set to the method name.
+`http.method` is a compatibility alias. HTTP events use the name
+`faro.tracing.fetch` and include `duration_ns`, trace/span IDs, and session
+attributes for correlation.
+
+Known method values passed to `open()` or `openUrl()` are normalized to
+uppercase, matching Dart's HTTP client. For example, `get` and `GeT` produce
+`GET`. When the supplied spelling differs, spans and HTTP events also include
+`http.request.method_original` with that spelling. HTTP convenience methods
+such as `getUrl()` and `postUrl()` use uppercase verbs.
+
+For other method values passed to `open()` or `openUrl()`, the SDK
+uses `HTTP <method>` as the span name and records the supplied value in
+`http.method`, without adding `http.request.method` or changing its case.
+
 ---
 
 ## Custom Telemetry

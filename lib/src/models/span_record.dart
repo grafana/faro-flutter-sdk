@@ -6,6 +6,7 @@ import 'package:faro/src/models/trace/trace_span_status.dart';
 import 'package:faro/src/tracing/dartastic_span_access.dart';
 import 'package:faro/src/tracing/extensions.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
+import 'package:faro/src/util/constants.dart';
 import 'package:fixnum/fixnum.dart';
 
 class SpanRecord {
@@ -103,6 +104,12 @@ class SpanRecord {
 
   String getFaroEventName() {
     final attributes = _spanAttributes;
+    if (_otelReadOnlySpan.instrumentationScope.name ==
+        FaroConstants.httpInstrumentationScope) {
+      return 'faro.tracing.fetch';
+    }
+
+    // Preserve classification for custom spans using legacy HTTP attributes.
     final httpScheme = attributes.getString('http.scheme');
     final httpMethod = attributes.getString('http.method');
 

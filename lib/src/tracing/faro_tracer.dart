@@ -128,22 +128,40 @@ class FaroTracer {
   }
 }
 
-/// Scope for [faroTracerProvider]. Cleared when the tracer wrapper must be
-/// rebuilt without re-initializing the process-global OTel SDK.
+/// Cache scope for tracer wrappers, refreshed during initialization and reset.
 const tracerScope = CustomScope('tracer');
 
-/// Provides the shared [FaroTracer].
-final faroTracerProvider = Provider<FaroTracer>((pod) {
-  // Use OTelAPI directly so we degrade to a no-op tracer if the Faro
-  // bootstrap (which calls OTel.initialize) hasn't run yet — e.g. when
-  // FaroHttpTrackingClient is used in unit tests that never call Faro.init.
-  final otelTracer = otel.OTelAPI.tracerProvider().getTracer(
+/// Provides the shared tracer for application spans.
+final faroTracerProvider = Provider<FaroTracer>(
+  (pod) => _createTracer(
     FaroConstants.sdkName,
+    pod.resolve(sessionIdProviderProvider),
+  ),
+  scope: tracerScope,
+);
+
+/// Provides the tracer for automatically instrumented HTTP requests.
+final faroHttpTracerProvider = Provider<FaroTracer>(
+  (pod) => _createTracer(
+    FaroConstants.httpInstrumentationScope,
+    pod.resolve(sessionIdProviderProvider),
+  ),
+  scope: tracerScope,
+);
+
+FaroTracer _createTracer(
+  String scopeName,
+  SessionIdProvider sessionIdProvider,
+) {
+  // Use OTelAPI so requests before Faro initialization safely use a no-op
+  // tracer. Bootstrap clears tracerScope once the SDK provider is ready.
+  final otelTracer = otel.OTelAPI.tracerProvider().getTracer(
+    scopeName,
     version: FaroConstants.sdkVersion,
   );
   return FaroTracer(
     otelTracer: otelTracer,
     faroZoneSpanManager: FaroZoneSpanManagerFactory().create(),
-    sessionIdProvider: pod.resolve(sessionIdProviderProvider),
+    sessionIdProvider: sessionIdProvider,
   );
-}, scope: tracerScope);
+}

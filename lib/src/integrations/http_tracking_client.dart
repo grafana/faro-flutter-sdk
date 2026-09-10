@@ -7,6 +7,7 @@ import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
+import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/constants.dart';
 
@@ -22,17 +23,28 @@ class FaroHttpOverrides extends HttpOverrides {
     return FaroHttpTrackingClient(
       innerClient,
       trackingFilter: pod.resolve(httpTrackingFilterProvider),
+      // Resolve per request: this client can outlive initialization or reset.
+      startHttpSpan: (name, {required attributes}) => pod
+          .resolve(faroHttpTracerProvider)
+          .startSpanManual(name, attributes: attributes),
     );
   }
 }
+
+/// Starts a span for an automatically instrumented HTTP request.
+typedef StartHttpSpan =
+    Span Function(String name, {required Map<String, Object> attributes});
 
 class FaroHttpTrackingClient implements HttpClient {
   FaroHttpTrackingClient(
     this.innerClient, {
     required HttpTrackingFilter trackingFilter,
-  }) : _trackingFilter = trackingFilter;
+    required StartHttpSpan startHttpSpan,
+  }) : _trackingFilter = trackingFilter,
+       _startHttpSpan = startHttpSpan;
   final HttpClient innerClient;
   final HttpTrackingFilter _trackingFilter;
+  final StartHttpSpan _startHttpSpan;
 
   @override
   Future<HttpClientRequest> open(
@@ -70,15 +82,37 @@ class FaroHttpTrackingClient implements HttpClient {
     return _openUrl(method, uri);
   }
 
+  // Unknown-method handling is separate from known-method normalization.
+  static const _knownMethods = {
+    'GET',
+    'HEAD',
+    'POST',
+    'PUT',
+    'DELETE',
+    'CONNECT',
+    'OPTIONS',
+    'TRACE',
+    'PATCH',
+    'QUERY',
+  };
+
   Future<HttpClientRequest> _openUrl(String method, Uri url) async {
     if (!_trackingFilter.shouldTrack(url)) {
       return innerClient.openUrl(method, url);
     }
 
-    final httpSpan = Faro().startSpanManual(
-      'HTTP $method',
+    // Dart's HttpClient uppercases methods before sending the request.
+    final upperMethod = method.toUpperCase();
+    final isKnownMethod = _knownMethods.contains(upperMethod);
+    final recordedMethod = isKnownMethod ? upperMethod : method;
+    final httpSpan = _startHttpSpan(
+      isKnownMethod ? recordedMethod : 'HTTP $method',
       attributes: {
-        'http.method': method,
+        if (isKnownMethod) 'http.request.method': recordedMethod,
+        if (isKnownMethod && recordedMethod != method)
+          'http.request.method_original': method,
+        // Retain the legacy field until HTTP event/query consumers migrate.
+        'http.method': recordedMethod,
         'http.scheme': url.scheme,
         'http.url': url.toString(),
         'http.host': url.host,
@@ -183,27 +217,27 @@ class FaroHttpTrackingClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> delete(String host, int port, String path) =>
-      open('delete', host, port, path);
+      open('DELETE', host, port, path);
 
   @override
-  Future<HttpClientRequest> deleteUrl(Uri url) => _openUrl('delete', url);
+  Future<HttpClientRequest> deleteUrl(Uri url) => _openUrl('DELETE', url);
 
   @override
   set findProxy(String Function(Uri url)? f) => innerClient.findProxy = f;
 
   @override
   Future<HttpClientRequest> get(String host, int port, String path) =>
-      open('get', host, port, path);
+      open('GET', host, port, path);
 
   @override
-  Future<HttpClientRequest> getUrl(Uri url) => _openUrl('get', url);
+  Future<HttpClientRequest> getUrl(Uri url) => _openUrl('GET', url);
 
   @override
   Future<HttpClientRequest> head(String host, int port, String path) =>
-      open('head', host, port, path);
+      open('HEAD', host, port, path);
 
   @override
-  Future<HttpClientRequest> headUrl(Uri url) => _openUrl('head', url);
+  Future<HttpClientRequest> headUrl(Uri url) => _openUrl('HEAD', url);
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) =>
@@ -211,24 +245,24 @@ class FaroHttpTrackingClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> patch(String host, int port, String path) =>
-      open('patch', host, port, path);
+      open('PATCH', host, port, path);
 
   @override
-  Future<HttpClientRequest> patchUrl(Uri url) => _openUrl('patch', url);
+  Future<HttpClientRequest> patchUrl(Uri url) => _openUrl('PATCH', url);
 
   @override
   Future<HttpClientRequest> post(String host, int port, String path) =>
-      open('post', host, port, path);
+      open('POST', host, port, path);
 
   @override
-  Future<HttpClientRequest> postUrl(Uri url) => _openUrl('post', url);
+  Future<HttpClientRequest> postUrl(Uri url) => _openUrl('POST', url);
 
   @override
   Future<HttpClientRequest> put(String host, int port, String path) =>
-      open('put', host, port, path);
+      open('PUT', host, port, path);
 
   @override
-  Future<HttpClientRequest> putUrl(Uri url) => _openUrl('put', url);
+  Future<HttpClientRequest> putUrl(Uri url) => _openUrl('PUT', url);
 }
 
 class FaroTrackingHttpClientRequest implements HttpClientRequest {
