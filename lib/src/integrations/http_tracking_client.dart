@@ -70,8 +70,7 @@ class FaroHttpTrackingClient implements HttpClient {
     return _openUrl(method, uri);
   }
 
-  // Keep arbitrary caller-provided methods unchanged. Unknown-method
-  // normalization is separate from the known-method naming migration.
+  // Unknown-method handling is separate from known-method normalization.
   static const _knownMethods = {
     'GET',
     'HEAD',
@@ -90,13 +89,18 @@ class FaroHttpTrackingClient implements HttpClient {
       return innerClient.openUrl(method, url);
     }
 
-    final isKnownMethod = _knownMethods.contains(method);
+    // Dart's HttpClient uppercases methods before sending the request.
+    final upperMethod = method.toUpperCase();
+    final isKnownMethod = _knownMethods.contains(upperMethod);
+    final recordedMethod = isKnownMethod ? upperMethod : method;
     final httpSpan = Faro().startSpanManual(
-      isKnownMethod ? method : 'HTTP $method',
+      isKnownMethod ? recordedMethod : 'HTTP $method',
       attributes: {
-        if (isKnownMethod) 'http.request.method': method,
+        if (isKnownMethod) 'http.request.method': recordedMethod,
+        if (isKnownMethod && recordedMethod != method)
+          'http.request.method_original': method,
         // Retain the legacy field until HTTP event/query consumers migrate.
-        'http.method': method,
+        'http.method': recordedMethod,
         'http.scheme': url.scheme,
         'http.url': url.toString(),
         'http.host': url.host,

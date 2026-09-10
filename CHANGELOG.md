@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Lowercase and mixed-case known HTTP methods use canonical span names**,
+  matching the method sent by Dart's HTTP client. For example, `get` and `GeT`
+  produce `GET`; spans and events record the supplied spelling in
+  `http.request.method_original`
+  ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
+
 - **HTTP spans now record `http.status_code` 0 on network failures.**
   Requests that never receive a response (DNS failure, connection error,
   dropped body, failed upload, or abort, including `abort()` with no

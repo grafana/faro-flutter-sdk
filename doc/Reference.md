@@ -743,8 +743,13 @@ For these methods, spans and HTTP events include the string attributes
 `faro.tracing.fetch` and include `duration_ns`, trace/span IDs, and session
 attributes for correlation.
 
-HTTP convenience methods such as `getUrl()` and `postUrl()` use uppercase
-verbs. For other method values passed to `open()` or `openUrl()`, the SDK
+Known method values passed to `open()` or `openUrl()` are normalized to
+uppercase, matching Dart's HTTP client. For example, `get` and `GeT` produce
+`GET`. When the supplied spelling differs, spans and HTTP events also include
+`http.request.method_original` with that spelling. HTTP convenience methods
+such as `getUrl()` and `postUrl()` use uppercase verbs.
+
+For other method values passed to `open()` or `openUrl()`, the SDK
 uses `HTTP <method>` as the span name and records the supplied value in
 `http.method`, without adding `http.request.method` or changing its case.
 

@@ -86,6 +86,7 @@ void main() {
     String path = '/users/123?view=details',
     int statusCode = 200,
     bool known = true,
+    String? normalizedMethod,
   }) async {
     final url = Uri.parse('http://example.com$path');
     final innerClient = _MockClient();
@@ -130,12 +131,13 @@ void main() {
       final tracked = await open(client, url);
       final span = processor.started.last;
       final record = SpanRecord(otelReadOnlySpan: span);
-      final expectedName = known ? method : 'HTTP $method';
+      final recordedMethod = normalizedMethod ?? method;
+      final expectedName = known ? recordedMethod : 'HTTP $method';
       // Inspect before response completion: naming and method are request data.
       expect(span.name, expectedName);
       expect(
         record.getFaroEventAttributes()['http.request.method'],
-        known ? method : isNull,
+        known ? recordedMethod : isNull,
       );
       verify(() => innerClient.openUrl(method, url)).called(1);
       verify(
@@ -168,9 +170,13 @@ void main() {
       expect(exported['spanId'], isNot(parent.spanId));
       expect(
         attributes['http.request.method'],
-        known ? {'stringValue': method} : isNull,
+        known ? {'stringValue': recordedMethod} : isNull,
       );
-      expect(attributes['http.method'], {'stringValue': method});
+      expect(attributes['http.method'], {'stringValue': recordedMethod});
+      expect(
+        attributes['http.request.method_original'],
+        normalizedMethod != null ? {'stringValue': method} : isNull,
+      );
       expect(attributes['http.url'], {'stringValue': url.toString()});
       expect(attributes, isNot(contains('url.template')));
       expect(exported['status'], {'code': statusCode >= 400 ? 2 : 0});
@@ -188,8 +194,15 @@ void main() {
         'trace_id': exported['traceId'],
         'span_id': exported['spanId'],
       });
-      expect(event.attributes!['http.request.method'], known ? method : isNull);
-      expect(event.attributes!['http.method'], method);
+      expect(
+        event.attributes!['http.request.method'],
+        known ? recordedMethod : isNull,
+      );
+      expect(event.attributes!['http.method'], recordedMethod);
+      expect(
+        event.attributes!['http.request.method_original'],
+        normalizedMethod != null ? method : isNull,
+      );
       expect(event.attributes!['session.id'], sessionId);
       expect(attributes['session.id'], {'stringValue': sessionId});
       final duration =
@@ -263,9 +276,82 @@ void main() {
   }
 
   // This scoped change must not normalize arbitrary caller-provided methods.
-  for (final method in ['CUSTOM', 'get', 'GeT']) {
+  for (final method in ['CUSTOM', 'custom', 'CuStOm']) {
     test('preserves existing behavior for caller method $method', () async {
       await verifyRequest(method, (c, u) => c.openUrl(method, u), known: false);
+    });
+  }
+  for (final pair in [
+    ('get', 'GET'),
+    ('GeT', 'GET'),
+    ('post', 'POST'),
+    ('PoSt', 'POST'),
+    ('head', 'HEAD'),
+    ('put', 'PUT'),
+    ('delete', 'DELETE'),
+    ('connect', 'CONNECT'),
+    ('options', 'OPTIONS'),
+    ('trace', 'TRACE'),
+    ('patch', 'PATCH'),
+    ('query', 'QUERY'),
+  ]) {
+    final (input, canonical) = pair;
+    for (final useOpenUrl in [true, false]) {
+      test('${useOpenUrl ? 'openUrl' : 'open'} normalizes $input', () async {
+        await verifyRequest(
+          input,
+          (client, url) => useOpenUrl
+              ? client.openUrl(input, url)
+              : client.open(
+                  input,
+                  url.host,
+                  url.port,
+                  '${url.path}?${url.query}',
+                ),
+          normalizedMethod: canonical,
+        );
+      });
+    }
+  }
+
+  for (final input in ['get', 'GeT', 'post', 'PoSt']) {
+    test('records the actual wire method for $input', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final client = FaroHttpTrackingClient(
+        HttpClient()..findProxy = (_) => 'DIRECT',
+        trackingFilter: HttpTrackingFilter()
+          ..configure(collectorUrl: null, ignoreUrls: null),
+      );
+      addTearDown(() async {
+        client.close(force: true);
+        await server.close(force: true);
+      });
+      final received = Completer<String>();
+      server.listen((request) async {
+        received.complete(request.method);
+        await request.drain<void>();
+        request.response.statusCode = 200;
+        await request.response.close();
+      });
+      final request = await client.openUrl(
+        input,
+        Uri.parse('http://127.0.0.1:${server.port}/users/123'),
+      );
+      final response = await request.close();
+      await response.drain<void>();
+      final wireMethod = await received.future;
+      expect(wireMethod, input.toUpperCase());
+      final record = SpanRecord(otelReadOnlySpan: processor.ended.single);
+      expect(record.name(), wireMethod);
+      expect(
+        record.getFaroEventAttributes()['http.request.method'],
+        wireMethod,
+      );
+      expect(record.getFaroEventAttributes()['http.method'], wireMethod);
+      expect(
+        record.getFaroEventAttributes()['http.request.method_original'],
+        input,
+      );
     });
   }
 }
