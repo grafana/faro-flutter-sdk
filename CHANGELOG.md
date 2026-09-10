@@ -10,15 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Known HTTP client span names are now method-only**, such as `GET` and
-  `POST`, instead of `HTTP GET` and `HTTP POST`. Update span-name queries to
-  include both forms when searching across an SDK upgrade. HTTP convenience
-  methods now use uppercase verbs
+  `POST`, instead of `HTTP GET` and `HTTP POST`. HTTP convenience methods now
+  use uppercase verbs. When querying across an SDK upgrade, include both old
+  and new names. For example, a GET TraceQL filter can use
+  `{ name = "GET" || name = "HTTP GET" || name = "HTTP get" }`
   ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
 - **Known HTTP methods include `http.request.method`** on spans and
-  `faro.tracing.fetch` events. The legacy `http.method` field remains during
-  the consumer migration. See the Reference docs for details
+  `faro.tracing.fetch` events. The legacy `http.method` field remains until
+  deployed consumers support stable fields and historical records, as tracked
+  in [the HTTP attribute migration](https://github.com/grafana/faro-flutter-sdk/issues/346)
   ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
-
 - **Use Dartastic OpenTelemetry stable `0.11.0`**, which preserves unset span
   status when a span ends. This also includes upstream sampling fixes: child
   spans respect an unsampled parent, and only sampled spans are exported.

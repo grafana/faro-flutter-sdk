@@ -731,32 +731,22 @@ HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
 ### HTTP span names and method attributes
 
-Automatically instrumented HTTP client spans use the known method as their
-name: `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`,
-`PATCH`, or `QUERY`. The span name does not include the URL or path. URL
-attributes remain separate; URL templates are not supported.
+Automatically instrumented HTTP client spans use the request method as their
+name for `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`,
+`PATCH`, and `QUERY`. For example, a request to `/users/123` using `GET`
+produces a span named `GET`. The URL is recorded separately in `http.url`;
+URL templates are not supported.
 
-For these methods, both the span and the accompanying event contain the string
-`http.request.method`, matching the span name. The event remains named
-`faro.tracing.fetch`, with its duration and trace/session correlation intact.
-The SDK's HTTP convenience methods use canonical uppercase verbs. Arbitrary
-methods supplied through `open` or `openUrl` retain their existing behavior;
-this change does not add unknown-method normalization.
+For these methods, spans and HTTP events include the string attributes
+`http.request.method` and `http.method`, both set to the method name.
+`http.method` is a compatibility alias. HTTP events use the name
+`faro.tracing.fetch` and include `duration_ns`, trace/span IDs, and session
+attributes for correlation.
 
-Previously, span names included an `HTTP ` prefix (for example, `HTTP GET`),
-and convenience methods could produce lowercase names such as `HTTP get`.
-Already-ingested spans keep those names. When querying across an SDK upgrade,
-include both old and new names. For example, a GET TraceQL filter can use
-`{ name = "GET" || name = "HTTP GET" || name = "HTTP get" }`.
-
-The legacy string `http.method` is temporarily emitted alongside
-`http.request.method` for known methods because existing HTTP event and trace
-queries consume it. The
-[HTTP attribute migration](https://github.com/grafana/faro-flutter-sdk/issues/346)
-will remove that alias once deployed consumers support stable fields and
-historical records. Other legacy HTTP fields are unchanged by this naming
-update. During migration, HTTP event classification recognizes either the
-stable method key or the existing legacy method/scheme keys.
+HTTP convenience methods such as `getUrl()` and `postUrl()` use uppercase
+verbs. For other method values passed to `open()` or `openUrl()`, the SDK
+uses `HTTP <method>` as the span name and records the supplied value in
+`http.method`, without adding `http.request.method` or changing its case.
 
 ---
 
