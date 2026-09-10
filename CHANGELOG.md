@@ -7,24 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Known HTTP methods include `http.request.method`** on spans and
+  `faro.tracing.fetch` events. The legacy `http.method` attribute remains
+  available for compatibility
+  ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
+
 ### Changed
 
-- **Automatic HTTP spans use the `faro-mobile-flutter.http` scope.**
-  Queries that filter by instrumentation scope should include this scope
-  alongside `faro-mobile-flutter` when searching across SDK versions.
-  WebView and custom spans carrying only `http.request.method` retain their
-  `span.<name>` events; legacy HTTP attribute classification is preserved.
-
-- **Known HTTP client span names are now method-only**, such as `GET` and
-  `POST`, instead of `HTTP GET` and `HTTP POST`. HTTP convenience methods now
-  use uppercase verbs. When querying across an SDK upgrade, include both old
+- **Known HTTP client span names are method-only**, such as `GET` and
+  `POST`, instead of `HTTP GET` and `HTTP POST`. HTTP convenience methods use
+  uppercase verbs. When querying across an SDK upgrade, include both old
   and new names. For example, a GET TraceQL filter can use
   `{ name = "GET" || name = "HTTP GET" || name = "HTTP get" }`
   ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
-- **Known HTTP methods include `http.request.method`** on spans and
-  `faro.tracing.fetch` events. The legacy `http.method` field remains until
-  deployed consumers support stable fields and historical records, as tracked
-  in [the HTTP attribute migration](https://github.com/grafana/faro-flutter-sdk/issues/346)
+- **Automatic HTTP spans use the `faro-mobile-flutter.http` scope.**
+  Queries that filter by instrumentation scope should include this scope
+  alongside `faro-mobile-flutter` when searching across SDK versions
   ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
 - **Use Dartastic OpenTelemetry stable `0.11.0`**, which preserves unset span
   status when a span ends. This also includes upstream sampling fixes: child
@@ -34,10 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Lowercase and mixed-case known HTTP methods use canonical span names**,
   matching the method sent by Dart's HTTP client. For example, `get` and `GeT`
-  produce `GET`; spans and events record the supplied spelling in
-  `http.request.method_original`
+  produce `GET`. When the spelling differs from the canonical method, spans
+  and events record it in `http.request.method_original`
   ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
-
 - **HTTP spans now record `http.status_code` 0 on network failures.**
   Requests that never receive a response (DNS failure, connection error,
   dropped body, failed upload, or abort, including `abort()` with no
