@@ -731,6 +731,16 @@ HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
 ### HTTP span names and method attributes
 
+Automatically instrumented HTTP spans use the instrumentation scope
+`faro-mobile-flutter.http`, with the SDK version as the scope version.
+Application spans and WebView lifetime spans use `faro-mobile-flutter`.
+
+The HTTP scope identifies spans whose accompanying event is
+`faro.tracing.fetch`. For compatibility, spans with a nonempty `http.method`
+or `http.scheme` also produce fetch events. The `http.request.method`
+attribute alone does not classify a span as an HTTP request. Other spans,
+including WebView lifetime spans, produce `span.<name>` events.
+
 Automatically instrumented HTTP client spans use the request method as their
 name for `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`,
 `PATCH`, and `QUERY`. For example, a request to `/users/123` using `GET`

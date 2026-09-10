@@ -5,4 +5,7 @@ class FaroConstants {
 
   /// The name of the Faro Flutter SDK
   static const String sdkName = 'faro-mobile-flutter';
+
+  /// Instrumentation scope for automatically tracked HTTP requests.
+  static const String httpInstrumentationScope = '$sdkName.http';
 }

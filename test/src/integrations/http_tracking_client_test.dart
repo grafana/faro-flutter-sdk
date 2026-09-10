@@ -5,6 +5,7 @@ import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/integrations/http_tracking_client.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
+import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
@@ -60,10 +61,17 @@ void main() {
       client = FaroHttpTrackingClient(
         mockHttpClient,
         trackingFilter: trackingFilter,
+        startHttpSpan: pod.resolve(faroHttpTracerProvider).startSpanManual,
       );
     });
 
     test('should bypass tracking when filter rejects URL', () async {
+      client = FaroHttpTrackingClient(
+        mockHttpClient,
+        trackingFilter: trackingFilter,
+        startHttpSpan: (name, {required attributes}) =>
+            throw StateError('Filtered requests must not start spans'),
+      );
       trackingFilter.configure(
         collectorUrl: 'http://example.com/path',
         ignoreUrls: null,

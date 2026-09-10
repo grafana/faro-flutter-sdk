@@ -7,6 +7,7 @@ import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
+import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/constants.dart';
 
@@ -22,17 +23,28 @@ class FaroHttpOverrides extends HttpOverrides {
     return FaroHttpTrackingClient(
       innerClient,
       trackingFilter: pod.resolve(httpTrackingFilterProvider),
+      // Resolve per request: this client can outlive initialization or reset.
+      startHttpSpan: (name, {required attributes}) => pod
+          .resolve(faroHttpTracerProvider)
+          .startSpanManual(name, attributes: attributes),
     );
   }
 }
+
+/// Starts a span for an automatically instrumented HTTP request.
+typedef StartHttpSpan =
+    Span Function(String name, {required Map<String, Object> attributes});
 
 class FaroHttpTrackingClient implements HttpClient {
   FaroHttpTrackingClient(
     this.innerClient, {
     required HttpTrackingFilter trackingFilter,
-  }) : _trackingFilter = trackingFilter;
+    required StartHttpSpan startHttpSpan,
+  }) : _trackingFilter = trackingFilter,
+       _startHttpSpan = startHttpSpan;
   final HttpClient innerClient;
   final HttpTrackingFilter _trackingFilter;
+  final StartHttpSpan _startHttpSpan;
 
   @override
   Future<HttpClientRequest> open(
@@ -93,7 +105,7 @@ class FaroHttpTrackingClient implements HttpClient {
     final upperMethod = method.toUpperCase();
     final isKnownMethod = _knownMethods.contains(upperMethod);
     final recordedMethod = isKnownMethod ? upperMethod : method;
-    final httpSpan = Faro().startSpanManual(
+    final httpSpan = _startHttpSpan(
       isKnownMethod ? recordedMethod : 'HTTP $method',
       attributes: {
         if (isKnownMethod) 'http.request.method': recordedMethod,

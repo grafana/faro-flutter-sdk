@@ -52,16 +52,37 @@ void main() {
 
   group('SpanRecord:', () {
     group('getFaroEventName:', () {
-      for (final attributes in [
-        {'http.request.method': 'GET'},
-        {'http.request.method': 'GET', 'http.method': 'GET'},
+      test('recognizes the HTTP instrumentation scope without attributes', () {
+        final span = otel.OTel.tracerProvider()
+            .getTracer('faro-mobile-flutter.http')
+            .startSpan('GET');
+        span.end();
+        expect(
+          SpanRecord(otelReadOnlySpan: span).getFaroEventName(),
+          'faro.tracing.fetch',
+        );
+      });
+
+      for (final scope in [
+        'faro-mobile-flutter',
+        'faro-mobile-flutter.http.custom',
       ]) {
         test(
-          'recognizes HTTP attributes $attributes with method-only name',
+          'stable HTTP attributes do not classify scope $scope as fetch',
           () {
-            final span = makeEndedSpan('GET', attributes: attributes);
-            final record = SpanRecord(otelReadOnlySpan: span);
-            expect(record.getFaroEventName(), 'faro.tracing.fetch');
+            final span = otel.OTel.tracerProvider()
+                .getTracer(scope)
+                .startSpan(
+                  'checkout',
+                  attributes: otel.OTel.attributesFromMap({
+                    'http.request.method': 'GET',
+                  }),
+                );
+            span.end();
+            expect(
+              SpanRecord(otelReadOnlySpan: span).getFaroEventName(),
+              'span.checkout',
+            );
           },
         );
       }

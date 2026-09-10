@@ -7,12 +7,15 @@ import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_client.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/span_record.dart';
+import 'package:faro/src/models/trace/trace_resource_spans.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_id_provider.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
+import 'package:faro/src/util/constants.dart';
+import 'package:faro/src/webview/faro_webview_bridge.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -80,6 +83,57 @@ void main() {
     await otel.OTel.reset();
   });
 
+  test(
+    'serializes application parent and HTTP child in separate scopes',
+    () async {
+      await Faro().startSpan('checkout', (parent) {
+        final child = pod
+            .resolve(faroHttpTracerProvider)
+            .startSpanManual('GET');
+        child.end();
+      });
+      await Future<void>.delayed(Duration.zero);
+      final batch = TraceResourceSpans();
+      for (final span in processor.ended) {
+        batch.addSpan(SpanRecord(otelReadOnlySpan: span));
+      }
+      final scopes = batch.toJson()['scopeSpans'] as List;
+      final http = scopes.singleWhere(
+        (s) => s['scope']['name'] == 'faro-mobile-flutter.http',
+      );
+      final application = scopes.singleWhere(
+        (s) => s['scope']['name'] == 'faro-mobile-flutter',
+      );
+      expect(scopes, hasLength(2));
+      expect(http['scope']['version'], FaroConstants.sdkVersion);
+      expect(application['scope']['version'], FaroConstants.sdkVersion);
+      final child = http['spans'].single;
+      final parent = application['spans'].single;
+      expect(child['traceId'], parent['traceId']);
+      expect(child['parentSpanId'], parent['spanId']);
+    },
+  );
+
+  for (final name in ['WebView', 'CustomWebView']) {
+    test('exports $name lifetime as a custom event', () async {
+      final bridge = FaroWebViewBridge();
+      bridge.instrumentedUrl(Uri.parse('https://example.com'), spanName: name);
+      bridge.end();
+      await Future<void>.delayed(Duration.zero);
+      final router = _RecordingRouter();
+      await FaroExporter(telemetryRouter: router).export(processor.ended);
+      final record = router.items.singleWhere((i) => i.asSpan != null).asSpan!;
+      final event = router.items.singleWhere((i) => i.asEvent != null).asEvent!;
+      expect(record.getScope().toJson()['name'], 'faro-mobile-flutter');
+      expect(record.name(), name);
+      expect(event.name, 'span.$name');
+      expect(event.attributes!['http.request.method'], 'GET');
+      expect(event.attributes!['component'], 'webview');
+      expect(event.attributes, contains('duration_ns'));
+      expect(event.trace, record.getFaroSpanContext());
+    });
+  }
+
   Future<void> verifyRequest(
     String method,
     Future<HttpClientRequest> Function(FaroHttpTrackingClient, Uri) open, {
@@ -92,7 +146,11 @@ void main() {
     final innerClient = _MockClient();
     final filter = HttpTrackingFilter()
       ..configure(collectorUrl: null, ignoreUrls: null);
-    final client = FaroHttpTrackingClient(innerClient, trackingFilter: filter);
+    final client = FaroHttpTrackingClient(
+      innerClient,
+      trackingFilter: filter,
+      startHttpSpan: pod.resolve(faroHttpTracerProvider).startSpanManual,
+    );
     final request = _MockRequest();
     final response = _MockResponse();
     final requestHeaders = _MockHeaders();
@@ -164,6 +222,8 @@ void main() {
           attribute['key'] as String: attribute['value'],
       };
       expect(exported['name'], expectedName);
+      expect(record.getScope().toJson()['name'], 'faro-mobile-flutter.http');
+      expect(record.getScope().toJson()['version'], FaroConstants.sdkVersion);
       expect(exported['kind'], 3);
       expect(exported['traceId'], parent.traceId);
       expect(exported['parentSpanId'], parent.spanId);
@@ -319,6 +379,7 @@ void main() {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final client = FaroHttpTrackingClient(
         HttpClient()..findProxy = (_) => 'DIRECT',
+        startHttpSpan: pod.resolve(faroHttpTracerProvider).startSpanManual,
         trackingFilter: HttpTrackingFilter()
           ..configure(collectorUrl: null, ignoreUrls: null),
       );

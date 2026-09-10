@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Automatic HTTP spans use the `faro-mobile-flutter.http` scope.**
+  Queries that filter by instrumentation scope should include this scope
+  alongside `faro-mobile-flutter` when searching across SDK versions.
+  WebView and custom spans carrying only `http.request.method` retain their
+  `span.<name>` events; legacy HTTP attribute classification is preserved.
+
 - **Known HTTP client span names are now method-only**, such as `GET` and
   `POST`, instead of `HTTP GET` and `HTTP POST`. HTTP convenience methods now
   use uppercase verbs. When querying across an SDK upgrade, include both old

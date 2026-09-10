@@ -1,7 +1,10 @@
 // ignore_for_file: lines_longer_than_80_chars
 
+import 'dart:io';
+
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/core/pod.dart';
+import 'package:faro/src/integrations/http_tracking_client.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/tracing/faro_otel_bootstrap.dart';
@@ -52,6 +55,50 @@ void main() {
   });
 
   group('FaroOtelBootstrap:', () {
+    test('an existing HTTP client picks up initialization and reset', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        await request.drain<void>();
+        await request.response.close();
+      });
+      final client = FaroHttpOverrides(null).createHttpClient(null)
+        ..findProxy = (_) => 'DIRECT';
+      addTearDown(() async {
+        client.close(force: true);
+        await server.close(force: true);
+      });
+      final url = Uri.parse('http://127.0.0.1:${server.port}/lifecycle');
+      Future<void> request() async {
+        final request = await client.getUrl(url);
+        final response = await request.close();
+        await response.drain<void>();
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      await request();
+      expect(router.ingested, isEmpty);
+      for (var cycle = 0; cycle < 2; cycle++) {
+        await FaroOtelBootstrap.initialize();
+        await request();
+        final record = router.ingested
+            .singleWhere((item) => item.asSpan != null)
+            .asSpan!;
+        expect(record.getScope().toJson()['name'], 'faro-mobile-flutter.http');
+        expect(record.name(), 'GET');
+        expect(
+          router.ingested.singleWhere((i) => i.asEvent != null).asEvent!.name,
+          'faro.tracing.fetch',
+        );
+        await FaroOtelBootstrap.resetForTesting();
+        router.ingested.clear();
+        pod.overrideProvider<otel.SpanProcessor>(
+          faroSpanProcessorProvider,
+          (_) => throw StateError('placeholder'),
+        );
+        pod.removeOverride(faroSpanProcessorProvider);
+      }
+    });
+
     test('initialize is idempotent — second call is a no-op that does not '
         'hang and leaves a working tracer', () async {
       // Regression test: the original implementation called OTel.reset()
