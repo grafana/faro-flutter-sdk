@@ -5,8 +5,10 @@ import 'dart:io';
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
+import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/integrations/http_url_redaction_policy.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/offline_transport/offline_transport.dart';
@@ -130,6 +132,48 @@ void main() {
       // Clean up the singleton state after each test
       BatchTransportFactory().reset();
     });
+
+    test(
+      'HTTP policy is installed before init awaits and follows reset',
+      () async {
+        FaroConfig config(Set<String> names) => FaroConfig(
+          appName: appName,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: null,
+          transports: [],
+          persistSession: false,
+          persistUser: false,
+          enableUiActivityMonitoring: false,
+          sensitiveHttpQueryParameters: names,
+        );
+        Set<String> effectiveNames() => pod
+            .resolve(httpUrlRedactionPolicyProvider)
+            .sensitiveQueryParameters;
+
+        expect(effectiveNames(), contains('token'));
+        expect(effectiveNames(), isNot(contains('customer_code')));
+        final names = {'customer_code'};
+        final options = config(names);
+        names.clear();
+        final initialization = Faro().init(optionsConfiguration: options);
+        // No await: requests started during initialization need protection too.
+        expect(effectiveNames(), containsAll(['token', 'customer_code']));
+        await initialization;
+        await Faro().init(optionsConfiguration: config({'ignored'}));
+        expect(effectiveNames(), contains('customer_code'));
+        expect(effectiveNames(), isNot(contains('ignored')));
+        await Faro().resetSession();
+        expect(effectiveNames(), contains('customer_code'));
+
+        await Faro.resetForTesting();
+        expect(effectiveNames(), contains('token'));
+        expect(effectiveNames(), isNot(contains('customer_code')));
+        await Faro().init(optionsConfiguration: config({'checkout_session'}));
+        expect(effectiveNames(), containsAll(['token', 'checkout_session']));
+        expect(effectiveNames(), isNot(contains('customer_code')));
+      },
+    );
 
     test('init called with no error', () async {
       TestWidgetsFlutterBinding.ensureInitialized();

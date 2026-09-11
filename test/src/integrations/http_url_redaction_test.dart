@@ -3,6 +3,58 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('redactHttpUrl', () {
+    test('uses an explicit policy without reading SDK state', () {
+      expect(
+        redactHttpUrl(
+          Uri.parse('https://example.com/?customer_code=dummy&token=keep'),
+          sensitiveQueryParameters: {'customer_code'},
+        ),
+        'https://example.com/?customer_code=REDACTED&token=keep',
+      );
+    });
+
+    test('matches decoded custom names exactly, preserving other segments', () {
+      expect(
+        redactHttpUrl(
+          Uri.parse(
+            'https://example.com/?customer_code=one'
+            '&customer_code=two&Customer_code=keep&mycustomer_code=keep'
+            '&a%2Bb=one&a+b=two&a%20b=three&a%252Bb=keep'
+            '&a.b=one&axb=keep&x=a%2Fb&q=a+b&q=a%20b&&flag&',
+          ),
+          sensitiveQueryParameters: {'customer_code', 'a+b', 'a b', 'a.b'},
+        ),
+        'https://example.com/?customer_code=REDACTED'
+        '&customer_code=REDACTED&Customer_code=keep&mycustomer_code=keep'
+        '&a%2Bb=REDACTED&a+b=REDACTED&a%20b=REDACTED&a%252Bb=keep'
+        '&a.b=REDACTED&axb=keep&x=a%2Fb&q=a+b&q=a%20b&&flag&',
+      );
+    });
+
+    test('handles malformed custom values and preserves malformed names', () {
+      expect(
+        redactHttpUrl(
+          Uri.parse(
+            'https://example.com/?%FF=keep&custom=%FF&custom'
+            '&custom=&custom=a=b&custom%FF=keep',
+          ),
+          sensitiveQueryParameters: {'custom'},
+        ),
+        'https://example.com/?%FF=keep&custom=REDACTED&custom=REDACTED'
+        '&custom=REDACTED&custom=REDACTED&custom%FF=keep',
+      );
+    });
+
+    test('empty name redacts explicit values but preserves separators', () {
+      expect(
+        redactHttpUrl(
+          Uri.parse('https://example.com/?&=dummy&&flag&'),
+          sensitiveQueryParameters: {''},
+        ),
+        'https://example.com/?&=REDACTED&&flag&',
+      );
+    });
+
     for (final key in [
       'X-Amz-Signature',
       'X-Amz-Credential',

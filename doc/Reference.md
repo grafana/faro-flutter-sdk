@@ -806,9 +806,45 @@ query values with `REDACTED`:
 - `api_key`, `apikey`
 - `password`, `client_secret`
 
-Matching uses decoded, case-sensitive keys and covers repeated parameters.
-Other query parameters, the path and the fragment use their original values.
-The request sent to the server uses the original URL.
+Add application-specific names with `FaroConfig.sensitiveHttpQueryParameters`:
+
+```dart
+FaroConfig(
+  appName: 'shop',
+  appEnv: 'production',
+  apiKey: 'your-api-key',
+  collectorUrl: 'https://collector.example/collect',
+  sensitiveHttpQueryParameters: {'customer_code', 'checkout_session'},
+)
+```
+
+These names **extend** the defaults above. Omitted, `null` or empty input adds
+nothing; built-in protections cannot be removed. The config copies the input
+into an immutable set, so later changes to the caller's collection have no
+effect. Unlike this Faro API, OpenTelemetry's declarative
+`sensitive_query_parameters` setting replaces its defaults.
+
+Matching uses exact decoded, case-sensitive query names and covers repeated
+parameters. Supply plain names, without URL encoding. For example, `Token`
+only matches if explicitly added; `token` is already a default. Matching does
+not use substrings or regular expressions. Empty names match explicit empty
+query names (`=value`); empty separators are preserved. Invalid UTF-8 names
+are left unchanged when they cannot be decoded. Values of matching names are
+redacted even if those values are malformed.
+
+Other query parameters retain their encoding, order and repeated values in
+Dart's `Uri` representation. The path and fragment keep their original values.
+The request sent to the server uses the original URI.
+
+Clients created before initialization use the configured policy for requests
+started during or after `Faro.init`. Requests started before init use the
+built-in defaults. Each request captures one redacted URL for its span, event
+and fallback log. Subsequent `init` calls are ignored; resetting a session does
+not change the policy. The testing-only `Faro.resetForTesting` restores the
+defaults until the next initialization.
+
+This setting applies to automatic HTTP URL fields. It does not sanitize
+arbitrary exception messages, log text, custom attributes or WebView URLs.
 
 ---
 

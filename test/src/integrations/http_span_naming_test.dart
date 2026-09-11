@@ -6,6 +6,7 @@ import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_client.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
+import 'package:faro/src/integrations/http_url_redaction_policy.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/models/trace/trace_resource_spans.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
@@ -73,6 +74,7 @@ void main() {
 
   setUp(() {
     pod.clearScope(tracerScope);
+    pod.clearScope(faroInitScope);
     processor.started.clear();
     processor.ended.clear();
   });
@@ -451,6 +453,127 @@ void main() {
       });
     }
   }
+
+  for (final status in [200, 500]) {
+    test('pre-existing client uses current policy for HTTP $status', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final client = FaroHttpOverrides(null).createHttpClient(null)
+        ..findProxy = (_) => 'DIRECT';
+      addTearDown(() async {
+        client.close(force: true);
+        await server.close(force: true);
+      });
+      final received = <Uri>[];
+      server.listen((request) async {
+        received.add(request.uri);
+        request.response.statusCode = status;
+        await request.response.close();
+      });
+      final uri = Uri.parse(
+        'http://127.0.0.1:${server.port}/test?'
+        'token=dummy&customer_code=one&customer_code=two&q=a%2Fb',
+      );
+      Future<void> send() async {
+        final request = await client.getUrl(uri);
+        final response = await request.close();
+        await response.drain<void>();
+      }
+
+      await send(); // Resolves defaults before configuration.
+      pod.resolve(httpUrlRedactionPolicyProvider).configure({'customer_code'});
+      await send(); // Same client must see the configured names.
+      pod.clearScope(faroInitScope);
+      await send(); // Same client must see defaults after a scope reset.
+      pod.resolve(httpUrlRedactionPolicyProvider).configure({'q'});
+      await send(); // And the next initialization's policy.
+
+      expect(received, List.filled(4, Uri.parse('/test?${uri.query}')));
+      final router = _RecordingRouter();
+      await FaroExporter(telemetryRouter: router).export(processor.ended);
+      final events = router.items.where((i) => i.asEvent != null).toList();
+      expect(events, hasLength(4));
+      for (var i = 0; i < 4; i++) {
+        final expectedUrl = uri
+            .toString()
+            .replaceAll('token=dummy', 'token=REDACTED')
+            .replaceAll(
+              'customer_code=one',
+              i == 1 ? 'customer_code=REDACTED' : 'customer_code=one',
+            )
+            .replaceAll(
+              'customer_code=two',
+              i == 1 ? 'customer_code=REDACTED' : 'customer_code=two',
+            )
+            .replaceAll('q=a%2Fb', i == 3 ? 'q=REDACTED' : 'q=a%2Fb');
+        final record = SpanRecord(otelReadOnlySpan: processor.ended[i]);
+        final attributes = record.getSpan().toJson()['attributes'] as List;
+        expect(attributes.singleWhere((a) => a['key'] == 'url.full')['value'], {
+          'stringValue': expectedUrl,
+        });
+        expect(events[i].asEvent!.attributes!['http.url'], expectedUrl);
+        expect(events[i].asEvent!.attributes!['http.status_code'], '$status');
+      }
+    });
+  }
+
+  test(
+    'in-flight body failure keeps one URL in span, event and fallback log',
+    () async {
+      final router = _RecordingRouter();
+      pod.overrideProvider<TelemetryRouter>(
+        telemetryRouterProvider,
+        (_) => router,
+      );
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final client = FaroHttpOverrides(null).createHttpClient(null)
+        ..findProxy = (_) => 'DIRECT';
+      addTearDown(() async {
+        pod.removeOverride(telemetryRouterProvider);
+        client.close(force: true);
+        await server.close(force: true);
+      });
+      final received = Completer<Uri>();
+      server.listen((request) async {
+        received.complete(request.uri);
+        final socket = await request.response.detachSocket(writeHeaders: false);
+        socket.write(
+          'HTTP/1.1 200 OK\r\nContent-Length: 10\r\n'
+          'Connection: close\r\n\r\nx',
+        );
+        await socket.close();
+      });
+      pod.resolve(httpUrlRedactionPolicyProvider).configure({'customer_code'});
+      final uri = Uri.parse(
+        'http://127.0.0.1:${server.port}/test?'
+        'token=dummy&customer_code=dummy&other=visible',
+      );
+      final pendingRequest = client.getUrl(uri);
+      // Change policy while openUrl is awaiting the connection, before the
+      // request/response wrappers exist. They must retain the request snapshot.
+      pod.clearScope(faroInitScope);
+      pod.resolve(httpUrlRedactionPolicyProvider).configure({'other'});
+      final request = await pendingRequest;
+      final response = await request.close();
+      final finished = Completer<void>();
+      // The unsupported callback signature exercises the fallback log path.
+      // ignore: cancel_subscriptions
+      response.listen((_) {}, onError: () {}, onDone: finished.complete);
+      await finished.future;
+      expect(await received.future, Uri.parse('/test?${uri.query}'));
+      await FaroExporter(telemetryRouter: router).export(processor.ended);
+      final record = SpanRecord(otelReadOnlySpan: processor.ended.single);
+      final expectedUrl = uri.toString().replaceAll('=dummy', '=REDACTED');
+      final attributes = record.getSpan().toJson()['attributes'] as List;
+      expect(attributes.singleWhere((a) => a['key'] == 'url.full')['value'], {
+        'stringValue': expectedUrl,
+      });
+      final event = router.items.singleWhere((i) => i.asEvent != null).asEvent!;
+      expect(event.attributes!['http.url'], expectedUrl);
+      final log = router.items.singleWhere((i) => i.asLog != null).asLog!;
+      expect(log.message, 'network_error on : GET : $expectedUrl');
+      expect(log.trace, record.getFaroSpanContext());
+    },
+  );
 
   for (final input in ['get', 'GeT', 'post', 'PoSt']) {
     test('records the actual wire method for $input', () async {

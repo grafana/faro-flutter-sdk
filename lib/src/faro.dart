@@ -14,6 +14,7 @@ import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/integrations/flutter_error_integration.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
+import 'package:faro/src/integrations/http_url_redaction_policy.dart';
 import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
@@ -192,6 +193,10 @@ class Faro {
       return;
     }
 
+    // Install before the first await so requests during init are protected.
+    pod
+        .resolve(httpUrlRedactionPolicyProvider)
+        .configure(optionsConfiguration.sensitiveHttpQueryParameters);
     _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
 
     final attributesProvider = await SessionAttributesProviderFactory()

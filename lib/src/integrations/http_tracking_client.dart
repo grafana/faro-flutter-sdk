@@ -6,6 +6,7 @@ import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/integrations/http_url_redaction.dart';
+import 'package:faro/src/integrations/http_url_redaction_policy.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
@@ -107,7 +108,13 @@ class FaroHttpTrackingClient implements HttpClient {
     final upperMethod = method.toUpperCase();
     final isKnownMethod = _knownMethods.contains(upperMethod);
     final recordedMethod = isKnownMethod ? upperMethod : method;
-    final redactedUrl = redactHttpUrl(url);
+    // Capture once, before opening the request. A client can outlive init or
+    // test resets. In-flight requests keep the same URL in every output.
+    final redactedUrl = redactHttpUrl(
+      url,
+      sensitiveQueryParameters:
+          _currentHttpUrlRedactionPolicy().sensitiveQueryParameters,
+    );
     final httpSpan = _startHttpSpan(
       isKnownMethod ? recordedMethod : 'HTTP $method',
       attributes: {
@@ -278,6 +285,9 @@ class FaroHttpTrackingClient implements HttpClient {
   Future<HttpClientRequest> putUrl(Uri url) => _openUrl('PUT', url);
 }
 
+HttpUrlRedactionPolicy _currentHttpUrlRedactionPolicy() =>
+    pod.resolve(httpUrlRedactionPolicyProvider);
+
 void _recordHttpError(Span span, Object error, StackTrace? stackTrace) {
   preserveHttpEventErrorType(span);
   if (span is InternalSpan &&
@@ -300,7 +310,13 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     required Span httpSpan,
     String? redactedUrl,
   }) : _httpSpan = httpSpan,
-       _redactedUrl = redactedUrl ?? redactHttpUrl(innerContext.uri) {
+       _redactedUrl =
+           redactedUrl ??
+           redactHttpUrl(
+             innerContext.uri,
+             sensitiveQueryParameters:
+                 _currentHttpUrlRedactionPolicy().sensitiveQueryParameters,
+           ) {
     innerContext.headers.add('traceparent', _httpSpan.traceparent);
   }
 
