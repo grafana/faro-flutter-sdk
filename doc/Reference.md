@@ -736,7 +736,7 @@ Automatically instrumented HTTP spans use the instrumentation scope
 Application spans and WebView lifetime spans use `faro-mobile-flutter`.
 
 The HTTP scope identifies spans whose accompanying event is
-`faro.tracing.fetch`. For compatibility, spans with a nonempty `http.method`
+`faro.tracing.fetch`. Spans with a nonempty `http.method`
 or `http.scheme` also produce fetch events. The `http.request.method`
 attribute alone does not classify a span as an HTTP request. Other spans,
 including WebView lifetime spans, produce `span.<name>` events.
@@ -747,110 +747,62 @@ name for `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`,
 produces a span named `GET`. The URL is recorded separately in `url.full`;
 URL templates are not supported.
 
-For these methods, spans and HTTP events include `http.request.method`,
-set to the method name. HTTP events use the name
-`faro.tracing.fetch` and include `duration_ns`, trace/span IDs, and session
-attributes for correlation.
-
 Known method values passed to `open()` or `openUrl()` are normalized to
 uppercase, matching Dart's HTTP client. For example, `get` and `GeT` produce
 `GET`. When the supplied spelling differs, spans and HTTP events also include
 `http.request.method_original` with that spelling. HTTP convenience methods
 such as `getUrl()` and `postUrl()` use uppercase verbs.
 
-For other method values passed to `open()` or `openUrl()`, the SDK
-uses `HTTP <method>` as the span name and records the supplied value in
-`http.request.method` without changing its case. This preserves the existing
-unknown-method value and naming behavior while migrating the attribute key.
-Unknown-method normalization to `_OTHER` and a configurable known-method list
-remain outside this migration; this is not full HTTP semconv conformance.
-
+For other method values passed to `open()` or `openUrl()`, the span name is
+`HTTP <method>` and `http.request.method` contains the supplied value, including
+its case.
 
 ### HTTP span and event attributes
 
-Automatic HTTP spans use stable OpenTelemetry attributes. Faro HTTP events
-retain their existing contract independently of the span schema. The outer
-Faro payload, event name `faro.tracing.fetch`, trace/span IDs, duration, session
-metadata and user-action correlation are unchanged.
+Automatic HTTP instrumentation records spans and `faro.tracing.fetch` events.
+Event attribute values are strings. The HTTP span attributes below are strings
+except for the integer port and response status.
 
-| Data | Span attribute | Faro event attribute |
+| Data | Span | HTTP event |
 | --- | --- | --- |
 | Method | `http.request.method` | `http.method`; also `http.request.method` for known methods |
-| Original known method | `http.request.method_original` | `http.request.method_original` |
-| URL | `url.full` (sanitized) | `http.url` (original URL) |
-| Host | `server.address` | `http.host` |
-| Effective port | `server.port` (integer, including default 80/443) | No new field |
-| Response status | `http.response.status_code` (integer, actual responses only) | `http.status_code` (string; `"0"` on failures without a response) |
-| Duration | Span timestamps | `duration_ns` (string, nanoseconds) |
+| Original spelling of a normalized method | `http.request.method_original` | `http.request.method_original` |
+| URL | `url.full` (sanitized) | `http.url` (original request URL) |
+| Host without port | `server.address` | `http.host` |
+| Effective port, including defaults 80/443 | `server.port` (integer) | — |
+| Response status | `http.response.status_code` (integer, only with a response) | `http.status_code`; `"0"` for failures without a response |
+| Duration | Start and end timestamps | `duration_ns` (nanoseconds) |
 
-Events also retain `http.scheme`, `http.user_agent`, `http.request_size`,
-`http.response_size` and `http.content_type`, including their previous string
-values and availability. These fields are not added to the span. Size fields
-retain their Content-Length meaning, including unknown lengths; they do not
-measure headers or total wire size. Other span attributes, such as session
-correlation, are copied as before. User-action fields are moved into the event's
-`action` object by the exporter.
+Request attributes are available at span start. HTTP events also include
+`http.scheme` and `http.user_agent`. After a response arrives, events include
+`http.request_size`, `http.response_size` and `http.content_type`. The size
+fields represent Content-Length in bytes, with `-1` for unknown lengths.
+Events carry trace/span IDs in `trace`, session metadata and optional user-action
+context in `action`.
 
-Successful spans leave status UNSET. HTTP responses of 400 and above set ERROR
-and a string code such as `"404"` in `error.type`, on both the span and event.
-Failures without a response set span ERROR with the exception type in
-`error.type`, while omitting the span response code. Events preserve the legacy
-status `"0"` and do not gain the newly generated exception-type attribute.
-Body failures retain the actual response code. Spans record their exception
-error type, while events keep the prior HTTP event behavior. Previously
-recorded error types are preserved.
+Responses below 400 leave span status UNSET. Responses of 400 or higher set
+ERROR and a string response code such as `"404"` in `error.type` on the span and
+event, without a code-only status description. An existing error takes precedence.
 
-For example, the HTTP portion of a 404 event retains this shape:
-
-```json
-{
-  "name": "faro.tracing.fetch",
-  "attributes": {
-    "http.request.method": "GET",
-    "http.method": "GET",
-    "http.url": "https://example.com/missing",
-    "http.host": "example.com",
-    "http.scheme": "https",
-    "http.user_agent": "Dart/3.12 (dart:io)",
-    "http.status_code": "404",
-    "http.request_size": "0",
-    "http.response_size": "0",
-    "http.content_type": "null",
-    "error.type": "404",
-    "duration_ns": "25000000"
-  }
-}
-```
-
-This fragment omits timestamp, trace context, session metadata and optional
-user-action context. All event attribute values remain strings.
+Transport and response-body failures set span status ERROR and use the exception
+type in `error.type`, unless the span already has an error. These failures do
+not add exception types to HTTP events. When a response exists, both status-code
+attributes contain its actual code, including after a body failure.
 
 ### HTTP span URL sanitization
 
-In `url.full`, URL user information is replaced with `REDACTED:REDACTED`.
-Query values for `X-Amz-Signature`, `X-Amz-Credential`, `X-Amz-Security-Token`,
-`sig`, and `X-Goog-Signature` are replaced with `REDACTED`. Matching uses decoded,
-case-sensitive keys, including repeated keys. Other query parameters, path and
-fragment are retained. This follows the defaults in
-[HTTP semconv 1.44.0](https://opentelemetry.io/docs/specs/semconv/http/http-spans/).
-It does not identify arbitrary application-specific secrets in URLs.
-The actual request and the legacy event's `http.url` are unchanged by this
-span-only policy.
+The span's `url.full` replaces URL user information with `REDACTED:REDACTED`
+and the following query values with `REDACTED`:
 
-### Migrating span consumers
+- `X-Amz-Signature`
+- `X-Amz-Credential`
+- `X-Amz-Security-Token`
+- `sig`
+- `X-Goog-Signature`
 
-Automatic spans no longer contain `http.method`, `http.url`, `http.host`,
-`http.status_code`, `http.scheme`, `http.user_agent`, `http.content_type`,
-`http.request_size`, or `http.response_size`. Existing custom spans are not
-rewritten. Span consumers should prefer the stable fields with legacy fallbacks
-for historical data and other SDK versions. Check response-code presence
-explicitly and use `error.type` for failures, including body failures after a
-successful response. Host grouping uses `server.address`, with `server.port`
-available separately.
-
-HTTP event queries and event storage retain their existing schema. Span URL
-processing, trace filters and trace navigation still need to support the new
-span attributes. See [#346](https://github.com/grafana/faro-flutter-sdk/issues/346).
+Matching uses decoded, case-sensitive keys and covers repeated parameters.
+Other query parameters, the path and the fragment use their original values.
+The request sent to the server and the event's `http.url` use the original URL.
 
 ---
 
