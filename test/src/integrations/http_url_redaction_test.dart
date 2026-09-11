@@ -11,6 +11,13 @@ void main() {
       'Signature',
       'sig',
       'X-Goog-Signature',
+      'token',
+      'access_token',
+      'refresh_token',
+      'api_key',
+      'apikey',
+      'password',
+      'client_secret',
     ]) {
       test('redacts the value of $key', () {
         expect(
@@ -75,7 +82,7 @@ void main() {
       'https://example.com/path',
       'https://example.com/path?',
       'https://example.com/path#fragment',
-      'https://example.com/?token=example&password=example#sig=example',
+      'https://example.com/?customer_code=example&Token=example#sig=example',
     ]) {
       test('preserves a URL without recognized sensitive components: $url', () {
         expect(redactHttpUrl(Uri.parse(url)), url);

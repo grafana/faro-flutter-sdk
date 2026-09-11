@@ -1,10 +1,12 @@
-/// Redacts HTTP span and event URLs without changing the request URL.
+/// Redacts HTTP span, event and fallback error-log URLs.
+/// The request URL is unchanged.
 ///
 /// OTel HTTP client URL redaction rules (the query-key list is Development):
 /// https://opentelemetry.io/docs/specs/semconv/http/http-spans/#http-client-span
 /// Preserves the encoding/order of non-sensitive query parameters.
 String redactHttpUrl(Uri url) {
   const sensitiveKeys = {
+    // OpenTelemetry default sensitive query keys.
     'X-Amz-Signature',
     'X-Amz-Credential',
     'X-Amz-Security-Token',
@@ -12,6 +14,14 @@ String redactHttpUrl(Uri url) {
     'Signature',
     'sig',
     'X-Goog-Signature',
+    // Additional Faro defaults for common application credentials.
+    'token',
+    'access_token',
+    'refresh_token',
+    'api_key',
+    'apikey',
+    'password',
+    'client_secret',
   };
   final query = url.query
       .split('&')

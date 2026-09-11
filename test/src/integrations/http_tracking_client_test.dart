@@ -537,8 +537,20 @@ void main() {
     });
 
     test(
-      'network_error log from unsupported onError carries span trace context',
+      'network_error log redacts the URL and preserves span trace context',
       () async {
+        when(() => mockHttpClientRequest.uri).thenReturn(
+          Uri.parse(
+            'https://alice:example-password@example.com/path?'
+            'sig=example-signature&token=example-token'
+            '&password=example-password'
+            '&api_key=example-key&color=blue',
+          ),
+        );
+        trackedRequest = FaroTrackingHttpClientRequest(
+          mockHttpClientRequest,
+          httpSpan: mockSpan,
+        );
         final response = await trackedRequest.close();
         // An onError with an unsupported signature (neither one- nor two-arg)
         // forces the integration onto its fallback pushLog path.
@@ -553,6 +565,13 @@ void main() {
 
         final logItem = router.ingested.firstWhere(
           (item) => item.type == TelemetryItemType.log,
+        );
+        expect(
+          logItem.asLog!.message,
+          'network_error on : GET : '
+          'https://REDACTED:REDACTED@example.com/path?'
+          'sig=REDACTED&token=REDACTED&password=REDACTED&api_key=REDACTED'
+          '&color=blue',
         );
         expect(
           logItem.asLog!.trace,

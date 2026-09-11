@@ -229,6 +229,7 @@ void main() {
         await expectLater(client.getUrl(uri), throwsA(same(error)));
       } else {
         final request = _MockRequest();
+        when(() => request.uri).thenReturn(Uri.parse('https://example.com/'));
         when(() => request.headers).thenReturn(_MockHeaders());
         final tracked = FaroTrackingHttpClientRequest(request, httpSpan: span);
         if (phase == 'abort') {

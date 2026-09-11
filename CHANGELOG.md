@@ -48,9 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the exception type in `error.type`. Faro HTTP events retain the legacy
   `http.status_code` value of `"0"`
   ([#346](https://github.com/grafana/faro-flutter-sdk/issues/346)).
-- **HTTP span and event URLs redact credentials and sensitive query values**,
-  without changing the request sent to the server. Exact URL filters and
-  grouping use the redacted values. See the Reference docs for the policy
+- **HTTP telemetry URLs redact credentials and sensitive query values** in
+  spans, events and fallback network-error logs, including common token,
+  password and API-key query parameters. The request URL is unchanged. Exact
+  URL filters and grouping use the redacted values. See the Reference docs
+  for the policy
   ([#346](https://github.com/grafana/faro-flutter-sdk/issues/346)).
 - **Successful HTTP spans leave status unset**, following OpenTelemetry HTTP
   conventions. Response completion preserves any previously recorded error

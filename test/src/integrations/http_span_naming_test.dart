@@ -223,7 +223,7 @@ void main() {
       final response = await tracked.close();
       expect(
         (response as FaroTrackingHttpResponse).userAttributes['url'],
-        url.toString(),
+        sanitizedUrl ?? url.toString(),
       );
       await response.drain<void>();
       expect(processor.ended, [same(span)]);
@@ -343,10 +343,12 @@ void main() {
       (c, u) => c.getUrl(u),
       fullUrl:
           'https://alice:example-password@example.com/path?'
-          'sig=example-signature&color=blue#section',
+          'sig=example-signature&token=example-token&password=example-password'
+          '&api_key=example-key&color=blue#section',
       sanitizedUrl:
           'https://REDACTED:REDACTED@example.com/path?'
-          'sig=REDACTED&color=blue#section',
+          'sig=REDACTED&token=REDACTED&password=REDACTED&api_key=REDACTED'
+          '&color=blue#section',
     );
   });
 

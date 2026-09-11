@@ -791,9 +791,9 @@ attributes contain its actual code, including after a body failure.
 
 ### HTTP URL sanitization
 
-The span's `url.full` and event's `http.url` replace URL user information
-with `REDACTED:REDACTED`
-and the following query values with `REDACTED`:
+HTTP spans (`url.full`), HTTP events (`http.url`) and fallback `network_error`
+logs replace URL user information with `REDACTED:REDACTED` and the following
+query values with `REDACTED`:
 
 - `X-Amz-Signature`
 - `X-Amz-Credential`
@@ -802,6 +802,9 @@ and the following query values with `REDACTED`:
 - `Signature`
 - `sig`
 - `X-Goog-Signature`
+- `token`, `access_token`, `refresh_token`
+- `api_key`, `apikey`
+- `password`, `client_secret`
 
 Matching uses decoded, case-sensitive keys and covers repeated parameters.
 Other query parameters, the path and the fragment use their original values.

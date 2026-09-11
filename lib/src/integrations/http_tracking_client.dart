@@ -135,7 +135,11 @@ class FaroHttpTrackingClient implements HttpClient {
     try {
       // ignore: close_sinks
       final request = await innerClient.openUrl(method, url);
-      return FaroTrackingHttpClientRequest(request, httpSpan: httpSpan);
+      return FaroTrackingHttpClientRequest(
+        request,
+        httpSpan: httpSpan,
+        redactedUrl: redactedUrl,
+      );
     } catch (error, stackTrace) {
       _recordHttpError(httpSpan, error, stackTrace);
       httpSpan.end();
@@ -291,13 +295,18 @@ void _recordHttpError(Span span, Object error, StackTrace? stackTrace) {
 }
 
 class FaroTrackingHttpClientRequest implements HttpClientRequest {
-  FaroTrackingHttpClientRequest(this.innerContext, {required Span httpSpan})
-    : _httpSpan = httpSpan {
+  FaroTrackingHttpClientRequest(
+    this.innerContext, {
+    required Span httpSpan,
+    String? redactedUrl,
+  }) : _httpSpan = httpSpan,
+       _redactedUrl = redactedUrl ?? redactHttpUrl(innerContext.uri) {
     innerContext.headers.add('traceparent', _httpSpan.traceparent);
   }
 
   final HttpClientRequest innerContext;
   final Span _httpSpan;
+  final String _redactedUrl;
   var _operationFinished = false;
 
   void _finishOperation() {
@@ -344,7 +353,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
           'status_code': '${value.statusCode}',
           'method': innerContext.method,
           'request_size': '${innerContext.contentLength}',
-          'url': innerContext.uri.toString(),
+          'url': _redactedUrl,
         },
         spanContext: _httpSpan.spanContext,
         onFinish: _finishOperation,
