@@ -1,9 +1,9 @@
-/// Redacts the HTTP span URL without changing the request or Faro event URL.
+/// Redacts HTTP span and event URLs without changing the request URL.
 ///
 /// OTel HTTP client URL redaction rules (the query-key list is Development):
 /// https://opentelemetry.io/docs/specs/semconv/http/http-spans/#http-client-span
 /// Preserves the encoding/order of non-sensitive query parameters.
-String redactHttpSpanUrl(Uri url) {
+String redactHttpUrl(Uri url) {
   const sensitiveKeys = {
     'X-Amz-Signature',
     'X-Amz-Credential',

@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HTTP spans use stable attribute names**, including `url.full`,
   `server.address`, `server.port`, and `http.response.status_code`. Legacy
   HTTP fields are removed from automatic spans. The `faro.tracing.fetch`
-  event retains its existing fields and values for consumer compatibility.
+  event retains its existing fields, with URL redaction as described below.
   Update span consumers before adopting this private-preview schema.
   See the Reference docs for details
   ([#346](https://github.com/grafana/faro-flutter-sdk/issues/346)).
@@ -48,9 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the exception type in `error.type`. Faro HTTP events retain the legacy
   `http.status_code` value of `"0"`
   ([#346](https://github.com/grafana/faro-flutter-sdk/issues/346)).
-- **HTTP span URLs redact credentials and sensitive query values**,
-  without changing the request sent to the server. Faro HTTP event URLs
-  retain their previous behavior. See the Reference docs for the policy
+- **HTTP span and event URLs redact credentials and sensitive query values**,
+  without changing the request sent to the server. Exact URL filters and
+  grouping use the redacted values. See the Reference docs for the policy
   ([#346](https://github.com/grafana/faro-flutter-sdk/issues/346)).
 - **Successful HTTP spans leave status unset**, following OpenTelemetry HTTP
   conventions. Response completion preserves any previously recorded error

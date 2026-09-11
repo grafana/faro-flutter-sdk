@@ -767,7 +767,7 @@ except for the integer port and response status.
 | --- | --- | --- |
 | Method | `http.request.method` | `http.method`; also `http.request.method` for known methods |
 | Original spelling of a normalized method | `http.request.method_original` | `http.request.method_original` |
-| URL | `url.full` (sanitized) | `http.url` (original request URL) |
+| URL | `url.full` (sanitized) | `http.url` (sanitized) |
 | Host without port | `server.address` | `http.host` |
 | Effective port, including defaults 80/443 | `server.port` (integer) | — |
 | Response status | `http.response.status_code` (integer, only with a response) | `http.status_code`; `"0"` for failures without a response |
@@ -789,9 +789,10 @@ type in `error.type`, unless the span already has an error. These failures do
 not add exception types to HTTP events. When a response exists, both status-code
 attributes contain its actual code, including after a body failure.
 
-### HTTP span URL sanitization
+### HTTP URL sanitization
 
-The span's `url.full` replaces URL user information with `REDACTED:REDACTED`
+The span's `url.full` and event's `http.url` replace URL user information
+with `REDACTED:REDACTED`
 and the following query values with `REDACTED`:
 
 - `X-Amz-Signature`
@@ -804,7 +805,7 @@ and the following query values with `REDACTED`:
 
 Matching uses decoded, case-sensitive keys and covers repeated parameters.
 Other query parameters, the path and the fragment use their original values.
-The request sent to the server and the event's `http.url` use the original URL.
+The request sent to the server uses the original URL.
 
 ---
 

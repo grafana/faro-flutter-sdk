@@ -209,13 +209,16 @@ void main() {
       ).called(1);
       expect(span.isEnded, isFalse);
       final initial = record.getFaroEventAttributes();
-      expect(initial['http.url'], url.toString());
+      expect(initial['http.url'], sanitizedUrl ?? url.toString());
       expect(initial['http.host'], url.host);
       expect(initial['http.scheme'], url.scheme);
       expect(initial, isNot(contains('http.status_code')));
       expect(initial, isNot(contains('http.response.status_code')));
       initial['http.url'] = 'mutated-by-consumer';
-      expect(record.getFaroEventAttributes()['http.url'], url.toString());
+      expect(
+        record.getFaroEventAttributes()['http.url'],
+        sanitizedUrl ?? url.toString(),
+      );
 
       final response = await tracked.close();
       expect(
@@ -290,7 +293,7 @@ void main() {
         known ? recordedMethod : isNull,
       );
       expect(event.attributes!['http.method'], recordedMethod);
-      expect(event.attributes!['http.url'], url.toString());
+      expect(event.attributes!['http.url'], sanitizedUrl ?? url.toString());
       expect(event.attributes!['http.host'], url.host);
       expect(event.attributes!['http.scheme'], url.scheme);
       expect(event.attributes!['http.status_code'], '$statusCode');

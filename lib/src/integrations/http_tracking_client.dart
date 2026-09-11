@@ -107,13 +107,14 @@ class FaroHttpTrackingClient implements HttpClient {
     final upperMethod = method.toUpperCase();
     final isKnownMethod = _knownMethods.contains(upperMethod);
     final recordedMethod = isKnownMethod ? upperMethod : method;
+    final redactedUrl = redactHttpUrl(url);
     final httpSpan = _startHttpSpan(
       isKnownMethod ? recordedMethod : 'HTTP $method',
       attributes: {
         'http.request.method': recordedMethod,
         if (isKnownMethod && recordedMethod != method)
           'http.request.method_original': method,
-        'url.full': redactHttpSpanUrl(url),
+        'url.full': redactedUrl,
         'server.address': url.host,
         'server.port': url.port,
         UserActionConstants.pendingOperationKey: true,
@@ -126,7 +127,7 @@ class FaroHttpTrackingClient implements HttpClient {
         'http.request.method_original': method,
       'http.method': recordedMethod,
       'http.scheme': url.scheme,
-      'http.url': url.toString(),
+      'http.url': redactedUrl,
       'http.host': url.host,
       'http.user_agent': innerClient.userAgent ?? '',
     });
