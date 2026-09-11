@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
+import 'package:faro/src/integrations/http_url_redaction.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
@@ -112,7 +113,7 @@ class FaroHttpTrackingClient implements HttpClient {
         'http.request.method': recordedMethod,
         if (isKnownMethod && recordedMethod != method)
           'http.request.method_original': method,
-        'url.full': _redactHttpSpanUrl(url),
+        'url.full': redactHttpSpanUrl(url),
         'server.address': url.host,
         'server.port': url.port,
         UserActionConstants.pendingOperationKey: true,
@@ -270,44 +271,6 @@ class FaroHttpTrackingClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> putUrl(Uri url) => _openUrl('PUT', url);
-}
-
-// Redact the HTTP span URL without changing the request or Faro event URL.
-// OTel HTTP client URL redaction rules (the query-key list is Development):
-// https://opentelemetry.io/docs/specs/semconv/http/http-spans/#http-client-span
-// Preserve the encoding/order of non-sensitive query parameters.
-String _redactHttpSpanUrl(Uri url) {
-  const sensitiveKeys = {
-    'X-Amz-Signature',
-    'X-Amz-Credential',
-    'X-Amz-Security-Token',
-    'AWSAccessKeyId',
-    'Signature',
-    'sig',
-    'X-Goog-Signature',
-  };
-  final query = url.query
-      .split('&')
-      .map((part) {
-        final separator = part.indexOf('=');
-        final key = separator < 0 ? part : part.substring(0, separator);
-        try {
-          if (sensitiveKeys.contains(Uri.decodeQueryComponent(key))) {
-            return '$key=REDACTED';
-          }
-        } on FormatException {
-          // Invalid UTF-8 cannot match a sensitive key. Do not let telemetry
-          // sanitization prevent the HTTP client from handling the request.
-        }
-        return part;
-      })
-      .join('&');
-  return url
-      .replace(
-        userInfo: url.userInfo.isEmpty ? null : 'REDACTED:REDACTED',
-        query: url.hasQuery ? query : null,
-      )
-      .toString();
 }
 
 void _recordHttpError(Span span, Object error, StackTrace? stackTrace) {
