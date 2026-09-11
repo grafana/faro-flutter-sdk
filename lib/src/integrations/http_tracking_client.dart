@@ -112,7 +112,7 @@ class FaroHttpTrackingClient implements HttpClient {
         'http.request.method': recordedMethod,
         if (isKnownMethod && recordedMethod != method)
           'http.request.method_original': method,
-        'url.full': _sanitizeHttpUrl(url),
+        'url.full': _redactHttpSpanUrl(url),
         'server.address': url.host,
         'server.port': url.port,
         UserActionConstants.pendingOperationKey: true,
@@ -272,13 +272,17 @@ class FaroHttpTrackingClient implements HttpClient {
   Future<HttpClientRequest> putUrl(Uri url) => _openUrl('PUT', url);
 }
 
-// Sanitize only the telemetry copy, preserving the actual request and the
-// encoding/order of non-sensitive query parameters.
-String _sanitizeHttpUrl(Uri url) {
+// Redact the HTTP span URL without changing the request or Faro event URL.
+// OTel HTTP client URL redaction rules (the query-key list is Development):
+// https://opentelemetry.io/docs/specs/semconv/http/http-spans/#http-client-span
+// Preserve the encoding/order of non-sensitive query parameters.
+String _redactHttpSpanUrl(Uri url) {
   const sensitiveKeys = {
     'X-Amz-Signature',
     'X-Amz-Credential',
     'X-Amz-Security-Token',
+    'AWSAccessKeyId',
+    'Signature',
     'sig',
     'X-Goog-Signature',
   };
@@ -376,7 +380,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
           'status_code': '${value.statusCode}',
           'method': innerContext.method,
           'request_size': '${innerContext.contentLength}',
-          'url': _sanitizeHttpUrl(innerContext.uri),
+          'url': innerContext.uri.toString(),
         },
         spanContext: _httpSpan.spanContext,
         onFinish: _finishOperation,

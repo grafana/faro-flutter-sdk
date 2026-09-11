@@ -218,6 +218,10 @@ void main() {
       expect(record.getFaroEventAttributes()['http.url'], url.toString());
 
       final response = await tracked.close();
+      expect(
+        (response as FaroTrackingHttpResponse).userAttributes['url'],
+        url.toString(),
+      );
       await response.drain<void>();
       expect(processor.ended, [same(span)]);
 
@@ -353,6 +357,12 @@ void main() {
       'https://example.com/?X-Amz-Signature=REDACTED&'
           'X-Amz-Credential=REDACTED&X-Amz-Security-Token=REDACTED&'
           'X-Goog-Signature=REDACTED&q=a%20b&q=two&flag',
+    ),
+    (
+      'https://example.com/?AWSAccessKeyId=example-key&Signature=example-signature'
+          '&Signature=second&%53ignature=encoded&signature=visible',
+      'https://example.com/?AWSAccessKeyId=REDACTED&Signature=REDACTED'
+          '&Signature=REDACTED&Signature=REDACTED&signature=visible',
     ),
     (
       'https://example.com/?sig=&sig',

@@ -797,6 +797,8 @@ and the following query values with `REDACTED`:
 - `X-Amz-Signature`
 - `X-Amz-Credential`
 - `X-Amz-Security-Token`
+- `AWSAccessKeyId`
+- `Signature`
 - `sig`
 - `X-Goog-Signature`
 
