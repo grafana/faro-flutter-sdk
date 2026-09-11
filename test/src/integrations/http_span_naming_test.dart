@@ -141,8 +141,10 @@ void main() {
     int statusCode = 200,
     bool known = true,
     String? normalizedMethod,
+    String? fullUrl,
+    String? sanitizedUrl,
   }) async {
-    final url = Uri.parse('http://example.com$path');
+    final url = Uri.parse(fullUrl ?? 'http://example.com$path');
     final innerClient = _MockClient();
     final filter = HttpTrackingFilter()
       ..configure(collectorUrl: null, ignoreUrls: null);
@@ -158,13 +160,14 @@ void main() {
     when(() => request.headers).thenReturn(requestHeaders);
     when(() => request.method).thenReturn(method);
     when(() => request.uri).thenReturn(url);
-    when(() => request.contentLength).thenReturn(0);
+    when(() => innerClient.userAgent).thenReturn('compatibility-test-agent');
+    when(() => request.contentLength).thenReturn(123);
     when(request.close).thenAnswer((_) async => response);
     when(() => request.done).thenAnswer((_) async => response);
     when(() => response.statusCode).thenReturn(statusCode);
     when(() => response.headers).thenReturn(responseHeaders);
-    when(() => responseHeaders.contentLength).thenReturn(0);
-    when(() => responseHeaders.contentType).thenReturn(null);
+    when(() => responseHeaders.contentLength).thenReturn(456);
+    when(() => responseHeaders.contentType).thenReturn(ContentType.json);
     when(
       () => response.listen(
         any(),
@@ -205,8 +208,23 @@ void main() {
         ),
       ).called(1);
       expect(span.isEnded, isFalse);
+      final initial = record.getFaroEventAttributes();
+      expect(initial['http.url'], sanitizedUrl ?? url.toString());
+      expect(initial['http.host'], url.host);
+      expect(initial['http.scheme'], url.scheme);
+      expect(initial, isNot(contains('http.status_code')));
+      expect(initial, isNot(contains('http.response.status_code')));
+      initial['http.url'] = 'mutated-by-consumer';
+      expect(
+        record.getFaroEventAttributes()['http.url'],
+        sanitizedUrl ?? url.toString(),
+      );
 
       final response = await tracked.close();
+      expect(
+        (response as FaroTrackingHttpResponse).userAttributes['url'],
+        sanitizedUrl ?? url.toString(),
+      );
       await response.drain<void>();
       expect(processor.ended, [same(span)]);
 
@@ -228,16 +246,32 @@ void main() {
       expect(exported['traceId'], parent.traceId);
       expect(exported['parentSpanId'], parent.spanId);
       expect(exported['spanId'], isNot(parent.spanId));
-      expect(
-        attributes['http.request.method'],
-        known ? {'stringValue': recordedMethod} : isNull,
-      );
-      expect(attributes['http.method'], {'stringValue': recordedMethod});
+      expect(attributes['http.request.method'], {
+        'stringValue': recordedMethod,
+      });
+      expect(attributes, isNot(contains('http.method')));
       expect(
         attributes['http.request.method_original'],
         normalizedMethod != null ? {'stringValue': method} : isNull,
       );
-      expect(attributes['http.url'], {'stringValue': url.toString()});
+      expect(attributes['url.full'], {
+        'stringValue': sanitizedUrl ?? url.toString(),
+      });
+      expect(attributes['server.address'], {'stringValue': url.host});
+      expect(attributes['server.port'], {'intValue': url.port});
+      expect(attributes['http.response.status_code'], {'intValue': statusCode});
+      for (final key in [
+        'http.url',
+        'http.host',
+        'http.scheme',
+        'http.status_code',
+        'http.user_agent',
+        'http.request_size',
+        'http.response_size',
+        'http.content_type',
+      ]) {
+        expect(attributes, isNot(contains(key)));
+      }
       expect(attributes, isNot(contains('url.template')));
       expect(exported['status'], {'code': statusCode >= 400 ? 2 : 0});
       expect(
@@ -259,6 +293,23 @@ void main() {
         known ? recordedMethod : isNull,
       );
       expect(event.attributes!['http.method'], recordedMethod);
+      expect(event.attributes!['http.url'], sanitizedUrl ?? url.toString());
+      expect(event.attributes!['http.host'], url.host);
+      expect(event.attributes!['http.scheme'], url.scheme);
+      expect(event.attributes!['http.status_code'], '$statusCode');
+      expect(event.attributes!['http.user_agent'], 'compatibility-test-agent');
+      expect(event.attributes!['http.request_size'], '123');
+      expect(event.attributes!['http.response_size'], '456');
+      expect(event.attributes!['http.content_type'], '${ContentType.json}');
+      for (final key in [
+        'url.full',
+        'server.address',
+        'server.port',
+        'http.response.status_code',
+      ]) {
+        expect(event.attributes, isNot(contains(key)));
+      }
+      expect(event.attributes!.values, everyElement(isA<String>()));
       expect(
         event.attributes!['http.request.method_original'],
         normalizedMethod != null ? method : isNull,
@@ -273,6 +324,33 @@ void main() {
       expect(router.items, hasLength(2));
     });
   }
+
+  for (final url in [
+    'http://example.com/path',
+    'https://example.com/path',
+    'https://example.com:8443/path',
+    'http://127.0.0.1:8080/path',
+    'https://[::1]:8443/path',
+  ]) {
+    test('exports stable authority for $url', () async {
+      await verifyRequest('GET', (c, u) => c.getUrl(u), fullUrl: url);
+    });
+  }
+
+  test('redacts span and event URLs without changing the request', () async {
+    await verifyRequest(
+      'GET',
+      (c, u) => c.getUrl(u),
+      fullUrl:
+          'https://alice:example-password@example.com/path?'
+          'sig=example-signature&token=example-token&password=example-password'
+          '&api_key=example-key&color=blue#section',
+      sanitizedUrl:
+          'https://REDACTED:REDACTED@example.com/path?'
+          'sig=REDACTED&token=REDACTED&password=REDACTED&api_key=REDACTED'
+          '&color=blue#section',
+    );
+  });
 
   for (final method in [
     'GET',

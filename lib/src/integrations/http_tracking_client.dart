@@ -5,9 +5,11 @@ import 'dart:io';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_tracking_filter.dart';
+import 'package:faro/src/integrations/http_url_redaction.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
+import 'package:faro/src/tracing/http_event_attributes.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/constants.dart';
 
@@ -105,30 +107,41 @@ class FaroHttpTrackingClient implements HttpClient {
     final upperMethod = method.toUpperCase();
     final isKnownMethod = _knownMethods.contains(upperMethod);
     final recordedMethod = isKnownMethod ? upperMethod : method;
+    final redactedUrl = redactHttpUrl(url);
     final httpSpan = _startHttpSpan(
       isKnownMethod ? recordedMethod : 'HTTP $method',
       attributes: {
-        if (isKnownMethod) 'http.request.method': recordedMethod,
+        'http.request.method': recordedMethod,
         if (isKnownMethod && recordedMethod != method)
           'http.request.method_original': method,
-        // Retain the legacy field until HTTP event/query consumers migrate.
-        'http.method': recordedMethod,
-        'http.scheme': url.scheme,
-        'http.url': url.toString(),
-        'http.host': url.host,
-        'http.user_agent': innerClient.userAgent ?? '',
+        'url.full': redactedUrl,
+        'server.address': url.host,
+        'server.port': url.port,
         UserActionConstants.pendingOperationKey: true,
       },
     );
 
+    initializeHttpEventAttributes(httpSpan, {
+      if (isKnownMethod) 'http.request.method': recordedMethod,
+      if (isKnownMethod && recordedMethod != method)
+        'http.request.method_original': method,
+      'http.method': recordedMethod,
+      'http.scheme': url.scheme,
+      'http.url': redactedUrl,
+      'http.host': url.host,
+      'http.user_agent': innerClient.userAgent ?? '',
+    });
+
     try {
       // ignore: close_sinks
       final request = await innerClient.openUrl(method, url);
-      return FaroTrackingHttpClientRequest(request, httpSpan: httpSpan);
+      return FaroTrackingHttpClientRequest(
+        request,
+        httpSpan: httpSpan,
+        redactedUrl: redactedUrl,
+      );
     } catch (error, stackTrace) {
-      httpSpan.setAttribute('http.status_code', 0);
-      httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
-      httpSpan.recordException(error, stackTrace: stackTrace);
+      _recordHttpError(httpSpan, error, stackTrace);
       httpSpan.end();
       rethrow;
     }
@@ -265,16 +278,36 @@ class FaroHttpTrackingClient implements HttpClient {
   Future<HttpClientRequest> putUrl(Uri url) => _openUrl('PUT', url);
 }
 
+void _recordHttpError(Span span, Object error, StackTrace? stackTrace) {
+  preserveHttpEventErrorType(span);
+  if (span is InternalSpan &&
+      httpEventAttributes(span.otelSpan)?['http.status_code'] == null) {
+    updateHttpEventAttributes(span, {'http.status_code': '0'});
+  }
+  // Keep the first error, including an HTTP error recorded before a body
+  // failure. Exception types carry failure information without inventing a
+  // response code or using high-cardinality exception messages as error.type.
+  if (span.status != SpanStatusCode.error) {
+    span.setAttribute('error.type', error.runtimeType.toString());
+    span.setStatus(SpanStatusCode.error, message: error.toString());
+  }
+  span.recordException(error, stackTrace: stackTrace);
+}
+
 class FaroTrackingHttpClientRequest implements HttpClientRequest {
-  FaroTrackingHttpClientRequest(this.innerContext, {required Span httpSpan})
-    : _httpSpan = httpSpan {
+  FaroTrackingHttpClientRequest(
+    this.innerContext, {
+    required Span httpSpan,
+    String? redactedUrl,
+  }) : _httpSpan = httpSpan,
+       _redactedUrl = redactedUrl ?? redactHttpUrl(innerContext.uri) {
     innerContext.headers.add('traceparent', _httpSpan.traceparent);
   }
 
   final HttpClientRequest innerContext;
   final Span _httpSpan;
+  final String _redactedUrl;
   var _operationFinished = false;
-  var _statusCodeRecorded = false;
 
   void _finishOperation() {
     if (_operationFinished) {
@@ -285,11 +318,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   }
 
   void _recordOperationError(Object error, [StackTrace? stackTrace]) {
-    if (!_statusCodeRecorded) {
-      _httpSpan.setAttribute('http.status_code', 0);
-    }
-    _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
-    _httpSpan.recordException(error, stackTrace: stackTrace);
+    _recordHttpError(_httpSpan, error, stackTrace);
   }
 
   Future<HttpClientResponse> _trackResponseFuture(
@@ -298,16 +327,20 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     try {
       final value = await responseFuture();
 
-      _httpSpan.setAttributes({
-        'http.status_code': value.statusCode,
-        'http.request_size': innerContext.contentLength,
-        'http.response_size': value.headers.contentLength,
+      preserveHttpEventErrorType(_httpSpan);
+      updateHttpEventAttributes(_httpSpan, {
+        'http.status_code': '${value.statusCode}',
+        'http.request_size': '${innerContext.contentLength}',
+        'http.response_size': '${value.headers.contentLength}',
         'http.content_type': '${value.headers.contentType}',
       });
-      _statusCodeRecorded = true;
+      _httpSpan.setAttribute('http.response.status_code', value.statusCode);
       // Successful responses leave status unset. Preserve an error already
       // recorded on the span instead of replacing its diagnostic information.
       if (value.statusCode >= 400 && _httpSpan.status != SpanStatusCode.error) {
+        updateHttpEventAttributes(_httpSpan, {
+          'error.type': value.statusCode.toString(),
+        });
         _httpSpan.setAttribute('error.type', value.statusCode.toString());
         _httpSpan.setStatus(SpanStatusCode.error);
       }
@@ -320,7 +353,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
           'status_code': '${value.statusCode}',
           'method': innerContext.method,
           'request_size': '${innerContext.contentLength}',
-          'url': innerContext.uri.toString(),
+          'url': _redactedUrl,
         },
         spanContext: _httpSpan.spanContext,
         onFinish: _finishOperation,

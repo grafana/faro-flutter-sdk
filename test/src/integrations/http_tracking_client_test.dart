@@ -131,7 +131,6 @@ void main() {
       mockRequestHeaders = MockHttpHeaders();
       mockResponseHeaders = MockHttpHeaders();
       mockSpan = MockSpan();
-
       when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
 
       when(() => mockSpan.traceId).thenReturn('trace-id');
@@ -192,7 +191,9 @@ void main() {
       await expectLater(trackedRequest.close, throwsA(isA<Exception>()));
       await Future<void>.delayed(Duration.zero);
 
-      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verifyNever(
+        () => mockSpan.setAttribute('http.response.status_code', any()),
+      );
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,
@@ -282,7 +283,9 @@ void main() {
       trackedRequest.abort(error, stackTrace);
 
       verify(() => mockHttpClientRequest.abort(error, stackTrace)).called(1);
-      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verifyNever(
+        () => mockSpan.setAttribute('http.response.status_code', any()),
+      );
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,
@@ -295,21 +298,26 @@ void main() {
       verify(() => mockSpan.end()).called(1);
     });
 
-    test('abort without exception still records status_code 0', () {
-      trackedRequest.abort();
+    test(
+      'abort without exception still records an error without a response code',
+      () {
+        trackedRequest.abort();
 
-      verify(() => mockHttpClientRequest.abort(any(), any())).called(1);
-      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
-      verify(
-        () => mockSpan.setStatus(
-          SpanStatusCode.error,
-          message: any(named: 'message'),
-        ),
-      ).called(1);
-      verify(() => mockSpan.end()).called(1);
-    });
+        verify(() => mockHttpClientRequest.abort(any(), any())).called(1);
+        verifyNever(
+          () => mockSpan.setAttribute('http.response.status_code', any()),
+        );
+        verify(
+          () => mockSpan.setStatus(
+            SpanStatusCode.error,
+            message: any(named: 'message'),
+          ),
+        ).called(1);
+        verify(() => mockSpan.end()).called(1);
+      },
+    );
 
-    test('addStream failure records status_code 0 and ends the span', () async {
+    test('addStream failure omits response code and ends the span', () async {
       const stream = Stream<List<int>>.empty();
       when(
         () => mockHttpClientRequest.addStream(stream),
@@ -320,7 +328,9 @@ void main() {
         throwsA(isA<SocketException>()),
       );
 
-      verify(() => mockSpan.setAttribute('http.status_code', 0)).called(1);
+      verifyNever(
+        () => mockSpan.setAttribute('http.response.status_code', any()),
+      );
       verify(
         () => mockSpan.setStatus(
           SpanStatusCode.error,
@@ -347,6 +357,7 @@ void main() {
       mockRequestHeaders = MockHttpHeaders();
       mockResponseHeaders = MockHttpHeaders();
       mockSpan = MockSpan();
+      when(() => mockSpan.status).thenReturn(SpanStatusCode.unset);
       responseStreamController = StreamController<List<int>>();
       router = _RecordingRouter();
       pod.overrideProvider<TelemetryRouter>(
@@ -526,8 +537,20 @@ void main() {
     });
 
     test(
-      'network_error log from unsupported onError carries span trace context',
+      'network_error log redacts the URL and preserves span trace context',
       () async {
+        when(() => mockHttpClientRequest.uri).thenReturn(
+          Uri.parse(
+            'https://alice:example-password@example.com/path?'
+            'sig=example-signature&token=example-token'
+            '&password=example-password'
+            '&api_key=example-key&color=blue',
+          ),
+        );
+        trackedRequest = FaroTrackingHttpClientRequest(
+          mockHttpClientRequest,
+          httpSpan: mockSpan,
+        );
         final response = await trackedRequest.close();
         // An onError with an unsupported signature (neither one- nor two-arg)
         // forces the integration onto its fallback pushLog path.
@@ -542,6 +565,13 @@ void main() {
 
         final logItem = router.ingested.firstWhere(
           (item) => item.type == TelemetryItemType.log,
+        );
+        expect(
+          logItem.asLog!.message,
+          'network_error on : GET : '
+          'https://REDACTED:REDACTED@example.com/path?'
+          'sig=REDACTED&token=REDACTED&password=REDACTED&api_key=REDACTED'
+          '&color=blue',
         );
         expect(
           logItem.asLog!.trace,

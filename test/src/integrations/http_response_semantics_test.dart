@@ -3,14 +3,18 @@ import 'dart:io';
 
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/integrations/http_tracking_client.dart';
+import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
+import 'package:faro/src/tracing/http_event_attributes.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+
+class _MockClient extends Mock implements HttpClient {}
 
 class _MockRequest extends Mock implements HttpClientRequest {}
 
@@ -58,7 +62,7 @@ void main() {
       enableMetrics: false,
       enableLogs: false,
     );
-    tracer = otel.OTel.tracer();
+    tracer = otel.OTel.tracerProvider().getTracer('faro-mobile-flutter.http');
   });
 
   setUp(processor.ended.clear);
@@ -72,11 +76,12 @@ void main() {
     int statusCode, {
     required bool useDone,
     bool existingError = false,
+    bool bodyError = false,
   }) async {
     final recordingSpan = tracer.startSpan(
-      'HTTP GET',
+      'GET',
       kind: otel.SpanKind.client,
-      attributes: otel.OTel.attributesFromMap({'http.method': 'GET'}),
+      attributes: otel.OTel.attributesFromMap({'http.request.method': 'GET'}),
     );
     final span = SpanProvider().getSpan(recordingSpan, otel.Context.current);
     if (existingError) {
@@ -84,6 +89,14 @@ void main() {
       span.setAttribute('error.type', 'previous_failure');
     }
 
+    initializeHttpEventAttributes(span, {
+      'http.method': 'GET',
+      'http.request.method': 'GET',
+      'http.url': 'https://example.com/test',
+      'http.host': 'example.com',
+      'http.scheme': 'https',
+      'http.user_agent': '',
+    });
     final request = _MockRequest();
     final response = _MockResponse();
     final requestHeaders = _MockHeaders();
@@ -106,12 +119,15 @@ void main() {
         cancelOnError: any(named: 'cancelOnError'),
       ),
     ).thenAnswer((invocation) {
-      return const Stream<List<int>>.empty().listen(
-        invocation.positionalArguments[0] as void Function(List<int>)?,
-        onError: invocation.namedArguments[#onError] as Function?,
-        onDone: invocation.namedArguments[#onDone] as void Function()?,
-        cancelOnError: invocation.namedArguments[#cancelOnError] as bool?,
-      );
+      return (bodyError
+              ? Stream<List<int>>.error(const SocketException('body failed'))
+              : const Stream<List<int>>.empty())
+          .listen(
+            invocation.positionalArguments[0] as void Function(List<int>)?,
+            onError: invocation.namedArguments[#onError] as Function?,
+            onDone: invocation.namedArguments[#onDone] as void Function()?,
+            cancelOnError: invocation.namedArguments[#cancelOnError] as bool?,
+          );
     });
 
     final tracked = FaroTrackingHttpClientRequest(request, httpSpan: span);
@@ -119,7 +135,14 @@ void main() {
         ? await tracked.done
         : await tracked.close();
     expect(recordingSpan.isEnded, isFalse);
-    await trackedResponse.drain<void>();
+    if (bodyError) {
+      await expectLater(
+        trackedResponse.drain<void>(),
+        throwsA(isA<SocketException>()),
+      );
+    } else {
+      await trackedResponse.drain<void>();
+    }
     expect(span.wasEnded, isTrue);
     expect(processor.ended, [same(recordingSpan)]);
     return recordingSpan;
@@ -130,6 +153,120 @@ void main() {
       attribute['key'] as String: attribute['value'],
   };
 
+  for (final status in [200, 500]) {
+    for (final priorError in [false, true]) {
+      test(
+        'body error preserves response $status and prior error $priorError',
+        () async {
+          final span = await completeResponse(
+            status,
+            useDone: false,
+            existingError: priorError,
+            bodyError: true,
+          );
+          final record = SpanRecord(otelReadOnlySpan: span);
+          final json = record.getSpan().toJson();
+          final attributes = attributesOf(json);
+          final expectedType = priorError
+              ? 'previous_failure'
+              : status >= 400
+              ? '$status'
+              : 'SocketException';
+          expect(attributes['http.response.status_code'], {'intValue': status});
+          expect(attributes['error.type'], {'stringValue': expectedType});
+          expect(json['status']['code'], 2);
+          expect(
+            json['status']['message'],
+            priorError
+                ? 'previous failure'
+                : status >= 400
+                ? isNull
+                : contains('body failed'),
+          );
+          final router = _RecordingRouter();
+          await FaroExporter(telemetryRouter: router).export([span]);
+          final event = router.items
+              .singleWhere((i) => i.asEvent != null)
+              .asEvent!;
+          expect(event.attributes!['http.status_code'], '$status');
+          expect(
+            event.attributes!['error.type'],
+            priorError
+                ? 'previous_failure'
+                : status >= 400
+                ? '$status'
+                : isNull,
+          );
+        },
+      );
+    }
+  }
+
+  for (final phase in ['open', 'close', 'done', 'upload', 'abort']) {
+    test('$phase failure exports error type without a response code', () async {
+      final recordingSpan = tracer.startSpan(
+        'GET',
+        kind: otel.SpanKind.client,
+        attributes: otel.OTel.attributesFromMap({
+          'http.request.method': 'GET',
+          'url.full': 'https://example.com/',
+          'server.address': 'example.com',
+          'server.port': 443,
+        }),
+      );
+      final span = SpanProvider().getSpan(recordingSpan, otel.Context.current);
+      initializeHttpEventAttributes(span, {'http.method': 'GET'});
+      const error = SocketException('failure');
+      if (phase == 'open') {
+        final inner = _MockClient();
+        final uri = Uri.parse('https://example.com/');
+        when(() => inner.openUrl('GET', uri)).thenThrow(error);
+        final client = FaroHttpTrackingClient(
+          inner,
+          trackingFilter: HttpTrackingFilter(),
+          startHttpSpan: (_, {required attributes}) => span,
+        );
+        await expectLater(client.getUrl(uri), throwsA(same(error)));
+      } else {
+        final request = _MockRequest();
+        when(() => request.uri).thenReturn(Uri.parse('https://example.com/'));
+        when(() => request.headers).thenReturn(_MockHeaders());
+        final tracked = FaroTrackingHttpClientRequest(request, httpSpan: span);
+        if (phase == 'abort') {
+          tracked.abort(error);
+        } else if (phase == 'upload') {
+          const stream = Stream<List<int>>.empty();
+          when(() => request.addStream(stream)).thenThrow(error);
+          await expectLater(tracked.addStream(stream), throwsA(same(error)));
+        } else {
+          when(request.close).thenThrow(error);
+          when(() => request.done).thenThrow(error);
+          await expectLater(
+            phase == 'done' ? tracked.done : tracked.close(),
+            throwsA(isA<Exception>()),
+          );
+        }
+      }
+      final record = SpanRecord(otelReadOnlySpan: recordingSpan);
+      final json = record.getSpan().toJson();
+      final attributes = attributesOf(json);
+      expect(json['status']['code'], 2);
+      expect(attributes['error.type'], {'stringValue': 'SocketException'});
+      expect(attributes, isNot(contains('http.response.status_code')));
+      expect(attributes, isNot(contains('http.status_code')));
+      expect(processor.ended, [same(recordingSpan)]);
+      final router = _RecordingRouter();
+      await FaroExporter(telemetryRouter: router).export([recordingSpan]);
+      final event = router.items.singleWhere((i) => i.asEvent != null).asEvent!;
+      expect(event.name, 'faro.tracing.fetch');
+      expect(event.attributes, isNot(contains('error.type')));
+      expect(event.attributes, isNot(contains('http.response.status_code')));
+      expect(event.attributes!['http.status_code'], '0');
+      expect(event.trace, record.getFaroSpanContext());
+      expect(event.attributes, contains('duration_ns'));
+    });
+  }
+
   for (final useDone in [false, true]) {
     group(useDone ? 'done' : 'close', () {
       for (final statusCode in [200, 204, 302, 400, 404, 499, 500, 599]) {
@@ -139,7 +276,9 @@ void main() {
           final attributes = attributesOf(json);
 
           expect(json['status'], {'code': statusCode >= 400 ? 2 : 0});
-          expect(attributes['http.status_code'], {'intValue': statusCode});
+          expect(attributes['http.response.status_code'], {
+            'intValue': statusCode,
+          });
           if (statusCode >= 400) {
             expect(attributes['error.type'], {'stringValue': '$statusCode'});
           } else {
@@ -180,6 +319,7 @@ void main() {
           .asEvent!;
       final record = SpanRecord(otelReadOnlySpan: span);
       expect(event.name, 'faro.tracing.fetch');
+      expect(event.attributes!['http.status_code'], '$statusCode');
       expect(event.trace, record.getFaroSpanContext());
       expect(
         int.parse(event.attributes!['duration_ns']!),

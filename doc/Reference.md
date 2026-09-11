@@ -736,7 +736,7 @@ Automatically instrumented HTTP spans use the instrumentation scope
 Application spans and WebView lifetime spans use `faro-mobile-flutter`.
 
 The HTTP scope identifies spans whose accompanying event is
-`faro.tracing.fetch`. For compatibility, spans with a nonempty `http.method`
+`faro.tracing.fetch`. Spans with a nonempty `http.method`
 or `http.scheme` also produce fetch events. The `http.request.method`
 attribute alone does not classify a span as an HTTP request. Other spans,
 including WebView lifetime spans, produce `span.<name>` events.
@@ -744,14 +744,8 @@ including WebView lifetime spans, produce `span.<name>` events.
 Automatically instrumented HTTP client spans use the request method as their
 name for `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`,
 `PATCH`, and `QUERY`. For example, a request to `/users/123` using `GET`
-produces a span named `GET`. The URL is recorded separately in `http.url`;
+produces a span named `GET`. The URL is recorded separately in `url.full`;
 URL templates are not supported.
-
-For these methods, spans and HTTP events include the string attributes
-`http.request.method` and `http.method`, both set to the method name.
-`http.method` is a compatibility alias. HTTP events use the name
-`faro.tracing.fetch` and include `duration_ns`, trace/span IDs, and session
-attributes for correlation.
 
 Known method values passed to `open()` or `openUrl()` are normalized to
 uppercase, matching Dart's HTTP client. For example, `get` and `GeT` produce
@@ -759,9 +753,62 @@ uppercase, matching Dart's HTTP client. For example, `get` and `GeT` produce
 `http.request.method_original` with that spelling. HTTP convenience methods
 such as `getUrl()` and `postUrl()` use uppercase verbs.
 
-For other method values passed to `open()` or `openUrl()`, the SDK
-uses `HTTP <method>` as the span name and records the supplied value in
-`http.method`, without adding `http.request.method` or changing its case.
+For other method values passed to `open()` or `openUrl()`, the span name is
+`HTTP <method>` and `http.request.method` contains the supplied value, including
+its case.
+
+### HTTP span and event attributes
+
+Automatic HTTP instrumentation records spans and `faro.tracing.fetch` events.
+Event attribute values are strings. The HTTP span attributes below are strings
+except for the integer port and response status.
+
+| Data | Span | HTTP event |
+| --- | --- | --- |
+| Method | `http.request.method` | `http.method`; also `http.request.method` for known methods |
+| Original spelling of a normalized method | `http.request.method_original` | `http.request.method_original` |
+| URL | `url.full` (sanitized) | `http.url` (sanitized) |
+| Host without port | `server.address` | `http.host` |
+| Effective port, including defaults 80/443 | `server.port` (integer) | — |
+| Response status | `http.response.status_code` (integer, only with a response) | `http.status_code`; `"0"` for failures without a response |
+| Duration | Start and end timestamps | `duration_ns` (nanoseconds) |
+
+Request attributes are available at span start. HTTP events also include
+`http.scheme` and `http.user_agent`. After a response arrives, events include
+`http.request_size`, `http.response_size` and `http.content_type`. The size
+fields represent Content-Length in bytes, with `-1` for unknown lengths.
+Events carry trace/span IDs in `trace`, session metadata and optional user-action
+context in `action`.
+
+Responses below 400 leave span status UNSET. Responses of 400 or higher set
+ERROR and a string response code such as `"404"` in `error.type` on the span and
+event, without a code-only status description. An existing error takes precedence.
+
+Transport and response-body failures set span status ERROR and use the exception
+type in `error.type`, unless the span already has an error. These failures do
+not add exception types to HTTP events. When a response exists, both status-code
+attributes contain its actual code, including after a body failure.
+
+### HTTP URL sanitization
+
+HTTP spans (`url.full`), HTTP events (`http.url`) and fallback `network_error`
+logs replace URL user information with `REDACTED:REDACTED` and the following
+query values with `REDACTED`:
+
+- `X-Amz-Signature`
+- `X-Amz-Credential`
+- `X-Amz-Security-Token`
+- `AWSAccessKeyId`
+- `Signature`
+- `sig`
+- `X-Goog-Signature`
+- `token`, `access_token`, `refresh_token`
+- `api_key`, `apikey`
+- `password`, `client_secret`
+
+Matching uses decoded, case-sensitive keys and covers repeated parameters.
+Other query parameters, the path and the fragment use their original values.
+The request sent to the server uses the original URL.
 
 ---
 
