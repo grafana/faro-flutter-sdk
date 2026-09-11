@@ -744,12 +744,11 @@ including WebView lifetime spans, produce `span.<name>` events.
 Automatically instrumented HTTP client spans use the request method as their
 name for `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `CONNECT`, `OPTIONS`, `TRACE`,
 `PATCH`, and `QUERY`. For example, a request to `/users/123` using `GET`
-produces a span named `GET`. The URL is recorded separately in `http.url`;
+produces a span named `GET`. The URL is recorded separately in `url.full`;
 URL templates are not supported.
 
-For these methods, spans and HTTP events include the string attributes
-`http.request.method` and `http.method`, both set to the method name.
-`http.method` is a compatibility alias. HTTP events use the name
+For these methods, spans and HTTP events include `http.request.method`,
+set to the method name. HTTP events use the name
 `faro.tracing.fetch` and include `duration_ns`, trace/span IDs, and session
 attributes for correlation.
 
@@ -761,7 +760,100 @@ such as `getUrl()` and `postUrl()` use uppercase verbs.
 
 For other method values passed to `open()` or `openUrl()`, the SDK
 uses `HTTP <method>` as the span name and records the supplied value in
-`http.method`, without adding `http.request.method` or changing its case.
+`http.request.method` without changing its case. This preserves the existing
+unknown-method value and naming behavior while migrating the attribute key.
+Unknown-method normalization to `_OTHER` and a configurable known-method list
+remain outside this migration; this is not full HTTP semconv conformance.
+
+
+### HTTP span and event attributes
+
+The private-preview HTTP schema uses the following attributes. Request fields
+are set when the span starts. The outer Faro payload structure is unchanged.
+
+| Attribute | Span type | HTTP event type | Availability |
+| --- | --- | --- | --- |
+| `http.request.method` | string | string | Request start; method behavior described above |
+| `http.request.method_original` | string | string | When a known method's spelling was normalized |
+| `url.full` | string | string | Request start; sanitized absolute request URL |
+| `server.address` | string | string | Request start; URI host without port or IPv6 brackets |
+| `server.port` | integer | decimal string | Request start; effective port, including HTTP 80 and HTTPS 443 defaults |
+| `http.response.status_code` | integer | decimal string | Only when an actual response is received |
+| `error.type` | string | string | HTTP error code or exception type; absent on ordinary success |
+| `duration_ns` | Not added; derived from timestamps | decimal string | Ended span with a valid time interval |
+
+Successful requests leave span status UNSET. HTTP error responses (400 and
+above) set ERROR and a string code such as `"404"` in `error.type`, without a
+redundant code-only status description. Failures without a response set ERROR
+and use `error.runtimeType.toString()` (for example `SocketException` or
+`HttpException`) for `error.type`; the response code is absent, never 0.
+Later failures preserve an already recorded error and its diagnostic information.
+An error while reading a response preserves its actual response code.
+
+Events also retain the span's other attributes as strings, including session
+correlation. The event's `trace` object carries `trace_id` and `span_id`.
+Existing user-action name/parent attributes are moved into the event's `action`
+object by the exporter. For example, the HTTP-owned portion of a 404 event is:
+
+```json
+{
+  "name": "faro.tracing.fetch",
+  "attributes": {
+    "http.request.method": "GET",
+    "url.full": "https://example.com/missing",
+    "server.address": "example.com",
+    "server.port": "443",
+    "http.response.status_code": "404",
+    "error.type": "404",
+    "duration_ns": "25000000"
+  },
+  "trace": {
+    "trace_id": "0123456789abcdef0123456789abcdef",
+    "span_id": "0123456789abcdef"
+  }
+}
+```
+
+This fragment omits the event timestamp, session metadata and optional action
+context. On the corresponding span, port and response code use `intValue`;
+the method, URL, address and error type use `stringValue`.
+
+### HTTP URL sanitization
+
+URL user information is replaced with `REDACTED:REDACTED`. Query values for
+`X-Amz-Signature`, `X-Amz-Credential`, `X-Amz-Security-Token`, `sig`, and
+`X-Goog-Signature` are replaced with `REDACTED`. Matching uses decoded,
+case-sensitive keys, including repeated keys. Other query parameters, the path
+and the fragment are retained. This follows the defaults in
+[HTTP semconv 1.44.0](https://opentelemetry.io/docs/specs/semconv/http/http-spans/).
+The policy does not identify arbitrary application-specific secrets in URLs.
+Only the telemetry copy is sanitized; the actual request URI is unchanged.
+
+### Migrating HTTP consumers
+
+Automatic HTTP spans and their events no longer emit `http.method`, `http.url`,
+`http.host`, `http.status_code`, `http.scheme`, `http.user_agent`,
+`http.content_type`, `http.request_size`, or `http.response_size`. Existing
+custom-span attributes are not rewritten. Scheme remains available in
+`url.full`; user agent, content type and body-size fields have no replacement
+in this focused schema. In particular, old Content-Length values must not be
+renamed to total request/response sizes: they do not measure headers or framing.
+
+Consumers must prefer the stable method, URL, address and response-code fields,
+with fallbacks to legacy fields for historical data and other SDK versions.
+Absence must be checked explicitly: some storage types default missing numeric
+fields to 0. Keep missing responses distinct from an actual HTTP response.
+Use `error.type` to detect new failure events, including failures with a 200
+response followed by a body error; retain legacy status-0 handling for old data.
+A present error type indicates failure even when the status code is absent.
+Do not synthesize a stable response code during migration.
+
+Update URL processing, typed storage schemas, HTTP queries, alert rules, and
+trace navigation before adopting the incompatible SDK payload. Host grouping
+must account for `server.address` excluding ports, with `server.port` available
+separately. New SDKs emit no temporary legacy aliases. Historical data is not
+rewritten and other producers can continue emitting legacy fields. See
+[#346](https://github.com/grafana/faro-flutter-sdk/issues/346) for migration scope.
 
 ---
 

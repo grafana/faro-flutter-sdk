@@ -108,15 +108,12 @@ class FaroHttpTrackingClient implements HttpClient {
     final httpSpan = _startHttpSpan(
       isKnownMethod ? recordedMethod : 'HTTP $method',
       attributes: {
-        if (isKnownMethod) 'http.request.method': recordedMethod,
+        'http.request.method': recordedMethod,
         if (isKnownMethod && recordedMethod != method)
           'http.request.method_original': method,
-        // Retain the legacy field until HTTP event/query consumers migrate.
-        'http.method': recordedMethod,
-        'http.scheme': url.scheme,
-        'http.url': url.toString(),
-        'http.host': url.host,
-        'http.user_agent': innerClient.userAgent ?? '',
+        'url.full': _sanitizeHttpUrl(url),
+        'server.address': url.host,
+        'server.port': url.port,
         UserActionConstants.pendingOperationKey: true,
       },
     );
@@ -126,9 +123,7 @@ class FaroHttpTrackingClient implements HttpClient {
       final request = await innerClient.openUrl(method, url);
       return FaroTrackingHttpClientRequest(request, httpSpan: httpSpan);
     } catch (error, stackTrace) {
-      httpSpan.setAttribute('http.status_code', 0);
-      httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
-      httpSpan.recordException(error, stackTrace: stackTrace);
+      _recordHttpError(httpSpan, error, stackTrace);
       httpSpan.end();
       rethrow;
     }
@@ -265,6 +260,51 @@ class FaroHttpTrackingClient implements HttpClient {
   Future<HttpClientRequest> putUrl(Uri url) => _openUrl('PUT', url);
 }
 
+// Sanitize only the telemetry copy, preserving the actual request and the
+// encoding/order of non-sensitive query parameters.
+String _sanitizeHttpUrl(Uri url) {
+  const sensitiveKeys = {
+    'X-Amz-Signature',
+    'X-Amz-Credential',
+    'X-Amz-Security-Token',
+    'sig',
+    'X-Goog-Signature',
+  };
+  final query = url.query
+      .split('&')
+      .map((part) {
+        final separator = part.indexOf('=');
+        final key = separator < 0 ? part : part.substring(0, separator);
+        try {
+          if (sensitiveKeys.contains(Uri.decodeQueryComponent(key))) {
+            return '$key=REDACTED';
+          }
+        } on FormatException {
+          // Invalid UTF-8 cannot match a sensitive key. Do not let telemetry
+          // sanitization prevent the HTTP client from handling the request.
+        }
+        return part;
+      })
+      .join('&');
+  return url
+      .replace(
+        userInfo: url.userInfo.isEmpty ? null : 'REDACTED:REDACTED',
+        query: url.hasQuery ? query : null,
+      )
+      .toString();
+}
+
+void _recordHttpError(Span span, Object error, StackTrace? stackTrace) {
+  // Keep the first error, including an HTTP error recorded before a body
+  // failure. Exception types carry failure information without inventing a
+  // response code or using high-cardinality exception messages as error.type.
+  if (span.status != SpanStatusCode.error) {
+    span.setAttribute('error.type', error.runtimeType.toString());
+    span.setStatus(SpanStatusCode.error, message: error.toString());
+  }
+  span.recordException(error, stackTrace: stackTrace);
+}
+
 class FaroTrackingHttpClientRequest implements HttpClientRequest {
   FaroTrackingHttpClientRequest(this.innerContext, {required Span httpSpan})
     : _httpSpan = httpSpan {
@@ -274,7 +314,6 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   final HttpClientRequest innerContext;
   final Span _httpSpan;
   var _operationFinished = false;
-  var _statusCodeRecorded = false;
 
   void _finishOperation() {
     if (_operationFinished) {
@@ -285,11 +324,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
   }
 
   void _recordOperationError(Object error, [StackTrace? stackTrace]) {
-    if (!_statusCodeRecorded) {
-      _httpSpan.setAttribute('http.status_code', 0);
-    }
-    _httpSpan.setStatus(SpanStatusCode.error, message: error.toString());
-    _httpSpan.recordException(error, stackTrace: stackTrace);
+    _recordHttpError(_httpSpan, error, stackTrace);
   }
 
   Future<HttpClientResponse> _trackResponseFuture(
@@ -298,13 +333,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     try {
       final value = await responseFuture();
 
-      _httpSpan.setAttributes({
-        'http.status_code': value.statusCode,
-        'http.request_size': innerContext.contentLength,
-        'http.response_size': value.headers.contentLength,
-        'http.content_type': '${value.headers.contentType}',
-      });
-      _statusCodeRecorded = true;
+      _httpSpan.setAttribute('http.response.status_code', value.statusCode);
       // Successful responses leave status unset. Preserve an error already
       // recorded on the span instead of replacing its diagnostic information.
       if (value.statusCode >= 400 && _httpSpan.status != SpanStatusCode.error) {
@@ -320,7 +349,7 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
           'status_code': '${value.statusCode}',
           'method': innerContext.method,
           'request_size': '${innerContext.contentLength}',
-          'url': innerContext.uri.toString(),
+          'url': _sanitizeHttpUrl(innerContext.uri),
         },
         spanContext: _httpSpan.spanContext,
         onFinish: _finishOperation,

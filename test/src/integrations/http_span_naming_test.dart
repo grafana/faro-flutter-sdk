@@ -141,8 +141,10 @@ void main() {
     int statusCode = 200,
     bool known = true,
     String? normalizedMethod,
+    String? fullUrl,
+    String? sanitizedUrl,
   }) async {
-    final url = Uri.parse('http://example.com$path');
+    final url = Uri.parse(fullUrl ?? 'http://example.com$path');
     final innerClient = _MockClient();
     final filter = HttpTrackingFilter()
       ..configure(collectorUrl: null, ignoreUrls: null);
@@ -195,7 +197,7 @@ void main() {
       expect(span.name, expectedName);
       expect(
         record.getFaroEventAttributes()['http.request.method'],
-        known ? recordedMethod : isNull,
+        recordedMethod,
       );
       verify(() => innerClient.openUrl(method, url)).called(1);
       verify(
@@ -205,6 +207,11 @@ void main() {
         ),
       ).called(1);
       expect(span.isEnded, isFalse);
+      final initial = record.getFaroEventAttributes();
+      expect(initial['url.full'], sanitizedUrl ?? url.toString());
+      expect(initial['server.address'], url.host);
+      expect(initial['server.port'], '${url.port}');
+      expect(initial, isNot(contains('http.response.status_code')));
 
       final response = await tracked.close();
       await response.drain<void>();
@@ -228,16 +235,32 @@ void main() {
       expect(exported['traceId'], parent.traceId);
       expect(exported['parentSpanId'], parent.spanId);
       expect(exported['spanId'], isNot(parent.spanId));
-      expect(
-        attributes['http.request.method'],
-        known ? {'stringValue': recordedMethod} : isNull,
-      );
-      expect(attributes['http.method'], {'stringValue': recordedMethod});
+      expect(attributes['http.request.method'], {
+        'stringValue': recordedMethod,
+      });
+      expect(attributes, isNot(contains('http.method')));
       expect(
         attributes['http.request.method_original'],
         normalizedMethod != null ? {'stringValue': method} : isNull,
       );
-      expect(attributes['http.url'], {'stringValue': url.toString()});
+      expect(attributes['url.full'], {
+        'stringValue': sanitizedUrl ?? url.toString(),
+      });
+      expect(attributes['server.address'], {'stringValue': url.host});
+      expect(attributes['server.port'], {'intValue': url.port});
+      expect(attributes['http.response.status_code'], {'intValue': statusCode});
+      for (final key in [
+        'http.url',
+        'http.host',
+        'http.scheme',
+        'http.status_code',
+        'http.user_agent',
+        'http.request_size',
+        'http.response_size',
+        'http.content_type',
+      ]) {
+        expect(attributes, isNot(contains(key)));
+      }
       expect(attributes, isNot(contains('url.template')));
       expect(exported['status'], {'code': statusCode >= 400 ? 2 : 0});
       expect(
@@ -254,11 +277,13 @@ void main() {
         'trace_id': exported['traceId'],
         'span_id': exported['spanId'],
       });
-      expect(
-        event.attributes!['http.request.method'],
-        known ? recordedMethod : isNull,
-      );
-      expect(event.attributes!['http.method'], recordedMethod);
+      expect(event.attributes!['http.request.method'], recordedMethod);
+      expect(event.attributes, isNot(contains('http.method')));
+      expect(event.attributes!['url.full'], sanitizedUrl ?? url.toString());
+      expect(event.attributes!['server.address'], url.host);
+      expect(event.attributes!['server.port'], '${url.port}');
+      expect(event.attributes!['http.response.status_code'], '$statusCode');
+      expect(event.attributes!.values, everyElement(isA<String>()));
       expect(
         event.attributes!['http.request.method_original'],
         normalizedMethod != null ? method : isNull,
@@ -272,6 +297,60 @@ void main() {
       expect(duration >= BigInt.zero, isTrue);
       expect(router.items, hasLength(2));
     });
+  }
+
+  for (final url in [
+    'http://example.com/path',
+    'https://example.com/path',
+    'https://example.com:8443/path',
+    'http://127.0.0.1:8080/path',
+    'https://[::1]:8443/path',
+  ]) {
+    test('exports stable authority for $url', () async {
+      await verifyRequest('GET', (c, u) => c.getUrl(u), fullUrl: url);
+    });
+  }
+
+  for (final pair in [
+    (
+      'https://example.com/?%FF=keep&sig=secret',
+      'https://example.com/?%FF=keep&sig=REDACTED',
+    ),
+    (
+      'https://alice:secret@example.com/path?color=blue#section',
+      'https://REDACTED:REDACTED@example.com/path?color=blue#section',
+    ),
+    (
+      'https://alice@example.com/path',
+      'https://REDACTED:REDACTED@example.com/path',
+    ),
+    (
+      'https://example.com/?sig=secret&sig=other&%73ig=encoded&Sig=visible',
+      'https://example.com/?sig=REDACTED&sig=REDACTED&sig=REDACTED&Sig=visible',
+    ),
+    (
+      'https://example.com/?X-Amz-Signature=a&X-Amz-Credential=b&'
+          'X-Amz-Security-Token=c&X-Goog-Signature=d&q=a%20b&q=two&flag',
+      'https://example.com/?X-Amz-Signature=REDACTED&'
+          'X-Amz-Credential=REDACTED&X-Amz-Security-Token=REDACTED&'
+          'X-Goog-Signature=REDACTED&q=a%20b&q=two&flag',
+    ),
+    (
+      'https://example.com/?sig=&sig',
+      'https://example.com/?sig=REDACTED&sig=REDACTED',
+    ),
+  ]) {
+    test(
+      'sanitizes telemetry URL without changing the request: ${pair.$1}',
+      () async {
+        await verifyRequest(
+          'GET',
+          (c, u) => c.getUrl(u),
+          fullUrl: pair.$1,
+          sanitizedUrl: pair.$2,
+        );
+      },
+    );
   }
 
   for (final method in [
@@ -408,7 +487,7 @@ void main() {
         record.getFaroEventAttributes()['http.request.method'],
         wireMethod,
       );
-      expect(record.getFaroEventAttributes()['http.method'], wireMethod);
+      expect(record.getFaroEventAttributes(), isNot(contains('http.method')));
       expect(
         record.getFaroEventAttributes()['http.request.method_original'],
         input,
