@@ -768,92 +768,89 @@ remain outside this migration; this is not full HTTP semconv conformance.
 
 ### HTTP span and event attributes
 
-The private-preview HTTP schema uses the following attributes. Request fields
-are set when the span starts. The outer Faro payload structure is unchanged.
+Automatic HTTP spans use stable OpenTelemetry attributes. Faro HTTP events
+retain their existing contract independently of the span schema. The outer
+Faro payload, event name `faro.tracing.fetch`, trace/span IDs, duration, session
+metadata and user-action correlation are unchanged.
 
-| Attribute | Span type | HTTP event type | Availability |
-| --- | --- | --- | --- |
-| `http.request.method` | string | string | Request start; method behavior described above |
-| `http.request.method_original` | string | string | When a known method's spelling was normalized |
-| `url.full` | string | string | Request start; sanitized absolute request URL |
-| `server.address` | string | string | Request start; URI host without port or IPv6 brackets |
-| `server.port` | integer | decimal string | Request start; effective port, including HTTP 80 and HTTPS 443 defaults |
-| `http.response.status_code` | integer | decimal string | Only when an actual response is received |
-| `error.type` | string | string | HTTP error code or exception type; absent on ordinary success |
-| `duration_ns` | Not added; derived from timestamps | decimal string | Ended span with a valid time interval |
+| Data | Span attribute | Faro event attribute |
+| --- | --- | --- |
+| Method | `http.request.method` | `http.method`; also `http.request.method` for known methods |
+| Original known method | `http.request.method_original` | `http.request.method_original` |
+| URL | `url.full` (sanitized) | `http.url` (original URL) |
+| Host | `server.address` | `http.host` |
+| Effective port | `server.port` (integer, including default 80/443) | No new field |
+| Response status | `http.response.status_code` (integer, actual responses only) | `http.status_code` (string; `"0"` on failures without a response) |
+| Duration | Span timestamps | `duration_ns` (string, nanoseconds) |
 
-Successful requests leave span status UNSET. HTTP error responses (400 and
-above) set ERROR and a string code such as `"404"` in `error.type`, without a
-redundant code-only status description. Failures without a response set ERROR
-and use `error.runtimeType.toString()` (for example `SocketException` or
-`HttpException`) for `error.type`; the response code is absent, never 0.
-Later failures preserve an already recorded error and its diagnostic information.
-An error while reading a response preserves its actual response code.
+Events also retain `http.scheme`, `http.user_agent`, `http.request_size`,
+`http.response_size` and `http.content_type`, including their previous string
+values and availability. These fields are not added to the span. Size fields
+retain their Content-Length meaning, including unknown lengths; they do not
+measure headers or total wire size. Other span attributes, such as session
+correlation, are copied as before. User-action fields are moved into the event's
+`action` object by the exporter.
 
-Events also retain the span's other attributes as strings, including session
-correlation. The event's `trace` object carries `trace_id` and `span_id`.
-Existing user-action name/parent attributes are moved into the event's `action`
-object by the exporter. For example, the HTTP-owned portion of a 404 event is:
+Successful spans leave status UNSET. HTTP responses of 400 and above set ERROR
+and a string code such as `"404"` in `error.type`, on both the span and event.
+Failures without a response set span ERROR with the exception type in
+`error.type`, while omitting the span response code. Events preserve the legacy
+status `"0"` and do not gain the newly generated exception-type attribute.
+Body failures retain the actual response code. Spans record their exception
+error type, while events keep the prior HTTP event behavior. Previously
+recorded error types are preserved.
+
+For example, the HTTP portion of a 404 event retains this shape:
 
 ```json
 {
   "name": "faro.tracing.fetch",
   "attributes": {
     "http.request.method": "GET",
-    "url.full": "https://example.com/missing",
-    "server.address": "example.com",
-    "server.port": "443",
-    "http.response.status_code": "404",
+    "http.method": "GET",
+    "http.url": "https://example.com/missing",
+    "http.host": "example.com",
+    "http.scheme": "https",
+    "http.user_agent": "Dart/3.12 (dart:io)",
+    "http.status_code": "404",
+    "http.request_size": "0",
+    "http.response_size": "0",
+    "http.content_type": "null",
     "error.type": "404",
     "duration_ns": "25000000"
-  },
-  "trace": {
-    "trace_id": "0123456789abcdef0123456789abcdef",
-    "span_id": "0123456789abcdef"
   }
 }
 ```
 
-This fragment omits the event timestamp, session metadata and optional action
-context. On the corresponding span, port and response code use `intValue`;
-the method, URL, address and error type use `stringValue`.
+This fragment omits timestamp, trace context, session metadata and optional
+user-action context. All event attribute values remain strings.
 
-### HTTP URL sanitization
+### HTTP span URL sanitization
 
-URL user information is replaced with `REDACTED:REDACTED`. Query values for
-`X-Amz-Signature`, `X-Amz-Credential`, `X-Amz-Security-Token`, `sig`, and
-`X-Goog-Signature` are replaced with `REDACTED`. Matching uses decoded,
-case-sensitive keys, including repeated keys. Other query parameters, the path
-and the fragment are retained. This follows the defaults in
+In `url.full`, URL user information is replaced with `REDACTED:REDACTED`.
+Query values for `X-Amz-Signature`, `X-Amz-Credential`, `X-Amz-Security-Token`,
+`sig`, and `X-Goog-Signature` are replaced with `REDACTED`. Matching uses decoded,
+case-sensitive keys, including repeated keys. Other query parameters, path and
+fragment are retained. This follows the defaults in
 [HTTP semconv 1.44.0](https://opentelemetry.io/docs/specs/semconv/http/http-spans/).
-The policy does not identify arbitrary application-specific secrets in URLs.
-Only the telemetry copy is sanitized; the actual request URI is unchanged.
+It does not identify arbitrary application-specific secrets in URLs.
+The actual request and the legacy event's `http.url` are unchanged by this
+span-only policy.
 
-### Migrating HTTP consumers
+### Migrating span consumers
 
-Automatic HTTP spans and their events no longer emit `http.method`, `http.url`,
-`http.host`, `http.status_code`, `http.scheme`, `http.user_agent`,
-`http.content_type`, `http.request_size`, or `http.response_size`. Existing
-custom-span attributes are not rewritten. Scheme remains available in
-`url.full`; user agent, content type and body-size fields have no replacement
-in this focused schema. In particular, old Content-Length values must not be
-renamed to total request/response sizes: they do not measure headers or framing.
+Automatic spans no longer contain `http.method`, `http.url`, `http.host`,
+`http.status_code`, `http.scheme`, `http.user_agent`, `http.content_type`,
+`http.request_size`, or `http.response_size`. Existing custom spans are not
+rewritten. Span consumers should prefer the stable fields with legacy fallbacks
+for historical data and other SDK versions. Check response-code presence
+explicitly and use `error.type` for failures, including body failures after a
+successful response. Host grouping uses `server.address`, with `server.port`
+available separately.
 
-Consumers must prefer the stable method, URL, address and response-code fields,
-with fallbacks to legacy fields for historical data and other SDK versions.
-Absence must be checked explicitly: some storage types default missing numeric
-fields to 0. Keep missing responses distinct from an actual HTTP response.
-Use `error.type` to detect new failure events, including failures with a 200
-response followed by a body error; retain legacy status-0 handling for old data.
-A present error type indicates failure even when the status code is absent.
-Do not synthesize a stable response code during migration.
-
-Update URL processing, typed storage schemas, HTTP queries, alert rules, and
-trace navigation before adopting the incompatible SDK payload. Host grouping
-must account for `server.address` excluding ports, with `server.port` available
-separately. New SDKs emit no temporary legacy aliases. Historical data is not
-rewritten and other producers can continue emitting legacy fields. See
-[#346](https://github.com/grafana/faro-flutter-sdk/issues/346) for migration scope.
+HTTP event queries and event storage retain their existing schema. Span URL
+processing, trace filters and trace navigation still need to support the new
+span attributes. See [#346](https://github.com/grafana/faro-flutter-sdk/issues/346).
 
 ---
 

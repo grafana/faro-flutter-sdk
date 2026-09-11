@@ -160,13 +160,14 @@ void main() {
     when(() => request.headers).thenReturn(requestHeaders);
     when(() => request.method).thenReturn(method);
     when(() => request.uri).thenReturn(url);
-    when(() => request.contentLength).thenReturn(0);
+    when(() => innerClient.userAgent).thenReturn('compatibility-test-agent');
+    when(() => request.contentLength).thenReturn(123);
     when(request.close).thenAnswer((_) async => response);
     when(() => request.done).thenAnswer((_) async => response);
     when(() => response.statusCode).thenReturn(statusCode);
     when(() => response.headers).thenReturn(responseHeaders);
-    when(() => responseHeaders.contentLength).thenReturn(0);
-    when(() => responseHeaders.contentType).thenReturn(null);
+    when(() => responseHeaders.contentLength).thenReturn(456);
+    when(() => responseHeaders.contentType).thenReturn(ContentType.json);
     when(
       () => response.listen(
         any(),
@@ -197,7 +198,7 @@ void main() {
       expect(span.name, expectedName);
       expect(
         record.getFaroEventAttributes()['http.request.method'],
-        recordedMethod,
+        known ? recordedMethod : isNull,
       );
       verify(() => innerClient.openUrl(method, url)).called(1);
       verify(
@@ -208,10 +209,13 @@ void main() {
       ).called(1);
       expect(span.isEnded, isFalse);
       final initial = record.getFaroEventAttributes();
-      expect(initial['url.full'], sanitizedUrl ?? url.toString());
-      expect(initial['server.address'], url.host);
-      expect(initial['server.port'], '${url.port}');
+      expect(initial['http.url'], url.toString());
+      expect(initial['http.host'], url.host);
+      expect(initial['http.scheme'], url.scheme);
+      expect(initial, isNot(contains('http.status_code')));
       expect(initial, isNot(contains('http.response.status_code')));
+      initial['http.url'] = 'mutated-by-consumer';
+      expect(record.getFaroEventAttributes()['http.url'], url.toString());
 
       final response = await tracked.close();
       await response.drain<void>();
@@ -277,12 +281,27 @@ void main() {
         'trace_id': exported['traceId'],
         'span_id': exported['spanId'],
       });
-      expect(event.attributes!['http.request.method'], recordedMethod);
-      expect(event.attributes, isNot(contains('http.method')));
-      expect(event.attributes!['url.full'], sanitizedUrl ?? url.toString());
-      expect(event.attributes!['server.address'], url.host);
-      expect(event.attributes!['server.port'], '${url.port}');
-      expect(event.attributes!['http.response.status_code'], '$statusCode');
+      expect(
+        event.attributes!['http.request.method'],
+        known ? recordedMethod : isNull,
+      );
+      expect(event.attributes!['http.method'], recordedMethod);
+      expect(event.attributes!['http.url'], url.toString());
+      expect(event.attributes!['http.host'], url.host);
+      expect(event.attributes!['http.scheme'], url.scheme);
+      expect(event.attributes!['http.status_code'], '$statusCode');
+      expect(event.attributes!['http.user_agent'], 'compatibility-test-agent');
+      expect(event.attributes!['http.request_size'], '123');
+      expect(event.attributes!['http.response_size'], '456');
+      expect(event.attributes!['http.content_type'], '${ContentType.json}');
+      for (final key in [
+        'url.full',
+        'server.address',
+        'server.port',
+        'http.response.status_code',
+      ]) {
+        expect(event.attributes, isNot(contains(key)));
+      }
       expect(event.attributes!.values, everyElement(isA<String>()));
       expect(
         event.attributes!['http.request.method_original'],
@@ -487,7 +506,7 @@ void main() {
         record.getFaroEventAttributes()['http.request.method'],
         wireMethod,
       );
-      expect(record.getFaroEventAttributes(), isNot(contains('http.method')));
+      expect(record.getFaroEventAttributes()['http.method'], wireMethod);
       expect(
         record.getFaroEventAttributes()['http.request.method_original'],
         input,

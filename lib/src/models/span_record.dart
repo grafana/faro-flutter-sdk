@@ -6,6 +6,7 @@ import 'package:faro/src/models/trace/trace_span_status.dart';
 import 'package:faro/src/tracing/dartastic_span_access.dart';
 import 'package:faro/src/tracing/extensions.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
+import 'package:faro/src/tracing/http_event_attributes.dart';
 import 'package:faro/src/util/constants.dart';
 import 'package:fixnum/fixnum.dart';
 
@@ -71,6 +72,26 @@ class SpanRecord {
     for (final attribute in _spanAttributes.toList()) {
       final value = attribute.value.toString();
       faroEventAttributes[attribute.key] = _sanitizeAttributeValue(value);
+    }
+
+    final httpAttributes = httpEventAttributes(_otelReadOnlySpan);
+    if (httpAttributes != null) {
+      // Automatic HTTP events preserve their existing contract independently
+      // of the stable OTel span schema. Custom spans keep generic conversion.
+      for (final key in [
+        'http.request.method',
+        'http.request.method_original',
+        'url.full',
+        'server.address',
+        'server.port',
+        'http.response.status_code',
+        'error.type',
+      ]) {
+        faroEventAttributes.remove(key);
+      }
+      for (final entry in httpAttributes.entries) {
+        faroEventAttributes[entry.key] = _sanitizeAttributeValue(entry.value);
+      }
     }
 
     // Add span duration in nanoseconds

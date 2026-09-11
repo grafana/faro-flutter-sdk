@@ -7,6 +7,7 @@ import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/tracing/faro_exporter.dart';
+import 'package:faro/src/tracing/http_event_attributes.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
@@ -88,6 +89,14 @@ void main() {
       span.setAttribute('error.type', 'previous_failure');
     }
 
+    initializeHttpEventAttributes(span, {
+      'http.method': 'GET',
+      'http.request.method': 'GET',
+      'http.url': 'https://example.com/test',
+      'http.host': 'example.com',
+      'http.scheme': 'https',
+      'http.user_agent': '',
+    });
     final request = _MockRequest();
     final response = _MockResponse();
     final requestHeaders = _MockHeaders();
@@ -179,8 +188,15 @@ void main() {
           final event = router.items
               .singleWhere((i) => i.asEvent != null)
               .asEvent!;
-          expect(event.attributes!['http.response.status_code'], '$status');
-          expect(event.attributes!['error.type'], expectedType);
+          expect(event.attributes!['http.status_code'], '$status');
+          expect(
+            event.attributes!['error.type'],
+            priorError
+                ? 'previous_failure'
+                : status >= 400
+                ? '$status'
+                : isNull,
+          );
         },
       );
     }
@@ -199,6 +215,7 @@ void main() {
         }),
       );
       final span = SpanProvider().getSpan(recordingSpan, otel.Context.current);
+      initializeHttpEventAttributes(span, {'http.method': 'GET'});
       const error = SocketException('failure');
       if (phase == 'open') {
         final inner = _MockClient();
@@ -241,9 +258,9 @@ void main() {
       await FaroExporter(telemetryRouter: router).export([recordingSpan]);
       final event = router.items.singleWhere((i) => i.asEvent != null).asEvent!;
       expect(event.name, 'faro.tracing.fetch');
-      expect(event.attributes!['error.type'], 'SocketException');
+      expect(event.attributes, isNot(contains('error.type')));
       expect(event.attributes, isNot(contains('http.response.status_code')));
-      expect(event.attributes, isNot(contains('http.status_code')));
+      expect(event.attributes!['http.status_code'], '0');
       expect(event.trace, record.getFaroSpanContext());
       expect(event.attributes, contains('duration_ns'));
     });
@@ -301,7 +318,7 @@ void main() {
           .asEvent!;
       final record = SpanRecord(otelReadOnlySpan: span);
       expect(event.name, 'faro.tracing.fetch');
-      expect(event.attributes!['http.response.status_code'], '$statusCode');
+      expect(event.attributes!['http.status_code'], '$statusCode');
       expect(event.trace, record.getFaroSpanContext());
       expect(
         int.parse(event.attributes!['duration_ns']!),

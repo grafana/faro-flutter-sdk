@@ -8,6 +8,7 @@ import 'package:faro/src/integrations/http_tracking_filter.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/faro_tracer.dart';
+import 'package:faro/src/tracing/http_event_attributes.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/user_actions/constants.dart';
 
@@ -117,6 +118,17 @@ class FaroHttpTrackingClient implements HttpClient {
         UserActionConstants.pendingOperationKey: true,
       },
     );
+
+    initializeHttpEventAttributes(httpSpan, {
+      if (isKnownMethod) 'http.request.method': recordedMethod,
+      if (isKnownMethod && recordedMethod != method)
+        'http.request.method_original': method,
+      'http.method': recordedMethod,
+      'http.scheme': url.scheme,
+      'http.url': url.toString(),
+      'http.host': url.host,
+      'http.user_agent': innerClient.userAgent ?? '',
+    });
 
     try {
       // ignore: close_sinks
@@ -295,6 +307,11 @@ String _sanitizeHttpUrl(Uri url) {
 }
 
 void _recordHttpError(Span span, Object error, StackTrace? stackTrace) {
+  preserveHttpEventErrorType(span);
+  if (span is InternalSpan &&
+      httpEventAttributes(span.otelSpan)?['http.status_code'] == null) {
+    updateHttpEventAttributes(span, {'http.status_code': '0'});
+  }
   // Keep the first error, including an HTTP error recorded before a body
   // failure. Exception types carry failure information without inventing a
   // response code or using high-cardinality exception messages as error.type.
@@ -333,10 +350,20 @@ class FaroTrackingHttpClientRequest implements HttpClientRequest {
     try {
       final value = await responseFuture();
 
+      preserveHttpEventErrorType(_httpSpan);
+      updateHttpEventAttributes(_httpSpan, {
+        'http.status_code': '${value.statusCode}',
+        'http.request_size': '${innerContext.contentLength}',
+        'http.response_size': '${value.headers.contentLength}',
+        'http.content_type': '${value.headers.contentType}',
+      });
       _httpSpan.setAttribute('http.response.status_code', value.statusCode);
       // Successful responses leave status unset. Preserve an error already
       // recorded on the span instead of replacing its diagnostic information.
       if (value.statusCode >= 400 && _httpSpan.status != SpanStatusCode.error) {
+        updateHttpEventAttributes(_httpSpan, {
+          'error.type': value.statusCode.toString(),
+        });
         _httpSpan.setAttribute('error.type', value.statusCode.toString());
         _httpSpan.setStatus(SpanStatusCode.error);
       }
