@@ -36,6 +36,7 @@ class FaroConfig {
     this.fetchVitalsInterval = const Duration(seconds: 30),
     BatchConfig? batchConfig,
     this.ignoreUrls,
+    Set<String>? sensitiveHttpQueryParameters,
     this.maxBufferLimit = 30,
     this.collectorHeaders,
     this.sessionAttributes,
@@ -49,6 +50,9 @@ class FaroConfig {
        assert(appEnv.isNotEmpty, 'appEnv cannot be empty'),
        assert(apiKey.isNotEmpty, 'apiKey cannot be empty'),
        assert(maxBufferLimit > 0, 'maxBufferLimit must be greater than 0'),
+       sensitiveHttpQueryParameters = Set.unmodifiable(
+         sensitiveHttpQueryParameters ?? const <String>{},
+       ),
        batchConfig = batchConfig ?? BatchConfig();
   final String appName;
   final String appEnv;
@@ -75,6 +79,21 @@ class FaroConfig {
   final int maxBufferLimit;
   final Duration? fetchVitalsInterval;
   final List<RegExp>? ignoreUrls;
+
+  /// Additional query parameter names whose values Faro redacts in HTTP URLs.
+  ///
+  /// Extends the built-in sensitive names; cannot remove built-in protections.
+  /// Omitted, null or empty input adds no names. Matching uses exact decoded,
+  /// case-sensitive names. Supply names as plain text, without URL encoding.
+  ///
+  /// Applies to automatic HTTP span URLs, HTTP event URLs and fallback
+  /// network-error log URLs. The actual request URI is unchanged. This does
+  /// not sanitize arbitrary exception messages, log text or custom attributes.
+  ///
+  /// Copied into an immutable set when this config is constructed. Changes
+  /// to the caller's set do not affect the config or the active policy.
+  /// For example: `{'customer_code', 'checkout_session'}`.
+  final Set<String> sensitiveHttpQueryParameters;
 
   /// Custom attributes to include in all session data.
   ///

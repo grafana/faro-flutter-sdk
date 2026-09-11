@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Application-specific HTTP query values can be redacted** alongside the
+  built-in credential parameters. The same policy applies to spans, HTTP
+  events and fallback network-error logs without changing requests. See the
+  Reference docs for configuration and matching behavior
+  ([#346](https://github.com/grafana/faro-flutter-sdk/issues/346)).
+
 - **Known HTTP methods include `http.request.method`** on spans and
   `faro.tracing.fetch` events
   ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
