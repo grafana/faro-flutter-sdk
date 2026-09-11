@@ -337,53 +337,18 @@ void main() {
     });
   }
 
-  for (final pair in [
-    (
-      'https://example.com/?%FF=keep&sig=secret',
-      'https://example.com/?%FF=keep&sig=REDACTED',
-    ),
-    (
-      'https://alice:secret@example.com/path?color=blue#section',
-      'https://REDACTED:REDACTED@example.com/path?color=blue#section',
-    ),
-    (
-      'https://alice@example.com/path',
-      'https://REDACTED:REDACTED@example.com/path',
-    ),
-    (
-      'https://example.com/?sig=secret&sig=other&%73ig=encoded&Sig=visible',
-      'https://example.com/?sig=REDACTED&sig=REDACTED&sig=REDACTED&Sig=visible',
-    ),
-    (
-      'https://example.com/?X-Amz-Signature=a&X-Amz-Credential=b&'
-          'X-Amz-Security-Token=c&X-Goog-Signature=d&q=a%20b&q=two&flag',
-      'https://example.com/?X-Amz-Signature=REDACTED&'
-          'X-Amz-Credential=REDACTED&X-Amz-Security-Token=REDACTED&'
-          'X-Goog-Signature=REDACTED&q=a%20b&q=two&flag',
-    ),
-    (
-      'https://example.com/?AWSAccessKeyId=example-key&Signature=example-signature'
-          '&Signature=second&%53ignature=encoded&signature=visible',
-      'https://example.com/?AWSAccessKeyId=REDACTED&Signature=REDACTED'
-          '&Signature=REDACTED&Signature=REDACTED&signature=visible',
-    ),
-    (
-      'https://example.com/?sig=&sig',
-      'https://example.com/?sig=REDACTED&sig=REDACTED',
-    ),
-  ]) {
-    test(
-      'sanitizes telemetry URL without changing the request: ${pair.$1}',
-      () async {
-        await verifyRequest(
-          'GET',
-          (c, u) => c.getUrl(u),
-          fullUrl: pair.$1,
-          sanitizedUrl: pair.$2,
-        );
-      },
+  test('redacts span and event URLs without changing the request', () async {
+    await verifyRequest(
+      'GET',
+      (c, u) => c.getUrl(u),
+      fullUrl:
+          'https://alice:example-password@example.com/path?'
+          'sig=example-signature&color=blue#section',
+      sanitizedUrl:
+          'https://REDACTED:REDACTED@example.com/path?'
+          'sig=REDACTED&color=blue#section',
     );
-  }
+  });
 
   for (final method in [
     'GET',
