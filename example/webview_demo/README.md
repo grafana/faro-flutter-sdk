@@ -8,13 +8,21 @@ cross-boundary distributed tracing.
 
 ## Quick start
 
+Use Node.js 22.22.2 (the version used in CI) and the Yarn version pinned in
+`package.json`. The WebView demo has its own JavaScript dependencies; they are
+not dependencies of apps using the Flutter SDK.
+
 ```bash
-yarn install
+corepack enable
+yarn install --immutable
 cp .env.example .env    # edit with your Faro Web collector URL
 yarn dev
 ```
 
 The dev server starts on `http://localhost:5173` (all interfaces).
+
+Run `yarn lint` and `yarn build` to validate dependency changes. CI runs both
+checks after an immutable install.
 
 Then add the URL to your `example/api-config.json`:
 
