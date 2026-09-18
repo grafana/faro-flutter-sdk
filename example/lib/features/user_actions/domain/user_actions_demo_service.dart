@@ -167,87 +167,85 @@ class UserActionsDemoService {
     );
     onTick();
 
-    await Faro().startSpan<void>(
-      'ua.parallel_http.parent_span',
-      (parentSpan) async {
+    await Faro().startSpan<void>('ua.parallel_http.parent_span', (
+      parentSpan,
+    ) async {
+      log(
+        'Started custom parent span '
+        '(traceId=${parentSpan.traceId}, spanId=${parentSpan.spanId})',
+      );
+      parentSpan.addEvent(
+        'parallel_http.requests.started',
+        attributes: {'runId': run.runId, 'requestCount': 4},
+      );
+
+      final requestFutures = <Future<void>>[
+        _runHttpGet(
+          log: log,
+          label: 'parallel-1s',
+          url: 'https://httpbin.io/delay/1',
+        ),
+        _runHttpGet(
+          log: log,
+          label: 'parallel-2s',
+          url: 'https://httpbin.io/delay/2',
+        ),
+        _runHttpGet(
+          log: log,
+          label: 'parallel-3s',
+          url: 'https://httpbin.io/delay/3',
+        ),
+        _runHttpGet(
+          log: log,
+          label: 'parallel-6s',
+          url: 'https://httpbin.io/delay/6',
+        ),
+      ];
+
+      // Wait until the action should have moved to halted (or timeout).
+      final reachedHalted = await _waitForState(
+        run.action,
+        UserActionState.halted,
+        maxWait: const Duration(seconds: 2),
+      );
+      final stateAtLateSpan = run.action.getState();
+      if (!reachedHalted) {
         log(
-          'Started custom parent span '
-          '(traceId=${parentSpan.traceId}, spanId=${parentSpan.spanId})',
+          'Warning: action did not reach halted before late span. '
+          'Observed state=${stateAtLateSpan.name}',
+          isError: true,
         );
-        parentSpan.addEvent(
-          'parallel_http.requests.started',
-          attributes: {'runId': run.runId, 'requestCount': 4},
-        );
+      }
 
-        final requestFutures = <Future<void>>[
-          _runHttpGet(
-            log: log,
-            label: 'parallel-1s',
-            url: 'https://httpbin.io/delay/1',
-          ),
-          _runHttpGet(
-            log: log,
-            label: 'parallel-2s',
-            url: 'https://httpbin.io/delay/2',
-          ),
-          _runHttpGet(
-            log: log,
-            label: 'parallel-3s',
-            url: 'https://httpbin.io/delay/3',
-          ),
-          _runHttpGet(
-            log: log,
-            label: 'parallel-6s',
-            url: 'https://httpbin.io/delay/6',
-          ),
-        ];
-
-        // Wait until the action should have moved to halted (or timeout).
-        final reachedHalted = await _waitForState(
-          run.action,
-          UserActionState.halted,
-          maxWait: const Duration(seconds: 2),
-        );
-        final stateAtLateSpan = run.action.getState();
-        if (!reachedHalted) {
-          log(
-            'Warning: action did not reach halted before late span. '
-            'Observed state=${stateAtLateSpan.name}',
-            isError: true,
+      await Faro().startSpan<void>(
+        'ua.parallel_http.late_span',
+        (lateSpan) {
+          lateSpan.addEvent(
+            'parallel_http.late_span.created',
+            attributes: {
+              'runId': run.runId,
+              'actionStateAtCreation': stateAtLateSpan.name,
+            },
           );
-        }
+          log(
+            'Created late span (spanId=${lateSpan.spanId}) while '
+            'action state=${stateAtLateSpan.name}.',
+          );
+        },
+        attributes: {
+          'scenario': 'parallel_http_late_span',
+          'runId': run.runId,
+          'actionStateAtCreation': stateAtLateSpan.name,
+        },
+      );
 
-        await Faro().startSpan<void>(
-          'ua.parallel_http.late_span',
-          (lateSpan) {
-            lateSpan.addEvent(
-              'parallel_http.late_span.created',
-              attributes: {
-                'runId': run.runId,
-                'actionStateAtCreation': stateAtLateSpan.name,
-              },
-            );
-            log(
-              'Created late span (spanId=${lateSpan.spanId}) while '
-              'action state=${stateAtLateSpan.name}.',
-            );
-          },
-          attributes: {
-            'scenario': 'parallel_http_late_span',
-            'runId': run.runId,
-            'actionStateAtCreation': stateAtLateSpan.name,
-          },
-        );
+      await Future.wait(requestFutures);
 
-        await Future.wait(requestFutures);
-
-        parentSpan.addEvent(
-          'parallel_http.requests.completed',
-          attributes: {'runId': run.runId},
-        );
-      },
-      attributes: {'scenario': 'parallel_http', 'runId': run.runId},
-    );
+      parentSpan.addEvent(
+        'parallel_http.requests.completed',
+        attributes: {'runId': run.runId},
+      );
+    }, attributes: {'scenario': 'parallel_http', 'runId': run.runId});
     onTick();
 
     await _pollUntilTerminal(run.action, log, onTick);

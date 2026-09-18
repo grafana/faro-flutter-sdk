@@ -38,22 +38,18 @@ class TracingService {
     log('Starting span with string attributes...');
 
     try {
-      await Faro().startSpan<void>(
-        'string-attributes-span',
-        (span) async {
-          span.setAttributes({
-            'user.name': 'John Doe',
-            'user.email': 'john@example.com',
-            'action': 'test-action',
-          });
-          span.addEvent(
-            'user-action',
-            attributes: {'button': 'submit', 'page': 'checkout'},
-          );
-          await Future.delayed(const Duration(milliseconds: 300));
-        },
-        attributes: {'environment': 'test', 'version': '1.0.0'},
-      );
+      await Faro().startSpan<void>('string-attributes-span', (span) async {
+        span.setAttributes({
+          'user.name': 'John Doe',
+          'user.email': 'john@example.com',
+          'action': 'test-action',
+        });
+        span.addEvent(
+          'user-action',
+          attributes: {'button': 'submit', 'page': 'checkout'},
+        );
+        await Future.delayed(const Duration(milliseconds: 300));
+      }, attributes: {'environment': 'test', 'version': '1.0.0'});
       log('String attributes span completed');
     } catch (error) {
       log('Error: $error', isError: true);
