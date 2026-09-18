@@ -152,6 +152,8 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "build/**"
+    - android/**
+    - ios/**
 
   strong-mode:
     implicit-casts: false # Disable implicit casts

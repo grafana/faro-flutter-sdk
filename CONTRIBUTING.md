@@ -29,6 +29,12 @@ Before you begin, ensure you have the following installed:
 - [Android Studio](https://developer.android.com/studio) or [VS Code](https://code.visualstudio.com/) with Flutter extensions
 - [CocoaPods](https://cocoapods.org/) (for iOS development)
 
+Use the Flutter version pinned in `.fvmrc` and `.tool-versions` for repository
+development and CI. Flutter includes its matching Dart SDK. These development
+pins and `example/pubspec.lock` do not set the supported versions for SDK
+consumers; the root `pubspec.yaml` declares those constraints. Keep consumer
+constraints and runtime dependency ranges unchanged when refreshing the example.
+
 ### Fork and Clone
 
 1. Fork the repository on GitHub
