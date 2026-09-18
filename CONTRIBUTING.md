@@ -35,6 +35,10 @@ pins and `example/pubspec.lock` do not set the supported versions for SDK
 consumers; the root `pubspec.yaml` declares those constraints. Keep consumer
 constraints and runtime dependency ranges unchanged when refreshing the example.
 
+The iOS example targets iOS 15.0 for development with Xcode 27. The SDK's
+CocoaPods and Swift Package Manager declarations still specify iOS 13.0 as the
+minimum.
+
 ### Fork and Clone
 
 1. Fork the repository on GitHub
