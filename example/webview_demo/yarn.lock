@@ -278,32 +278,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@grafana/faro-core@npm:^2.11.0":
-  version: 2.11.0
-  resolution: "@grafana/faro-core@npm:2.11.0"
+"@grafana/faro-core@npm:^2.12.0":
+  version: 2.12.0
+  resolution: "@grafana/faro-core@npm:2.12.0"
   dependencies:
     "@opentelemetry/api": "npm:^1.9.0"
     "@opentelemetry/otlp-transformer": "npm:^0.221.0"
-  checksum: 10c0/beb043582fea464bfb42f43ba2a5a71d958f4eef3dae67c0876c02e36436a0a4860ffb06bea48cf3c49f7fdb888a017626ee473586bf69741bdc2b150976a4fa
+  checksum: 10c0/8c6abc2ee7c65edd049bed36b902e0235248f599a1ab2f543df518fd1b0384fa6fde0b0323166127655ec4905df08c4820291604fa900740a2e936cb09b74cf4
   languageName: node
   linkType: hard
 
-"@grafana/faro-web-sdk@npm:^2.11.0, @grafana/faro-web-sdk@npm:^2.2.4":
-  version: 2.11.0
-  resolution: "@grafana/faro-web-sdk@npm:2.11.0"
+"@grafana/faro-web-sdk@npm:^2.12.0, @grafana/faro-web-sdk@npm:^2.2.4":
+  version: 2.12.0
+  resolution: "@grafana/faro-web-sdk@npm:2.12.0"
   dependencies:
-    "@grafana/faro-core": "npm:^2.11.0"
+    "@grafana/faro-core": "npm:^2.12.0"
     ua-parser-js: "npm:1.0.41"
     web-vitals: "npm:^6.0.0"
-  checksum: 10c0/873adf411bcdf016f8308a7ab9bfaf8b43ddb3673ff6ea6f774047f1020b6b84076a2e150ebc26af8b1f75a10589ac1c7579069a8b6c79a53d9eb8a7e45c03df
+  checksum: 10c0/339d6453aa8fe0bfe4ac0b20baac1a7d6d305507f066dbc6bd9826c64363ef3f0106def0da6ba4bc18cd431d6bb6fbed339a771ff07547c49e94ed2c246fc9a2
   languageName: node
   linkType: hard
 
 "@grafana/faro-web-tracing@npm:^2.2.4":
-  version: 2.11.0
-  resolution: "@grafana/faro-web-tracing@npm:2.11.0"
+  version: 2.12.0
+  resolution: "@grafana/faro-web-tracing@npm:2.12.0"
   dependencies:
-    "@grafana/faro-web-sdk": "npm:^2.11.0"
+    "@grafana/faro-web-sdk": "npm:^2.12.0"
     "@opentelemetry/api": "npm:^1.9.0"
     "@opentelemetry/core": "npm:^2.0.0"
     "@opentelemetry/exporter-trace-otlp-http": "npm:^0.221.0"
@@ -314,7 +314,7 @@ __metadata:
     "@opentelemetry/resources": "npm:^2.0.0"
     "@opentelemetry/sdk-trace-web": "npm:^2.0.0"
     "@opentelemetry/semantic-conventions": "npm:^1.32.0"
-  checksum: 10c0/c5f04263ef259857aab3f4fe482cd551104721296996887fc72f625b9703630a54186eb2ac6444ad336c636d9ce431b1d91c56e8eb31c7f3496c0dd03c15a224
+  checksum: 10c0/5eb80ef6c8769a548962693f52b36cc47df342c55b6b24179a5d2d2699247ab2013918361d1927fd3865e96628c9ce265256e875e0dc413e551570d20a967ef5
   languageName: node
   linkType: hard
 
@@ -1112,9 +1112,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint@npm:10.10.0":
-  version: 10.10.0
-  resolution: "eslint@npm:10.10.0"
+"eslint@npm:10.11.0":
+  version: 10.11.0
+  resolution: "eslint@npm:10.11.0"
   dependencies:
     "@eslint-community/eslint-utils": "npm:^4.8.0"
     "@eslint-community/regexpp": "npm:^4.12.2"
@@ -1153,7 +1153,7 @@ __metadata:
       optional: true
   bin:
     eslint: bin/eslint.js
-  checksum: 10c0/ba583145305f088585f91c5dab6825492ec657614558e4610cffc94174cf800f456e39ec3cafd3eed73e04bd9a05794067ae33b553f1323e3e7c1157242409d2
+  checksum: 10c0/c767f45f21d1921b41d70e30b1c8fa7ec4e65c0f43a8d80cc4990ca3d923127fa7b9b3416b8f5be6e877d9286f97d3c51a04ed341bc6aa73c0dba0f463e1f861
   languageName: node
   linkType: hard
 
@@ -2090,7 +2090,7 @@ __metadata:
     "@types/react": "npm:19.3.0"
     "@types/react-dom": "npm:19.3.0"
     "@vitejs/plugin-react": "npm:6.1.1"
-    eslint: "npm:10.10.0"
+    eslint: "npm:10.11.0"
     eslint-plugin-react-hooks: "npm:7.1.1"
     eslint-plugin-react-refresh: "npm:0.5.7"
     globals: "npm:17.12.0"
