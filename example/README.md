@@ -2,6 +2,20 @@
 
 This example demonstrates how to integrate and use the Grafana Faro SDK in a Flutter application.
 
+## Android build tools
+
+Use the repository's [pinned Flutter SDK](../.fvmrc) to build the example.
+Android Gradle Plugin and Kotlin versions are defined in
+[`android/settings.gradle`](android/settings.gradle); the Gradle version is in
+[`gradle-wrapper.properties`](android/gradle/wrapper/gradle-wrapper.properties).
+The example keeps Flutter's legacy Kotlin and Android DSL compatibility flags
+in [`android/gradle.properties`](android/gradle.properties) while its dependencies
+migrate.
+
+These settings configure this example app. Apps depending on `faro` retain
+their own build configuration; the SDK's configuration is in
+[`../android/build.gradle`](../android/build.gradle).
+
 ## Architecture
 
 This example app follows a **feature-based architecture** with clear separation of concerns. When adding new features, follow the patterns established in the `tracing` feature.
