@@ -9,35 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.17.0] - 2026-09-21
 
-Stable release of the 0.17.0 beta series. The entries below summarize the
-upgrade from 0.16.0, including API and telemetry migrations. Earlier beta
-sections retain the detailed history; the behavior described here supersedes
-intermediate beta behavior.
-
 ### Added
-
-- **Automatic session rotation** starts a new linked session after 15 minutes
-  of inactivity or four hours of lifetime. `Faro.resetSession()` also allows
-  explicit boundaries, such as logout or account changes
-  ([#315](https://github.com/grafana/faro-flutter-sdk/issues/315)).
-- **Session persistence** links each cold start to the prior session while
-  creating a new live session. Independent native processes keep separate
-  session records
-  ([#283](https://github.com/grafana/faro-flutter-sdk/issues/283)).
-- **Receiver invalidation** rotates the active session when an accepted
-  payload response includes `X-Faro-Session-Status: invalid`
-  ([#286](https://github.com/grafana/faro-flutter-sdk/issues/286)).
-- **Automatic trace correlation** attaches the active span to logs, events,
-  exceptions, and measurements at push time. An explicit `spanContext`
-  overrides the active span.
-- **App-owned WebView spans** can be passed to `FaroWebViewBridge` without
-  transferring ownership of the span to the bridge.
-- **Structured mobile metadata** includes `meta.device`, `meta.os`,
-  `meta.app.installationId`, and `exception.fatal`. Legacy flat session
-  attributes remain available for compatibility.
-- **Android startup detection adds `FaroStartupProvider` to the manifest.**
-  Removing it disables Android cold start reporting. See the Reference docs
-  for configuration and platform limitations.
 
 - **Application-specific HTTP query values can be redacted** alongside the
   built-in credential parameters. The same policy applies to spans, HTTP
@@ -50,35 +22,6 @@ intermediate beta behavior.
   ([#109](https://github.com/grafana/faro-flutter-sdk/issues/109)).
 
 ### Changed
-
-- **Breaking: explicit trace context uses `FaroSpanContext`.** Replace the
-  `trace` map on `pushLog` and `pushEvent` with
-  `spanContext: FaroSpanContext(traceId: ..., spanId: ...)`, or pass
-  `span.spanContext` when holding a span.
-- **Breaking: HTTP wrapper classes are no longer public exports.** Use
-  `FaroHttpOverrides` to enable HTTP tracking instead of importing
-  `FaroHttpTrackingClient`, `FaroTrackingHttpClientRequest`, or
-  `FaroTrackingHttpResponse` from `package:faro/faro.dart`.
-- **Session inactivity follows meaningful user activity.** Passive logs,
-  events, measurements, and unmarked spans or HTTP requests no longer keep
-  an idle session alive. Wrap meaningful work in `startUserAction` when it
-  should extend the session
-  ([#314](https://github.com/grafana/faro-flutter-sdk/issues/314)).
-- **Sampling is re-evaluated on every session rotation.** Collection can
-  start or stop when inactivity, lifetime, or receiver invalidation creates
-  a new session
-  ([#284](https://github.com/grafana/faro-flutter-sdk/issues/284)).
-- **Recovered iOS crashes use `type: crash`.** Update filters matching native
-  signal names in `exception.type` to use `crash` and read
-  `context.nativeType` for the signal and code
-  ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
-- **Tracing uses Dartastic OpenTelemetry** instead of the Workiva
-  `opentelemetry` package. Applications using OpenTelemetry types directly
-  must update their imports and integrations
-  ([#242](https://github.com/grafana/faro-flutter-sdk/pull/242)).
-- **Published archives include SLSA provenance.** Verify the downloaded
-  pub.dev archive with
-  `gh attestation verify <tarball> --repo grafana/faro-flutter-sdk`.
 
 - **HTTP spans use stable attribute names**, including `url.full`,
   `server.address`, `server.port`, and `http.response.status_code`. Legacy
@@ -102,54 +45,7 @@ intermediate beta behavior.
   status when a span ends. This also includes upstream sampling fixes: child
   spans respect an unsampled parent, and only sampled spans are exported.
 
-### Deprecated
-
-- **`DeviceId` is deprecated.** Use `InstallationId` instead. The alias and
-  persisted identifier remain compatible.
-- **Direct crash-reporter setup is deprecated.** Configure crash reporting
-  through `FaroConfig` instead of calling `Faro.enableCrashReporter`.
-
 ### Fixed
-
-- **Recovered native crashes retain their original session and sampling.**
-  When persistence is active, unmatched crashes are discarded instead of
-  being attributed to the new session. Android recovery respects
-  process-scoped session ownership
-  ([#151](https://github.com/grafana/faro-flutter-sdk/issues/151),
-  [#340](https://github.com/grafana/faro-flutter-sdk/issues/340)).
-- **iOS crash reports use the configured SDK transports and policies.**
-  Failed handoffs remain pending; custom transports must throw on failure
-  because normal completion counts as acceptance
-  ([#269](https://github.com/grafana/faro-flutter-sdk/issues/269)).
-- **Session rotations emit `session_start`, not `session_extend`.** Update
-  filters and read `meta.session.attributes.previousSession` for linked
-  sessions
-  ([#316](https://github.com/grafana/faro-flutter-sdk/issues/316)).
-- **Startup measurements reflect user-visible launches.** Cold starts end at
-  the first rasterized frame, or initialization when Faro starts later.
-  Background-only Android launches no longer report cold starts, and warm
-  starts are reported only on returns from the background. Expect lower
-  startup event volume. iOS measurements include a `prewarmed` indicator.
-  See the Reference docs for platform-specific behavior
-  ([#302](https://github.com/grafana/faro-flutter-sdk/issues/302)).
-- **Android background engines report `dart_isolate_name=headless`.**
-  Queries restricted to `main` no longer include those engines
-  ([#333](https://github.com/grafana/faro-flutter-sdk/issues/333)).
-- **Offline caching tolerates malformed entries** without blocking remaining
-  telemetry. Connectivity probes time out after five seconds and ignore
-  stale results from overlapping probes
-  ([#22](https://github.com/grafana/faro-flutter-sdk/issues/22),
-  [#11](https://github.com/grafana/faro-flutter-sdk/issues/11)).
-- **Stack traces preserve unparsed Dart frames and native crash frames**
-  instead of dropping them. Android crash and ANR traces are included in
-  exception context
-  ([#102](https://github.com/grafana/faro-flutter-sdk/issues/102),
-  [#220](https://github.com/grafana/faro-flutter-sdk/issues/220)).
-- **Unnamed routes preserve the last known view** and avoid empty
-  `view_changed` events
-  ([#305](https://github.com/grafana/faro-flutter-sdk/issues/305)).
-- **Flutter framework errors without stack traces are reported**
-  ([#271](https://github.com/grafana/faro-flutter-sdk/issues/271)).
 
 - **Lowercase and mixed-case known HTTP methods use canonical span names**,
   matching the method sent by Dart's HTTP client. For example, `get` and `GeT`
