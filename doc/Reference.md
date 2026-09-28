@@ -130,11 +130,13 @@ Every telemetry event automatically includes these session attributes:
 | `device_manufacturer` | Manufacturer                | `apple`              | `samsung`             |
 | `device_model`        | Raw model identifier        | `iPhone16,1`         | `SM-A155F`            |
 | `device_model_name`   | Human-readable model        | `iPhone 15 Pro`      | `SM-A155F`\*          |
-| `device_brand`        | Device brand                | `iPhone`             | `samsung`             |
+| `device_brand`        | Device brand                | `Apple`              | `samsung`             |
 | `device_is_physical`  | Physical or emulator (bool) | `true`               | `true`                |
-| `device_id`           | Unique device ID            | `uuid`               | `uuid`                |
+| `device_id`           | Installation ID\*\*         | `uuid`               | `uuid`                |
 
 > \*Android does not provide a mapping from model codes to marketing names, so `device_model_name` equals `device_model`.
+>
+> \*\*`device_id` is not a hardware ID. It is a random UUID that the SDK creates on first launch and stores in the app's preferences. It has the same value as `meta.app.installationId`.
 
 ### SDK Metadata
 

@@ -1,6 +1,8 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:faro/src/device_info/device_info_provider.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
+import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -16,19 +18,57 @@ class MockPlatformInfoProvider extends Mock implements PlatformInfoProvider {}
 
 class MockIosUtsname extends Mock implements IosUtsname {}
 
+class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
+
 void main() {
   late MockDeviceInfoPlugin mockDeviceInfoPlugin;
   late MockAndroidDeviceInfo mockAndroidDeviceInfo;
   late MockIosDeviceInfo mockIosDeviceInfo;
   late MockPlatformInfoProvider mockPlatformInfoProvider;
+  late MockFaroNativeMethods mockNativeMethods;
 
   late DeviceInfoProvider sut;
+
+  void stubAndroid() {
+    when(() => mockPlatformInfoProvider.isAndroid).thenReturn(true);
+    when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
+
+    final mockAndroidBuildVersion = MockAndroidBuildVersion();
+    when(() => mockAndroidBuildVersion.release).thenReturn('11');
+    when(() => mockAndroidBuildVersion.sdkInt).thenReturn(30);
+
+    when(
+      () => mockAndroidDeviceInfo.version,
+    ).thenReturn(mockAndroidBuildVersion);
+    when(() => mockAndroidDeviceInfo.id).thenReturn('RQ3A');
+    when(() => mockAndroidDeviceInfo.manufacturer).thenReturn('Google');
+    when(() => mockAndroidDeviceInfo.model).thenReturn('Pixel 4');
+    when(() => mockAndroidDeviceInfo.brand).thenReturn('Google');
+    when(() => mockAndroidDeviceInfo.isPhysicalDevice).thenReturn(true);
+  }
+
+  void stubIos({String model = 'iPhone'}) {
+    when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
+    when(() => mockPlatformInfoProvider.isIOS).thenReturn(true);
+
+    when(() => mockIosDeviceInfo.systemName).thenReturn('iOS');
+    when(() => mockIosDeviceInfo.systemVersion).thenReturn('14.4');
+
+    final mockIosUtsname = MockIosUtsname();
+    when(() => mockIosUtsname.machine).thenReturn('iPhone12,1');
+
+    when(() => mockIosDeviceInfo.utsname).thenReturn(mockIosUtsname);
+    when(() => mockIosDeviceInfo.model).thenReturn(model);
+    when(() => mockIosDeviceInfo.modelName).thenReturn('iPhone 11');
+    when(() => mockIosDeviceInfo.isPhysicalDevice).thenReturn(true);
+  }
 
   setUp(() {
     mockDeviceInfoPlugin = MockDeviceInfoPlugin();
     mockAndroidDeviceInfo = MockAndroidDeviceInfo();
     mockIosDeviceInfo = MockIosDeviceInfo();
     mockPlatformInfoProvider = MockPlatformInfoProvider();
+    mockNativeMethods = MockFaroNativeMethods();
 
     when(
       () => mockDeviceInfoPlugin.androidInfo,
@@ -45,29 +85,20 @@ void main() {
       () => mockPlatformInfoProvider.operatingSystemVersion,
     ).thenReturn('Some-OS-version');
 
+    when(
+      () => mockNativeMethods.getDeviceMetadata(),
+    ).thenAnswer((_) async => null);
+
     sut = DeviceInfoProvider(
       deviceInfoPlugin: mockDeviceInfoPlugin,
       platformInfoProvider: mockPlatformInfoProvider,
+      nativeMethods: mockNativeMethods,
     );
   });
 
   group('DeviceInfoProvider:', () {
     test('should return correct device info for Android', () async {
-      when(() => mockPlatformInfoProvider.isAndroid).thenReturn(true);
-      when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
-
-      final mockAndroidBuildVersion = MockAndroidBuildVersion();
-      when(() => mockAndroidBuildVersion.release).thenReturn('11');
-      when(() => mockAndroidBuildVersion.sdkInt).thenReturn(30);
-
-      when(
-        () => mockAndroidDeviceInfo.version,
-      ).thenReturn(mockAndroidBuildVersion);
-      when(() => mockAndroidDeviceInfo.id).thenReturn('RQ3A');
-      when(() => mockAndroidDeviceInfo.manufacturer).thenReturn('Google');
-      when(() => mockAndroidDeviceInfo.model).thenReturn('Pixel 4');
-      when(() => mockAndroidDeviceInfo.brand).thenReturn('Google');
-      when(() => mockAndroidDeviceInfo.isPhysicalDevice).thenReturn(true);
+      stubAndroid();
 
       final deviceInfo = await sut.getDeviceInfo();
 
@@ -82,34 +113,26 @@ void main() {
       expect(deviceInfo.deviceBrand, 'Google');
       expect(deviceInfo.deviceIsPhysical, true);
       expect(deviceInfo.deviceType, isNull);
+      verifyNever(() => mockNativeMethods.getDeviceMetadata());
     });
 
     test('should return correct device info for iOS', () async {
-      when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
-      when(() => mockPlatformInfoProvider.isIOS).thenReturn(true);
-
-      when(() => mockIosDeviceInfo.systemName).thenReturn('iOS');
-      when(() => mockIosDeviceInfo.systemVersion).thenReturn('14.4');
-
-      final mockIosUtsname = MockIosUtsname();
-      when(() => mockIosUtsname.machine).thenReturn('iPhone12,1');
-
-      when(() => mockIosDeviceInfo.utsname).thenReturn(mockIosUtsname);
-      when(() => mockIosDeviceInfo.model).thenReturn('iPhone');
-      when(() => mockIosDeviceInfo.modelName).thenReturn('iPhone 11');
-      when(() => mockIosDeviceInfo.isPhysicalDevice).thenReturn(true);
+      stubIos();
+      when(
+        () => mockNativeMethods.getDeviceMetadata(),
+      ).thenAnswer((_) async => {'osBuildId': '18D52'});
 
       final deviceInfo = await sut.getDeviceInfo();
 
       expect(deviceInfo.dartVersion, 'Some-dart-version');
       expect(deviceInfo.deviceOs, 'iOS');
       expect(deviceInfo.deviceOsVersion, '14.4');
-      expect(deviceInfo.deviceOsBuildId, isNull);
+      expect(deviceInfo.deviceOsBuildId, '18D52');
       expect(deviceInfo.deviceOsDetail, 'iOS 14.4');
       expect(deviceInfo.deviceManufacturer, 'apple');
       expect(deviceInfo.deviceModel, 'iPhone12,1');
       expect(deviceInfo.deviceModelName, 'iPhone 11');
-      expect(deviceInfo.deviceBrand, 'iPhone');
+      expect(deviceInfo.deviceBrand, 'Apple');
       expect(deviceInfo.deviceIsPhysical, true);
       expect(deviceInfo.deviceType, 'mobile');
     });
@@ -133,8 +156,56 @@ void main() {
         final deviceInfo = await sut.getDeviceInfo();
 
         expect(deviceInfo.deviceType, 'tablet');
+        expect(deviceInfo.deviceBrand, 'Apple');
       });
     }
+
+    for (final error in <Object>[
+      MissingPluginException(),
+      PlatformException(code: 'NATIVE_ERROR'),
+      StateError('no binary messenger'),
+    ]) {
+      test('should keep iOS device info when native metadata fails with '
+          '${error.runtimeType}', () async {
+        stubIos();
+        when(
+          () => mockNativeMethods.getDeviceMetadata(),
+        ).thenAnswer((_) => Future.error(error));
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceOsBuildId, isNull);
+        expect(deviceInfo.deviceBrand, 'Apple');
+        expect(deviceInfo.deviceType, 'mobile');
+      });
+    }
+
+    for (final metadata in <Map<String, dynamic>?>[
+      null,
+      {},
+      {'osBuildId': false},
+      {'osBuildId': ''},
+    ]) {
+      test('should ignore unusable native metadata $metadata', () async {
+        stubIos();
+        when(
+          () => mockNativeMethods.getDeviceMetadata(),
+        ).thenAnswer((_) async => metadata);
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceOsBuildId, isNull);
+      });
+    }
+
+    test('should query native device metadata once', () async {
+      stubIos();
+
+      await sut.getDeviceInfo();
+      await sut.getDeviceInfo();
+
+      verify(() => mockNativeMethods.getDeviceMetadata()).called(1);
+    });
 
     test(
       'should return correct device info when not iOS and not Android',
@@ -155,6 +226,7 @@ void main() {
         expect(deviceInfo.deviceBrand, 'unknown');
         expect(deviceInfo.deviceIsPhysical, true);
         expect(deviceInfo.deviceType, isNull);
+        verifyNever(() => mockNativeMethods.getDeviceMetadata());
       },
     );
   });

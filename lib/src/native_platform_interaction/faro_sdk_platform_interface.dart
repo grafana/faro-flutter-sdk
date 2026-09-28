@@ -82,4 +82,8 @@ abstract class FaroSdkPlatform extends PlatformInterface {
       'getSessionRuntimeInfo() has not been implemented',
     );
   }
+
+  Future<Map<String, dynamic>?> getDeviceMetadata() {
+    throw UnimplementedError('getDeviceMetadata() has not been implemented');
+  }
 }

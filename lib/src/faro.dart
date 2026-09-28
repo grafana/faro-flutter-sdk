@@ -199,8 +199,10 @@ class Faro {
         .configure(optionsConfiguration.sensitiveHttpQueryParameters);
     _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
 
-    final attributesProvider = await SessionAttributesProviderFactory()
-        .create();
+    final nativeChannel = _nativeChannel ??= FaroNativeMethods();
+    final attributesProvider = await SessionAttributesProviderFactory().create(
+      nativeMethods: nativeChannel,
+    );
     final customAttributes = optionsConfiguration.sessionAttributes ?? {};
     final collectedAttributes = await attributesProvider.collectAttributes();
     final installationId = collectedAttributes.installationId;
@@ -211,7 +213,6 @@ class Faro {
     meta.session?.attributes = {...customAttributes, ...defaultAttributes};
     _setDeviceAndOsMeta(deviceInfo);
 
-    _nativeChannel ??= FaroNativeMethods();
     config = optionsConfiguration;
 
     // Initialize user manager (always with persistence to handle stale data cleanup)

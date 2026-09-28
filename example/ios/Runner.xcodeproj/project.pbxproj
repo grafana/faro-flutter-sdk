@@ -15,6 +15,7 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		A15100000000000000000002 /* CrashReportingIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15100000000000000000001 /* CrashReportingIntegrationTests.swift */; };
+		A15200000000000000000002 /* DeviceMetadataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15200000000000000000001 /* DeviceMetadataTests.swift */; };
 		B511AF535290F278CF5DAF24 /* AppStartTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5ACEA664AC22AE6DD3074A /* AppStartTrackerTests.swift */; };
 		C76BAB755F8132D3850B32A2 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 54FB4329F82A1DBA2EEFE406 /* Foundation.framework */; };
 /* End PBXBuildFile section */
@@ -62,6 +63,7 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A15100000000000000000001 /* CrashReportingIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CrashReportingIntegrationTests.swift; sourceTree = "<group>"; };
+		A15200000000000000000001 /* DeviceMetadataTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceMetadataTests.swift; sourceTree = "<group>"; };
 		DA5ACEA664AC22AE6DD3074A /* AppStartTrackerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppStartTrackerTests.swift; sourceTree = "<group>"; };
 		FA00FA00FA00FA00FA00FA00 /* faro */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = faro; path = ../../ios/faro; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -91,6 +93,7 @@
 			children = (
 				DA5ACEA664AC22AE6DD3074A /* AppStartTrackerTests.swift */,
 				A15100000000000000000001 /* CrashReportingIntegrationTests.swift */,
+				A15200000000000000000001 /* DeviceMetadataTests.swift */,
 			);
 			name = RunnerTests;
 			path = RunnerTests;
@@ -305,6 +308,7 @@
 			files = (
 				B511AF535290F278CF5DAF24 /* AppStartTrackerTests.swift in Sources */,
 				A15100000000000000000002 /* CrashReportingIntegrationTests.swift in Sources */,
+				A15200000000000000000002 /* DeviceMetadataTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

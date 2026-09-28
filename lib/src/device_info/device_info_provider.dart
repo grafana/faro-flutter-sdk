@@ -1,16 +1,22 @@
+import 'dart:developer';
+
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/models/device_info.dart';
+import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 
 class DeviceInfoProvider {
   DeviceInfoProvider({
     required DeviceInfoPlugin deviceInfoPlugin,
     required PlatformInfoProvider platformInfoProvider,
+    required FaroNativeMethods nativeMethods,
   }) : _deviceInfoPlugin = deviceInfoPlugin,
-       _platformInfoProvider = platformInfoProvider;
+       _platformInfoProvider = platformInfoProvider,
+       _nativeMethods = nativeMethods;
 
   final DeviceInfoPlugin _deviceInfoPlugin;
   final PlatformInfoProvider _platformInfoProvider;
+  final FaroNativeMethods _nativeMethods;
 
   DeviceInfo? _deviceInfo;
 
@@ -53,17 +59,19 @@ class DeviceInfoProvider {
 
     if (_platformInfoProvider.isIOS) {
       final iosInfo = await _deviceInfoPlugin.iosInfo;
+      final nativeMetadata = await _getNativeDeviceMetadata();
       deviceOs = iosInfo.systemName;
       deviceOsVersion = iosInfo.systemVersion;
-      // device_info_plus does not expose the real iOS OS build number.
-      deviceOsBuildId = null;
+      // device_info_plus does not expose the iOS OS build number.
+      deviceOsBuildId = _stringValue(nativeMetadata, 'osBuildId');
       deviceOsDetail = '$deviceOs $deviceOsVersion';
       deviceManufacturer = 'apple';
       // Raw identifier like "iPhone16,1"
       deviceModel = iosInfo.utsname.machine;
       // Human-readable name like "iPhone 15 Pro"
       deviceModelName = iosInfo.modelName;
-      deviceBrand = iosInfo.model;
+      // Company-level, like Android Build.BRAND ("google", "samsung").
+      deviceBrand = 'Apple';
       deviceIsPhysical = iosInfo.isPhysicalDevice;
       deviceType = iosInfo.model.toLowerCase().contains('ipad')
           ? 'tablet'
@@ -86,13 +94,29 @@ class DeviceInfoProvider {
     _deviceInfo = deviceInfo;
     return deviceInfo;
   }
+
+  // Missing native metadata must never fail SDK init.
+  Future<Map<String, dynamic>?> _getNativeDeviceMetadata() async {
+    try {
+      return await _nativeMethods.getDeviceMetadata();
+    } catch (error) {
+      log('Faro: Native device metadata unavailable: $error');
+      return null;
+    }
+  }
+
+  String? _stringValue(Map<String, dynamic>? metadata, String key) {
+    final value = metadata?[key];
+    return value is String && value.isNotEmpty ? value : null;
+  }
 }
 
 class DeviceInfoProviderFactory {
-  DeviceInfoProvider create() {
+  DeviceInfoProvider create({required FaroNativeMethods nativeMethods}) {
     return DeviceInfoProvider(
       deviceInfoPlugin: DeviceInfoPlugin(),
       platformInfoProvider: PlatformInfoProviderFactory().create(),
+      nativeMethods: nativeMethods,
     );
   }
 }

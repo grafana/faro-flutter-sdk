@@ -38,6 +38,9 @@ class DeviceInfo {
   final String deviceOsDetail;
 
   /// The operating system build identifier, when available.
+  ///
+  /// - iOS: Build number (e.g., "24A437")
+  /// - Android: `Build.ID` (e.g., "CP2A.260705.006")
   final String? deviceOsBuildId;
 
   /// The device manufacturer.
@@ -61,7 +64,7 @@ class DeviceInfo {
 
   /// The device brand.
   ///
-  /// - iOS: "iPhone", "iPad"
+  /// - iOS: "Apple"
   /// - Android: "samsung", "google", "xiaomi", etc.
   final String deviceBrand;
 
