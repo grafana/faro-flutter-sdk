@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import faro
@@ -53,12 +54,20 @@ struct DeviceMetadataTests {
     )
   }
 
-  @Test("recognizes an Apple Vision Pro hardware identifier")
-  func visionMachine() {
-    #expect(DeviceMetadata.isVisionMachine("RealityDevice14,1"))
-    #expect(!DeviceMetadata.isVisionMachine("iPad14,3"))
-    #expect(!DeviceMetadata.isVisionMachine("arm64"))
-    #expect(!DeviceMetadata.isVisionMachine(nil))
+  @Test("does not treat an iOS runtime as an Apple Vision Pro")
+  func iOSRuntimeIsNotVision() {
+    #expect(!DeviceMetadata.isiOSAppOnVision(.processInfo))
+  }
+
+  // Guards the selector string, which the compiler cannot check.
+  @Test("finds the isiOSAppOnVision property from iOS 26.1")
+  func findsVisionProperty() {
+    guard #available(iOS 26.1, *) else { return }
+    #expect(
+      ProcessInfo.processInfo.responds(
+        to: NSSelectorFromString("isiOSAppOnVision")
+      )
+    )
   }
 
   @Test("reports nothing for a missing or blank build", arguments: [nil, "", " \n"] as [String?])

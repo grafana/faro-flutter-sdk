@@ -13,8 +13,10 @@ enum DeviceMetadata {
     let processInfo = ProcessInfo.processInfo
     let osBuildId = resolveOsBuildId(
       isSimulator: isSimulator,
+      // isMacCatalystApp is also true for an unmodified iOS app on an Apple
+      // silicon Mac (see its doc comment in NSProcessInfo.h).
       isRunningOnNonIOSHost: processInfo.isMacCatalystApp
-        || isVisionMachine(sysctlString("hw.machine")),
+        || isiOSAppOnVision(processInfo),
       simulatorRuntimeBuild: processInfo.environment["SIMULATOR_RUNTIME_BUILD_VERSION"],
       kernelOsVersion: sysctlString("kern.osversion")
     )
@@ -46,12 +48,19 @@ enum DeviceMetadata {
     return nonEmpty(kernelOsVersion)
   }
 
-  /// Whether a hardware identifier is an Apple Vision Pro, such as
-  /// "RealityDevice14,1".
+  /// Whether this iPhone or iPad app runs on an Apple Vision Pro.
   ///
-  /// `ProcessInfo.isiOSAppOnVision` would need the iOS 26.1 SDK to build.
-  static func isVisionMachine(_ machine: String?) -> Bool {
-    machine?.hasPrefix("RealityDevice") ?? false
+  /// There the app sees an iPad `hw.machine`, so the hardware identifier
+  /// cannot tell.
+  static func isiOSAppOnVision(_ processInfo: ProcessInfo) -> Bool {
+    // Looked up at run time: calling the property directly needs the iOS
+    // 26.1 SDK to build, and it exists only on visionOS 26.1 and later.
+    let getter = "isiOSAppOnVision"
+    if processInfo.responds(to: NSSelectorFromString(getter)) {
+      return (processInfo.value(forKey: getter) as? Bool) ?? false
+    }
+    // Before visionOS 26.1. This UIKit class exists only on visionOS.
+    return NSClassFromString("UIWindowSceneGeometryPreferencesVision") != nil
   }
 
   /// Reads a string sysctl. Sizes the buffer first so the value is never
