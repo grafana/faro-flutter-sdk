@@ -92,4 +92,9 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
       <String, dynamic>{'claimSessionPersistence': claimSessionPersistence},
     );
   }
+
+  @override
+  Future<Map<String, dynamic>?> getDeviceMetadata() {
+    return methodChannel.invokeMapMethod<String, dynamic>('getDeviceMetadata');
+  }
 }

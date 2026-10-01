@@ -134,6 +134,8 @@ public class FaroPlugin: NSObject, FlutterPlugin {
                     "processIdentifier": processIdentifier,
                     "ownsSessionPersistence": ownsSessionPersistence,
                 ])
+            case "getDeviceMetadata":
+                result(DeviceMetadata.current())
             default:
                 result(FlutterMethodNotImplemented);
         }

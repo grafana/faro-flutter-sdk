@@ -2,6 +2,7 @@ import 'package:faro/src/device_info/device_info_provider.dart';
 import 'package:faro/src/device_info/installation_id_provider.dart';
 import 'package:faro/src/models/device_info.dart';
 import 'package:faro/src/models/installation_id.dart';
+import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 
 class SessionAttributesProvider {
   SessionAttributesProvider({
@@ -68,10 +69,14 @@ class CollectedSessionAttributes {
 }
 
 class SessionAttributesProviderFactory {
-  Future<SessionAttributesProvider> create() async {
+  Future<SessionAttributesProvider> create({
+    required FaroNativeMethods nativeMethods,
+  }) async {
     final installationIdProvider = await InstallationIdProviderFactory()
         .create();
-    final deviceInfoProvider = DeviceInfoProviderFactory().create();
+    final deviceInfoProvider = DeviceInfoProviderFactory().create(
+      nativeMethods: nativeMethods,
+    );
 
     return SessionAttributesProvider(
       installationIdProvider: installationIdProvider,

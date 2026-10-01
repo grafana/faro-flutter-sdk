@@ -20,7 +20,8 @@ class Os {
 
   /// Operating system build identifier, when available.
   ///
-  /// Example: Android build ID like "CP21.260330.005".
+  /// Examples: Android build ID like "CP21.260330.005", iOS build number like
+  /// "24A437".
   String? buildId;
 
   /// Human-readable operating system detail.

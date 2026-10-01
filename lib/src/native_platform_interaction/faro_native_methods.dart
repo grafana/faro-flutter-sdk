@@ -56,4 +56,8 @@ class FaroNativeMethods {
       claimSessionPersistence: claimSessionPersistence,
     );
   }
+
+  Future<Map<String, dynamic>?> getDeviceMetadata() {
+    return FaroSdkPlatform.instance.getDeviceMetadata();
+  }
 }

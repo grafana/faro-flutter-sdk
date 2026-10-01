@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **iOS device brand is now `Apple`** in `device_brand` and
+  `meta.device.brand`, instead of `iPhone` or `iPad`. **Filters and dashboards
+  that match the old values stop matching new data.**
+  ([#360](https://github.com/grafana/faro-flutter-sdk/issues/360)).
+
+- **iOS now reports `meta.os.build_id`**, such as `24A437`, as Android already
+  does. Simulators report the simulated iOS build.
+  ([#360](https://github.com/grafana/faro-flutter-sdk/issues/360)).
+
 ## [0.17.0] - 2026-09-21
 
 ### Added
