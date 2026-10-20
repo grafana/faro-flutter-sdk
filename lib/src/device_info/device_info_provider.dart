@@ -36,9 +36,13 @@ class DeviceInfoProvider {
     var deviceBrand = 'unknown';
     var deviceIsPhysical = true;
     String? deviceType;
+    String? deviceOsApiLevel;
+    String? deviceArch;
+    Map<String, dynamic>? nativeMetadata;
 
     if (_platformInfoProvider.isAndroid) {
       final androidInfo = await _deviceInfoPlugin.androidInfo;
+      nativeMetadata = await _getNativeDeviceMetadata();
       final release = androidInfo.version.release;
       final sdkInt = androidInfo.version.sdkInt;
 
@@ -46,6 +50,9 @@ class DeviceInfoProvider {
       deviceOsVersion = release;
       deviceOsBuildId = androidInfo.id;
       deviceOsDetail = 'Android $release (SDK $sdkInt)';
+      deviceOsApiLevel = '$sdkInt';
+      // The first ABI is the device's preferred one.
+      deviceArch = androidInfo.supportedAbis.firstOrNull;
       deviceManufacturer = androidInfo.manufacturer;
       deviceModel = androidInfo.model;
       // Android does not provide a mapping from model codes to marketing names,
@@ -59,7 +66,7 @@ class DeviceInfoProvider {
 
     if (_platformInfoProvider.isIOS) {
       final iosInfo = await _deviceInfoPlugin.iosInfo;
-      final nativeMetadata = await _getNativeDeviceMetadata();
+      nativeMetadata = await _getNativeDeviceMetadata();
       deviceOs = iosInfo.systemName;
       deviceOsVersion = iosInfo.systemVersion;
       // device_info_plus does not expose the iOS OS build number.
@@ -76,7 +83,12 @@ class DeviceInfoProvider {
       deviceType = iosInfo.model.toLowerCase().contains('ipad')
           ? 'tablet'
           : 'mobile';
+      deviceArch = _stringValue(nativeMetadata, 'arch');
     }
+
+    final screenWidth = _positiveInt(nativeMetadata, 'screenWidth');
+    final screenHeight = _positiveInt(nativeMetadata, 'screenHeight');
+    final hasScreenSize = screenWidth != null && screenHeight != null;
 
     final deviceInfo = DeviceInfo(
       dartVersion: dartVersion,
@@ -90,6 +102,12 @@ class DeviceInfoProvider {
       deviceIsPhysical: deviceIsPhysical,
       deviceOsBuildId: deviceOsBuildId,
       deviceType: deviceType,
+      deviceOsApiLevel: deviceOsApiLevel,
+      deviceArch: deviceArch,
+      deviceScreenWidth: hasScreenSize ? screenWidth : null,
+      deviceScreenHeight: hasScreenSize ? screenHeight : null,
+      deviceScreenDensity: _positiveDouble(nativeMetadata, 'screenDensity'),
+      deviceMemoryTotal: _positiveInt(nativeMetadata, 'memoryTotal'),
     );
     _deviceInfo = deviceInfo;
     return deviceInfo;
@@ -108,6 +126,16 @@ class DeviceInfoProvider {
   String? _stringValue(Map<String, dynamic>? metadata, String key) {
     final value = metadata?[key];
     return value is String && value.isNotEmpty ? value : null;
+  }
+
+  int? _positiveInt(Map<String, dynamic>? metadata, String key) {
+    final value = metadata?[key];
+    return value is int && value > 0 ? value : null;
+  }
+
+  double? _positiveDouble(Map<String, dynamic>? metadata, String key) {
+    final value = metadata?[key];
+    return value is num && value > 0 ? value.toDouble() : null;
   }
 }
 

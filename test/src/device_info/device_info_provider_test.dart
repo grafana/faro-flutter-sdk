@@ -29,7 +29,7 @@ void main() {
 
   late DeviceInfoProvider sut;
 
-  void stubAndroid() {
+  void stubAndroid({List<String> supportedAbis = const ['arm64-v8a']}) {
     when(() => mockPlatformInfoProvider.isAndroid).thenReturn(true);
     when(() => mockPlatformInfoProvider.isIOS).thenReturn(false);
 
@@ -45,6 +45,7 @@ void main() {
     when(() => mockAndroidDeviceInfo.model).thenReturn('Pixel 4');
     when(() => mockAndroidDeviceInfo.brand).thenReturn('Google');
     when(() => mockAndroidDeviceInfo.isPhysicalDevice).thenReturn(true);
+    when(() => mockAndroidDeviceInfo.supportedAbis).thenReturn(supportedAbis);
   }
 
   void stubIos({String model = 'iPhone'}) {
@@ -113,7 +114,8 @@ void main() {
       expect(deviceInfo.deviceBrand, 'Google');
       expect(deviceInfo.deviceIsPhysical, true);
       expect(deviceInfo.deviceType, isNull);
-      verifyNever(() => mockNativeMethods.getDeviceMetadata());
+      expect(deviceInfo.deviceOsApiLevel, '30');
+      expect(deviceInfo.deviceArch, 'arm64-v8a');
     });
 
     test('should return correct device info for iOS', () async {
@@ -135,6 +137,7 @@ void main() {
       expect(deviceInfo.deviceBrand, 'Apple');
       expect(deviceInfo.deviceIsPhysical, true);
       expect(deviceInfo.deviceType, 'mobile');
+      expect(deviceInfo.deviceOsApiLevel, isNull);
     });
 
     for (final model in ['iPad', 'iPad Simulator']) {
@@ -197,6 +200,137 @@ void main() {
         expect(deviceInfo.deviceOsBuildId, isNull);
       });
     }
+
+    group('static device fields', () {
+      const nativeMetadata = <String, dynamic>{
+        'screenWidth': 1080,
+        'screenHeight': 2400,
+        'screenDensity': 2.625,
+        'memoryTotal': 7981822976,
+      };
+
+      void stubNativeMetadata(Map<String, dynamic>? metadata) {
+        when(
+          () => mockNativeMethods.getDeviceMetadata(),
+        ).thenAnswer((_) async => metadata);
+      }
+
+      test('reads screen and memory from native metadata on Android', () async {
+        stubAndroid();
+        stubNativeMetadata(nativeMetadata);
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceScreenWidth, 1080);
+        expect(deviceInfo.deviceScreenHeight, 2400);
+        expect(deviceInfo.deviceScreenDensity, 2.625);
+        expect(deviceInfo.deviceMemoryTotal, 7981822976);
+      });
+
+      test(
+        'reads screen, memory and arch from native metadata on iOS',
+        () async {
+          stubIos();
+          stubNativeMetadata({
+            'screenWidth': 1179,
+            'screenHeight': 2556,
+            'screenDensity': 3.0,
+            'memoryTotal': 6442450944,
+            'arch': 'arm64',
+          });
+
+          final deviceInfo = await sut.getDeviceInfo();
+
+          expect(deviceInfo.deviceScreenWidth, 1179);
+          expect(deviceInfo.deviceScreenHeight, 2556);
+          expect(deviceInfo.deviceScreenDensity, 3.0);
+          expect(deviceInfo.deviceMemoryTotal, 6442450944);
+          expect(deviceInfo.deviceArch, 'arm64');
+        },
+      );
+
+      // Android reports the size in the orientation at launch.
+      test('sends the screen size as the OS reports it', () async {
+        stubAndroid();
+        stubNativeMetadata({'screenWidth': 2400, 'screenHeight': 1080});
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceScreenWidth, 2400);
+        expect(deviceInfo.deviceScreenHeight, 1080);
+      });
+
+      test('accepts an integer screen density', () async {
+        stubAndroid();
+        stubNativeMetadata({'screenDensity': 3});
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceScreenDensity, 3.0);
+      });
+
+      for (final metadata in <Map<String, dynamic>?>[
+        null,
+        {},
+        {'screenWidth': 1080},
+        {'screenWidth': 0, 'screenHeight': 2400},
+        {'screenWidth': '1080', 'screenHeight': '2400'},
+        {'screenDensity': 0, 'memoryTotal': -1},
+        {'screenDensity': '2.625', 'memoryTotal': 7.9e9},
+      ]) {
+        test('omits unusable native values $metadata', () async {
+          stubAndroid();
+          stubNativeMetadata(metadata);
+
+          final deviceInfo = await sut.getDeviceInfo();
+
+          expect(deviceInfo.deviceScreenWidth, isNull);
+          expect(deviceInfo.deviceScreenHeight, isNull);
+          expect(deviceInfo.deviceScreenDensity, isNull);
+          expect(deviceInfo.deviceMemoryTotal, isNull);
+        });
+      }
+
+      test('keeps Android device info when native metadata fails', () async {
+        stubAndroid();
+        when(
+          () => mockNativeMethods.getDeviceMetadata(),
+        ).thenAnswer((_) => Future.error(MissingPluginException()));
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceOs, 'Android');
+        expect(deviceInfo.deviceOsApiLevel, '30');
+        expect(deviceInfo.deviceScreenWidth, isNull);
+      });
+
+      for (final abi in ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'riscv64']) {
+        test('sends the first Android ABI $abi as is', () async {
+          stubAndroid(supportedAbis: [abi, 'armeabi']);
+
+          final deviceInfo = await sut.getDeviceInfo();
+
+          expect(deviceInfo.deviceArch, abi);
+        });
+      }
+
+      test('omits the arch when Android reports no ABI', () async {
+        stubAndroid(supportedAbis: []);
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceArch, isNull);
+      });
+
+      test('sends the iOS simulator arch x86_64 as is', () async {
+        stubIos();
+        stubNativeMetadata({'arch': 'x86_64'});
+
+        final deviceInfo = await sut.getDeviceInfo();
+
+        expect(deviceInfo.deviceArch, 'x86_64');
+      });
+    });
 
     test('should query native device metadata once', () async {
       stubIos();

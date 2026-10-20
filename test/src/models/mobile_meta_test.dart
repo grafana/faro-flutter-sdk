@@ -23,6 +23,40 @@ void main() {
       });
     });
 
+    test('Device serializes static fields to RFC 004 field names', () {
+      final device = Device(
+        arch: 'arm64',
+        screenWidth: 1080,
+        screenHeight: 2400,
+        screenDensity: 2.625,
+        memoryTotal: 7981822976,
+      );
+
+      final json = device.toJson();
+
+      expect(json, {
+        'arch': 'arm64',
+        'screen_width': 1080,
+        'screen_height': 2400,
+        'screen_density': 2.625,
+        'memory_total': 7981822976,
+      });
+      expect(Device.fromJson(json).toJson(), json);
+    });
+
+    test('Device omits static fields it does not have', () {
+      expect(Device(manufacturer: 'apple').toJson(), {'manufacturer': 'apple'});
+    });
+
+    test('Os serializes the Android API level', () {
+      final os = Os(name: 'Android', apiLevel: '35');
+
+      final json = os.toJson();
+
+      expect(json, {'name': 'Android', 'api_level': '35'});
+      expect(Os.fromJson(json).toJson(), json);
+    });
+
     test('Os serializes to Faro spec field names', () {
       final os = Os(
         name: 'iOS',
