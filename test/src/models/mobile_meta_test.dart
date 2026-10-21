@@ -29,7 +29,7 @@ void main() {
         screenWidth: 1080,
         screenHeight: 2400,
         screenDensity: 2.625,
-        memoryTotal: 7981822976,
+        memoryTotal: 7612,
       );
 
       final json = device.toJson();
@@ -39,7 +39,7 @@ void main() {
         'screen_width': 1080,
         'screen_height': 2400,
         'screen_density': 2.625,
-        'memory_total': 7981822976,
+        'memory_total': 7612,
       });
       expect(Device.fromJson(json).toJson(), json);
     });
@@ -49,11 +49,11 @@ void main() {
     });
 
     test('Os serializes the Android API level', () {
-      final os = Os(name: 'Android', apiLevel: '35');
+      final os = Os(name: 'Android', apiLevel: 35);
 
       final json = os.toJson();
 
-      expect(json, {'name': 'Android', 'api_level': '35'});
+      expect(json, {'name': 'Android', 'api_level': 35});
       expect(Os.fromJson(json).toJson(), json);
     });
 

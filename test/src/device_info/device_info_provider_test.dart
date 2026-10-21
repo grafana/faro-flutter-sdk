@@ -114,7 +114,7 @@ void main() {
       expect(deviceInfo.deviceBrand, 'Google');
       expect(deviceInfo.deviceIsPhysical, true);
       expect(deviceInfo.deviceType, isNull);
-      expect(deviceInfo.deviceOsApiLevel, '30');
+      expect(deviceInfo.deviceOsApiLevel, 30);
       expect(deviceInfo.deviceArch, 'arm64-v8a');
     });
 
@@ -224,7 +224,7 @@ void main() {
         expect(deviceInfo.deviceScreenWidth, 1080);
         expect(deviceInfo.deviceScreenHeight, 2400);
         expect(deviceInfo.deviceScreenDensity, 2.625);
-        expect(deviceInfo.deviceMemoryTotal, 7981822976);
+        expect(deviceInfo.deviceMemoryTotal, 7612);
       });
 
       test(
@@ -244,7 +244,7 @@ void main() {
           expect(deviceInfo.deviceScreenWidth, 1179);
           expect(deviceInfo.deviceScreenHeight, 2556);
           expect(deviceInfo.deviceScreenDensity, 3.0);
-          expect(deviceInfo.deviceMemoryTotal, 6442450944);
+          expect(deviceInfo.deviceMemoryTotal, 6144);
           expect(deviceInfo.deviceArch, 'arm64');
         },
       );
@@ -277,6 +277,7 @@ void main() {
         {'screenWidth': '1080', 'screenHeight': '2400'},
         {'screenDensity': 0, 'memoryTotal': -1},
         {'screenDensity': '2.625', 'memoryTotal': 7.9e9},
+        {'memoryTotal': 1000},
       ]) {
         test('omits unusable native values $metadata', () async {
           stubAndroid();
@@ -300,7 +301,7 @@ void main() {
         final deviceInfo = await sut.getDeviceInfo();
 
         expect(deviceInfo.deviceOs, 'Android');
-        expect(deviceInfo.deviceOsApiLevel, '30');
+        expect(deviceInfo.deviceOsApiLevel, 30);
         expect(deviceInfo.deviceScreenWidth, isNull);
       });
 

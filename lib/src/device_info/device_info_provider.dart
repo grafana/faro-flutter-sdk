@@ -36,7 +36,7 @@ class DeviceInfoProvider {
     var deviceBrand = 'unknown';
     var deviceIsPhysical = true;
     String? deviceType;
-    String? deviceOsApiLevel;
+    int? deviceOsApiLevel;
     String? deviceArch;
     Map<String, dynamic>? nativeMetadata;
 
@@ -50,7 +50,7 @@ class DeviceInfoProvider {
       deviceOsVersion = release;
       deviceOsBuildId = androidInfo.id;
       deviceOsDetail = 'Android $release (SDK $sdkInt)';
-      deviceOsApiLevel = '$sdkInt';
+      deviceOsApiLevel = sdkInt;
       // The first ABI is the device's preferred one.
       deviceArch = androidInfo.supportedAbis.firstOrNull;
       deviceManufacturer = androidInfo.manufacturer;
@@ -107,7 +107,7 @@ class DeviceInfoProvider {
       deviceScreenWidth: hasScreenSize ? screenWidth : null,
       deviceScreenHeight: hasScreenSize ? screenHeight : null,
       deviceScreenDensity: _positiveDouble(nativeMetadata, 'screenDensity'),
-      deviceMemoryTotal: _positiveInt(nativeMetadata, 'memoryTotal'),
+      deviceMemoryTotal: _wholeMb(_positiveInt(nativeMetadata, 'memoryTotal')),
     );
     _deviceInfo = deviceInfo;
     return deviceInfo;
@@ -131,6 +131,13 @@ class DeviceInfoProvider {
   int? _positiveInt(Map<String, dynamic>? metadata, String key) {
     final value = metadata?[key];
     return value is int && value > 0 ? value : null;
+  }
+
+  // 1 MB is 1,048,576 bytes. A value under 1 MB is unusable.
+  int? _wholeMb(int? bytes) {
+    if (bytes == null) return null;
+    final megabytes = bytes ~/ (1024 * 1024);
+    return megabytes > 0 ? megabytes : null;
   }
 
   double? _positiveDouble(Map<String, dynamic>? metadata, String key) {

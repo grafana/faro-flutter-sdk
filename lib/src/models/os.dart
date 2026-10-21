@@ -30,10 +30,10 @@ class Os {
   /// Examples: "Android 17 (SDK 36)", "iOS 18.1".
   String? detail;
 
-  /// Android API level, as a string like OTel `android.os.api_level`.
+  /// Android API level.
   ///
-  /// Example: "35". Omitted on iOS.
-  String? apiLevel;
+  /// Example: 35. Omitted on iOS.
+  int? apiLevel;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};

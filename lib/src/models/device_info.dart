@@ -83,8 +83,8 @@ class DeviceInfo {
   /// reliable form factor.
   final String? deviceType;
 
-  /// The Android API level, such as "35". Omitted on iOS.
-  final String? deviceOsApiLevel;
+  /// The Android API level, such as 35. Omitted on iOS.
+  final int? deviceOsApiLevel;
 
   /// The CPU architecture, as the platform reports it.
   ///
@@ -107,6 +107,6 @@ class DeviceInfo {
   /// - Android: `DisplayMetrics.densityDpi / 160` (e.g., 2.625)
   final double? deviceScreenDensity;
 
-  /// Total device memory in bytes, as the OS reports it.
+  /// Total device memory in whole MB, where 1 MB is 1,048,576 bytes.
   final int? deviceMemoryTotal;
 }

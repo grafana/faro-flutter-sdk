@@ -151,7 +151,7 @@ cannot supply is omitted.
 | `meta.device.screen_width`   | Screen width, in physical pixels                    | `1179`       | `1080`          |
 | `meta.device.screen_height`  | Screen height, in physical pixels                   | `2556`       | `2400`          |
 | `meta.device.screen_density` | Physical pixels per point (iOS) or per dp (Android) | `3.0`        | `2.625`         |
-| `meta.device.memory_total`   | Total device memory, in bytes                       | `6442450944` | `7981822976`    |
+| `meta.device.memory_total`   | Total device memory, in whole MB of 1,048,576 bytes | `6144`       | `7612`          |
 
 iOS always reports the screen size in portrait. Android reports it in the
 orientation when the SDK starts, so an app started in landscape sends a width

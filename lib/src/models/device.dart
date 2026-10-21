@@ -47,7 +47,7 @@ class Device {
   /// Physical pixels per density-independent pixel (iOS: per point).
   double? screenDensity;
 
-  /// Total device memory in bytes.
+  /// Total device memory in whole MB, where 1 MB is 1,048,576 bytes.
   int? memoryTotal;
 
   Map<String, dynamic> toJson() {
