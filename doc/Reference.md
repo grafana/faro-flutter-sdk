@@ -1598,6 +1598,18 @@ Once enabled:
 - **Smart Synchronization**: Cached data is sent automatically when connectivity is restored
 - **Cache Expiry**: Cached events older than `maxCacheDuration` are discarded on sync
 
+Replay uses the first configured `FaroTransport`. A valid, unexpired cached
+payload is removed only after the collector returns a 2xx response. Rejected
+requests, network failures and a full transport buffer leave it cached for the
+next connectivity-restored event; there is no timed retry while staying online.
+Replay preserves the payload's original session and does not apply receiver
+session invalidation to the live session.
+
+Custom transports are not replay destinations: their `send()` method does not
+report collector acceptance. Without a `FaroTransport`, valid, unexpired entries
+remain cached. Corrupt entries and entries older than `maxCacheDuration` are
+still discarded during replay.
+
 ---
 
 ## Data Destinations

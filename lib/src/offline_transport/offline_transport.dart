@@ -9,6 +9,7 @@ import 'package:faro/src/faro.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
+import 'package:faro/src/transport/faro_transport.dart';
 import 'package:faro/src/util/payload_extension.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -221,17 +222,15 @@ class OfflineTransport extends BaseTransport {
   }
 
   Future<bool> _sendCachedData(Payload payload) async {
+    final transport = Faro().transports.whereType<FaroTransport>().firstOrNull;
+    if (transport == null) return false;
+
     try {
-      for (final transport in Faro().transports) {
-        if (this != transport) {
-          await transport.send(payload.toJson());
-        }
-      }
-      return true;
+      return await transport.sendHistoricalAcknowledged(payload.toJson());
     } catch (error, stackTrace) {
       log(
-        'OfflineTransport: Failed to send cached payload: $payload.',
-        error: error,
+        'OfflineTransport: Failed to send cached payload '
+        '(${error.runtimeType}).',
         stackTrace: stackTrace,
       );
       return false;
