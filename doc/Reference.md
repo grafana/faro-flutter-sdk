@@ -1595,20 +1595,26 @@ await Faro().runApp(
 Once enabled:
 
 - **Offline Event Storage**: Events are automatically cached to disk when the device is offline
-- **Smart Synchronization**: Cached data is sent automatically when connectivity is restored
+- **Smart Synchronization**: Replay is attempted after initialization when online,
+  and when connectivity is restored, without blocking app startup
 - **Cache Expiry**: Cached events older than `maxCacheDuration` are discarded on sync
 
-Replay uses the first configured `FaroTransport`. A valid, unexpired cached
-payload is removed only after the collector returns a 2xx response. Rejected
+Replay uses the first configured `FaroTransport`. While collection is enabled,
+a valid, unexpired cached payload is removed only after the collector returns
+a 2xx response. Rejected
 requests, network failures and a full transport buffer leave it cached for the
-next connectivity-restored event; there is no timed retry while staying online.
+next initialization or connectivity-restored event; there is no timed retry
+while staying online.
 Replay preserves the payload's original session and does not apply receiver
 session invalidation to the live session.
 
 Custom transports are not replay destinations: their `send()` method does not
 report collector acceptance. Without a `FaroTransport`, valid, unexpired entries
-remain cached. Corrupt entries and entries older than `maxCacheDuration` are
-still discarded during replay.
+remain cached while collection is enabled. Corrupt entries and entries older
+than `maxCacheDuration` are still discarded during replay.
+
+If replay finds collection disabled, it discards the cache instead of retaining
+it for a later opt-in. Initialization also performs this cleanup while offline.
 
 ---
 

@@ -26,15 +26,7 @@ class OfflineTransport extends BaseTransport {
        _maxCacheDuration = maxCacheDuration {
     _connectivityService.onConnectivityChanged.listen((isOnline) {
       if (isOnline) {
-        try {
-          _readFromFile();
-        } catch (error, stackTrace) {
-          log(
-            'OfflineTransport: Failed to read cached data from file.',
-            error: error,
-            stackTrace: stackTrace,
-          );
-        }
+        unawaited(replayCachedData());
       }
     });
   }
@@ -46,16 +38,29 @@ class OfflineTransport extends BaseTransport {
   Completer<void> _fileLock = Completer<void>()..complete();
 
   Future<T> _withFileLock<T>(Future<T> Function() operation) async {
-    final currentLock = _fileLock;
-    _fileLock = Completer<void>();
+    final previousLock = _fileLock;
+    final currentLock = Completer<void>();
+    _fileLock = currentLock;
     try {
-      await currentLock.future;
-      final result = await operation();
-      _fileLock.complete();
-      return result;
-    } catch (e) {
-      _fileLock.complete();
-      rethrow;
+      await previousLock.future;
+      return await operation();
+    } finally {
+      currentLock.complete();
+    }
+  }
+
+  /// Attempts to deliver cached data when online, or discards it if collection
+  /// is disabled. Faro calls this after initialization and on reconnection.
+  /// Failed deliveries remain cached; overlapping file operations are serialized.
+  Future<void> replayCachedData() async {
+    if (!_connectivityService.isOnline && Faro().enableDataCollection) return;
+    try {
+      await _readFromFile();
+    } catch (error, stackTrace) {
+      log(
+        'OfflineTransport: Failed to read cached data (${error.runtimeType}).',
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -97,6 +102,7 @@ class OfflineTransport extends BaseTransport {
         return;
       }
       final file = await _getCacheFile();
+      if (!Faro().enableDataCollection) return;
       await file.writeAsString(
         '$encodedLogJson\n',
         mode: FileMode.append,
@@ -134,6 +140,10 @@ class OfflineTransport extends BaseTransport {
       if (!await file.exists() || await file.length() == 0) {
         return;
       }
+      if (!Faro().enableDataCollection) {
+        await file.writeAsString('', flush: true);
+        return;
+      }
 
       final failedLines = <String>[];
       final currentTime = DateTime.now().millisecondsSinceEpoch;
@@ -143,6 +153,10 @@ class OfflineTransport extends BaseTransport {
               .openRead()
               .transform(utf8.decoder)
               .transform(const LineSplitter())) {
+        if (!Faro().enableDataCollection) {
+          failedLines.clear();
+          break;
+        }
         if (line.trim().isEmpty) continue;
 
         final logJson = _parseJsonSafely(line);
@@ -174,6 +188,10 @@ class OfflineTransport extends BaseTransport {
           continue;
         }
         final sendSuccess = await _sendCachedData(payload);
+        if (!Faro().enableDataCollection) {
+          failedLines.clear();
+          break;
+        }
         if (!sendSuccess) {
           failedLines.add(line);
         }
@@ -182,7 +200,7 @@ class OfflineTransport extends BaseTransport {
       // Updated cached log files on disk. Remove all successfully sent logs.
       // And put back only the failed logs.
       var updatedFileContent = '';
-      if (failedLines.isNotEmpty) {
+      if (Faro().enableDataCollection && failedLines.isNotEmpty) {
         updatedFileContent = '${failedLines.join('\n')}\n';
       }
       await file.writeAsString(updatedFileContent, flush: true);
@@ -222,6 +240,7 @@ class OfflineTransport extends BaseTransport {
   }
 
   Future<bool> _sendCachedData(Payload payload) async {
+    if (!Faro().enableDataCollection) return true;
     final transport = Faro().transports.whereType<FaroTransport>().firstOrNull;
     if (transport == null) return false;
 

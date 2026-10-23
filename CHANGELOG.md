@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Offline telemetry stays cached when delivery fails.** Replay now waits for
   collector acceptance before removing data and ignores replay-related session
-  invalidation. **Custom transports are no longer replay destinations**; see the
-  Reference docs for details
+  invalidation. Online startup retries cached data after initialization; replay
+  discards it when collection is disabled. **Custom transports are no longer
+  replay destinations**; see the Reference docs for details
   ([#375](https://github.com/grafana/faro-flutter-sdk/issues/375)).
 
 - **iOS device brand is now `Apple`** in `device_brand` and
