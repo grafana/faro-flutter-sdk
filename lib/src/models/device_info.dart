@@ -11,7 +11,6 @@ class DeviceInfo {
     required this.deviceBrand,
     required this.deviceIsPhysical,
     this.deviceOsBuildId,
-    this.deviceType,
     this.deviceOsApiLevel,
     this.deviceArch,
     this.deviceScreenWidth,
@@ -76,12 +75,6 @@ class DeviceInfo {
 
   /// Whether the device is a physical device or an emulator/simulator.
   final bool deviceIsPhysical;
-
-  /// Device form factor, when known.
-  ///
-  /// Examples: "mobile", "tablet". Omitted when the platform does not expose a
-  /// reliable form factor.
-  final String? deviceType;
 
   /// The Android API level, such as 35. Omitted on iOS.
   final int? deviceOsApiLevel;

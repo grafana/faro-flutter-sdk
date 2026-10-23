@@ -5,7 +5,6 @@ class Device {
     this.modelName,
     this.brand,
     this.isPhysical,
-    this.type,
     this.arch,
     this.screenWidth,
     this.screenHeight,
@@ -19,7 +18,6 @@ class Device {
     modelName = json['model_name'];
     brand = json['brand'];
     isPhysical = json['is_physical'];
-    type = json['type'];
     arch = json['arch'];
     screenWidth = json['screen_width'];
     screenHeight = json['screen_height'];
@@ -32,7 +30,6 @@ class Device {
   String? modelName;
   String? brand;
   bool? isPhysical;
-  String? type;
 
   /// CPU architecture, as the platform reports it, such as "arm64-v8a" on
   /// Android or "arm64" on iOS.
@@ -66,9 +63,6 @@ class Device {
     }
     if (isPhysical != null) {
       map['is_physical'] = isPhysical;
-    }
-    if (type != null) {
-      map['type'] = type;
     }
     if (arch != null) {
       map['arch'] = arch;

@@ -10,7 +10,6 @@ void main() {
         modelName: 'iPhone 15 Pro',
         brand: 'iPhone',
         isPhysical: true,
-        type: 'mobile',
       );
 
       expect(device.toJson(), {
@@ -19,7 +18,6 @@ void main() {
         'model_name': 'iPhone 15 Pro',
         'brand': 'iPhone',
         'is_physical': true,
-        'type': 'mobile',
       });
     });
 
@@ -93,7 +91,6 @@ void main() {
           modelName: 'Pixel 8',
           brand: 'google',
           isPhysical: false,
-          type: 'mobile',
         ),
         os: Os(
           name: 'Android',
@@ -123,7 +120,6 @@ void main() {
               modelName: 'iPad Pro',
               brand: 'iPad',
               isPhysical: false,
-              type: 'tablet',
             ),
             os: Os(name: 'iOS', version: '18.1', detail: 'iOS 18.1'),
           ),
@@ -139,7 +135,6 @@ void main() {
           'model_name': 'iPad Pro',
           'brand': 'iPad',
           'is_physical': false,
-          'type': 'tablet',
         });
         expect(meta['os'], {
           'name': 'iOS',

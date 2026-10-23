@@ -35,7 +35,6 @@ class DeviceInfoProvider {
     var deviceModelName = 'unknown';
     var deviceBrand = 'unknown';
     var deviceIsPhysical = true;
-    String? deviceType;
     int? deviceOsApiLevel;
     String? deviceArch;
     Map<String, dynamic>? nativeMetadata;
@@ -60,8 +59,6 @@ class DeviceInfoProvider {
       deviceModelName = androidInfo.model;
       deviceBrand = androidInfo.brand;
       deviceIsPhysical = androidInfo.isPhysicalDevice;
-      // device_info_plus does not reliably expose Android phone/tablet form
-      // factor, so deviceType is left unset instead of guessed.
     }
 
     if (_platformInfoProvider.isIOS) {
@@ -80,9 +77,6 @@ class DeviceInfoProvider {
       // Company-level, like Android Build.BRAND ("google", "samsung").
       deviceBrand = 'Apple';
       deviceIsPhysical = iosInfo.isPhysicalDevice;
-      deviceType = iosInfo.model.toLowerCase().contains('ipad')
-          ? 'tablet'
-          : 'mobile';
       deviceArch = _stringValue(nativeMetadata, 'arch');
     }
 
@@ -101,7 +95,6 @@ class DeviceInfoProvider {
       deviceBrand: deviceBrand,
       deviceIsPhysical: deviceIsPhysical,
       deviceOsBuildId: deviceOsBuildId,
-      deviceType: deviceType,
       deviceOsApiLevel: deviceOsApiLevel,
       deviceArch: deviceArch,
       deviceScreenWidth: hasScreenSize ? screenWidth : null,

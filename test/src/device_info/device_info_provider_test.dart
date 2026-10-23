@@ -113,7 +113,6 @@ void main() {
       expect(deviceInfo.deviceModelName, 'Pixel 4');
       expect(deviceInfo.deviceBrand, 'Google');
       expect(deviceInfo.deviceIsPhysical, true);
-      expect(deviceInfo.deviceType, isNull);
       expect(deviceInfo.deviceOsApiLevel, 30);
       expect(deviceInfo.deviceArch, 'arm64-v8a');
     });
@@ -136,12 +135,11 @@ void main() {
       expect(deviceInfo.deviceModelName, 'iPhone 11');
       expect(deviceInfo.deviceBrand, 'Apple');
       expect(deviceInfo.deviceIsPhysical, true);
-      expect(deviceInfo.deviceType, 'mobile');
       expect(deviceInfo.deviceOsApiLevel, isNull);
     });
 
     for (final model in ['iPad', 'iPad Simulator']) {
-      test('should classify $model as tablet', () async {
+      test('should report the Apple brand for $model', () async {
         when(() => mockPlatformInfoProvider.isAndroid).thenReturn(false);
         when(() => mockPlatformInfoProvider.isIOS).thenReturn(true);
 
@@ -158,7 +156,6 @@ void main() {
 
         final deviceInfo = await sut.getDeviceInfo();
 
-        expect(deviceInfo.deviceType, 'tablet');
         expect(deviceInfo.deviceBrand, 'Apple');
       });
     }
@@ -179,7 +176,6 @@ void main() {
 
         expect(deviceInfo.deviceOsBuildId, isNull);
         expect(deviceInfo.deviceBrand, 'Apple');
-        expect(deviceInfo.deviceType, 'mobile');
       });
     }
 
@@ -360,7 +356,6 @@ void main() {
         expect(deviceInfo.deviceModelName, 'unknown');
         expect(deviceInfo.deviceBrand, 'unknown');
         expect(deviceInfo.deviceIsPhysical, true);
-        expect(deviceInfo.deviceType, isNull);
         verifyNever(() => mockNativeMethods.getDeviceMetadata());
       },
     );

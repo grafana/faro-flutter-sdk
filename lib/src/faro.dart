@@ -364,7 +364,6 @@ class Faro {
         modelName: deviceInfo.deviceModelName,
         brand: deviceInfo.deviceBrand,
         isPhysical: deviceInfo.deviceIsPhysical,
-        type: deviceInfo.deviceType,
         arch: deviceInfo.deviceArch,
         screenWidth: deviceInfo.deviceScreenWidth,
         screenHeight: deviceInfo.deviceScreenHeight,
