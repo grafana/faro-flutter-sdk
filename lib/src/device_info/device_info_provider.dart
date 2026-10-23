@@ -35,10 +35,13 @@ class DeviceInfoProvider {
     var deviceModelName = 'unknown';
     var deviceBrand = 'unknown';
     var deviceIsPhysical = true;
-    String? deviceType;
+    int? deviceOsApiLevel;
+    String? deviceArch;
+    Map<String, dynamic>? nativeMetadata;
 
     if (_platformInfoProvider.isAndroid) {
       final androidInfo = await _deviceInfoPlugin.androidInfo;
+      nativeMetadata = await _getNativeDeviceMetadata();
       final release = androidInfo.version.release;
       final sdkInt = androidInfo.version.sdkInt;
 
@@ -46,6 +49,9 @@ class DeviceInfoProvider {
       deviceOsVersion = release;
       deviceOsBuildId = androidInfo.id;
       deviceOsDetail = 'Android $release (SDK $sdkInt)';
+      deviceOsApiLevel = sdkInt;
+      // The first ABI is the device's preferred one.
+      deviceArch = androidInfo.supportedAbis.firstOrNull;
       deviceManufacturer = androidInfo.manufacturer;
       deviceModel = androidInfo.model;
       // Android does not provide a mapping from model codes to marketing names,
@@ -53,13 +59,11 @@ class DeviceInfoProvider {
       deviceModelName = androidInfo.model;
       deviceBrand = androidInfo.brand;
       deviceIsPhysical = androidInfo.isPhysicalDevice;
-      // device_info_plus does not reliably expose Android phone/tablet form
-      // factor, so deviceType is left unset instead of guessed.
     }
 
     if (_platformInfoProvider.isIOS) {
       final iosInfo = await _deviceInfoPlugin.iosInfo;
-      final nativeMetadata = await _getNativeDeviceMetadata();
+      nativeMetadata = await _getNativeDeviceMetadata();
       deviceOs = iosInfo.systemName;
       deviceOsVersion = iosInfo.systemVersion;
       // device_info_plus does not expose the iOS OS build number.
@@ -73,10 +77,12 @@ class DeviceInfoProvider {
       // Company-level, like Android Build.BRAND ("google", "samsung").
       deviceBrand = 'Apple';
       deviceIsPhysical = iosInfo.isPhysicalDevice;
-      deviceType = iosInfo.model.toLowerCase().contains('ipad')
-          ? 'tablet'
-          : 'mobile';
+      deviceArch = _stringValue(nativeMetadata, 'arch');
     }
+
+    final screenWidth = _positiveInt(nativeMetadata, 'screenWidth');
+    final screenHeight = _positiveInt(nativeMetadata, 'screenHeight');
+    final hasScreenSize = screenWidth != null && screenHeight != null;
 
     final deviceInfo = DeviceInfo(
       dartVersion: dartVersion,
@@ -89,7 +95,12 @@ class DeviceInfoProvider {
       deviceBrand: deviceBrand,
       deviceIsPhysical: deviceIsPhysical,
       deviceOsBuildId: deviceOsBuildId,
-      deviceType: deviceType,
+      deviceOsApiLevel: deviceOsApiLevel,
+      deviceArch: deviceArch,
+      deviceScreenWidth: hasScreenSize ? screenWidth : null,
+      deviceScreenHeight: hasScreenSize ? screenHeight : null,
+      deviceScreenDensity: _positiveDouble(nativeMetadata, 'screenDensity'),
+      deviceMemoryTotal: _wholeMb(_positiveInt(nativeMetadata, 'memoryTotal')),
     );
     _deviceInfo = deviceInfo;
     return deviceInfo;
@@ -108,6 +119,23 @@ class DeviceInfoProvider {
   String? _stringValue(Map<String, dynamic>? metadata, String key) {
     final value = metadata?[key];
     return value is String && value.isNotEmpty ? value : null;
+  }
+
+  int? _positiveInt(Map<String, dynamic>? metadata, String key) {
+    final value = metadata?[key];
+    return value is int && value > 0 ? value : null;
+  }
+
+  // 1 MB is 1,048,576 bytes. A value under 1 MB is unusable.
+  int? _wholeMb(int? bytes) {
+    if (bytes == null) return null;
+    final megabytes = bytes ~/ (1024 * 1024);
+    return megabytes > 0 ? megabytes : null;
+  }
+
+  double? _positiveDouble(Map<String, dynamic>? metadata, String key) {
+    final value = metadata?[key];
+    return value is num && value > 0 ? value.toDouble() : null;
   }
 }
 

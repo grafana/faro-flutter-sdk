@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Device metadata includes the Android API level, CPU architecture, screen
+  size and density, and total device memory**, in `meta.os.api_level` and new
+  `meta.device` fields. See the Reference docs for details
+  ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
+
+### Removed
+
+- **iOS no longer sends `meta.device.type`.** It was `tablet` for an iPad and
+  `mobile` for any other device. Android never sent it. **Filters and
+  dashboards on `meta.device.type` stop matching new data.** To split iPhone
+  from iPad, use `meta.device.model_name`
+  ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
+
+- **BREAKING: `DeviceInfo.deviceType` and `Device.type` are removed.** The SDK
+  no longer sets either field. Code that reads or sets them must drop them
+  ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
+
 ### Fixed
 
 - **iOS device brand is now `Apple`** in `device_brand` and

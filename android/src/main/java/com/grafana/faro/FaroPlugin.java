@@ -420,6 +420,9 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         runtimeInfo.put("engineRole", engineRoleTracker.getEngineRole());
                         result.success(runtimeInfo);
                         break;
+                    case "getDeviceMetadata":
+                        result.success(DeviceMetadata.current(applicationContext));
+                        break;
                     default:
                         result.notImplemented();
                         break;
