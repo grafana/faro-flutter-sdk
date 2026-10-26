@@ -1599,18 +1599,24 @@ Once enabled:
   and when connectivity is restored, without blocking app startup
 - **Cache Expiry**: Cached events older than `maxCacheDuration` are discarded on sync
 
-Replay uses the first configured `FaroTransport`. While collection is enabled,
-a valid, unexpired cached payload is removed only after the collector returns
-a 2xx response. Rejected
-requests, network failures and a full transport buffer leave it cached for the
+Only the first configured `FaroTransport` receives replay. Custom transports and
+any additional `FaroTransport` are not replay destinations.
+
+While collection is enabled, a valid, unexpired cached payload is removed only
+after the collector returns a 2xx response. Rejected requests, network failures
+and a full transport buffer leave it cached for the
 next initialization or connectivity-restored event; there is no timed retry
 while staying online.
 Replay preserves the payload's original session and does not apply receiver
 session invalidation to the live session.
 
-Custom transports are not replay destinations: their `send()` method does not
-report collector acceptance. Without a `FaroTransport`, valid, unexpired entries
-remain cached while collection is enabled. Corrupt entries and entries older
+Set `maxCacheDuration` to limit how long rejected payloads are retained. By
+default, cached payloads do not expire, including those the collector permanently
+rejects. Expiry is checked during replay, not by a background timer. Dropping
+permanently rejected payloads is planned in [#376](https://github.com/grafana/faro-flutter-sdk/issues/376).
+
+Without a `FaroTransport`, valid, unexpired entries remain cached while collection
+is enabled. Corrupt entries and entries older
 than `maxCacheDuration` are still discarded during replay.
 
 If replay finds collection disabled, it discards the cache instead of retaining

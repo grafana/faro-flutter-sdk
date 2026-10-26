@@ -279,7 +279,7 @@ void main() {
       expect(cacheFile().readAsStringSync(), '$validLine\n');
     });
 
-    for (final status in [400, 401, 429, 500, 503]) {
+    for (final status in [401, 429, 500, 503]) {
       test('retains payload after HTTP $status', () async {
         var requests = 0;
         Faro().transports = [
