@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-28
+
+### Changed
+
+- **Requires `equatable` 3.** The `equatable` dependency is now `^3.0.0`
+  instead of `^2.0.8`. Apps that pin `equatable` 2 must upgrade it
+  ([#356](https://github.com/grafana/faro-flutter-sdk/pull/356)).
+
 ### Fixed
 
 - **Offline telemetry stays cached when delivery fails.** Replay now waits for
