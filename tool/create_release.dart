@@ -43,8 +43,14 @@ bool isPrerelease(String version) => version.contains('-');
 
 /// Get the previous git tag
 Future<String?> getPreviousTag() async {
-  // Get all tags sorted by version
-  final result = await Process.run('git', ['tag', '--sort=-v:refname']);
+  // Get all tags sorted by version. By default git sorts v0.17.0-beta.3 above
+  // v0.17.0; `versionsort.suffix=-` puts pre-releases below their release.
+  final result = await Process.run('git', [
+    '-c',
+    'versionsort.suffix=-',
+    'tag',
+    '--sort=-v:refname',
+  ]);
 
   if (result.exitCode != 0) {
     return null;
