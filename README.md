@@ -94,7 +94,13 @@ Faro releases follow the [Semantic Versioning](https://semver.org/) naming schem
 
 Contributions to the Faro Flutter SDK are welcome! Please see our [Contributing Guidelines](CONTRIBUTING.md) for detailed information on how to get started, submit issues, and contribute code.
 
-For questions about the project or need help getting started, feel free to open an issue or reach out to our maintainers.
+For questions about the project or need help getting started, feel free to open an issue or ask in [#mobile-o11y](https://grafana.slack.com/archives/C0C9WH7JRPB) on the Grafana Community Slack.
+
+## Support
+
+- Documentation: [SDK Reference](./doc/Reference.md)
+- GitHub Issues: [Report bugs or request features](https://github.com/grafana/faro-flutter-sdk/issues)
+- Grafana Community Slack: [#mobile-o11y](https://grafana.slack.com/archives/C0C9WH7JRPB) - questions and feedback on Grafana mobile observability
 
 ## License
 

@@ -26,7 +26,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer sets either field. Code that reads or sets them must drop them
   ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
 
+## [0.18.0] - 2026-10-28
+
+### Changed
+
+- **Requires `equatable` 3.** The `equatable` dependency is now `^3.0.0`
+  instead of `^2.0.8`. Apps that pin `equatable` 2 must upgrade it
+  ([#356](https://github.com/grafana/faro-flutter-sdk/pull/356)).
+
 ### Fixed
+
+- **Offline telemetry stays cached when delivery fails.** Replay now waits for
+  collector acceptance before removing data and ignores replay-related session
+  invalidation. Online startup retries cached data after initialization; replay
+  discards it when collection is disabled. **Custom transports are no longer
+  replay destinations**; see the Reference docs for details
+  ([#375](https://github.com/grafana/faro-flutter-sdk/issues/375)).
 
 - **iOS device brand is now `Apple`** in `device_brand` and
   `meta.device.brand`, instead of `iPhone` or `iPad`. **Filters and dashboards

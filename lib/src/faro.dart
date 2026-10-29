@@ -320,6 +320,9 @@ class Faro {
       _didAttachUiActivityMonitor = true;
     }
     _isInitialized = true;
+    for (final transport in _transports.whereType<OfflineTransport>()) {
+      unawaited(transport.replayCachedData());
+    }
   }
 
   Future<void> runApp({

@@ -11,6 +11,7 @@ import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_url_redaction_policy.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
 import 'package:faro/src/offline_transport/offline_transport.dart';
 import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/session/session_persistence.dart';
@@ -21,6 +22,7 @@ import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 import 'package:faro/src/util/constants.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -37,6 +39,9 @@ class MockOfflineTransport extends Mock implements OfflineTransport {}
 class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
 class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
+
+class MockInternetConnectivityService extends Mock
+    implements InternetConnectivityService {}
 
 void main() {
   group('RUM Flutter initialization', () {
@@ -211,6 +216,166 @@ void main() {
         'test-installation-id',
       );
       verify(() => mockBatchTransport.addEvent(any())).called(1);
+    });
+
+    group('offline replay after initialization', () {
+      const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+      late Directory directory;
+      late StreamController<bool> connectivity;
+      late MockInternetConnectivityService service;
+
+      File cacheFile() => File('${directory.path}/rum_log.json');
+
+      Future<void> waitForCache(String expected) async {
+        for (var attempt = 0; attempt < 100; attempt++) {
+          if (cacheFile().readAsStringSync() == expected) return;
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(cacheFile().readAsStringSync(), expected);
+      }
+
+      Future<void> initialize() => Faro().init(
+        optionsConfiguration: FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: null,
+          transports: [mockFaroTransport],
+          persistSession: false,
+          persistUser: false,
+          enableUiActivityMonitoring: false,
+        ),
+      );
+
+      setUp(() async {
+        directory = await Directory.systemTemp.createTemp('faro_init_replay');
+        connectivity = StreamController<bool>.broadcast();
+        service = MockInternetConnectivityService();
+        when(() => service.isOnline).thenReturn(true);
+        when(
+          () => service.onConnectivityChanged,
+        ).thenAnswer((_) => connectivity.stream.distinct());
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(pathChannel, (_) async => directory.path);
+        Faro().transports = [
+          OfflineTransport(internetConnectivityService: service),
+        ];
+      });
+
+      tearDown(() async {
+        await connectivity.close();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(pathChannel, null);
+        await directory.delete(recursive: true);
+      });
+
+      Future<String> seedCache() async {
+        final line = jsonEncode({
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'payload': {
+            'meta': {
+              'session': {'id': 'cached-session'},
+            },
+            'events': [
+              {
+                'name': 'cached-event',
+                'domain': 'flutter',
+                'timestamp': '2026-10-23T10:00:00.000Z',
+              },
+            ],
+          },
+        });
+        await cacheFile().writeAsString('not-json\n$line\n');
+        return '$line\n';
+      }
+
+      test('replays cached data after init without a network change', () async {
+        final cached = await seedCache();
+        connectivity.add(true);
+        // The corrupt marker disappears when the pre-init attempt finishes.
+        await waitForCache(cached);
+
+        await initialize();
+        await waitForCache('');
+
+        final sent =
+            verify(
+                  () => mockFaroTransport.sendHistoricalAcknowledged(
+                    captureAny(),
+                  ),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(sent['meta']['session']['id'], 'cached-session');
+        await initialize();
+        await Future<void>.delayed(Duration.zero);
+        verifyNever(() => mockFaroTransport.sendHistoricalAcknowledged(any()));
+      });
+
+      test(
+        'waits for connectivity when initialization finishes offline',
+        () async {
+          when(() => service.isOnline).thenReturn(false);
+          await seedCache();
+
+          await initialize();
+
+          verifyNever(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          );
+          expect(cacheFile().readAsStringSync(), isNotEmpty);
+          when(() => service.isOnline).thenReturn(true);
+          connectivity.add(true);
+          await waitForCache('');
+          verify(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          ).called(1);
+        },
+      );
+
+      test(
+        'does not wait for collector delivery to finish initialization',
+        () async {
+          await seedCache();
+          final requested = Completer<void>();
+          final response = Completer<bool>();
+          when(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          ).thenAnswer((_) {
+            requested.complete();
+            return response.future;
+          });
+          try {
+            await initialize().timeout(const Duration(seconds: 2));
+            await requested.future.timeout(const Duration(seconds: 2));
+            expect(response.isCompleted, isFalse);
+            expect(cacheFile().readAsStringSync(), isNotEmpty);
+          } finally {
+            response.complete(true);
+            await waitForCache('');
+          }
+        },
+      );
+
+      for (final online in [true, false]) {
+        test(
+          'discards cached data after opted-out init (online: $online)',
+          () async {
+            SharedPreferences.setMockInitialValues({
+              'faro_enable_data_collection': false,
+            });
+            when(() => service.isOnline).thenReturn(online);
+            await seedCache();
+
+            await initialize();
+            await waitForCache('');
+
+            verifyNever(
+              () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+            );
+          },
+        );
+      }
     });
 
     group('session persistence integration', () {
@@ -470,6 +635,7 @@ void main() {
         final deliveryStarted = Completer<void>();
         final deliveryResult = Completer<bool>();
         final offlineTransport = MockOfflineTransport();
+        when(offlineTransport.replayCachedData).thenAnswer((_) async {});
         stubRuntimeInfo(ownsPersistence: true);
         Faro().iosPlatformResolver = () => true;
         Faro().androidPlatformResolver = () => false;
