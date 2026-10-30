@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Requires `dartastic_opentelemetry` 0.12.** The dependency is now
+  `^0.12.0` instead of `^0.11.0`. Apps that pin `dartastic_opentelemetry`
+  0.11 must upgrade it
+  ([#383](https://github.com/grafana/faro-flutter-sdk/pull/383)).
+
 ## [0.18.0] - 2026-10-28
 
 ### Changed
