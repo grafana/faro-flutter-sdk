@@ -367,13 +367,18 @@ class Faro {
         modelName: deviceInfo.deviceModelName,
         brand: deviceInfo.deviceBrand,
         isPhysical: deviceInfo.deviceIsPhysical,
-        type: deviceInfo.deviceType,
+        arch: deviceInfo.deviceArch,
+        screenWidth: deviceInfo.deviceScreenWidth,
+        screenHeight: deviceInfo.deviceScreenHeight,
+        screenDensity: deviceInfo.deviceScreenDensity,
+        memoryTotal: deviceInfo.deviceMemoryTotal,
       ).toJson(),
       'os': Os(
         name: deviceInfo.deviceOs,
         version: deviceInfo.deviceOsVersion,
         buildId: deviceInfo.deviceOsBuildId,
         detail: deviceInfo.deviceOsDetail,
+        apiLevel: deviceInfo.deviceOsApiLevel,
       ).toJson(),
     });
   }

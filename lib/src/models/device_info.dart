@@ -11,7 +11,12 @@ class DeviceInfo {
     required this.deviceBrand,
     required this.deviceIsPhysical,
     this.deviceOsBuildId,
-    this.deviceType,
+    this.deviceOsApiLevel,
+    this.deviceArch,
+    this.deviceScreenWidth,
+    this.deviceScreenHeight,
+    this.deviceScreenDensity,
+    this.deviceMemoryTotal,
   });
 
   /// The Dart runtime version.
@@ -71,9 +76,30 @@ class DeviceInfo {
   /// Whether the device is a physical device or an emulator/simulator.
   final bool deviceIsPhysical;
 
-  /// Device form factor, when known.
+  /// The Android API level, such as 35. Omitted on iOS.
+  final int? deviceOsApiLevel;
+
+  /// The CPU architecture, as the platform reports it.
   ///
-  /// Examples: "mobile", "tablet". Omitted when the platform does not expose a
-  /// reliable form factor.
-  final String? deviceType;
+  /// Android sends its preferred ABI, such as "arm64-v8a". iOS sends the
+  /// architecture the app is built for, such as "arm64" or "x86_64".
+  final String? deviceArch;
+
+  /// The screen width in physical pixels, as the OS reports it.
+  ///
+  /// iOS always reports portrait values. Android reports the values for the
+  /// orientation when the SDK reads them.
+  final int? deviceScreenWidth;
+
+  /// The screen height in physical pixels, as the OS reports it.
+  final int? deviceScreenHeight;
+
+  /// Physical pixels per density-independent pixel.
+  ///
+  /// - iOS: `UIScreen.nativeScale` (e.g., 3.0)
+  /// - Android: `DisplayMetrics.densityDpi / 160` (e.g., 2.625)
+  final double? deviceScreenDensity;
+
+  /// Total device memory in whole MB, where 1 MB is 1,048,576 bytes.
+  final int? deviceMemoryTotal;
 }
