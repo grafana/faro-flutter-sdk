@@ -562,6 +562,120 @@ GoRouter(
 );
 ```
 
+#### Nested navigators and go_router
+
+For `ShellRoute`, `StatefulShellRoute`, or custom pages, use router mode to
+track the resolved visible route across the whole router. This also covers
+switching back to an already visited stateful branch, where no Navigator route
+is pushed, popped, or replaced.
+
+Create one tracker after initializing Faro and creating the router:
+
+```dart
+// In the State that owns your GoRouter:
+late final GoRouter _router;
+late final FaroNavigationObserver _navigationTracker;
+
+@override
+void initState() {
+  super.initState();
+  _router = GoRouter(
+    routes: [
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const HomePage()),
+          GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
+        ],
+      ),
+    ],
+  );
+  _navigationTracker = FaroNavigationObserver.router(
+    routeChanges: _router.routerDelegate,
+    viewNameExtractor: () {
+      // The initial route may not have been resolved yet.
+      if (_router.routerDelegate.currentConfiguration.isEmpty) return null;
+      return _router.state.uri.path;
+    },
+  );
+}
+
+@override
+Widget build(BuildContext context) {
+  return MaterialApp.router(routerConfig: _router);
+}
+
+@override
+void dispose() {
+  _navigationTracker.dispose();
+  _router.dispose();
+  super.dispose();
+}
+```
+
+Use the same tracker setup with `StatefulShellRoute.indexedStack`; no Faro
+observers are needed on its branches. The SDK accepts Flutter's `Listenable`
+interface and a name extractor, so it does not add a runtime dependency on
+`go_router`.
+
+Listen to `routerDelegate` and read the resolved `router.state`. Listening only
+to `routeInformationProvider` can report requested locations before redirects
+finish and does not reliably observe imperative push/pop changes. Router mode
+records the initial resolved view and then emits one `view_changed` event per
+distinct extracted name, with the previous name in `fromView`.
+
+**Choose one tracking mode.** Do not combine the router tracker with separate
+`FaroNavigationObserver()` instances on the root or nested navigators. Router
+mode ignores Navigator callbacks received by its own instance, but independent
+legacy observers still emit their own events.
+
+**View naming changes when switching modes.** Plain Navigator mode uses
+`RouteSettings.name`. The example above uses URI paths, such as `/about`,
+excluding query parameters and fragments. Applications can instead return a
+stable route pattern such as `_router.state.fullPath`, map paths to friendly
+screen names, or return null or an empty string to skip a route. Skipping
+preserves the last tracked view; query-only changes with an unchanged extracted
+name emit no additional view event.
+
+Dispose the tracker before its router. Disposal removes Faro's listener without
+disposing the router and can safely be called more than once. Create a new
+tracker to resume tracking after disposal.
+
+#### Using Navigator observers on individual shells
+
+Plain `FaroNavigationObserver()` remains supported for applications that use
+Navigator routes. If you register separate observers on nested navigators, use
+a different observer instance for each Navigator.
+
+In `go_router` 17 and later, shells forward Navigator notifications to the
+router's root observers by default. Adding separate shell observers with that
+forwarding still enabled duplicates events. To observe a shell separately,
+disable forwarding:
+
+```dart
+ShellRoute(
+  notifyRootObserver: false,
+  observers: [FaroNavigationObserver()],
+  builder: (context, state, child) => AppShell(child: child),
+  routes: [
+    // For custom pages, supply stable keys and explicit names:
+    GoRoute(
+      path: '/about',
+      pageBuilder: (context, state) => NoTransitionPage<void>(
+        key: state.pageKey,
+        name: state.uri.path,
+        child: const AboutPage(),
+      ),
+    ),
+  ],
+);
+```
+
+This setup only tracks Navigator push/pop/replace notifications. It cannot
+detect selecting an already built stateful branch. Use router mode for complete
+stateful tab tracking and for consistent transitions between root and shell
+screens. Unnamed routes in Navigator mode preserve the previous known view.
+
 ### User Interactions Widget
 
 Add the Faro User Interactions Widget at the root level to track user interactions (tap, click, etc.):
