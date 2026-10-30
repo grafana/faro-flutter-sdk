@@ -9,7 +9,7 @@
   "prConcurrentLimit": 10,
   "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
-  "ignoreDeps": ["dev.flutter.flutter-plugin-loader:dev.flutter.flutter-plugin-loader.gradle.plugin"],
+  "ignoreDeps": ["dev.flutter.flutter-plugin-loader"],
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "enabled": true,
