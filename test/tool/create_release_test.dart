@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/create_release.dart';
@@ -157,6 +159,68 @@ void main() {
 
     test('is false for build metadata only', () {
       expect(isPrerelease('1.2.3+42'), isFalse);
+    });
+  });
+
+  group('getPreviousTag:', () {
+    late Directory originalDirectory;
+    late Directory temporaryDirectory;
+
+    // Keeps the developer's git config (signing, hooks) out of the fixture.
+    Future<void> git(Lines args) async {
+      final result = await Process.run('git', [
+        '-c',
+        'user.name=Test',
+        '-c',
+        'user.email=test@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        '-c',
+        'tag.gpgsign=false',
+        ...args,
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+    }
+
+    Future<void> tag(Lines tags) async {
+      for (final tag in tags) {
+        await git(['tag', tag]);
+      }
+    }
+
+    setUp(() async {
+      originalDirectory = Directory.current;
+      temporaryDirectory = await Directory.systemTemp.createTemp(
+        'create-release-test-',
+      );
+      Directory.current = temporaryDirectory;
+
+      await git(['init', '--quiet']);
+      await git([
+        'commit',
+        '--quiet',
+        '--no-verify',
+        '--allow-empty',
+        '-m',
+        'init',
+      ]);
+    });
+
+    tearDown(() async {
+      Directory.current = originalDirectory;
+      await temporaryDirectory.delete(recursive: true);
+    });
+
+    test('ranks a release above its pre-releases', () async {
+      await tag(['v0.16.0', 'v0.17.0-beta.1', 'v0.17.0-beta.3', 'v0.17.0']);
+
+      expect(await getPreviousTag(), 'v0.17.0');
+    });
+
+    test('returns the newest pre-release before its release exists', () async {
+      await tag(['v0.16.0', 'v0.17.0-beta.1', 'v0.17.0-beta.3']);
+
+      expect(await getPreviousTag(), 'v0.17.0-beta.3');
     });
   });
 }
