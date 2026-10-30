@@ -138,6 +138,29 @@ Every telemetry event automatically includes these session attributes:
 >
 > \*\*`device_id` is not a hardware ID. It is a random UUID that the SDK creates on first launch and stores in the app's preferences. It has the same value as `meta.app.installationId`.
 
+### Device Specifications
+
+These fields are sent only in `meta.device` and `meta.os`, not as session
+attributes. The SDK reads them once per app process. A field the platform
+cannot supply is omitted.
+
+| Field                        | Description                                         | iOS Example  | Android Example |
+| ---------------------------- | --------------------------------------------------- | ------------ | --------------- |
+| `meta.os.api_level`          | Android API level                                   | _(omitted)_  | `35`            |
+| `meta.device.arch`           | CPU architecture, as the platform reports it        | `arm64`      | `arm64-v8a`     |
+| `meta.device.screen_width`   | Screen width, in physical pixels                    | `1179`       | `1080`          |
+| `meta.device.screen_height`  | Screen height, in physical pixels                   | `2556`       | `2400`          |
+| `meta.device.screen_density` | Physical pixels per point (iOS) or per dp (Android) | `3.0`        | `2.625`         |
+| `meta.device.memory_total`   | Total device memory, in whole MB of 1,048,576 bytes | `6144`       | `7612`          |
+
+iOS always reports the screen size in portrait. Android reports it in the
+orientation when the SDK starts, so an app started in landscape sends a width
+larger than the height. Total memory is the value the OS reports, which is less
+than the advertised RAM.
+
+Android sends its preferred ABI, such as `arm64-v8a`. iOS sends the architecture 
+the app is built for, such as `arm64` or `x86_64`.
+
 ### SDK Metadata
 
 In addition to session attributes, every telemetry payload includes SDK identification via the `meta.sdk` object. These values are set automatically and cannot be changed by the user.

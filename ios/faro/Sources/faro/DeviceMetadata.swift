@@ -1,8 +1,14 @@
 import Foundation
+import UIKit
 
 /// Device metadata that device_info_plus does not expose.
 enum DeviceMetadata {
   static let osBuildIdKey = "osBuildId"
+  static let archKey = "arch"
+  static let screenWidthKey = "screenWidth"
+  static let screenHeightKey = "screenHeight"
+  static let screenDensityKey = "screenDensity"
+  static let memoryTotalKey = "memoryTotal"
 
   static func current() -> [String: Any] {
     #if targetEnvironment(simulator)
@@ -20,8 +26,35 @@ enum DeviceMetadata {
       simulatorRuntimeBuild: processInfo.environment["SIMULATOR_RUNTIME_BUILD_VERSION"],
       kernelOsVersion: sysctlString("kern.osversion")
     )
-    guard let osBuildId else { return [:] }
-    return [osBuildIdKey: osBuildId]
+    var metadata: [String: Any] = [:]
+    if let osBuildId {
+      metadata[osBuildIdKey] = osBuildId
+    }
+    if let arch = cpuArchitecture {
+      metadata[archKey] = arch
+    }
+    // nativeBounds is in physical pixels and does not rotate with the
+    // interface, unlike bounds.
+    let screen = UIScreen.main
+    metadata[screenWidthKey] = Int(screen.nativeBounds.width)
+    metadata[screenHeightKey] = Int(screen.nativeBounds.height)
+    metadata[screenDensityKey] = Double(screen.nativeScale)
+    metadata[memoryTotalKey] = Int(clamping: processInfo.physicalMemory)
+    return metadata
+  }
+
+  /// The architecture this process is built for, such as "arm64".
+  ///
+  /// iOS runs no 32-bit apps, so this is also the device's architecture,
+  /// except for an x86_64 simulator under Rosetta.
+  static var cpuArchitecture: String? {
+    #if arch(arm64)
+      return "arm64"
+    #elseif arch(x86_64)
+      return "x86_64"
+    #else
+      return nil
+    #endif
   }
 
   /// Picks the OS build to report, such as "24A437", or nil when unknown.
