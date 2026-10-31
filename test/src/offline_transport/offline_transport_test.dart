@@ -23,6 +23,24 @@ class MockFaroTransport extends Mock implements FaroTransport {}
 
 class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
 
+// Capture reconnect-triggered work without changing the production transport.
+class _TrackedOfflineTransport extends OfflineTransport {
+  _TrackedOfflineTransport({
+    required super.internetConnectivityService,
+    super.maxCacheDuration,
+    required this.pendingReplays,
+  });
+
+  final List<Future<void>> pendingReplays;
+
+  @override
+  Future<void> replayCachedData() {
+    final replay = super.replayCachedData();
+    pendingReplays.add(replay);
+    return replay;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -31,12 +49,14 @@ void main() {
   late Directory tempDir;
   late MockInternetConnectivityService mockConnectivityService;
   late StreamController<bool> connectivityController;
+  late List<Future<void>> pendingReplays;
 
   setUpAll(() {
     registerFallbackValue(<String, dynamic>{});
   });
 
   setUp(() async {
+    pendingReplays = [];
     tempDir = await Directory.systemTemp.createTemp('faro_offline_test');
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -56,9 +76,12 @@ void main() {
   });
 
   tearDown(() async {
+    await connectivityController.close();
+    // File contents can match before the rewrite closes its handle. Closing
+    // the event stream does not wait for the unawaited replay futures.
+    await Future.wait(pendingReplays);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProviderChannel, null);
-    await connectivityController.close();
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }
@@ -66,7 +89,8 @@ void main() {
   });
 
   OfflineTransport createTransport({Duration? maxCacheDuration}) {
-    return OfflineTransport(
+    return _TrackedOfflineTransport(
+      pendingReplays: pendingReplays,
       internetConnectivityService: mockConnectivityService,
       maxCacheDuration: maxCacheDuration,
     );
