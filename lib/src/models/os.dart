@@ -1,11 +1,12 @@
 class Os {
-  Os({this.name, this.version, this.buildId, this.detail});
+  Os({this.name, this.version, this.buildId, this.detail, this.apiLevel});
 
   Os.fromJson(dynamic json) {
     name = json['name'];
     version = json['version'];
     buildId = json['build_id'];
     detail = json['detail'];
+    apiLevel = json['api_level'];
   }
 
   /// Operating system name.
@@ -29,6 +30,11 @@ class Os {
   /// Examples: "Android 17 (SDK 36)", "iOS 18.1".
   String? detail;
 
+  /// Android API level.
+  ///
+  /// Example: 35. Omitted on iOS.
+  int? apiLevel;
+
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
     if (name != null) {
@@ -42,6 +48,9 @@ class Os {
     }
     if (detail != null) {
       map['detail'] = detail;
+    }
+    if (apiLevel != null) {
+      map['api_level'] = apiLevel;
     }
     return map;
   }

@@ -109,9 +109,30 @@ struct DeviceMetadataTests {
     #expect(DeviceMetadata.sysctlString("kern.faro_does_not_exist") == nil)
   }
 
-  // The Dart side reads this key by name and ignores any other key.
-  @Test("uses the key the Dart side reads")
-  func osBuildIdKey() {
+  // The Dart side reads these keys by name and ignores any other key.
+  @Test("uses the keys the Dart side reads")
+  func metadataKeys() {
     #expect(DeviceMetadata.osBuildIdKey == "osBuildId")
+    #expect(DeviceMetadata.archKey == "arch")
+    #expect(DeviceMetadata.screenWidthKey == "screenWidth")
+    #expect(DeviceMetadata.screenHeightKey == "screenHeight")
+    #expect(DeviceMetadata.screenDensityKey == "screenDensity")
+    #expect(DeviceMetadata.memoryTotalKey == "memoryTotal")
+  }
+
+  @Test("reports the architecture the tests run as")
+  func reportsArchitecture() {
+    #expect(["arm64", "x86_64"].contains(DeviceMetadata.cpuArchitecture))
+  }
+
+  @Test("reports the screen and memory of the running device")
+  @MainActor
+  func reportsScreenAndMemory() {
+    let metadata = DeviceMetadata.current()
+
+    #expect((metadata[DeviceMetadata.screenWidthKey] as? Int ?? 0) > 0)
+    #expect((metadata[DeviceMetadata.screenHeightKey] as? Int ?? 0) > 0)
+    #expect((metadata[DeviceMetadata.screenDensityKey] as? Double ?? 0) > 0)
+    #expect((metadata[DeviceMetadata.memoryTotalKey] as? Int ?? 0) > 0)
   }
 }

@@ -9,6 +9,7 @@
   "prConcurrentLimit": 10,
   "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
+  "ignoreDeps": ["dev.flutter.flutter-plugin-loader"],
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "enabled": true,
@@ -42,11 +43,9 @@
       "groupName": "patch updates"
     },
     {
-      "description": "Renovate cannot resolve this plugin marker on the maven datasource (no-result), which stamps a 'Package lookup failures' WARN onto every PR body in this repo. It is supplied by the Flutter SDK itself and is not independently upgradable.",
-      "matchPackageNames": [
-        "dev.flutter.flutter-plugin-loader:dev.flutter.flutter-plugin-loader.gradle.plugin"
-      ],
-      "enabled": false
+      "description": "Lock file maintenance has no release timestamp, so the 3-day minimumReleaseAge keeps renovate/stability-days pending forever (renovatebot/renovate#45236). This turns that check off for these PRs. It does not age-gate the versions a refresh picks up (yarn still applies its own npmMinimalAgeGate), so check pub.dev publish dates when reviewing.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
       "description": "Enforce the org-default 3-day release-age cooldown on ALL npm depTypes (incl @grafana/*, which the injected Grafana org preset exempts) to match yarn's npmMinimalAgeGate in example/webview_demo/.yarnrc.yml. Placed last so it overrides that preset. Without this, Renovate proposes @grafana/faro-web-sdk versions younger than the gate that yarn then refuses to lock, producing PRs whose renovate/artifacts check fails and whose package.json drifts from yarn.lock. Keep this value in sync with that .yarnrc.yml.",
