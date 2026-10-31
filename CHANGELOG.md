@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `meta.device` fields. See the Reference docs for details
   ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
 
+### Changed
+
+- **Requires `dartastic_opentelemetry` 0.12.** The dependency is now
+  `^0.12.0` instead of `^0.11.0`. Apps that pin `dartastic_opentelemetry`
+  0.11 must upgrade it
+  ([#383](https://github.com/grafana/faro-flutter-sdk/pull/383)).
+
 ### Removed
 
 - **iOS no longer sends `meta.device.type`.** It was `tablet` for an iPad and

@@ -96,8 +96,6 @@ void main() {
         () => mockOtelTracer.startSpan(
           any(),
           context: any(named: 'context'),
-          spanContext: any(named: 'spanContext'),
-          parentSpan: any(named: 'parentSpan'),
           kind: any(named: 'kind'),
           attributes: any(named: 'attributes'),
           links: any(named: 'links'),

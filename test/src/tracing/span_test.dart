@@ -134,12 +134,14 @@ void main() {
       final apiSpan = tracer.startSpan(
         'test-span',
         kind: otel.SpanKind.client,
-        spanContext: traceFlags == null
+        context: traceFlags == null
             ? null
-            : otel.OTel.spanContext(
-                traceId: otel.OTel.traceId(),
-                spanId: otel.OTel.spanId(),
-                traceFlags: traceFlags,
+            : otel.Context.current.withSpanContext(
+                otel.OTel.spanContext(
+                  traceId: otel.OTel.traceId(),
+                  spanId: otel.OTel.spanId(),
+                  traceFlags: traceFlags,
+                ),
               ),
       );
       return SpanProvider().getSpan(apiSpan, otel.Context.current);
@@ -174,8 +176,10 @@ void main() {
         span.setAttributes({'name': 'test'});
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getString('name'), 'test');
+        expect(
+          (internal.otelSpan as otel.Span).attributes.getString('name'),
+          'test',
+        );
       });
 
       test('should pass int attributes to OTel span', () {
@@ -184,8 +188,7 @@ void main() {
         span.setAttributes({'count': 42});
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getInt('count'), 42);
+        expect((internal.otelSpan as otel.Span).attributes.getInt('count'), 42);
       });
 
       test('should pass double attributes to OTel span', () {
@@ -194,8 +197,10 @@ void main() {
         span.setAttributes({'score': 99.5});
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getDouble('score'), 99.5);
+        expect(
+          (internal.otelSpan as otel.Span).attributes.getDouble('score'),
+          99.5,
+        );
       });
 
       test('should pass bool attributes to OTel span', () {
@@ -204,8 +209,10 @@ void main() {
         span.setAttributes({'enabled': true});
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getBool('enabled'), true);
+        expect(
+          (internal.otelSpan as otel.Span).attributes.getBool('enabled'),
+          true,
+        );
       });
 
       test('should pass mixed type attributes to OTel span', () {
@@ -219,8 +226,7 @@ void main() {
         });
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        final attrs = internal.otelSpan.attributes;
+        final attrs = (internal.otelSpan as otel.Span).attributes;
         expect(attrs.getString('name'), 'test');
         expect(attrs.getInt('count'), 42);
         expect(attrs.getDouble('score'), 99.5);
@@ -243,7 +249,7 @@ void main() {
         );
 
         final internal = span as InternalSpan;
-        final events = internal.otelSpan.spanEvents;
+        final events = (internal.otelSpan as otel.Span).spanEvents;
         expect(events, isNotNull);
         expect(events!.length, 1);
 
@@ -265,7 +271,7 @@ void main() {
         span.recordException(Exception('boom'), stackTrace: stackTrace);
 
         final internal = span as InternalSpan;
-        final events = internal.otelSpan.spanEvents;
+        final events = (internal.otelSpan as otel.Span).spanEvents;
         expect(events, isNotNull);
         expect(events, hasLength(1));
 
@@ -287,8 +293,10 @@ void main() {
         span.setAttribute('name', 'test');
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getString('name'), 'test');
+        expect(
+          (internal.otelSpan as otel.Span).attributes.getString('name'),
+          'test',
+        );
       });
 
       test('should pass int value to OTel span via setAttribute', () {
@@ -296,8 +304,7 @@ void main() {
         span.setAttribute('count', 42);
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getInt('count'), 42);
+        expect((internal.otelSpan as otel.Span).attributes.getInt('count'), 42);
       });
 
       test('should pass double value to OTel span via setAttribute', () {
@@ -305,8 +312,10 @@ void main() {
         span.setAttribute('score', 99.5);
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getDouble('score'), 99.5);
+        expect(
+          (internal.otelSpan as otel.Span).attributes.getDouble('score'),
+          99.5,
+        );
       });
 
       test('should pass bool value to OTel span via setAttribute', () {
@@ -314,8 +323,10 @@ void main() {
         span.setAttribute('enabled', true);
 
         final internal = span as InternalSpan;
-        // ignore: invalid_use_of_visible_for_testing_member
-        expect(internal.otelSpan.attributes.getBool('enabled'), true);
+        expect(
+          (internal.otelSpan as otel.Span).attributes.getBool('enabled'),
+          true,
+        );
       });
     });
   });
