@@ -102,12 +102,10 @@ void main() {
         final span = newSpan();
         await processor.onStart(span, null);
 
-        // ignore: invalid_use_of_visible_for_testing_member
         expect(
           span.attributes.getString('faro.action.user.name'),
           equals('checkout'),
         );
-        // ignore: invalid_use_of_visible_for_testing_member
         expect(
           span.attributes.getString('faro.action.user.parentId'),
           equals(action.id),
@@ -127,9 +125,7 @@ void main() {
         final span = newSpan();
         await processor.onStart(span, null);
 
-        // ignore: invalid_use_of_visible_for_testing_member
         expect(span.attributes.getString('faro.action.user.name'), isNull);
-        // ignore: invalid_use_of_visible_for_testing_member
         expect(span.attributes.getString('faro.action.user.parentId'), isNull);
 
         span.end();
@@ -149,7 +145,6 @@ void main() {
           final span = newSpan();
           await processor.onStart(span, null);
 
-          // ignore: invalid_use_of_visible_for_testing_member
           expect(span.attributes.getString('faro.action.user.name'), isNull);
 
           action.dispose();
@@ -169,7 +164,6 @@ void main() {
         final span = newSpan();
         await processor.onStart(span, null);
 
-        // ignore: invalid_use_of_visible_for_testing_member
         expect(span.attributes.getString('faro.action.user.name'), isNull);
 
         action.dispose();
@@ -190,7 +184,6 @@ void main() {
           final span = newSpan();
           await processor.onStart(span, null);
 
-          // ignore: invalid_use_of_visible_for_testing_member
           expect(span.attributes.getString('faro.action.user.name'), isNull);
 
           action.dispose();

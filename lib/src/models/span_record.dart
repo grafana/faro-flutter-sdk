@@ -3,7 +3,6 @@ import 'package:faro/src/models/trace/trace_resource.dart';
 import 'package:faro/src/models/trace/trace_scope_spans.dart';
 import 'package:faro/src/models/trace/trace_span.dart';
 import 'package:faro/src/models/trace/trace_span_status.dart';
-import 'package:faro/src/tracing/dartastic_span_access.dart';
 import 'package:faro/src/tracing/extensions.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/http_event_attributes.dart';
@@ -144,7 +143,5 @@ class SpanRecord {
     }
   }
 
-  otel.Attributes get _spanAttributes {
-    return dartasticSpanAttributes(_otelReadOnlySpan);
-  }
+  otel.Attributes get _spanAttributes => _otelReadOnlySpan.attributes;
 }

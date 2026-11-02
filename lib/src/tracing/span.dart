@@ -99,9 +99,10 @@ class InternalSpan implements Span {
 
   @override
   SpanStatusCode get status {
-    final otelStatus = _otelSpan.status;
-    if (otelStatus != otel.SpanStatusCode.Unset) {
-      return otelStatus.toSpanStatusCode();
+    // dartastic 0.12 removed status from APISpan; only the SDK span reads it.
+    final otelSpan = _otelSpan;
+    if (otelSpan is otel.Span && otelSpan.status != otel.SpanStatusCode.Unset) {
+      return otelSpan.status.toSpanStatusCode();
     }
     return _statusCode;
   }

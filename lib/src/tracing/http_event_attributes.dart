@@ -1,5 +1,4 @@
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
-import 'package:faro/src/tracing/dartastic_span_access.dart';
 import 'package:faro/src/tracing/span.dart';
 
 // Event-only metadata follows the SDK span through batched export without
@@ -27,9 +26,9 @@ void preserveHttpEventErrorType(Span span) {
   if (span is InternalSpan && span.otelSpan is otel.Span) {
     if (_errorTypeCaptured[span.otelSpan] == true) return;
     _errorTypeCaptured[span.otelSpan] = true;
-    final type = dartasticSpanAttributes(
-      span.otelSpan as otel.Span,
-    ).getString('error.type');
+    final type = (span.otelSpan as otel.Span).attributes.getString(
+      'error.type',
+    );
     if (type != null) updateHttpEventAttributes(span, {'error.type': type});
   }
 }

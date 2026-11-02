@@ -93,18 +93,18 @@ packages:
     dependency: transitive
     description:
       name: dartastic_opentelemetry
-      sha256: e8bf3c1cff40199f5e9c679aeff7922b40c6f0ccd5d7a6c3567cd35be869c9b8
+      sha256: "35d9e6f69d3da6ab188103cdf2445f92b9c56e5bd1fd68e8d79ede23b1241d64"
       url: "https://pub.dev"
     source: hosted
-    version: "0.11.0"
+    version: "0.12.0"
   dartastic_opentelemetry_api:
     dependency: transitive
     description:
       name: dartastic_opentelemetry_api
-      sha256: "273aeef3d3aacdfd68acb73fa29c6ac38701c6a05fe578c0863bcb1c50bc7415"
+      sha256: "4e3958bd6b2e8440755ba9e63633a17b1ffb66224eb8086580857e7fab7dd494"
       url: "https://pub.dev"
     source: hosted
-    version: "0.11.0"
+    version: "0.12.0"
   dartypod:
     dependency: transitive
     description:
