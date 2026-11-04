@@ -43,6 +43,23 @@ class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
 class MockInternetConnectivityService extends Mock
     implements InternetConnectivityService {}
 
+// Track both initialization and connectivity-triggered cache replays.
+class _TrackedOfflineTransport extends OfflineTransport {
+  _TrackedOfflineTransport({
+    required super.internetConnectivityService,
+    required this.pendingReplays,
+  });
+
+  final List<Future<void>> pendingReplays;
+
+  @override
+  Future<void> replayCachedData() {
+    final replay = super.replayCachedData();
+    pendingReplays.add(replay);
+    return replay;
+  }
+}
+
 void main() {
   group('RUM Flutter initialization', () {
     const appName = 'TestApp';
@@ -223,6 +240,7 @@ void main() {
       late Directory directory;
       late StreamController<bool> connectivity;
       late MockInternetConnectivityService service;
+      late List<Future<void>> pendingReplays;
 
       File cacheFile() => File('${directory.path}/rum_log.json');
 
@@ -249,6 +267,7 @@ void main() {
       );
 
       setUp(() async {
+        pendingReplays = [];
         directory = await Directory.systemTemp.createTemp('faro_init_replay');
         connectivity = StreamController<bool>.broadcast();
         service = MockInternetConnectivityService();
@@ -259,12 +278,17 @@ void main() {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(pathChannel, (_) async => directory.path);
         Faro().transports = [
-          OfflineTransport(internetConnectivityService: service),
+          _TrackedOfflineTransport(
+            internetConnectivityService: service,
+            pendingReplays: pendingReplays,
+          ),
         ];
       });
 
       tearDown(() async {
         await connectivity.close();
+        // Cache contents may be visible before the write closes its handle.
+        await Future.wait(pendingReplays);
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(pathChannel, null);
         await directory.delete(recursive: true);
