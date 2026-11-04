@@ -14,6 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `meta.device` fields. See the Reference docs for details
   ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
 
+- **Payloads include battery, power, thermal and network state**, in
+  `meta.device` and the new `meta.network`. Each signal carries the value
+  current when it was captured, and a crash sent on the next launch carries
+  none of them. Android also sends the carrier name. See the Reference docs
+  for details
+  ([#372](https://github.com/grafana/faro-flutter-sdk/issues/372)).
+
+  - **Android now declares the `READ_BASIC_PHONE_STATE` permission** to read
+    the cellular technology on API 33 and later. It is granted at install,
+    with no prompt.
+  - **`meta.network.reachable` is Android only.** iOS has no way to tell wifi
+    without internet from wifi with it, so it never sends the field.
+
 ### Changed
 
 - **Requires `dartastic_opentelemetry` 0.12.** The dependency is now

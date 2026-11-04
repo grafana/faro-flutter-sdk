@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/configurations/batch_config.dart';
+import 'package:faro/src/device_info/dynamic_device_state_provider.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
@@ -28,9 +29,11 @@ class BatchTransport {
     required Payload payload,
     required BatchConfig batchConfig,
     required List<BaseTransport> transports,
+    DynamicDeviceStateProvider? dynamicDeviceState,
   }) : _payload = payload,
        _batchConfig = batchConfig,
-       _transports = transports {
+       _transports = transports,
+       _dynamicDeviceState = dynamicDeviceState {
     if (_batchConfig.enabled) {
       _flushTimer = Timer.periodic(_batchConfig.sendTimeout, (_) {
         flush(_payload);
@@ -44,29 +47,39 @@ class BatchTransport {
   final Payload _payload;
   final BatchConfig _batchConfig;
   final List<BaseTransport> _transports;
+  final DynamicDeviceStateProvider? _dynamicDeviceState;
   Timer? _flushTimer;
 
+  /// The dynamic values that were current when the items of the open payload
+  /// were captured. Every item in the payload shares them.
+  DynamicDeviceState? _payloadState;
+
   void addEvent(Event event) {
+    _captureDynamicDeviceState();
     _payload.events.add(event);
     checkPayloadItemLimit();
   }
 
   void addMeasurement(Measurement measurement) {
+    _captureDynamicDeviceState();
     _payload.measurements.add(measurement);
     checkPayloadItemLimit();
   }
 
   void addLog(FaroLog faroLog) {
+    _captureDynamicDeviceState();
     _payload.logs.add(faroLog);
     checkPayloadItemLimit();
   }
 
   void addSpan(SpanRecord spanRecord) {
+    _captureDynamicDeviceState();
     _payload.traces.addSpan(spanRecord);
     checkPayloadItemLimit();
   }
 
   void addExceptions(FaroException exception) {
+    _captureDynamicDeviceState();
     _payload.exceptions.add(exception);
     checkPayloadItemLimit();
   }
@@ -85,12 +98,60 @@ class BatchTransport {
     if (payloadJson.isEmpty) {
       return;
     }
+    _addDynamicDeviceState(payloadJson);
 
     if (_transports.isNotEmpty) {
       final currentTransports = _transports;
       for (final transport in currentTransports) {
         await transport.send(payloadJson);
       }
+    }
+  }
+
+  /// Reads the dynamic values for the item that is about to be added.
+  ///
+  /// A payload has one `meta`, so a value that changed since the open payload
+  /// began closes that payload. The new item then starts a payload of its own.
+  /// Each payload then carries the values current when its items were captured.
+  /// Reads memory only, so a capture never waits.
+  void _captureDynamicDeviceState() {
+    final provider = _dynamicDeviceState;
+    if (provider == null) {
+      return;
+    }
+    provider.refreshIfStale();
+    final state = provider.current;
+    if (DynamicDeviceState.hasSameValues(state, _payloadState)) {
+      return;
+    }
+    if (payloadSize() > 0) {
+      flush(_payload);
+      resetPayload();
+    }
+    _payloadState = state;
+  }
+
+  /// Adds the values captured with the payload to its meta.
+  ///
+  /// A payload without a fresh value goes out without the field. The shared
+  /// [Meta] stays untouched, so crash recovery never copies these values.
+  void _addDynamicDeviceState(Map<String, dynamic> payloadJson) {
+    final state = _payloadState;
+    final meta = payloadJson['meta'];
+    if (state == null || meta is! Map<String, dynamic>) {
+      return;
+    }
+    final deviceJson = state.device.toJson();
+    if (deviceJson.isNotEmpty) {
+      final existing = meta['device'];
+      meta['device'] = {
+        if (existing is Map<String, dynamic>) ...existing,
+        ...deviceJson,
+      };
+    }
+    final networkJson = state.network.toJson();
+    if (networkJson.isNotEmpty) {
+      meta['network'] = networkJson;
     }
   }
 
@@ -136,6 +197,7 @@ class BatchTransportFactory {
     required BatchConfig batchConfig,
     required List<BaseTransport> transports,
     required bool isSampled,
+    DynamicDeviceStateProvider? dynamicDeviceState,
   }) {
     if (_instance != null) {
       return _instance!;
@@ -146,6 +208,7 @@ class BatchTransportFactory {
       batchConfig: batchConfig,
       transports: transports,
       isSampled: isSampled,
+      dynamicDeviceState: dynamicDeviceState,
     );
   }
 
@@ -159,6 +222,7 @@ class BatchTransportFactory {
     required BatchConfig batchConfig,
     required List<BaseTransport> transports,
     required bool isSampled,
+    DynamicDeviceStateProvider? dynamicDeviceState,
   }) {
     _instance?.dispose();
     return _instance = _build(
@@ -166,6 +230,7 @@ class BatchTransportFactory {
       batchConfig: batchConfig,
       transports: transports,
       isSampled: isSampled,
+      dynamicDeviceState: dynamicDeviceState,
     );
   }
 
@@ -174,6 +239,7 @@ class BatchTransportFactory {
     required BatchConfig batchConfig,
     required List<BaseTransport> transports,
     required bool isSampled,
+    DynamicDeviceStateProvider? dynamicDeviceState,
   }) {
     final BatchTransport instance;
     if (isSampled) {
@@ -181,6 +247,7 @@ class BatchTransportFactory {
         payload: initialPayload,
         batchConfig: batchConfig,
         transports: transports,
+        dynamicDeviceState: dynamicDeviceState,
       );
     } else {
       instance = NoOpBatchTransport();

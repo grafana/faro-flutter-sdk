@@ -161,6 +161,67 @@ than the advertised RAM.
 Android sends its preferred ABI, such as `arm64-v8a`. iOS sends the architecture 
 the app is built for, such as `arm64` or `x86_64`.
 
+### Dynamic Device and Network State
+
+These fields change while the app runs. Each signal carries the value that was
+current when the SDK captured it, in `meta.device` and `meta.network`. A field
+the platform cannot supply is omitted. None of them needs a runtime permission.
+
+| Field                             | Description                                                | iOS Example | Android Example  |
+| --------------------------------- | ---------------------------------------------------------- | ----------- | ---------------- |
+| `meta.device.battery_level`       | Battery level, a whole percent from 0 to 100               | `87`        | `87`             |
+| `meta.device.is_charging`         | Connected to power (AC, USB or wireless), charging or full | `true`      | `false`          |
+| `meta.device.low_power_mode`      | iOS Low Power Mode or Android battery saver                | `false`     | `true`           |
+| `meta.device.thermal_state`       | `nominal`, `fair`, `serious` or `critical`                 | `fair`      | `nominal`        |
+| `meta.network.connection_type`    | `wifi`, `cell`, `wired`, `unavailable` or `unknown`        | `wifi`      | `cell`           |
+| `meta.network.connection_subtype` | Cellular technology, only on `cell`                        | `lte`       | `nr`             |
+| `meta.network.carrier_name`       | Mobile carrier name                                        | _(omitted)_ | `Example Mobile` |
+| `meta.network.reachable`          | Whether the internet is reachable                          | _(omitted)_ | `false`          |
+
+How the SDK keeps them current:
+
+- **Listener-fed values never expire.** Battery level, charging, low power
+  mode, thermal state and connection type come from system listeners. On
+  Android so does `reachable`, and on iOS so does the cellular subtype. The
+  native side pushes each change to Dart, so a payload always carries the
+  latest value.
+- **Values with no listener are read again after a signal.** These are the
+  Android carrier name and cellular subtype. iOS has none. The SDK reads them
+  when a signal is captured and the last read is more than 5 seconds old, or
+  when the connection type changes. The signal carries the previous value
+  while the read runs, up to 60 seconds old, and none after that. A read never
+  blocks capture or send. After a failed read, the SDK waits 30 seconds before
+  it tries again.
+- A payload has one `meta`, so a change of value closes the open payload and
+  the next signal starts a new one. Every signal in a payload shares the values
+  it was captured with.
+- A signal captured without a usable value goes out without the field. This
+  happens at start, before the first read ends, and after a connection type
+  change or a failed read.
+- The native listeners start on the first read, which is `Faro.init`, not when
+  the app starts.
+- A crash sent on the next launch carries none of them. The values of the
+  relaunch would not describe the crash.
+
+Android thermal state maps `NONE`, `LIGHT` and `MODERATE` to `nominal`, `fair`
+and `serious`, and `SEVERE` and above to `critical`. Android reads the carrier
+with `TelephonyManager.getNetworkOperatorName`. iOS never sends a carrier name.
+
+Android reads the cellular subtype from `TelephonyManager.getDataNetworkType`
+on API 33 and later. The SDK declares the `READ_BASIC_PHONE_STATE` permission
+for it. It is a normal permission, granted at install, with no prompt. If an
+app removes the permission, or on older versions, the SDK uses
+`ConnectivityManager`. On iOS the subtype is the technology of the SIM that
+carries mobile data. A dual-SIM phone with no known data SIM sends none. A VPN
+does not hide the connection type under it.
+
+`reachable` is Android only. It is `false` for a wifi network without
+internet, because Android runs its own internet check and the SDK reads the
+result. iOS has no such flag. Its network monitor only says whether a route
+exists, and wifi without internet still has one. So iOS never sends
+`reachable`, and the SDK sends no request of its own to find out. On iOS,
+`connection_type` is `unavailable` when there is no route.
+
 ### SDK Metadata
 
 In addition to session attributes, every telemetry payload includes SDK identification via the `meta.sdk` object. These values are set automatically and cannot be changed by the user.

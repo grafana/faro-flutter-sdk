@@ -56,6 +56,8 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
     private MethodChannel channel;
+    private MethodChannel deviceStateChannel;
+    private DynamicDeviceState.Listener deviceStateListener;
     private Context applicationContext;
     private @Nullable WeakReference<Activity> activity = null;
     private @Nullable ANRTracker anrTracker;
@@ -171,6 +173,20 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         
         // Store application context which is more stable than activity context
         this.applicationContext = flutterPluginBinding.getApplicationContext();
+
+        deviceStateChannel =
+                new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "faro/device_state");
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+        deviceStateListener =
+                state ->
+                        mainHandler.post(
+                                () -> {
+                                    if (deviceStateChannel != null) {
+                                        deviceStateChannel.invokeMethod(
+                                                "onDynamicDeviceStateChanged", state);
+                                    }
+                                });
+        DynamicDeviceState.addListener(deviceStateListener);
         
         // Initialize ExitInfoHelper with application context
         if (this.exitInfoHelper == null && this.applicationContext != null) {
@@ -337,6 +353,11 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         Log.d(TAG, "onDetachedFromEngine");
         channel.setMethodCallHandler(null);
         channel = null;
+        if (deviceStateListener != null) {
+            DynamicDeviceState.removeListener(deviceStateListener);
+            deviceStateListener = null;
+        }
+        deviceStateChannel = null;
         releaseSessionPersistenceOwnership();
     }
 
@@ -422,6 +443,12 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         break;
                     case "getDeviceMetadata":
                         result.success(DeviceMetadata.current(applicationContext));
+                        break;
+                    case "getListenedDeviceState":
+                        result.success(DynamicDeviceState.listenedState(applicationContext));
+                        break;
+                    case "getProbedDeviceState":
+                        result.success(DynamicDeviceState.probedState(applicationContext));
                         break;
                     default:
                         result.notImplemented();
