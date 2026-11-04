@@ -548,23 +548,24 @@ session again.
 
 ### Navigation Tracking
 
-Add the Faro Navigator Observer to track screen changes and send `view_changed` events:
+For `go_router` apps, prefer `FaroRouterTracker`, including apps without shells.
+It also tracks switching back to an already visited `StatefulShellRoute` branch,
+where no Navigator route is pushed or popped. For plain `MaterialApp` routes
+and `Navigator.push`, use `FaroNavigationObserver()`. Other routers can use the
+tracker too, provided their delegate notifies on every visible route change.
+
+Add the Faro Navigator Observer to track plain Navigator screen changes:
 
 ```dart
 // MaterialApp
 MaterialApp(
   navigatorObservers: [FaroNavigationObserver()],
 );
-
-// GoRouter
-GoRouter(
-  observers: [FaroNavigationObserver()],
-);
 ```
 
 #### Nested navigators and go_router
 
-For `ShellRoute`, `StatefulShellRoute`, or custom pages, use router mode to
+For `ShellRoute`, `StatefulShellRoute`, or custom pages, use `FaroRouterTracker` to
 track the resolved visible route across the whole router. This also covers
 switching back to an already visited stateful branch, where no Navigator route
 is pushed, popped, or replaced.
@@ -574,7 +575,7 @@ Create one tracker after initializing Faro and creating the router:
 ```dart
 // In the State that owns your GoRouter:
 late final GoRouter _router;
-late final FaroNavigationObserver _navigationTracker;
+late final FaroRouterTracker _navigationTracker;
 
 @override
 void initState() {
@@ -590,12 +591,12 @@ void initState() {
       ),
     ],
   );
-  _navigationTracker = FaroNavigationObserver.router(
+  _navigationTracker = FaroRouterTracker(
     routeChanges: _router.routerDelegate,
     viewNameExtractor: () {
       // The initial route may not have been resolved yet.
       if (_router.routerDelegate.currentConfiguration.isEmpty) return null;
-      return _router.state.uri.path;
+      return _router.state.fullPath;
     },
   );
 }
@@ -620,24 +621,33 @@ interface and a name extractor, so it does not add a runtime dependency on
 
 Listen to `routerDelegate` and read the resolved `router.state`. Listening only
 to `routeInformationProvider` can report requested locations before redirects
-finish and does not reliably observe imperative push/pop changes. Router mode
+finish and does not reliably observe imperative push/pop changes. The tracker
 records the initial resolved view and then emits one `view_changed` event per
 distinct extracted name, with the previous name in `fromView`.
 
 **Choose one tracking mode.** Do not combine the router tracker with separate
 `FaroNavigationObserver()` instances on the root or nested navigators. Router
-mode ignores Navigator callbacks received by its own instance, but independent
-legacy observers still emit their own events.
+tracking listens directly to the delegate; independent Navigator observers
+still emit their own events.
 
 **View naming changes when switching modes.** Plain Navigator mode uses
-`RouteSettings.name`. The example above uses URI paths, such as `/about`,
-excluding query parameters and fragments. Applications can instead return a
-stable route pattern such as `_router.state.fullPath`, map paths to friendly
-screen names, or return null or an empty string to skip a route. Skipping
-preserves the last tracked view; query-only changes with an unchanged extracted
-name emit no additional view event. Router notifications still refresh session
-activity and signal activity to user actions, including skipped or repeated
-names.
+`RouteSettings.name`. The example above uses stable route patterns from
+`_router.state.fullPath`: `/b/item/42` and `/b/item/7` both become `/b/item/:id`.
+Navigating between those items emits no additional view event, because the
+extracted view name is unchanged. Query parameters and fragments do not affect
+these names either. To record concrete locations instead, return
+`_router.state.uri.path`; each path parameter value can then create a distinct
+view. Applications can also map routes to friendly screen names, or return null
+or an empty string to skip a view. Skipping preserves the last tracked view.
+All router notifications still refresh session activity and signal activity to
+user actions, including skipped or repeated names.
+
+If the extractor throws, tracking skips that view and preserves the previous
+name while continuing session and user-action activity tracking. A diagnostic
+is logged once per consecutive failure period. Any successful extraction resets
+that suppression, so a new failure after recovery is logged again. The initial
+read follows the same rules; keeping the readiness guard in the example avoids
+an unnecessary startup diagnostic.
 
 Dispose the tracker before its router. Disposal removes Faro's listener without
 disposing the router and can safely be called more than once. Create a new
@@ -665,7 +675,7 @@ ShellRoute(
       path: '/about',
       pageBuilder: (context, state) => NoTransitionPage<void>(
         key: state.pageKey,
-        name: state.uri.path,
+        name: state.fullPath,
         child: const AboutPage(),
       ),
     ),
@@ -674,8 +684,8 @@ ShellRoute(
 ```
 
 This setup only tracks Navigator push/pop/replace notifications. It cannot
-detect selecting an already built stateful branch. Use router mode for complete
-stateful tab tracking and for consistent transitions between root and shell
+detect selecting an already built stateful branch. Use `FaroRouterTracker` for
+complete stateful tab tracking and consistent transitions between root and shell
 screens. Unnamed routes in Navigator mode preserve the previous known view.
 
 ### User Interactions Widget

@@ -11,10 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Router-aware view tracking** covers nested navigators, stateful tab
   switches, and root-screen push/pop transitions through
-  `FaroNavigationObserver.router`. The tracker deduplicates view changes,
-  supports custom view names, and removes its listener on disposal without
-  adding a router dependency. See the Reference docs for setup and naming
-  differences ([#306](https://github.com/grafana/faro-flutter-sdk/issues/306)).
+  `FaroRouterTracker`. The tracker deduplicates view changes,
+  supports custom names, tolerates extractor failures, and removes its listener
+  on disposal without adding a router dependency. See the Reference docs for
+  setup and naming differences
+  ([#306](https://github.com/grafana/faro-flutter-sdk/issues/306)).
 
 - **Device metadata includes the Android API level, CPU architecture, screen
   size and density, and total device memory**, in `meta.os.api_level` and new
