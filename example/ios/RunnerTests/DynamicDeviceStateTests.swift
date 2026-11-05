@@ -129,11 +129,4 @@ struct DynamicDeviceStateTests {
     #expect(listened[DynamicDeviceState.lowPowerModeKey] is Bool)
     #expect(listened[DynamicDeviceState.thermalStateKey] is String)
   }
-
-  @Test("the state never reports internet reachability")
-  func neverReachable() {
-    // A path with a route does not mean the internet works, and iOS has no
-    // validated-network flag. No route shows as the "unavailable" type.
-    #expect(DynamicDeviceState.listenedState()["reachable"] == nil)
-  }
 }

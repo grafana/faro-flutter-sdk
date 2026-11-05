@@ -10,9 +10,7 @@ import UIKit
 /// notifications keep a cache and tell observers when it changes. They start
 /// on the first read, not when the plugin loads. Nothing here needs a
 /// permission, and every value is omitted when it cannot be read. iOS never
-/// reports a carrier, and never reports internet reachability: the system has
-/// no validated-network flag, and a path with a route says nothing about
-/// whether the internet works.
+/// reports a carrier.
 enum DynamicDeviceState {
   static let batteryLevelKey = "batteryLevel"
   static let isChargingKey = "isCharging"

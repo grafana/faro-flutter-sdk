@@ -176,15 +176,13 @@ the platform cannot supply is omitted. None of them needs a runtime permission.
 | `meta.network.connection_type`    | `wifi`, `cell`, `wired`, `unavailable` or `unknown`        | `wifi`      | `cell`           |
 | `meta.network.connection_subtype` | Cellular technology, only on `cell`                        | `lte`       | `nr`             |
 | `meta.network.carrier_name`       | Mobile carrier name                                        | _(omitted)_ | `Example Mobile` |
-| `meta.network.reachable`          | Whether the internet is reachable                          | _(omitted)_ | `false`          |
 
 How the SDK keeps them current:
 
 - **Listener-fed values never expire.** Battery level, charging, low power
-  mode, thermal state and connection type come from system listeners. On
-  Android so does `reachable`, and on iOS so does the cellular subtype. The
-  native side pushes each change to Dart, so a payload always carries the
-  latest value.
+  mode, thermal state and connection type come from system listeners. On iOS
+  so does the cellular subtype. The native side pushes each change to Dart, so
+  a payload always carries the latest value.
 - **Values with no listener are read again after a signal.** These are the
   Android carrier name and cellular subtype. iOS has none. The SDK reads them
   when a signal is captured and the last read is more than 5 seconds old, or
@@ -215,12 +213,8 @@ app removes the permission, or on older versions, the SDK uses
 carries mobile data. A dual-SIM phone with no known data SIM sends none. A VPN
 does not hide the connection type under it.
 
-`reachable` is Android only. It is `false` for a wifi network without
-internet, because Android runs its own internet check and the SDK reads the
-result. iOS has no such flag. Its network monitor only says whether a route
-exists, and wifi without internet still has one. So iOS never sends
-`reachable`, and the SDK sends no request of its own to find out. On iOS,
-`connection_type` is `unavailable` when there is no route.
+On iOS, `connection_type` is `unavailable` when there is no route. A wifi
+network without internet still has a route, so it reads as `wifi`.
 
 ### SDK Metadata
 

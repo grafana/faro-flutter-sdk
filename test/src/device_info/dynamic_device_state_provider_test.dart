@@ -24,7 +24,6 @@ void main() {
     'lowPowerMode': true,
     'thermalState': 'fair',
     'connectionType': 'cell',
-    'reachable': true,
   };
   const criticalNative = <String, dynamic>{
     'batteryLevel': 87,
@@ -32,7 +31,6 @@ void main() {
     'lowPowerMode': true,
     'thermalState': 'critical',
     'connectionType': 'cell',
-    'reachable': true,
   };
   const probedNative = <String, dynamic>{
     'connectionSubtype': 'lte',
@@ -77,7 +75,6 @@ void main() {
         'connection_type': 'cell',
         'connection_subtype': 'lte',
         'carrier_name': 'Example Mobile',
-        'reachable': true,
       });
     });
 
@@ -86,13 +83,11 @@ void main() {
         'batteryLevel': 0,
         'isCharging': false,
         'lowPowerMode': false,
-        'reachable': false,
       });
 
       expect(state.device.batteryLevel, 0);
       expect(state.device.isCharging, isFalse);
       expect(state.device.lowPowerMode, isFalse);
-      expect(state.network.reachable, isFalse);
     });
 
     test('drops a value of the wrong type or range', () {
@@ -102,7 +97,6 @@ void main() {
         'thermalState': 'toasty',
         'connectionType': 'satellite',
         'carrierName': '',
-        'reachable': 1,
       });
 
       expect(state.device.toJson(), isEmpty);

@@ -26,7 +26,6 @@ class DynamicDeviceState {
         connectionType: _oneOf(native['connectionType'], _connectionTypes),
         connectionSubtype: _text(native['connectionSubtype']),
         carrierName: _text(native['carrierName']),
-        reachable: _bool(native['reachable']),
       ),
     );
   }
@@ -73,9 +72,9 @@ class DynamicDeviceState {
 /// Keeps the dynamic device and network values current without blocking.
 ///
 /// Two kinds of value:
-/// - **Listener-fed** values (battery, power, thermal, connection type and,
-///   on Android, reachability). The native side pushes each change over the
-///   `faro/device_state` channel, so these never expire.
+/// - **Listener-fed** values (battery, power, thermal and connection type).
+///   The native side pushes each change over the `faro/device_state`
+///   channel, so these never expire.
 /// - **Probed** values, which have no listener: the Android carrier name and
 ///   cellular subtype. iOS has none. [refreshIfStale] reads them again when
 ///   a signal is captured and they are older than [timeToLive]. The read

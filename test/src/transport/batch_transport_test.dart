@@ -373,7 +373,7 @@ void main() {
         when(() => dynamicState.current).thenReturn(
           DynamicDeviceState(
             device: Device(batteryLevel: 40, isCharging: true),
-            network: Network(connectionType: 'wifi', reachable: false),
+            network: Network(connectionType: 'wifi'),
           ),
         );
       });
@@ -394,10 +394,7 @@ void main() {
           'battery_level': 40,
           'is_charging': true,
         });
-        expect(meta['network'], {
-          'connection_type': 'wifi',
-          'reachable': false,
-        });
+        expect(meta['network'], {'connection_type': 'wifi'});
         transport.dispose();
       });
 

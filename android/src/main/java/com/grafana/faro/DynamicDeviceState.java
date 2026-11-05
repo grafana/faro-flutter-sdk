@@ -30,7 +30,7 @@ import io.flutter.Log;
  * Device and network values that change while the app runs.
  *
  * <p>Every value a system listener can update is listener-fed: battery, charging, battery
- * saver, thermal state, connection type and reachability. Listeners keep cached values and tell
+ * saver, thermal state and connection type. Listeners keep cached values and tell
  * {@link Listener}s when the set changes. They start on the first read, not when the plugin
  * loads. Only values with no permission-free listener are read on demand: the cellular subtype
  * and the carrier name. Nothing here needs a runtime permission, and every value is omitted when
@@ -46,7 +46,6 @@ final class DynamicDeviceState {
     static final String CONNECTION_TYPE_KEY = "connectionType";
     static final String CONNECTION_SUBTYPE_KEY = "connectionSubtype";
     static final String CARRIER_NAME_KEY = "carrierName";
-    static final String REACHABLE_KEY = "reachable";
     static final String VERSION_KEY = "version";
 
     /** Receives the listener-fed values each time one of them changes. */
@@ -64,19 +63,7 @@ final class DynamicDeviceState {
     private static volatile Boolean isCharging;
     private static volatile Boolean lowPowerMode;
     private static volatile String thermalState;
-    // The type and the reachability describe one network, so they are replaced together. Two
-    // separate fields would let a read see the new type with the old reachability.
-    private static final class ConnectionState {
-        final String type;
-        final Boolean reachable;
-
-        ConnectionState(@Nullable String type, @Nullable Boolean reachable) {
-            this.type = type;
-            this.reachable = reachable;
-        }
-    }
-
-    private static volatile ConnectionState connection = new ConnectionState(null, null);
+    private static volatile String connectionType;
 
     // Read and written only on the connectivity callback thread, so the loss of the default
     // network is not confused with the loss of a network it replaced.
@@ -118,7 +105,7 @@ final class DynamicDeviceState {
             return state;
         }
         try {
-            if ("cell".equals(connection.type)) {
+            if ("cell".equals(connectionType)) {
                 putIfPresent(state, CONNECTION_SUBTYPE_KEY, readConnectionSubtype(context));
             }
             putIfPresent(state, CARRIER_NAME_KEY, readCarrierName(context));
@@ -135,9 +122,7 @@ final class DynamicDeviceState {
         putIfPresent(state, IS_CHARGING_KEY, isCharging);
         putIfPresent(state, LOW_POWER_MODE_KEY, lowPowerMode);
         putIfPresent(state, THERMAL_STATE_KEY, thermalState);
-        ConnectionState current = connection;
-        putIfPresent(state, CONNECTION_TYPE_KEY, current.type);
-        putIfPresent(state, REACHABLE_KEY, current.reachable);
+        putIfPresent(state, CONNECTION_TYPE_KEY, connectionType);
         return state;
     }
 
@@ -289,7 +274,7 @@ final class DynamicDeviceState {
                                 // means there is no connection.
                                 if (network.equals(defaultNetwork)) {
                                     defaultNetwork = null;
-                                    connection = new ConnectionState("unavailable", false);
+                                    connectionType = "unavailable";
                                     notifyIfChanged();
                                 }
                             }
@@ -317,15 +302,11 @@ final class DynamicDeviceState {
     }
 
     private static void applyCapabilities(@NonNull NetworkCapabilities capabilities) {
-        connection =
-                new ConnectionState(
-                        connectionTypeName(
-                                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
-                                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
-                                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)),
-                        // VALIDATED is the system's own internet check, which is how a wifi
-                        // network without internet reads as unreachable.
-                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+        connectionType =
+                connectionTypeName(
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
     }
 
     /** Reads the network once, for the first value and for the broadcast before API 24. */
@@ -338,23 +319,20 @@ final class DynamicDeviceState {
             if (capabilities != null) {
                 applyCapabilities(capabilities);
             } else {
-                connection = new ConnectionState("unavailable", false);
+                connectionType = "unavailable";
             }
             return;
         }
         NetworkInfo info = connectivityManager.getActiveNetworkInfo();
         if (info == null || !info.isConnected()) {
-            connection = new ConnectionState("unavailable", false);
+            connectionType = "unavailable";
             return;
         }
-        // Before API 23 there is no internet check, so reachability is omitted.
-        connection =
-                new ConnectionState(
-                        connectionTypeName(
-                                info.getType() == ConnectivityManager.TYPE_WIFI,
-                                info.getType() == ConnectivityManager.TYPE_MOBILE,
-                                info.getType() == ConnectivityManager.TYPE_ETHERNET),
-                        null);
+        connectionType =
+                connectionTypeName(
+                        info.getType() == ConnectivityManager.TYPE_WIFI,
+                        info.getType() == ConnectivityManager.TYPE_MOBILE,
+                        info.getType() == ConnectivityManager.TYPE_ETHERNET);
     }
 
     /**

@@ -24,8 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Android now declares the `READ_BASIC_PHONE_STATE` permission** to read
     the cellular technology on API 33 and later. It is granted at install,
     with no prompt.
-  - **`meta.network.reachable` is Android only.** iOS has no way to tell wifi
-    without internet from wifi with it, so it never sends the field.
 
 ### Changed
 

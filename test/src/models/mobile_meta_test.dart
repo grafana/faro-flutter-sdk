@@ -70,7 +70,6 @@ void main() {
         connectionType: 'wifi',
         connectionSubtype: 'lte',
         carrierName: 'Example Mobile',
-        reachable: false,
       );
 
       final json = network.toJson();
@@ -79,7 +78,6 @@ void main() {
         'connection_type': 'wifi',
         'connection_subtype': 'lte',
         'carrier_name': 'Example Mobile',
-        'reachable': false,
       });
       expect(Network.fromJson(json).toJson(), json);
     });
@@ -87,7 +85,7 @@ void main() {
     test('Network omits fields it does not have', () {
       expect(Network().toJson(), isEmpty);
       expect(Network().isEmpty, isTrue);
-      expect(Network(reachable: false).isEmpty, isFalse);
+      expect(Network(carrierName: 'Example Mobile').isEmpty, isFalse);
     });
 
     test('Meta carries network through JSON', () {
