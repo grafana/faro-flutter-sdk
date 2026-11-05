@@ -6,6 +6,7 @@ export './src/configurations/sampling.dart';
 export './src/faro.dart';
 export './src/faro_asset_tracking.dart';
 export './src/faro_navigation_observer.dart';
+export './src/faro_router_tracker.dart' show FaroRouterTracker;
 export './src/faro_user_interaction_widget.dart';
 export './src/integrations/http_tracking_client.dart' show FaroHttpOverrides;
 export './src/models/models.dart';
