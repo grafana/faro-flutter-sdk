@@ -401,26 +401,29 @@ class _Screen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          if (pushTo != null)
+    // Router pages outside a shell have no Scaffold of their own.
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
+            if (pushTo != null)
+              ElevatedButton(
+                onPressed: () => context.push(pushTo!),
+                child: Text('Push ${pushTo!}'),
+              ),
+            if (context.canPop())
+              ElevatedButton(
+                onPressed: () => context.pop(),
+                child: const Text('Pop screen'),
+              ),
             ElevatedButton(
-              onPressed: () => context.push(pushTo!),
-              child: Text('Push ${pushTo!}'),
+              onPressed: () => context.go('/'),
+              child: const Text('Go demo home'),
             ),
-          if (context.canPop())
-            ElevatedButton(
-              onPressed: () => context.pop(),
-              child: const Text('Pop screen'),
-            ),
-          ElevatedButton(
-            onPressed: () => context.go('/'),
-            child: const Text('Go demo home'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
