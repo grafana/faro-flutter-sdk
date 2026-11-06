@@ -106,7 +106,13 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
 
   UserInteractionProperties? _findElementTapped(Offset position) {
     final rootElement = _clickTrackerElement;
-    if (rootElement == null || rootElement.widget != widget) {
+    if (rootElement == null ||
+        !rootElement.mounted ||
+        rootElement.widget != widget) {
+      return null;
+    }
+    final rootRenderObject = rootElement.renderObject;
+    if (rootRenderObject == null || !rootRenderObject.attached) {
       return null;
     }
     UserInteractionProperties? tappedWidget;
@@ -115,28 +121,31 @@ class _FaroUserInteractionWidgetState extends State<FaroUserInteractionWidget> {
         return;
       }
       final renderObject = element.renderObject;
-      if (renderObject == null) {
+      if (renderObject == null ||
+          !renderObject.attached ||
+          (renderObject is RenderBox && !renderObject.hasSize) ||
+          (renderObject is RenderSliver && renderObject.geometry == null)) {
         return;
       }
       var hitFound = true;
-      final hitTest = BoxHitTestResult();
-      if (renderObject is RenderPointerListener) {
-        // These are not used currently, but they were in the code.
-        // Do we want to use these? Let's think about it.
-        // ignore: unused_local_variable
-        final widgetName = element.widget.toString();
-        // ignore: unused_local_variable
-        final widgetKey = element.widget.key.toString();
-
-        hitFound = renderObject.hitTest(hitTest, position: position);
-      }
-      final transform = renderObject.getTransformTo(rootElement.renderObject);
-      final paintBounds = MatrixUtils.transformRect(
-        transform,
-        renderObject.paintBounds,
-      );
-
-      if (!paintBounds.contains(position)) {
+      try {
+        if (renderObject is RenderPointerListener) {
+          hitFound = renderObject.hitTest(
+            BoxHitTestResult(),
+            position: position,
+          );
+        }
+        final transform = renderObject.getTransformTo(rootRenderObject);
+        final paintBounds = MatrixUtils.transformRect(
+          transform,
+          renderObject.paintBounds,
+        );
+        if (!paintBounds.contains(position)) {
+          return;
+        }
+      } catch (_) {
+        // Geometry can be unavailable while routes are being initialized or
+        // changed. Skip this subtree without interrupting the user's tap.
         return;
       }
 
