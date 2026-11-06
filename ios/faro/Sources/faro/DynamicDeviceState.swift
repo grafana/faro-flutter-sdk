@@ -8,10 +8,20 @@ import UIKit
 /// Every value a system notification can update is listener-fed: battery, Low
 /// Power Mode, thermal state, connection type and the cellular technology. The
 /// notifications keep a cache and tell observers when it changes. They start
-/// on the first read, not when the plugin loads. Nothing here needs a
+/// on the first read, not when the plugin loads, and only for the groups the
+/// app asks for: a group that is off registers no notification and reads no
+/// value. Nothing here needs a
 /// permission, and every value is omitted when it cannot be read. iOS never
 /// reports a carrier.
 enum DynamicDeviceState {
+  /// The three groups the app can turn off. The raw values are the names the
+  /// Dart side sends.
+  enum Group: String, CaseIterable {
+    case battery
+    case thermal
+    case network
+  }
+
   static let batteryLevelKey = "batteryLevel"
   static let isChargingKey = "isCharging"
   static let lowPowerModeKey = "lowPowerMode"
@@ -20,7 +30,7 @@ enum DynamicDeviceState {
   static let connectionSubtypeKey = "connectionSubtype"
 
   private static let lock = NSLock()
-  private static var started = false
+  private static var startedGroups: Set<Group> = []
   private static var monitor: NWPathMonitor?
   private static var latestPath: NWPath?
   private static var listenedCache: [String: Any] = [:]
@@ -44,59 +54,83 @@ enum DynamicDeviceState {
     telephonyInfo.delegate != nil
   }
 
-  /// Starts the system listeners once. Safe to call more than once. The plugin
-  /// calls it on the main thread, where it seeds the cache before it returns.
-  /// A call from another thread hops to the main thread, and a second caller
-  /// that races it can read an empty cache.
-  static func start() {
-    lock.lock()
-    if started {
-      lock.unlock()
-      return
+  /// Reads the groups the Dart side sends. Unknown names are ignored.
+  static func groups(from argument: Any?) -> Set<Group> {
+    guard let arguments = argument as? [String: Any],
+      let names = arguments["groups"] as? [String]
+    else {
+      return []
     }
-    started = true
-    lock.unlock()
+    return Set(names.compactMap { Group(rawValue: $0) })
+  }
 
-    if Thread.isMainThread {
-      startListeners()
-    } else {
-      DispatchQueue.main.sync { startListeners() }
+  /// The system notifications that keep a group current.
+  static func notificationNames(for group: Group) -> [Notification.Name] {
+    switch group {
+    case .battery:
+      return [
+        UIDevice.batteryLevelDidChangeNotification,
+        UIDevice.batteryStateDidChangeNotification,
+        .NSProcessInfoPowerStateDidChange,
+      ]
+    case .thermal:
+      return [ProcessInfo.thermalStateDidChangeNotification]
+    case .network:
+      // Newer SDKs import this constant as a Notification.Name and older ones as
+      // a String, so the literal compiles on both.
+      return [Notification.Name("CTServiceRadioAccessTechnologyDidChangeNotification")]
     }
   }
 
-  private static func startListeners() {
-    UIDevice.current.isBatteryMonitoringEnabled = true
+  /// Starts the system listeners of the given groups that are not running yet.
+  /// Safe to call more than once. The plugin calls it on the main thread, where
+  /// it seeds the cache before it returns. A call from another thread hops to
+  /// the main thread, and a second caller that races it can read an empty
+  /// cache.
+  static func start(groups: Set<Group>) {
+    lock.lock()
+    let toStart = groups.subtracting(startedGroups)
+    startedGroups.formUnion(toStart)
+    lock.unlock()
+    if toStart.isEmpty {
+      return
+    }
+
+    if Thread.isMainThread {
+      startListeners(toStart)
+    } else {
+      DispatchQueue.main.sync { startListeners(toStart) }
+    }
+  }
+
+  private static func startListeners(_ groups: Set<Group>) {
+    if groups.contains(.battery) {
+      UIDevice.current.isBatteryMonitoringEnabled = true
+    }
     let center = NotificationCenter.default
-    let names: [Notification.Name] = [
-      UIDevice.batteryLevelDidChangeNotification,
-      UIDevice.batteryStateDidChangeNotification,
-      .NSProcessInfoPowerStateDidChange,
-      ProcessInfo.thermalStateDidChangeNotification,
-      // Newer SDKs import this constant as a Notification.Name and older ones as
-      // a String, so the literal compiles on both.
-      Notification.Name("CTServiceRadioAccessTechnologyDidChangeNotification"),
-    ]
-    for name in names {
+    for name in groups.flatMap({ notificationNames(for: $0) }) {
       center.addObserver(forName: name, object: nil, queue: .main) { _ in
         refreshListened()
       }
     }
 
-    telephonyInfo.delegate = dataServiceObserver
+    if groups.contains(.network) {
+      telephonyInfo.delegate = dataServiceObserver
 
-    let pathMonitor = NWPathMonitor()
-    pathMonitor.pathUpdateHandler = { path in
-      lock.lock()
-      latestPath = path
-      lock.unlock()
-      DispatchQueue.main.async {
-        refreshListened()
+      let pathMonitor = NWPathMonitor()
+      pathMonitor.pathUpdateHandler = { path in
+        lock.lock()
+        latestPath = path
+        lock.unlock()
+        DispatchQueue.main.async {
+          refreshListened()
+        }
       }
+      pathMonitor.start(queue: DispatchQueue(label: "com.grafana.faro.network-path", qos: .utility))
+      lock.lock()
+      monitor = pathMonitor
+      lock.unlock()
     }
-    pathMonitor.start(queue: DispatchQueue(label: "com.grafana.faro.network-path", qos: .utility))
-    lock.lock()
-    monitor = pathMonitor
-    lock.unlock()
     refreshListened()
   }
 
@@ -116,8 +150,8 @@ enum DynamicDeviceState {
   }
 
   /// The cached values that system notifications keep current.
-  static func listenedState() -> [String: Any] {
-    start()
+  static func listenedState(groups: Set<Group> = Set(Group.allCases)) -> [String: Any] {
+    start(groups: groups)
     lock.lock()
     defer { lock.unlock() }
     return listenedCache
@@ -128,21 +162,25 @@ enum DynamicDeviceState {
   private static func refreshListened() {
     var state: [String: Any] = [:]
 
-    let device = UIDevice.current
-    if let level = batteryPercent(device.batteryLevel) {
-      state[batteryLevelKey] = level
-    }
-    if let charging = isCharging(device.batteryState) {
-      state[isChargingKey] = charging
-    }
-    let processInfo = ProcessInfo.processInfo
-    state[lowPowerModeKey] = processInfo.isLowPowerModeEnabled
-    state[thermalStateKey] = thermalStateName(processInfo.thermalState)
-
     lock.lock()
+    let groups = startedGroups
     let path = latestPath
     lock.unlock()
-    if let path {
+
+    if groups.contains(.battery) {
+      let device = UIDevice.current
+      if let level = batteryPercent(device.batteryLevel) {
+        state[batteryLevelKey] = level
+      }
+      if let charging = isCharging(device.batteryState) {
+        state[isChargingKey] = charging
+      }
+      state[lowPowerModeKey] = ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+    if groups.contains(.thermal) {
+      state[thermalStateKey] = thermalStateName(ProcessInfo.processInfo.thermalState)
+    }
+    if groups.contains(.network), let path {
       let type = connectionType(for: path)
       state[connectionTypeKey] = type
       if type == "cell",

@@ -33,6 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     the cellular technology on API 33 and later. It is granted at install,
     with no prompt.
 
+- **Turn off battery, thermal or network state with
+  `FaroConfig.dynamicDeviceState`.** All three groups stay on by default. A
+  group that is off adds none of its fields to `meta` and starts none of its
+  native listeners. An app that turns `network` off can remove the
+  `READ_BASIC_PHONE_STATE` permission from its manifest. See the Reference docs
+  for details
+  ([#389](https://github.com/grafana/faro-flutter-sdk/issues/389)).
+
 ### Changed
 
 - **Requires `dartastic_opentelemetry` 0.12.** The dependency is now

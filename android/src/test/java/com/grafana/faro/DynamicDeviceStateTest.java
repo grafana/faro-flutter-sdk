@@ -10,6 +10,11 @@ import android.telephony.TelephonyManager;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 public class DynamicDeviceStateTest {
     @Test
     public void batteryPercentIsAWholePercent() {
@@ -93,7 +98,7 @@ public class DynamicDeviceStateTest {
 
     @Test
     public void listenedAndProbedStatesAreEmptyWithoutAContext() {
-        assertTrue(DynamicDeviceState.listenedState(null).isEmpty());
+        assertTrue(DynamicDeviceState.listenedState(null, Collections.<String>emptyList()).isEmpty());
         assertTrue(DynamicDeviceState.probedState(null).isEmpty());
     }
 
@@ -106,5 +111,50 @@ public class DynamicDeviceStateTest {
         assertEquals("connectionType", DynamicDeviceState.CONNECTION_TYPE_KEY);
         assertEquals("connectionSubtype", DynamicDeviceState.CONNECTION_SUBTYPE_KEY);
         assertEquals("carrierName", DynamicDeviceState.CARRIER_NAME_KEY);
+    }
+
+    @Test
+    public void everyRequestedGroupStartsWhenNoneIsRunning() {
+        Set<String> toStart =
+                DynamicDeviceState.groupsToStart(
+                        Arrays.asList("battery", "thermal", "network"), new HashSet<String>());
+
+        assertEquals(new HashSet<>(Arrays.asList("battery", "thermal", "network")), toStart);
+    }
+
+    @Test
+    public void aGroupThatIsOffIsNotStarted() {
+        Set<String> toStart =
+                DynamicDeviceState.groupsToStart(
+                        Arrays.asList("battery", "network"), new HashSet<String>());
+
+        assertEquals(new HashSet<>(Arrays.asList("battery", "network")), toStart);
+        assertFalse(toStart.contains("thermal"));
+    }
+
+    @Test
+    public void noGroupStartsWhenNoneIsRequested() {
+        assertTrue(
+                DynamicDeviceState.groupsToStart(
+                                Collections.<String>emptyList(), new HashSet<String>())
+                        .isEmpty());
+    }
+
+    @Test
+    public void aRunningGroupIsNotStartedAgain() {
+        Set<String> running = new HashSet<>(Collections.singleton("battery"));
+
+        Set<String> toStart =
+                DynamicDeviceState.groupsToStart(Arrays.asList("battery", "thermal"), running);
+
+        assertEquals(Collections.singleton("thermal"), toStart);
+    }
+
+    @Test
+    public void anUnknownGroupIsIgnored() {
+        assertTrue(
+                DynamicDeviceState.groupsToStart(
+                                Collections.singletonList("location"), new HashSet<String>())
+                        .isEmpty());
     }
 }

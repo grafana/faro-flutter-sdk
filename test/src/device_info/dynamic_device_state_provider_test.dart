@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:faro/src/configurations/dynamic_device_state_config.dart';
 import 'package:faro/src/device_info/dynamic_device_state_provider.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
@@ -43,10 +44,12 @@ void main() {
   DynamicDeviceStateProvider createProvider({
     DateTime Function()? currentTime,
     Stream<Object?> Function()? openChangeStream,
+    DynamicDeviceStateConfig config = const DynamicDeviceStateConfig(),
   }) {
     return DynamicDeviceStateProvider(
       nativeMethods: nativeMethods,
       platformInfoProvider: platformInfoProvider,
+      config: config,
       currentTime: currentTime ?? DateTime.now,
       openChangeStream: openChangeStream ?? () => changes.stream,
     );
@@ -562,6 +565,145 @@ void main() {
       expect(provider.current, isNull);
       expect(changes.hasListener, isFalse);
       verifyNever(() => nativeMethods.getProbedDeviceState());
+    });
+  });
+
+  group('groups that are off', () {
+    const batteryKeys = {'battery_level', 'is_charging', 'low_power_mode'};
+    const thermalKeys = {'thermal_state'};
+    const networkKeys = {
+      'connection_type',
+      'connection_subtype',
+      'carrier_name',
+    };
+
+    Set<String> keysOf(DynamicDeviceState? state) {
+      return {
+        ...?state?.device.toJson().keys,
+        ...?state?.network.toJson().keys,
+      };
+    }
+
+    test('every group is on by default', () {
+      const config = DynamicDeviceStateConfig();
+
+      expect(config.enabledGroups, ['battery', 'thermal', 'network']);
+      expect(config.isAnyEnabled, isTrue);
+    });
+
+    test('turning off battery drops only the battery fields', () {
+      final state = DynamicDeviceState.fromNative(
+        nativeState,
+        config: const DynamicDeviceStateConfig(battery: false),
+      );
+
+      expect(keysOf(state).intersection(batteryKeys), isEmpty);
+      expect(keysOf(state), containsAll({...thermalKeys, ...networkKeys}));
+    });
+
+    test('turning off thermal drops only the thermal field', () {
+      final state = DynamicDeviceState.fromNative(
+        nativeState,
+        config: const DynamicDeviceStateConfig(thermal: false),
+      );
+
+      expect(keysOf(state).intersection(thermalKeys), isEmpty);
+      expect(keysOf(state), containsAll({...batteryKeys, ...networkKeys}));
+    });
+
+    test('turning off network drops only the network fields', () {
+      final state = DynamicDeviceState.fromNative(
+        nativeState,
+        config: const DynamicDeviceStateConfig(network: false),
+      );
+
+      expect(keysOf(state).intersection(networkKeys), isEmpty);
+      expect(keysOf(state), containsAll({...batteryKeys, ...thermalKeys}));
+    });
+
+    test('native is asked only for the groups that are on', () async {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channel = EventChannel(
+        DynamicDeviceStateProvider.changeChannelName,
+      );
+      Object? received;
+      messenger.setMockStreamHandler(
+        channel,
+        MockStreamHandler.inline(
+          onListen: (arguments, events) {
+            received = arguments;
+            events.success(listenedNative);
+          },
+        ),
+      );
+      final provider = DynamicDeviceStateProvider(
+        nativeMethods: nativeMethods,
+        platformInfoProvider: platformInfoProvider,
+        config: const DynamicDeviceStateConfig(thermal: false),
+      );
+
+      await provider.start();
+
+      expect(received, {
+        'groups': ['battery', 'network'],
+      });
+      provider.dispose();
+      messenger.setMockStreamHandler(channel, null);
+    });
+
+    test('the current state omits the fields of a group that is off', () async {
+      final provider = createProvider(
+        config: const DynamicDeviceStateConfig(battery: false),
+      );
+
+      await provider.start();
+
+      expect(keysOf(provider.current).intersection(batteryKeys), isEmpty);
+      expect(keysOf(provider.current), contains('thermal_state'));
+      provider.dispose();
+    });
+
+    test('with every group off nothing reaches native', () async {
+      const config = DynamicDeviceStateConfig(
+        battery: false,
+        thermal: false,
+        network: false,
+      );
+      final provider = createProvider(config: config);
+
+      await provider.start();
+      provider.refreshIfStale();
+
+      expect(config.isAnyEnabled, isFalse);
+      expect(provider.current, isNull);
+      expect(changes.hasListener, isFalse);
+      verifyNever(() => nativeMethods.getProbedDeviceState());
+      provider.dispose();
+    });
+
+    test('with network off the probed values are never read', () async {
+      final provider = createProvider(
+        config: const DynamicDeviceStateConfig(network: false),
+      );
+
+      await provider.start();
+      provider.refreshIfStale();
+      await provider.refreshProbed();
+
+      verifyNever(() => nativeMethods.getProbedDeviceState());
+      expect(keysOf(provider.current).intersection(networkKeys), isEmpty);
+      provider.dispose();
+    });
+
+    test('with network on the probed values are read', () async {
+      final provider = createProvider();
+
+      await provider.start();
+      await provider.refreshProbed();
+
+      verify(() => nativeMethods.getProbedDeviceState()).called(greaterThan(0));
+      provider.dispose();
     });
   });
 }
