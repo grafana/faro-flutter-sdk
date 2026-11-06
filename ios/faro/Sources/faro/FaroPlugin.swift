@@ -28,6 +28,14 @@ public class FaroPlugin: NSObject, FlutterPlugin {
 //          let crashreporter = CrashReportingIntegration()
 //    }
     registrar.addMethodCallDelegate(instance, channel: channel)
+
+    let deviceStateChannel = FlutterMethodChannel(
+      name: "faro/device_state",
+      binaryMessenger: registrar.messenger()
+    )
+    DynamicDeviceState.addObserver(instance) { state in
+      deviceStateChannel.invokeMethod("onDynamicDeviceStateChanged", arguments: state)
+    }
   }
     
     private static func isCrashReportAutoEnabled() -> Bool{
@@ -35,6 +43,7 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     }
 
   deinit {
+    DynamicDeviceState.removeObserver(self)
     if ownsSessionPersistence {
       FaroPlugin.sessionPersistenceOwnerLock.lock()
       FaroPlugin.sessionPersistenceOwnerClaimed = false
@@ -136,6 +145,8 @@ public class FaroPlugin: NSObject, FlutterPlugin {
                 ])
             case "getDeviceMetadata":
                 result(DeviceMetadata.current())
+            case "getListenedDeviceState":
+                result(DynamicDeviceState.listenedState())
             default:
                 result(FlutterMethodNotImplemented);
         }

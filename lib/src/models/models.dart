@@ -11,6 +11,7 @@ export './log.dart';
 export './log_level.dart';
 export './measurement.dart';
 export './meta.dart';
+export './network.dart';
 export './os.dart';
 export './page.dart';
 export './payload.dart';

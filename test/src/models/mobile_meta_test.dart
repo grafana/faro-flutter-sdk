@@ -46,6 +46,55 @@ void main() {
       expect(Device(manufacturer: 'apple').toJson(), {'manufacturer': 'apple'});
     });
 
+    test('Device serializes dynamic fields to the contract field names', () {
+      final device = Device(
+        batteryLevel: 0,
+        isCharging: false,
+        lowPowerMode: false,
+        thermalState: 'nominal',
+      );
+
+      final json = device.toJson();
+
+      expect(json, {
+        'battery_level': 0,
+        'is_charging': false,
+        'low_power_mode': false,
+        'thermal_state': 'nominal',
+      });
+      expect(Device.fromJson(json).toJson(), json);
+    });
+
+    test('Network serializes to the contract field names', () {
+      final network = Network(
+        connectionType: 'wifi',
+        connectionSubtype: 'lte',
+        carrierName: 'Example Mobile',
+      );
+
+      final json = network.toJson();
+
+      expect(json, {
+        'connection_type': 'wifi',
+        'connection_subtype': 'lte',
+        'carrier_name': 'Example Mobile',
+      });
+      expect(Network.fromJson(json).toJson(), json);
+    });
+
+    test('Network omits fields it does not have', () {
+      expect(Network().toJson(), isEmpty);
+      expect(Network().isEmpty, isTrue);
+      expect(Network(carrierName: 'Example Mobile').isEmpty, isFalse);
+    });
+
+    test('Meta carries network through JSON', () {
+      final meta = Meta(network: Network(connectionType: 'wired'));
+
+      expect(meta.toFaroJson()['network'], {'connection_type': 'wired'});
+      expect(Meta.fromJson(meta.toJson()).network?.connectionType, 'wired');
+    });
+
     test('Os serializes the Android API level', () {
       final os = Os(name: 'Android', apiLevel: 35);
 

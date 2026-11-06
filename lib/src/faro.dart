@@ -10,6 +10,7 @@ import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
+import 'package:faro/src/device_info/dynamic_device_state_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/integrations/flutter_error_integration.dart';
@@ -104,6 +105,7 @@ class Faro {
   Future<void>? _iosCrashReporterEnablement;
   FaroWidgetsBindingObserver? _widgetsBindingObserver;
   bool _didAttachUiActivityMonitor = false;
+  DynamicDeviceStateProvider? _dynamicDeviceState;
 
   /// Whether the current session is sampled.
   ///
@@ -212,6 +214,11 @@ class Faro {
     // Default attributes take precedence if there are conflicts
     meta.session?.attributes = {...customAttributes, ...defaultAttributes};
     _setDeviceAndOsMeta(deviceInfo);
+    final dynamicDeviceState = _dynamicDeviceState =
+        DynamicDeviceStateProviderFactory().create(
+          nativeMethods: nativeChannel,
+        );
+    await dynamicDeviceState.start();
 
     config = optionsConfiguration;
 
@@ -257,6 +264,7 @@ class Faro {
       batchConfig: config?.batchConfig ?? BatchConfig(),
       transports: _transports,
       isSampled: _isSampled,
+      dynamicDeviceState: dynamicDeviceState,
     );
     _batchTransport = batchTransport;
     pod.overrideProvider(batchTransportProvider, (_) => batchTransport);
@@ -505,6 +513,7 @@ class Faro {
       batchConfig: config?.batchConfig ?? BatchConfig(),
       transports: _transports,
       isSampled: _isSampled,
+      dynamicDeviceState: _dynamicDeviceState,
     );
     _batchTransport = batchTransport;
     pod.overrideProvider(batchTransportProvider, (_) => batchTransport);
@@ -530,6 +539,8 @@ class Faro {
   }
 
   Future<void> _tearDownForReset() async {
+    _dynamicDeviceState?.dispose();
+    _dynamicDeviceState = null;
     await _sessionPersistence?.flush();
     _sessionPersistence = null;
     _ownsSessionPersistence = null;
@@ -1321,12 +1332,15 @@ class Faro {
 
       try {
         if (recoveredSession == null) {
-          _instance.pushError(
-            type: exception.type,
-            value: exception.value,
-            fatal: exception.fatal,
-            context: exception.context,
-          );
+          // The live batch stamps this launch's device and network state, which
+          // does not describe the crashed process.
+          if (_isSampled) {
+            await _sendRecoveredCrash(
+              exception,
+              meta,
+              nativeRetryAvailable: false,
+            );
+          }
         } else if (recoveredSession.isSampled) {
           await _sendRecoveredCrash(
             exception,
