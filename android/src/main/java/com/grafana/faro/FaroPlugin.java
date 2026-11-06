@@ -22,6 +22,7 @@ import org.json.JSONObject;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -445,7 +446,13 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         result.success(DeviceMetadata.current(applicationContext));
                         break;
                     case "getListenedDeviceState":
-                        result.success(DynamicDeviceState.listenedState(applicationContext));
+                        List<String> groups = call.argument("groups");
+                        result.success(
+                                DynamicDeviceState.listenedState(
+                                        applicationContext,
+                                        groups == null
+                                                ? Collections.<String>emptyList()
+                                                : groups));
                         break;
                     case "getProbedDeviceState":
                         result.success(DynamicDeviceState.probedState(applicationContext));

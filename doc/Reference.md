@@ -197,7 +197,7 @@ How the SDK keeps them current:
   happens at start, before the first read ends, and after a connection type
   change or a failed read.
 - The native listeners start on the first read, which is `Faro.init`, not when
-  the app starts.
+  the app starts. A group that is off never starts its listeners.
 - A crash sent on the next launch carries none of them. The values of the
   relaunch would not describe the crash.
 
@@ -215,6 +215,43 @@ does not hide the connection type under it.
 
 On iOS, `connection_type` is `unavailable` when there is no route. A wifi
 network without internet still has a route, so it reads as `wifi`.
+
+#### Turn a group off
+
+The fields form three groups. All three are on by default. A group that is off
+adds none of its fields to any signal. The SDK also registers none of its
+system listeners and makes none of its native reads. With all three off, the
+SDK does not call the native side for this state at all.
+
+| Group     | Fields                                                                                 |
+| --------- | -------------------------------------------------------------------------------------- |
+| `battery` | `meta.device.battery_level`, `meta.device.is_charging`, `meta.device.low_power_mode`   |
+| `thermal` | `meta.device.thermal_state`                                                            |
+| `network` | `meta.network.connection_type`, `connection_subtype` and `carrier_name`                |
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+    dynamicDeviceState: DynamicDeviceStateConfig(
+      battery: true,   // default: true
+      thermal: false,  // default: true
+      network: true,   // default: true
+    ),
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+The SDK keeps declaring `READ_BASIC_PHONE_STATE` on Android, because the
+manifest cannot depend on this option. An app that turns the `network` group
+off can remove the permission in its own manifest:
+
+```xml
+<uses-permission
+    android:name="android.permission.READ_BASIC_PHONE_STATE"
+    tools:node="remove" />
+```
 
 ### SDK Metadata
 

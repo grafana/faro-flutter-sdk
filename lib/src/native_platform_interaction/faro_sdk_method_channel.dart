@@ -99,9 +99,12 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
   }
 
   @override
-  Future<Map<String, dynamic>?> getListenedDeviceState() {
+  Future<Map<String, dynamic>?> getListenedDeviceState({
+    required List<String> groups,
+  }) {
     return methodChannel.invokeMapMethod<String, dynamic>(
       'getListenedDeviceState',
+      <String, dynamic>{'groups': groups},
     );
   }
 

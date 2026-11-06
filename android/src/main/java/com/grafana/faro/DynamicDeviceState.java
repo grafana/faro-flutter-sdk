@@ -19,7 +19,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -28,6 +30,9 @@ import io.flutter.Log;
 
 /**
  * Device and network values that change while the app runs.
+ *
+ * <p>The values form three groups: battery, thermal and network. A group starts only when the
+ * app asks for it, so a group that is off registers no listener and reads nothing.
  *
  * <p>Every value a system listener can update is listener-fed: battery, charging, battery
  * saver, thermal state and connection type. Listeners keep cached values and tell
@@ -48,6 +53,10 @@ final class DynamicDeviceState {
     static final String CARRIER_NAME_KEY = "carrierName";
     static final String VERSION_KEY = "version";
 
+    static final String BATTERY_GROUP = "battery";
+    static final String THERMAL_GROUP = "thermal";
+    static final String NETWORK_GROUP = "network";
+
     /** Receives the listener-fed values each time one of them changes. */
     interface Listener {
         void onChanged(@NonNull Map<String, Object> listenedState);
@@ -55,7 +64,7 @@ final class DynamicDeviceState {
 
     private static final Object LOCK = new Object();
     private static final Set<Listener> listeners = new CopyOnWriteArraySet<>();
-    private static boolean started = false;
+    private static final Set<String> startedGroups = new HashSet<>();
     private static Map<String, Object> lastNotified = new HashMap<>();
     // Numbers each listener-fed snapshot, so Dart can tell which of two is newer.
     private static int listenedVersion = 0;
@@ -85,11 +94,12 @@ final class DynamicDeviceState {
 
     /** The cached values that system listeners keep current. */
     @NonNull
-    static Map<String, Object> listenedState(@Nullable Context context) {
+    static Map<String, Object> listenedState(
+            @Nullable Context context, @NonNull Collection<String> groups) {
         if (context == null) {
             return new HashMap<>();
         }
-        start(context.getApplicationContext());
+        start(context.getApplicationContext(), groups);
         synchronized (LOCK) {
             Map<String, Object> state = snapshot();
             state.put(VERSION_KEY, listenedVersion);
@@ -102,6 +112,9 @@ final class DynamicDeviceState {
     static Map<String, Object> probedState(@Nullable Context context) {
         Map<String, Object> state = new HashMap<>();
         if (context == null) {
+            return state;
+        }
+        if (!isStarted(NETWORK_GROUP)) {
             return state;
         }
         try {
@@ -151,20 +164,54 @@ final class DynamicDeviceState {
         }
     }
 
-    /** Registers the listeners once and seeds the cache from the current state. */
-    private static void start(@NonNull Context context) {
+    /**
+     * Registers the listeners of the requested groups that are not running yet and seeds the
+     * cache from the current state.
+     */
+    private static void start(@NonNull Context context, @NonNull Collection<String> groups) {
+        Set<String> toStart;
         synchronized (LOCK) {
-            if (started) {
-                return;
-            }
-            started = true;
+            toStart = groupsToStart(groups, startedGroups);
+            startedGroups.addAll(toStart);
         }
-        startBatteryAndPowerListener(context);
-        startThermalListener(context);
-        startNetworkListener(context);
+        if (toStart.isEmpty()) {
+            return;
+        }
+        if (toStart.contains(BATTERY_GROUP)) {
+            startBatteryAndPowerListener(context);
+        }
+        if (toStart.contains(THERMAL_GROUP)) {
+            startThermalListener(context);
+        }
+        if (toStart.contains(NETWORK_GROUP)) {
+            startNetworkListener(context);
+        }
         synchronized (LOCK) {
             lastNotified = snapshot();
         }
+    }
+
+    private static boolean isStarted(@NonNull String group) {
+        synchronized (LOCK) {
+            return startedGroups.contains(group);
+        }
+    }
+
+    /** The known groups in {@code requested} that are not in {@code running}. */
+    @VisibleForTesting
+    @NonNull
+    static Set<String> groupsToStart(
+            @NonNull Collection<String> requested, @NonNull Set<String> running) {
+        Set<String> toStart = new HashSet<>();
+        for (String group : requested) {
+            if ((BATTERY_GROUP.equals(group)
+                            || THERMAL_GROUP.equals(group)
+                            || NETWORK_GROUP.equals(group))
+                    && !running.contains(group)) {
+                toStart.add(group);
+            }
+        }
+        return toStart;
     }
 
     private static void startBatteryAndPowerListener(@NonNull Context context) {

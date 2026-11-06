@@ -215,10 +215,13 @@ class Faro {
     meta.session?.attributes = {...customAttributes, ...defaultAttributes};
     _setDeviceAndOsMeta(deviceInfo);
     final dynamicDeviceState = _dynamicDeviceState =
-        DynamicDeviceStateProviderFactory().create(
-          nativeMethods: nativeChannel,
-        );
-    await dynamicDeviceState.start();
+        optionsConfiguration.dynamicDeviceState.isAnyEnabled
+        ? DynamicDeviceStateProviderFactory().create(
+            nativeMethods: nativeChannel,
+            config: optionsConfiguration.dynamicDeviceState,
+          )
+        : null;
+    await dynamicDeviceState?.start();
 
     config = optionsConfiguration;
 
