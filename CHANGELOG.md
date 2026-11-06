@@ -41,6 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer sets either field. Code that reads or sets them must drop them
   ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
 
+### Fixed
+
+- **Taps after cold-start deep links no longer produce layout errors.**
+  Interaction tracking skips detached or unlaid-out render objects and
+  continues past unavailable geometry without interrupting the app's tap
+  callbacks
+  ([#345](https://github.com/grafana/faro-flutter-sdk/issues/345)).
+
 ## [0.18.0] - 2026-10-28
 
 ### Changed
