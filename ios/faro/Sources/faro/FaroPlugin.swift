@@ -146,7 +146,9 @@ public class FaroPlugin: NSObject, FlutterPlugin {
             case "getDeviceMetadata":
                 result(DeviceMetadata.current())
             case "getListenedDeviceState":
-                result(DynamicDeviceState.listenedState())
+                result(
+                    DynamicDeviceState.listenedState(
+                        groups: DynamicDeviceState.groups(from: call.arguments)))
             default:
                 result(FlutterMethodNotImplemented);
         }

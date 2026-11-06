@@ -129,4 +129,36 @@ struct DynamicDeviceStateTests {
     #expect(listened[DynamicDeviceState.lowPowerModeKey] is Bool)
     #expect(listened[DynamicDeviceState.thermalStateKey] is String)
   }
+
+  @Test("the groups come from the names the Dart side sends")
+  func groupsAreParsed() {
+    let groups = DynamicDeviceState.groups(from: ["groups": ["battery", "network"]])
+
+    #expect(groups == [.battery, .network])
+  }
+
+  @Test("an unknown group name is ignored")
+  func unknownGroupIsIgnored() {
+    #expect(DynamicDeviceState.groups(from: ["groups": ["location", "thermal"]]) == [.thermal])
+  }
+
+  @Test("no arguments mean no group")
+  func missingArgumentsMeanNoGroup() {
+    #expect(DynamicDeviceState.groups(from: nil).isEmpty)
+    #expect(DynamicDeviceState.groups(from: ["groups": []]).isEmpty)
+  }
+
+  @Test("each group listens to its own notifications only")
+  func notificationsBelongToOneGroup() {
+    let battery = Set(DynamicDeviceState.notificationNames(for: .battery))
+    let thermal = Set(DynamicDeviceState.notificationNames(for: .thermal))
+    let network = Set(DynamicDeviceState.notificationNames(for: .network))
+
+    #expect(battery.contains(UIDevice.batteryLevelDidChangeNotification))
+    #expect(battery.contains(.NSProcessInfoPowerStateDidChange))
+    #expect(thermal == [ProcessInfo.thermalStateDidChangeNotification])
+    #expect(battery.isDisjoint(with: thermal))
+    #expect(battery.isDisjoint(with: network))
+    #expect(thermal.isDisjoint(with: network))
+  }
 }

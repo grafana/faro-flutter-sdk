@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:faro/src/configurations/dynamic_device_state_config.dart';
 import 'package:faro/src/device_info/dynamic_device_state_provider.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
@@ -40,10 +41,12 @@ void main() {
 
   DynamicDeviceStateProvider createProvider({
     DateTime Function()? currentTime,
+    DynamicDeviceStateConfig config = const DynamicDeviceStateConfig(),
   }) {
     return DynamicDeviceStateProvider(
       nativeMethods: nativeMethods,
       platformInfoProvider: platformInfoProvider,
+      config: config,
       currentTime: currentTime ?? DateTime.now,
     );
   }
@@ -54,7 +57,7 @@ void main() {
     when(() => platformInfoProvider.isAndroid).thenReturn(true);
     when(() => platformInfoProvider.isIOS).thenReturn(false);
     when(
-      () => nativeMethods.getListenedDeviceState(),
+      () => nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
     ).thenAnswer((_) async => listenedNative);
     when(
       () => nativeMethods.getProbedDeviceState(),
@@ -132,7 +135,8 @@ void main() {
       expect(provider.current?.network.connectionType, 'cell');
       expect(provider.current?.network.carrierName, 'Example Mobile');
       verifyInOrder([
-        () => nativeMethods.getListenedDeviceState(),
+        () =>
+            nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
         () => nativeMethods.getProbedDeviceState(),
       ]);
       provider.dispose();
@@ -169,7 +173,10 @@ void main() {
       provider.applyListened({...listenedNative, 'batteryLevel': 12});
 
       expect(provider.current?.device.batteryLevel, 12);
-      verifyNever(() => nativeMethods.getListenedDeviceState());
+      verifyNever(
+        () =>
+            nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
+      );
       verifyNever(() => nativeMethods.getProbedDeviceState());
       provider.dispose();
     });
@@ -197,7 +204,8 @@ void main() {
       // The reply carries version 1 and arrives after a push with version 2.
       final reply = Completer<Map<String, dynamic>?>();
       when(
-        () => nativeMethods.getListenedDeviceState(),
+        () =>
+            nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
       ).thenAnswer((_) => reply.future);
       final provider = createProvider();
       final started = provider.start();
@@ -304,7 +312,11 @@ void main() {
         async.flushMicrotasks();
 
         verify(() => nativeMethods.getProbedDeviceState()).called(1);
-        verifyNever(() => nativeMethods.getListenedDeviceState());
+        verifyNever(
+          () => nativeMethods.getListenedDeviceState(
+            groups: any(named: 'groups'),
+          ),
+        );
         expect(provider.current?.network.carrierName, 'Example Mobile');
         provider.dispose();
       });
@@ -471,7 +483,8 @@ void main() {
 
     test('a failed listened read leaves no value and never throws', () async {
       when(
-        () => nativeMethods.getListenedDeviceState(),
+        () =>
+            nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
       ).thenThrow(Exception('channel down'));
       final provider = createProvider();
 
@@ -483,7 +496,8 @@ void main() {
 
     test('a null answer from native leaves no value', () async {
       when(
-        () => nativeMethods.getListenedDeviceState(),
+        () =>
+            nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
       ).thenAnswer((_) async => null);
       final provider = createProvider();
 
@@ -508,7 +522,11 @@ void main() {
         async.flushMicrotasks();
 
         expect(provider.current?.device.batteryLevel, 87);
-        verify(() => nativeMethods.getListenedDeviceState()).called(1);
+        verify(
+          () => nativeMethods.getListenedDeviceState(
+            groups: any(named: 'groups'),
+          ),
+        ).called(1);
         verifyNever(() => nativeMethods.getProbedDeviceState());
         provider.dispose();
       });
@@ -522,8 +540,137 @@ void main() {
       provider.refreshIfStale();
 
       expect(provider.current, isNull);
-      verifyNever(() => nativeMethods.getListenedDeviceState());
+      verifyNever(
+        () =>
+            nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
+      );
       verifyNever(() => nativeMethods.getProbedDeviceState());
+    });
+  });
+
+  group('groups that are off', () {
+    const batteryKeys = {'battery_level', 'is_charging', 'low_power_mode'};
+    const thermalKeys = {'thermal_state'};
+    const networkKeys = {
+      'connection_type',
+      'connection_subtype',
+      'carrier_name',
+    };
+
+    Set<String> keysOf(DynamicDeviceState? state) {
+      return {
+        ...?state?.device.toJson().keys,
+        ...?state?.network.toJson().keys,
+      };
+    }
+
+    test('every group is on by default', () {
+      const config = DynamicDeviceStateConfig();
+
+      expect(config.enabledGroups, ['battery', 'thermal', 'network']);
+      expect(config.isAnyEnabled, isTrue);
+    });
+
+    test('turning off battery drops only the battery fields', () {
+      final state = DynamicDeviceState.fromNative(
+        nativeState,
+        config: const DynamicDeviceStateConfig(battery: false),
+      );
+
+      expect(keysOf(state).intersection(batteryKeys), isEmpty);
+      expect(keysOf(state), containsAll({...thermalKeys, ...networkKeys}));
+    });
+
+    test('turning off thermal drops only the thermal field', () {
+      final state = DynamicDeviceState.fromNative(
+        nativeState,
+        config: const DynamicDeviceStateConfig(thermal: false),
+      );
+
+      expect(keysOf(state).intersection(thermalKeys), isEmpty);
+      expect(keysOf(state), containsAll({...batteryKeys, ...networkKeys}));
+    });
+
+    test('turning off network drops only the network fields', () {
+      final state = DynamicDeviceState.fromNative(
+        nativeState,
+        config: const DynamicDeviceStateConfig(network: false),
+      );
+
+      expect(keysOf(state).intersection(networkKeys), isEmpty);
+      expect(keysOf(state), containsAll({...batteryKeys, ...thermalKeys}));
+    });
+
+    test('native is asked only for the groups that are on', () async {
+      final provider = createProvider(
+        config: const DynamicDeviceStateConfig(thermal: false),
+      );
+
+      await provider.start();
+
+      verify(
+        () => nativeMethods.getListenedDeviceState(
+          groups: ['battery', 'network'],
+        ),
+      ).called(1);
+      provider.dispose();
+    });
+
+    test('the current state omits the fields of a group that is off', () async {
+      final provider = createProvider(
+        config: const DynamicDeviceStateConfig(battery: false),
+      );
+
+      await provider.start();
+
+      expect(keysOf(provider.current).intersection(batteryKeys), isEmpty);
+      expect(keysOf(provider.current), contains('thermal_state'));
+      provider.dispose();
+    });
+
+    test('with every group off nothing reaches native', () async {
+      const config = DynamicDeviceStateConfig(
+        battery: false,
+        thermal: false,
+        network: false,
+      );
+      final provider = createProvider(config: config);
+
+      await provider.start();
+      provider.refreshIfStale();
+
+      expect(config.isAnyEnabled, isFalse);
+      expect(provider.current, isNull);
+      verifyNever(
+        () =>
+            nativeMethods.getListenedDeviceState(groups: any(named: 'groups')),
+      );
+      verifyNever(() => nativeMethods.getProbedDeviceState());
+      provider.dispose();
+    });
+
+    test('with network off the probed values are never read', () async {
+      final provider = createProvider(
+        config: const DynamicDeviceStateConfig(network: false),
+      );
+
+      await provider.start();
+      provider.refreshIfStale();
+      await provider.refreshProbed();
+
+      verifyNever(() => nativeMethods.getProbedDeviceState());
+      expect(keysOf(provider.current).intersection(networkKeys), isEmpty);
+      provider.dispose();
+    });
+
+    test('with network on the probed values are read', () async {
+      final provider = createProvider();
+
+      await provider.start();
+      await provider.refreshProbed();
+
+      verify(() => nativeMethods.getProbedDeviceState()).called(greaterThan(0));
+      provider.dispose();
     });
   });
 }

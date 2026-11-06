@@ -61,8 +61,10 @@ class FaroNativeMethods {
     return FaroSdkPlatform.instance.getDeviceMetadata();
   }
 
-  Future<Map<String, dynamic>?> getListenedDeviceState() {
-    return FaroSdkPlatform.instance.getListenedDeviceState();
+  Future<Map<String, dynamic>?> getListenedDeviceState({
+    required List<String> groups,
+  }) {
+    return FaroSdkPlatform.instance.getListenedDeviceState(groups: groups);
   }
 
   Future<Map<String, dynamic>?> getProbedDeviceState() {

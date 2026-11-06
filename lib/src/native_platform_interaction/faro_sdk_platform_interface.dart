@@ -87,7 +87,9 @@ abstract class FaroSdkPlatform extends PlatformInterface {
     throw UnimplementedError('getDeviceMetadata() has not been implemented');
   }
 
-  Future<Map<String, dynamic>?> getListenedDeviceState() {
+  Future<Map<String, dynamic>?> getListenedDeviceState({
+    required List<String> groups,
+  }) {
     throw UnimplementedError(
       'getListenedDeviceState() has not been implemented',
     );
