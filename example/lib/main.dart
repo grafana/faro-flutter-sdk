@@ -5,6 +5,7 @@ import 'package:faro_example/features/app_diagnostics/presentation/app_diagnosti
 import 'package:faro_example/features/custom_telemetry/presentation/custom_telemetry_page.dart';
 import 'package:faro_example/features/feature_catalog/presentation/feature_catalog_page.dart';
 import 'package:faro_example/features/network_requests/presentation/network_requests_page.dart';
+import 'package:faro_example/features/router_tracking/presentation/router_tracking_page.dart';
 import 'package:faro_example/features/sampling_settings/domain/sampling_settings_service.dart';
 import 'package:faro_example/features/sampling_settings/presentation/sampling_settings_page.dart';
 import 'package:faro_example/features/tracing/presentation/tracing_page.dart';
@@ -136,6 +137,7 @@ class _MyAppState extends State<MyApp> {
         '/user-actions': (context) => const UserActionsPage(),
         '/app-diagnostics': (context) => const AppDiagnosticsPage(),
         '/webview-handoff': (context) => const WebViewHandoffPage(),
+        '/router-tracking': (context) => const RouterTrackingPage(),
       },
       home: Scaffold(
         appBar: AppBar(title: const Text('Faro Test App')),
