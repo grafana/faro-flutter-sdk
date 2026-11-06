@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/navigation/tracked_router_registry.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_manager.dart';
 import 'package:faro/src/user_actions/user_action_lifecycle_signal_channel.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 /// Diagnostic sink for verifying extractor failure and recovery behavior.
 @visibleForTesting
@@ -31,9 +34,13 @@ final routerTrackerErrorLoggerProvider =
 /// once per consecutive failure period, and tracking resumes after recovery.
 /// The initial view is recorded immediately when available.
 ///
-/// Use this tracker instead of separate Faro navigation observers on the root
-/// or nested navigators. Call [dispose] before disposing the router; the caller
-/// retains ownership of [routeChanges].
+/// `FaroNavigationObserver`s on Navigators under this router leave router
+/// pages to the tracker and still record dialogs and `Navigator.push` routes,
+/// so keeping them next to the tracker does not duplicate events. This relies
+/// on [routeChanges] being the delegate of the `Router` widget.
+///
+/// Call [dispose] before disposing the router; the caller retains ownership of
+/// [routeChanges].
 class FaroRouterTracker {
   /// Starts tracking the router and records its initial resolved view, if any.
   FaroRouterTracker({
@@ -46,6 +53,9 @@ class FaroRouterTracker {
          userActionLifecycleSignalChannelProvider,
        ),
        _logExtractorError = pod.resolve(routerTrackerErrorLoggerProvider) {
+    _releaseRegistration = pod
+        .resolve(trackedRouterRegistryProvider)
+        .register(_routeChanges, _view);
     _routeChanges.addListener(_onRouteChanged);
     _onRouteChanged();
   }
@@ -55,7 +65,13 @@ class FaroRouterTracker {
   final SessionManager _sessionManager;
   final UserActionLifecycleSignalChannel _lifecycleSignalChannel;
   final void Function(Object, StackTrace) _logExtractorError;
-  String? _lastViewName;
+  late final TrackedRouterView _view = TrackedRouterView(
+    resolveCurrentView: () {
+      final name = _extractViewName();
+      return name == null || name.isEmpty ? null : name;
+    },
+  );
+  late final VoidCallback _releaseRegistration;
   bool _hasLoggedExtractorError = false;
   bool _isDisposed = false;
 
@@ -75,18 +91,52 @@ class FaroRouterTracker {
 
   void _onRouteChanged() {
     if (_isDisposed) return;
-    final name = _extractViewName();
     _sessionManager.checkSession(activity: SessionActivityKind.meaningful);
-    if (name != null && name.isNotEmpty && name != _lastViewName) {
-      final previousName = _lastViewName;
-      _lastViewName = name;
-      Faro().setViewMeta(name: name);
-      Faro().pushEvent(
-        'view_changed',
-        attributes: {'fromView': previousName, 'toView': name},
-      );
+    if (_view.hasOpenPagelessRoutes) {
+      // This change might reveal a dialog or a Navigator.push route. Wait
+      // until the Navigator applied it, so the observer can record the
+      // visible view first.
+      if (_view.beginPendingChange()) {
+        unawaited(
+          SchedulerBinding.instance.endOfFrame.then(
+            (_) => _recordPendingChange(),
+          ),
+        );
+      }
+    } else {
+      _recordView(emit: true);
     }
     _lifecycleSignalChannel.emitActivity(source: 'navigation.router');
+  }
+
+  void _recordPendingChange() {
+    final change = _view.endPendingChange();
+    if (_isDisposed) return;
+    _recordView(
+      emit: change != PendingRouterChange.claimed,
+      coversPagelessRoute: change == PendingRouterChange.coversPagelessRoute,
+    );
+  }
+
+  void _recordView({required bool emit, bool coversPagelessRoute = false}) {
+    final name = _extractViewName();
+    if (name == null || name.isEmpty) return;
+    final isNewRouterView = name != _view.routerView;
+    // A router page with the same name as before still counts when it now
+    // covers a pageless route that was visible.
+    final coversOtherView = coversPagelessRoute && name != _view.visibleView;
+    if (!isNewRouterView && !coversOtherView) return;
+    _view.routerView = name;
+    // An observer may already have recorded this view, for example when a
+    // dialog closed onto it before the tracker's deferred update.
+    if (!emit || name == _view.visibleView) return;
+    final previousName = _view.visibleView;
+    _view.visibleView = name;
+    Faro().setViewMeta(name: name);
+    Faro().pushEvent(
+      'view_changed',
+      attributes: {'fromView': previousName, 'toView': name},
+    );
   }
 
   /// Stops tracking and removes this tracker's listener.
@@ -96,5 +146,6 @@ class FaroRouterTracker {
     if (_isDisposed) return;
     _isDisposed = true;
     _routeChanges.removeListener(_onRouteChanged);
+    _releaseRegistration();
   }
 }

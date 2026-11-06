@@ -114,6 +114,13 @@ class _FeatureCatalogPageState extends State<FeatureCatalogPage> {
             subtitle: 'Run lifecycle scenarios and inspect action state.',
             onTap: () => _openFeature('/user-actions'),
           ),
+          const SizedBox(height: 8),
+          _FeatureCard(
+            icon: Icons.alt_route,
+            title: 'Router Tracking',
+            subtitle: 'Nested go_router with tracker and observer modes.',
+            onTap: () => _openFeature('/router-tracking'),
+          ),
           const SizedBox(height: 24),
           const _SectionHeader(
             title: 'Stress Runtime Behavior',

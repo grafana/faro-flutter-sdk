@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Apps that combine the tracker with observers stop getting duplicate view
+  events.** A `FaroNavigationObserver` under a router tracked by
+  `FaroRouterTracker` leaves router pages to the tracker and still records
+  dialogs and `Navigator.push` routes, using the tracker's view names. Set
+  `deferToRouterTracker: false` on an observer for a Navigator that changes
+  pages without the router noticing. See the Reference docs for details
+  ([#394](https://github.com/grafana/faro-flutter-sdk/issues/394)).
+
 - **Requires `dartastic_opentelemetry` 0.12.** The dependency is now
   `^0.12.0` instead of `^0.11.0`. Apps that pin `dartastic_opentelemetry`
   0.11 must upgrade it
