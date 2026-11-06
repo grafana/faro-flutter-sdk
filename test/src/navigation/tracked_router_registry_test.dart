@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  group('TrackedRouterView', () {
+  group('TrackedRouterView:', () {
     late String? currentView;
     late TrackedRouterView view;
 
@@ -98,7 +98,7 @@ void main() {
     });
   });
 
-  group('TrackedRouterRegistry', () {
+  group('TrackedRouterRegistry:', () {
     late TrackedRouterRegistry registry;
 
     TrackedRouterView newView() =>
