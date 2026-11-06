@@ -1332,12 +1332,15 @@ class Faro {
 
       try {
         if (recoveredSession == null) {
-          _instance.pushError(
-            type: exception.type,
-            value: exception.value,
-            fatal: exception.fatal,
-            context: exception.context,
-          );
+          // The live batch stamps this launch's device and network state, which
+          // does not describe the crashed process.
+          if (_isSampled) {
+            await _sendRecoveredCrash(
+              exception,
+              meta,
+              nativeRetryAvailable: false,
+            );
+          }
         } else if (recoveredSession.isSampled) {
           await _sendRecoveredCrash(
             exception,

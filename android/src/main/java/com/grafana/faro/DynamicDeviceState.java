@@ -90,11 +90,11 @@ final class DynamicDeviceState {
             return new HashMap<>();
         }
         start(context.getApplicationContext());
-        Map<String, Object> state = snapshot();
         synchronized (LOCK) {
+            Map<String, Object> state = snapshot();
             state.put(VERSION_KEY, listenedVersion);
+            return state;
         }
-        return state;
     }
 
     /** The values with no listener, read now: cellular subtype and carrier name. */
@@ -134,9 +134,10 @@ final class DynamicDeviceState {
 
     /** Sends the listener-fed values to the listeners when they differ from the last send. */
     private static void notifyIfChanged() {
-        Map<String, Object> state = snapshot();
         Map<String, Object> pushed;
         synchronized (LOCK) {
+            // Read under the lock, so a snapshot never takes a newer version than a fresher one.
+            Map<String, Object> state = snapshot();
             if (state.equals(lastNotified)) {
                 return;
             }

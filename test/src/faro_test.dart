@@ -148,6 +148,16 @@ void main() {
       ).thenAnswer((_) async => true);
     });
 
+    Map<String, dynamic> recoveredException() {
+      final payload =
+          verify(
+                () =>
+                    mockFaroTransport.sendHistoricalAcknowledged(captureAny()),
+              ).captured.single
+              as Map<String, dynamic>;
+      return (payload['exceptions'] as List).single as Map<String, dynamic>;
+    }
+
     tearDown(() async {
       await Faro.resetForTesting();
 
@@ -1152,13 +1162,32 @@ java.lang.NullPointerException: test crash
 
       await Faro().reportAndroidCrashesForTesting([crashReport]);
 
-      final capturedException =
+      final capturedException = recoveredException();
+      expect(capturedException['fatal'], isTrue);
+      expect(capturedException['context']['stacktrace'], nativeTrace);
+    });
+
+    test('native Android crash carries no dynamic device state', () async {
+      final crashReport = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'description': 'Native crash',
+        'timestamp': '1749080960296',
+        'importance': 100,
+        'processName': 'com.example.app',
+      });
+
+      await Faro().reportAndroidCrashesForTesting([crashReport]);
+
+      final payload =
           verify(
-                () => mockBatchTransport.addExceptions(captureAny()),
+                () =>
+                    mockFaroTransport.sendHistoricalAcknowledged(captureAny()),
               ).captured.single
-              as FaroException;
-      expect(capturedException.fatal, isTrue);
-      expect(capturedException.context?['stacktrace'], nativeTrace);
+              as Map<String, dynamic>;
+      expect(payload['meta'], isNot(contains('network')));
+      expect(payload['meta']['device'], isNot(contains('battery_level')));
+      verifyNever(() => mockBatchTransport.addExceptions(any()));
     });
 
     test('native Android crash accepts the legacy stacktrace key', () async {
@@ -1175,12 +1204,8 @@ java.lang.NullPointerException: test crash
 
       await Faro().reportAndroidCrashesForTesting([crashReport]);
 
-      final capturedException =
-          verify(
-                () => mockBatchTransport.addExceptions(captureAny()),
-              ).captured.single
-              as FaroException;
-      expect(capturedException.context?['stacktrace'], nativeTrace);
+      final capturedException = recoveredException();
+      expect(capturedException['context']['stacktrace'], nativeTrace);
     });
 
     test('native Android crash keeps the missing trace fallback', () async {
@@ -1195,12 +1220,8 @@ java.lang.NullPointerException: test crash
 
       await Faro().reportAndroidCrashesForTesting([crashReport]);
 
-      final capturedException =
-          verify(
-                () => mockBatchTransport.addExceptions(captureAny()),
-              ).captured.single
-              as FaroException;
-      expect(capturedException.context?['stacktrace'], 'No stacktrace');
+      final capturedException = recoveredException();
+      expect(capturedException['context']['stacktrace'], 'No stacktrace');
     });
 
     test('recovered crash is sent with the crashed session metadata', () async {
@@ -1708,7 +1729,9 @@ java.lang.NullPointerException: test crash
 
       await Faro().reportAndroidCrashesForTesting(['not-json', crashReport]);
 
-      verify(() => mockBatchTransport.addExceptions(any())).called(1);
+      verify(
+        () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+      ).called(1);
     });
 
     test('send custom measurement', () {
