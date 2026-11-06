@@ -769,6 +769,12 @@ Faro().runApp(
 );
 ```
 
+Interaction tracking skips detached render objects and those that have not
+completed layout, including hidden routes created by cold-start deep links.
+If hit testing, coordinate conversion, or paint-bounds lookup fails, that
+subtree is skipped and tracking continues in the remaining subtrees. These
+best-effort geometry checks do not interrupt normal tap handling.
+
 ### Asset Bundle Tracking
 
 Track asset loading times and sizes. Each asset load sends an `Asset-load` event with the following attributes:
