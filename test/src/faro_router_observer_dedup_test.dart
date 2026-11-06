@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:faro/faro.dart' show FaroNavigationObserver, FaroRouterTracker;
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
@@ -531,6 +533,87 @@ void main() {
       {'fromView': 'home', 'toView': 'confirm'},
       {'fromView': 'confirm', 'toView': 'home'},
     ]);
+  });
+
+  group('observer callbacks under a tracked router', () {
+    Future<(GoRouter, NavigatorState)> pumpTracked(WidgetTester tester) async {
+      final router = buildRouter(rootObservers: [FaroNavigationObserver()]);
+      track(router);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      events.clear();
+      return (
+        router,
+        Navigator.of(tester.element(find.text('Visible: /home'))),
+      );
+    }
+
+    MaterialPageRoute<void> pageless(String name) => MaterialPageRoute<void>(
+      settings: RouteSettings(name: name),
+      builder: (_) => Text(name),
+    );
+
+    testWidgets('without an open pageless route the tracker is synchronous', (
+      tester,
+    ) async {
+      final (router, _) = await pumpTracked(tester);
+      router.go('/detail');
+      // Recorded before any frame is pumped.
+      expect(events, [
+        {'fromView': '/home', 'toView': '/detail'},
+      ]);
+    });
+
+    testWidgets('with an open pageless route the tracker waits for the frame', (
+      tester,
+    ) async {
+      final (router, navigator) = await pumpTracked(tester);
+      unawaited(navigator.push(pageless('native')));
+      await tester.pumpAndSettle();
+      events.clear();
+      router.go('/a');
+      // Not before the frame either, so not just a microtask later.
+      await tester.idle();
+      expect(events, isEmpty);
+      await tester.pumpAndSettle();
+      expect(events, [
+        {'fromView': 'native', 'toView': '/a'},
+      ]);
+    });
+
+    testWidgets('a removed pageless route no longer delays the tracker', (
+      tester,
+    ) async {
+      final (router, navigator) = await pumpTracked(tester);
+      final route = pageless('native');
+      unawaited(navigator.push(route));
+      await tester.pumpAndSettle();
+      navigator.removeRoute(route);
+      await tester.pumpAndSettle();
+      events.clear();
+      router.go('/detail');
+      // No open pageless route is left, so the tracker records right away.
+      expect(events, [
+        {'fromView': 'native', 'toView': '/detail'},
+      ]);
+    });
+
+    testWidgets('didReplace between pageless routes is recorded', (
+      tester,
+    ) async {
+      final (_, navigator) = await pumpTracked(tester);
+      unawaited(navigator.push(pageless('native-1')));
+      await tester.pumpAndSettle();
+      unawaited(navigator.pushReplacement(pageless('native-2')));
+      await tester.pumpAndSettle();
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(events, [
+        {'fromView': '/home', 'toView': 'native-1'},
+        {'fromView': 'native-1', 'toView': 'native-2'},
+        {'fromView': 'native-2', 'toView': '/home'},
+      ]);
+      expect(activitySources, contains('navigation.replace'));
+    });
   });
 
   group('a dialog over a router page', () {

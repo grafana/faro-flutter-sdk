@@ -73,10 +73,22 @@ void main() {
       unawaited(navigatorKey.currentState!.push(route));
       await tester.pumpAndSettle();
 
-      view.pagelessRouteOpened(route);
+      final dialog = DialogRoute<void>(
+        context: tester.element(find.text('native')),
+        builder: (_) => const Text('dialog'),
+      );
+      unawaited(navigatorKey.currentState!.push(dialog));
+      await tester.pumpAndSettle();
+
+      view
+        ..pagelessRouteOpened(route)
+        ..pagelessRouteOpened(dialog);
+      view.pagelessRouteClosed(dialog);
       expect(view.hasOpenPagelessRoutes, isTrue);
       view.pagelessRouteClosed(route);
       expect(view.hasOpenPagelessRoutes, isFalse);
+      navigatorKey.currentState!.pop();
+      await tester.pumpAndSettle();
 
       // A route that left the Navigator without a callback is pruned.
       view.pagelessRouteOpened(route);
