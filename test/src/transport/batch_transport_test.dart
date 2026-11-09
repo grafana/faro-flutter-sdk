@@ -489,6 +489,57 @@ void main() {
           transport.dispose();
         });
 
+        test('an item sent later keeps the values it was captured with', () {
+          when(() => dynamicState.current).thenReturn(stateWith(40));
+          final transport = createBatchingTransport();
+          final capture = transport.captureDynamicDeviceState();
+
+          when(() => dynamicState.current).thenReturn(stateWith(10));
+          transport.addEvent(Event('held back'), capture: capture);
+          transport.updatePayloadMeta(Meta());
+
+          expect(batteryOf(sentPayloads().single), 40);
+          transport.dispose();
+        });
+
+        test('a held back item splits from a payload with other values', () {
+          when(() => dynamicState.current).thenReturn(stateWith(40));
+          final transport = createBatchingTransport();
+          final capture = transport.captureDynamicDeviceState();
+
+          when(() => dynamicState.current).thenReturn(stateWith(10));
+          transport.addEvent(Event('live'));
+          transport.addEvent(Event('held back'), capture: capture);
+          transport.updatePayloadMeta(Meta());
+
+          expect(sentPayloads().map(batteryOf), [10, 40]);
+          transport.dispose();
+        });
+
+        test('a capture without a usable value sends no field', () {
+          when(() => dynamicState.current).thenReturn(null);
+          final transport = createBatchingTransport();
+          final capture = transport.captureDynamicDeviceState();
+
+          when(() => dynamicState.current).thenReturn(stateWith(10));
+          transport.addEvent(Event('held back'), capture: capture);
+          transport.updatePayloadMeta(Meta());
+
+          expect(batteryOf(sentPayloads().single), isNull);
+          transport.dispose();
+        });
+
+        test('a transport without values captures nothing', () {
+          final transport = BatchTransport(
+            payload: Payload(Meta()),
+            transports: [mockBaseTransport],
+            batchConfig: BatchConfig(sendTimeout: const Duration(hours: 1)),
+          );
+
+          expect(transport.captureDynamicDeviceState(), isNull);
+          transport.dispose();
+        });
+
         test('a changed value closes the open payload', () {
           when(() => dynamicState.current).thenReturn(stateWith(40));
           final transport = createBatchingTransport();

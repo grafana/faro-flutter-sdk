@@ -69,6 +69,14 @@ class DynamicDeviceState {
   }
 }
 
+/// The values read when a signal was captured. A null [state] means no value
+/// was usable at that moment, which differs from no capture at all.
+class DynamicDeviceStateCapture {
+  const DynamicDeviceStateCapture(this.state);
+
+  final DynamicDeviceState? state;
+}
+
 /// Keeps the dynamic device and network values current without blocking.
 ///
 /// Two kinds of value:

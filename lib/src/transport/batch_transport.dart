@@ -54,32 +54,38 @@ class BatchTransport {
   /// were captured. Every item in the payload shares them.
   DynamicDeviceState? _payloadState;
 
-  void addEvent(Event event) {
-    _captureDynamicDeviceState();
+  void addEvent(Event event, {DynamicDeviceStateCapture? capture}) {
+    _applyCapture(capture);
     _payload.events.add(event);
     checkPayloadItemLimit();
   }
 
-  void addMeasurement(Measurement measurement) {
-    _captureDynamicDeviceState();
+  void addMeasurement(
+    Measurement measurement, {
+    DynamicDeviceStateCapture? capture,
+  }) {
+    _applyCapture(capture);
     _payload.measurements.add(measurement);
     checkPayloadItemLimit();
   }
 
-  void addLog(FaroLog faroLog) {
-    _captureDynamicDeviceState();
+  void addLog(FaroLog faroLog, {DynamicDeviceStateCapture? capture}) {
+    _applyCapture(capture);
     _payload.logs.add(faroLog);
     checkPayloadItemLimit();
   }
 
-  void addSpan(SpanRecord spanRecord) {
-    _captureDynamicDeviceState();
+  void addSpan(SpanRecord spanRecord, {DynamicDeviceStateCapture? capture}) {
+    _applyCapture(capture);
     _payload.traces.addSpan(spanRecord);
     checkPayloadItemLimit();
   }
 
-  void addExceptions(FaroException exception) {
-    _captureDynamicDeviceState();
+  void addExceptions(
+    FaroException exception, {
+    DynamicDeviceStateCapture? capture,
+  }) {
+    _applyCapture(capture);
     _payload.exceptions.add(exception);
     checkPayloadItemLimit();
   }
@@ -108,19 +114,31 @@ class BatchTransport {
     }
   }
 
-  /// Reads the dynamic values for the item that is about to be added.
+  /// Reads the dynamic values now. Reads memory only, so it never waits.
+  ///
+  /// A caller that holds an item back, such as a user action, takes this when
+  /// the item is captured and hands it to the `add` method later. Returns null
+  /// when this transport collects no dynamic values.
+  DynamicDeviceStateCapture? captureDynamicDeviceState() {
+    final provider = _dynamicDeviceState;
+    if (provider == null) {
+      return null;
+    }
+    provider.refreshIfStale();
+    return DynamicDeviceStateCapture(provider.current);
+  }
+
+  /// Applies the values captured with the item that is about to be added. An
+  /// item without a [capture] takes the values current now.
   ///
   /// A payload has one `meta`, so a value that changed since the open payload
   /// began closes that payload. The new item then starts a payload of its own.
   /// Each payload then carries the values current when its items were captured.
-  /// Reads memory only, so a capture never waits.
-  void _captureDynamicDeviceState() {
-    final provider = _dynamicDeviceState;
-    if (provider == null) {
+  void _applyCapture(DynamicDeviceStateCapture? capture) {
+    if (_dynamicDeviceState == null) {
       return;
     }
-    provider.refreshIfStale();
-    final state = provider.current;
+    final state = (capture ?? captureDynamicDeviceState())?.state;
     if (DynamicDeviceState.hasSameValues(state, _payloadState)) {
       return;
     }

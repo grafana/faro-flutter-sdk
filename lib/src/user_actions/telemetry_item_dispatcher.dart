@@ -12,21 +12,32 @@ class TelemetryItemDispatcher {
 
   /// Sends [item] to [transport] via the matching typed method.
   static void dispatch(TelemetryItem item, BatchTransport transport) {
+    final capture = item.deviceState;
     switch (item.type) {
       case TelemetryItemType.event:
-        transport.addEvent(item.asEvent!);
+        capture == null
+            ? transport.addEvent(item.asEvent!)
+            : transport.addEvent(item.asEvent!, capture: capture);
         break;
       case TelemetryItemType.log:
-        transport.addLog(item.asLog!);
+        capture == null
+            ? transport.addLog(item.asLog!)
+            : transport.addLog(item.asLog!, capture: capture);
         break;
       case TelemetryItemType.exception:
-        transport.addExceptions(item.asException!);
+        capture == null
+            ? transport.addExceptions(item.asException!)
+            : transport.addExceptions(item.asException!, capture: capture);
         break;
       case TelemetryItemType.measurement:
-        transport.addMeasurement(item.asMeasurement!);
+        capture == null
+            ? transport.addMeasurement(item.asMeasurement!)
+            : transport.addMeasurement(item.asMeasurement!, capture: capture);
         break;
       case TelemetryItemType.span:
-        transport.addSpan(item.asSpan!);
+        capture == null
+            ? transport.addSpan(item.asSpan!)
+            : transport.addSpan(item.asSpan!, capture: capture);
         break;
     }
   }

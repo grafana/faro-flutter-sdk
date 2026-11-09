@@ -76,6 +76,9 @@ struct DynamicDeviceStateTests {
     #expect(DynamicDeviceState.connectionSubtypeName(radioTechnology: CTRadioAccessTechnologyLTE) == "lte")
     #expect(DynamicDeviceState.connectionSubtypeName(radioTechnology: CTRadioAccessTechnologyWCDMA) == "umts")
     #expect(DynamicDeviceState.connectionSubtypeName(radioTechnology: CTRadioAccessTechnologyeHRPD) == "ehrpd")
+    #expect(
+      DynamicDeviceState.connectionSubtypeName(radioTechnology: CTRadioAccessTechnologyCDMA1x)
+        == "cdma2000_1xrtt")
     if #available(iOS 14.1, *) {
       #expect(DynamicDeviceState.connectionSubtypeName(radioTechnology: CTRadioAccessTechnologyNR) == "nr")
       #expect(DynamicDeviceState.connectionSubtypeName(radioTechnology: CTRadioAccessTechnologyNRNSA) == "nrnsa")
@@ -128,5 +131,12 @@ struct DynamicDeviceStateTests {
 
     #expect(listened[DynamicDeviceState.lowPowerModeKey] is Bool)
     #expect(listened[DynamicDeviceState.thermalStateKey] is String)
+  }
+
+  @Test("a change of the data SIM refreshes the cache")
+  func dataSimChangeIsObserved() {
+    _ = DynamicDeviceState.listenedState()
+
+    #expect(DynamicDeviceState.isObservingDataService)
   }
 }

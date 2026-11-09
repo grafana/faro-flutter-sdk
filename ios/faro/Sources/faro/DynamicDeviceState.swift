@@ -30,6 +30,23 @@ enum DynamicDeviceState {
   private static var listenedVersion = 0
   private static var observers: [ObjectIdentifier: ([String: Any]) -> Void] = [:]
   private static let telephonyInfo = CTTelephonyNetworkInfo()
+  private static let dataServiceObserver = DataServiceObserver()
+
+  /// The system sends no notification when the SIM that carries mobile data
+  /// changes, but it calls this delegate. Without it the cached subtype would
+  /// stay on the previous SIM.
+  private final class DataServiceObserver: NSObject, CTTelephonyNetworkInfoDelegate {
+    func dataServiceIdentifierDidChange(_ identifier: String) {
+      DispatchQueue.main.async {
+        DynamicDeviceState.refreshListened()
+      }
+    }
+  }
+
+  /// Whether a change of the data SIM refreshes the cache.
+  static var isObservingDataService: Bool {
+    telephonyInfo.delegate != nil
+  }
 
   /// Starts the system listeners once. Safe to call more than once. The plugin
   /// calls it on the main thread, where it seeds the cache before it returns.
@@ -68,6 +85,8 @@ enum DynamicDeviceState {
         refreshListened()
       }
     }
+
+    telephonyInfo.delegate = dataServiceObserver
 
     let pathMonitor = NWPathMonitor()
     pathMonitor.pathUpdateHandler = { path in
@@ -262,7 +281,7 @@ enum DynamicDeviceState {
       CTRadioAccessTechnologyWCDMA: "umts",
       CTRadioAccessTechnologyHSDPA: "hsdpa",
       CTRadioAccessTechnologyHSUPA: "hsupa",
-      CTRadioAccessTechnologyCDMA1x: "cdma",
+      CTRadioAccessTechnologyCDMA1x: "cdma2000_1xrtt",
       CTRadioAccessTechnologyCDMAEVDORev0: "evdo_0",
       CTRadioAccessTechnologyCDMAEVDORevA: "evdo_a",
       CTRadioAccessTechnologyCDMAEVDORevB: "evdo_b",

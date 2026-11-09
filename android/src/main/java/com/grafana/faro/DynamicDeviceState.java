@@ -65,9 +65,9 @@ final class DynamicDeviceState {
     private static volatile String thermalState;
     private static volatile String connectionType;
 
-    // Read and written only on the connectivity callback thread, so the loss of the default
-    // network is not confused with the loss of a network it replaced.
-    private static Network defaultNetwork;
+    // The loss of the default network must not be confused with the loss of a network it
+    // replaced. Seeded at start, then written by the connectivity callback thread.
+    private static volatile Network defaultNetwork;
 
     private DynamicDeviceState() {}
 
@@ -257,8 +257,25 @@ final class DynamicDeviceState {
             }
             readNetwork(connectivityManager);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                final ConnectivityManager manager = connectivityManager;
                 connectivityManager.registerDefaultNetworkCallback(
                         new ConnectivityManager.NetworkCallback() {
+                            @Override
+                            public void onAvailable(@NonNull Network network) {
+                                // Before API 26, capabilities do not always follow this
+                                // callback, so read them here. Setting the default network
+                                // first lets a loss that comes next match it.
+                                defaultNetwork = network;
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                                    NetworkCapabilities capabilities =
+                                            manager.getNetworkCapabilities(network);
+                                    if (capabilities != null) {
+                                        applyCapabilities(capabilities);
+                                        notifyIfChanged();
+                                    }
+                                }
+                            }
+
                             @Override
                             public void onCapabilitiesChanged(
                                     @NonNull Network network,
@@ -315,6 +332,7 @@ final class DynamicDeviceState {
     private static void readNetwork(@NonNull ConnectivityManager connectivityManager) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Network active = connectivityManager.getActiveNetwork();
+            defaultNetwork = active;
             NetworkCapabilities capabilities =
                     active == null ? null : connectivityManager.getNetworkCapabilities(active);
             if (capabilities != null) {
