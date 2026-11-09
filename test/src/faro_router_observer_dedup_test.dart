@@ -266,6 +266,60 @@ void main() {
       },
     );
 
+    testWidgets('closing a dialog restores the view after an outer route', (
+      tester,
+    ) async {
+      final router = buildRouter(rootObservers: [FaroNavigationObserver()]);
+      track(router);
+      final outerKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: outerKey,
+          navigatorObservers: [FaroNavigationObserver()],
+          initialRoute: '/outer',
+          routes: {'/outer': (_) => const Text('outer')},
+        ),
+      );
+      outerKey.currentState!.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/demo'),
+          builder: (_) => MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      router.go('/a');
+      await tester.pumpAndSettle();
+      // The router's own Navigator, not the outer app's root Navigator.
+      final routerNavigator = router.routerDelegate.navigatorKey.currentState!;
+      unawaited(
+        routerNavigator.push(
+          DialogRoute<void>(
+            context: routerNavigator.context,
+            settings: const RouteSettings(name: 'confirm'),
+            builder: (_) => const Text('dialog'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      router.go('/b');
+      await tester.pumpAndSettle();
+      outerKey.currentState!.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/other'),
+          builder: (_) => const Text('other'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      outerKey.currentState!.pop();
+      await tester.pumpAndSettle();
+      events.clear();
+      Navigator.of(tester.element(find.text('dialog'))).pop();
+      await tester.pumpAndSettle();
+
+      expect(events, isEmpty);
+      expect(viewMetaNames.last, '/b');
+    });
+
     testWidgets('observers resume after the tracker is disposed', (
       tester,
     ) async {
