@@ -146,9 +146,16 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
     var toView = to?.settings.name;
     if (_isPage(to)) toView = tracked.currentRouterView ?? toView;
 
-    _record(fromView, toView);
+    // The tracker may already have recorded a router change made while a
+    // pageless route was on top. Closing that route then shows the same view.
+    final alreadyRecorded =
+        _isPage(to) && views.every((view) => view.visibleView == toView);
+    if (!alreadyRecorded) _record(fromView, toView);
     for (final view in views) {
       view.visibleView = toView;
+      // A router page is visible again, even if the tracker has not yet
+      // recorded a router change from this frame.
+      if (_isPage(to)) view.routerView = toView;
       if (_isPage(changedRoute)) {
         // A router page was removed and revealed a pageless route. The
         // tracker was notified first and is waiting; this event replaces its

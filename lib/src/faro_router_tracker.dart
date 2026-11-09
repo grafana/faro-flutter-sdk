@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:developer';
 
 import 'package:dartypod/dartypod.dart';
@@ -95,13 +94,13 @@ class FaroRouterTracker {
     if (_view.hasOpenPagelessRoutes) {
       // This change might reveal a dialog or a Navigator.push route. Wait
       // until the Navigator applied it, so the observer can record the
-      // visible view first.
+      // visible view first. A post-frame callback registered now runs
+      // before ones the new page adds, such as opening a dialog on load.
       if (_view.beginPendingChange()) {
-        unawaited(
-          SchedulerBinding.instance.endOfFrame.then(
-            (_) => _recordPendingChange(),
-          ),
-        );
+        final routerViewBefore = _view.routerView;
+        SchedulerBinding.instance
+          ..addPostFrameCallback((_) => _recordPendingChange(routerViewBefore))
+          ..ensureVisualUpdate();
       }
     } else {
       _recordView(emit: true);
@@ -109,12 +108,16 @@ class FaroRouterTracker {
     _lifecycleSignalChannel.emitActivity(source: 'navigation.router');
   }
 
-  void _recordPendingChange() {
+  void _recordPendingChange(String? routerViewBefore) {
     final change = _view.endPendingChange();
     if (_isDisposed) return;
     _recordView(
       emit: change != PendingRouterChange.claimed,
-      coversPagelessRoute: change == PendingRouterChange.coversPagelessRoute,
+      // An observer may have updated routerView to the new page during the
+      // frame. The router still changed, so it counts as a new view.
+      coversPagelessRoute:
+          change == PendingRouterChange.coversPagelessRoute ||
+          _view.currentRouterView != routerViewBefore,
     );
   }
 

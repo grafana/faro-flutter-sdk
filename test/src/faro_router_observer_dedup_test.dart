@@ -659,14 +659,120 @@ void main() {
 
       testWidgets('closes onto a router page changed under it', (tester) async {
         final router = await openDialogOnA(tester);
+        events.clear();
         router.go('/b');
         await tester.pumpAndSettle();
         expect(find.text('dialog'), findsOneWidget);
-        events.clear();
         await closeDialog(tester);
         expect(events, [
           {'fromView': 'confirm', 'toView': '/b'},
         ]);
+      });
+
+      testWidgets(
+        'a nested push in the frame that closes it and changes page',
+        (tester) async {
+          final nestedKey = GlobalKey<NavigatorState>();
+          final nestedRouter = router = GoRouter(
+            initialLocation: '/a',
+            observers: [FaroNavigationObserver()],
+            routes: [
+              GoRoute(
+                path: '/a',
+                builder: (_, _) => Column(
+                  children: [
+                    const Text('Visible: /a'),
+                    Expanded(
+                      child: Navigator(
+                        key: nestedKey,
+                        observers: [FaroNavigationObserver()],
+                        pages: const [
+                          MaterialPage<void>(
+                            name: 'step-1',
+                            child: Text('step'),
+                          ),
+                        ],
+                        onDidRemovePage: (_) {},
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              page('/b', 'b'),
+            ],
+          );
+          track(nestedRouter);
+          await tester.pumpWidget(
+            MaterialApp.router(routerConfig: nestedRouter),
+          );
+          showDialog<void>(
+            context: tester.element(find.text('Visible: /a')),
+            routeSettings: const RouteSettings(name: 'confirm'),
+            builder: (_) => const Text('dialog'),
+          );
+          await tester.pumpAndSettle();
+          events.clear();
+          viewMetaNames.clear();
+          nestedRouter.go('/b');
+          Navigator.of(tester.element(find.text('dialog'))).pop();
+          nestedKey.currentState!.push(
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: 'native'),
+              builder: (_) => const Text('native'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Visible: /b'), findsOneWidget);
+          expect(events.last, {'fromView': 'native', 'toView': '/b'});
+          expect(viewMetaNames.last, '/b');
+        },
+      );
+
+      testWidgets('a page that opens a dialog when it loads', (tester) async {
+        var opened = false;
+        final dialogRouter = router = GoRouter(
+          initialLocation: '/a',
+          observers: [FaroNavigationObserver()],
+          routes: [
+            page('/a', 'a'),
+            GoRoute(
+              path: '/b',
+              name: 'b',
+              builder: (context, _) {
+                if (!opened) {
+                  opened = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    showDialog<void>(
+                      context: context,
+                      routeSettings: const RouteSettings(name: 'welcome'),
+                      builder: (_) => const Text('welcome'),
+                    );
+                  });
+                }
+                return const Text('Visible: /b');
+              },
+            ),
+          ],
+        );
+        track(dialogRouter);
+        await tester.pumpWidget(MaterialApp.router(routerConfig: dialogRouter));
+        showDialog<void>(
+          context: tester.element(find.text('Visible: /a')),
+          routeSettings: const RouteSettings(name: 'confirm'),
+          builder: (_) => const Text('dialog'),
+        );
+        await tester.pumpAndSettle();
+        events.clear();
+        viewMetaNames.clear();
+        dialogRouter.go('/b');
+        Navigator.of(tester.element(find.text('dialog'))).pop();
+        await tester.pumpAndSettle();
+        expect(find.text('welcome'), findsOneWidget);
+        expect(events, [
+          {'fromView': 'confirm', 'toView': '/b'},
+          {'fromView': '/b', 'toView': 'welcome'},
+        ]);
+        expect(viewMetaNames.last, 'welcome');
       });
 
       testWidgets('closes before the router change is applied', (tester) async {
@@ -818,6 +924,85 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Visible: /home'), findsOneWidget);
         expect(events, expected);
+      });
+
+      testWidgets('a router push in the frame that closes both', (
+        tester,
+      ) async {
+        final router = await openNativeThenDetail(tester);
+        final navigator = Navigator.of(
+          tester.element(find.text('Visible: /detail')),
+        );
+        router.pop();
+        navigator.pop();
+        router.push('/detail');
+        await tester.pumpAndSettle();
+        expect(find.text('Visible: /detail'), findsOneWidget);
+        expect(events, [
+          ...expected,
+          {'fromView': '/home', 'toView': '/detail'},
+        ]);
+      });
+
+      testWidgets('a pageless push in the frame that closes both', (
+        tester,
+      ) async {
+        await openNativeThenDetail(tester);
+        Navigator.of(tester.element(find.text('Visible: /detail')))
+          ..popUntil((route) => route.isFirst)
+          ..push(
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: 'next'),
+              builder: (_) => const Text('next'),
+            ),
+          );
+        await tester.pumpAndSettle();
+        expect(events, [
+          ...expected,
+          {'fromView': '/home', 'toView': 'next'},
+        ]);
+      });
+
+      testWidgets('a hidden nested page push keeps the reveal', (tester) async {
+        final steps = ValueNotifier<List<String>>(['step-1']);
+        final router = GoRouter(
+          initialLocation: '/home',
+          observers: [FaroNavigationObserver()],
+          routes: [
+            GoRoute(
+              path: '/home',
+              builder: (_, _) => Column(
+                children: [
+                  const Text('Visible: /home'),
+                  Expanded(
+                    child: ValueListenableBuilder<List<String>>(
+                      valueListenable: steps,
+                      builder: (_, value, _) => Navigator(
+                        observers: [FaroNavigationObserver()],
+                        pages: [
+                          for (final step in value)
+                            MaterialPage<void>(
+                              key: ValueKey(step),
+                              name: step,
+                              child: Text(step),
+                            ),
+                        ],
+                        onDidRemovePage: (_) {},
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            page('/detail', 'detail'),
+          ],
+        );
+        await openNativeThenDetail(tester, router: router);
+        router.pop();
+        steps.value = ['step-1', 'step-2'];
+        await tester.pumpAndSettle();
+        expect(find.text('native'), findsOneWidget);
+        expect(events, expected.sublist(0, 3));
       });
 
       testWidgets('a router push in the same frame as the reveal', (
