@@ -257,16 +257,15 @@ final class DynamicDeviceState {
                                 // first lets a loss that comes next match it.
                                 defaultNetwork = network;
                                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                                    // When the system gives none yet, keep the current type.
+                                    // The capabilities callback that follows sets the new one.
+                                    // Reading the network again would report "unavailable".
                                     NetworkCapabilities capabilities =
                                             manager.getNetworkCapabilities(network);
                                     if (capabilities != null) {
                                         applyCapabilities(capabilities);
-                                    } else {
-                                        // The system gave none yet. Read the active network,
-                                        // so the old type does not outlive the old network.
-                                        readNetwork(manager);
+                                        notifyIfChanged();
                                     }
-                                    notifyIfChanged();
                                 }
                             }
 
