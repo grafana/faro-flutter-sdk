@@ -14,6 +14,7 @@ import 'package:faro_example/features/user_settings/user_settings_service.dart';
 import 'package:faro_example/features/webview_handoff/presentation/webview_handoff_page.dart';
 import 'package:faro_example/qa_config.dart';
 import 'package:faro_example/session_engine_harness.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,7 +31,12 @@ void main() async {
   // The http package uses IOClient on mobile, which creates an HttpClient
   // at construction time. If HttpOverrides is set after the client is created,
   // Faro won't intercept those HTTP requests.
-  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  //
+  // Not available on web: browsers do not use dart:io's HttpClient, so
+  // HttpOverrides has no effect there and is skipped.
+  if (!kIsWeb) {
+    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  }
 
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
@@ -68,9 +74,12 @@ void main() async {
       ? qaConfig.initialUser
       : userSettingsService.initialUser;
 
-  Faro().transports.add(
-    OfflineTransport(maxCacheDuration: const Duration(days: 3)),
-  );
+  // OfflineTransport caches to the file system, which web does not have.
+  if (!kIsWeb) {
+    Faro().transports.add(
+      OfflineTransport(maxCacheDuration: const Duration(days: 3)),
+    );
+  }
 
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
