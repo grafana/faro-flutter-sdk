@@ -1,5 +1,6 @@
 import 'package:faro/src/device_info/device_info_provider.dart';
 import 'package:faro/src/device_info/installation_id_provider.dart';
+import 'package:faro/src/models/browser.dart';
 import 'package:faro/src/models/device_info.dart';
 import 'package:faro/src/models/installation_id.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
@@ -25,10 +26,12 @@ class SessionAttributesProvider {
   Future<CollectedSessionAttributes> collectAttributes() async {
     final installationId = await getInstallationId();
     final deviceInfo = await getDeviceInfo();
+    final browser = await _deviceInfoProvider.getBrowser();
 
     return CollectedSessionAttributes(
       installationId: installationId,
       deviceInfo: deviceInfo,
+      browser: browser,
       attributes: _attributesFor(
         installationId: installationId,
         deviceInfo: deviceInfo,
@@ -61,11 +64,15 @@ class CollectedSessionAttributes {
     required this.installationId,
     required this.deviceInfo,
     required this.attributes,
+    this.browser,
   });
 
   final InstallationId installationId;
   final DeviceInfo deviceInfo;
   final Map<String, Object> attributes;
+
+  /// The browser details, only available when running on the web.
+  final Browser? browser;
 }
 
 class SessionAttributesProviderFactory {

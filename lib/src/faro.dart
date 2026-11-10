@@ -213,7 +213,14 @@ class Faro {
     // Merge custom attributes first, then default attributes
     // Default attributes take precedence if there are conflicts
     meta.session?.attributes = {...customAttributes, ...defaultAttributes};
-    _setDeviceAndOsMeta(deviceInfo);
+    _setDeviceAndOsMeta(
+      deviceInfo,
+      includeDevice: !_platformInfoProvider.isWeb,
+    );
+    final browser = collectedAttributes.browser;
+    if (browser != null) {
+      _setBrowserAndPageMeta(browser);
+    }
 
     config = optionsConfiguration;
 
@@ -360,21 +367,31 @@ class Faro {
     _instance._batchTransport?.updatePayloadMeta(_instance.meta);
   }
 
-  void _setDeviceAndOsMeta(DeviceInfo deviceInfo) {
+  void _setBrowserAndPageMeta(Browser browser) {
     _instance.meta = Meta.fromJson({
       ..._instance.meta.toJson(),
-      'device': Device(
-        manufacturer: deviceInfo.deviceManufacturer,
-        modelIdentifier: deviceInfo.deviceModel,
-        modelName: deviceInfo.deviceModelName,
-        brand: deviceInfo.deviceBrand,
-        isPhysical: deviceInfo.deviceIsPhysical,
-        arch: deviceInfo.deviceArch,
-        screenWidth: deviceInfo.deviceScreenWidth,
-        screenHeight: deviceInfo.deviceScreenHeight,
-        screenDensity: deviceInfo.deviceScreenDensity,
-        memoryTotal: deviceInfo.deviceMemoryTotal,
-      ).toJson(),
+      'browser': browser.toJson(),
+      // models.dart's Page is shadowed by Flutter's Page; use the JSON shape.
+      'page': {'url': Uri.base.toString()},
+    });
+  }
+
+  void _setDeviceAndOsMeta(DeviceInfo deviceInfo, {bool includeDevice = true}) {
+    _instance.meta = Meta.fromJson({
+      ..._instance.meta.toJson(),
+      if (includeDevice)
+        'device': Device(
+          manufacturer: deviceInfo.deviceManufacturer,
+          modelIdentifier: deviceInfo.deviceModel,
+          modelName: deviceInfo.deviceModelName,
+          brand: deviceInfo.deviceBrand,
+          isPhysical: deviceInfo.deviceIsPhysical,
+          arch: deviceInfo.deviceArch,
+          screenWidth: deviceInfo.deviceScreenWidth,
+          screenHeight: deviceInfo.deviceScreenHeight,
+          screenDensity: deviceInfo.deviceScreenDensity,
+          memoryTotal: deviceInfo.deviceMemoryTotal,
+        ).toJson(),
       'os': Os(
         name: deviceInfo.deviceOs,
         version: deviceInfo.deviceOsVersion,

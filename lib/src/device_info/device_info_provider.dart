@@ -2,8 +2,10 @@ import 'dart:developer';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
+import 'package:faro/src/models/browser.dart';
 import 'package:faro/src/models/device_info.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 class DeviceInfoProvider {
   DeviceInfoProvider({
@@ -106,6 +108,35 @@ class DeviceInfoProvider {
     return deviceInfo;
   }
 
+  /// Returns the browser the app is running in, or `null` when not on the web
+  /// or when the browser details cannot be read.
+  Future<Browser?> getBrowser() async {
+    if (!_platformInfoProvider.isWeb) {
+      return null;
+    }
+
+    try {
+      final info = await _deviceInfoPlugin.webBrowserInfo;
+      final userAgent = info.userAgent ?? '';
+      final browserName = info.browserName;
+      return Browser(
+        browserName == BrowserName.unknown ? 'unknown' : browserName.name,
+        parseBrowserVersion(browserName, userAgent),
+        info.platform ?? '',
+        userAgent,
+        info.language ?? '',
+        _mobileUserAgent.hasMatch(userAgent),
+      );
+    } catch (error) {
+      log('Faro: Browser info unavailable: $error');
+      return null;
+    }
+  }
+
+  static final RegExp _mobileUserAgent = RegExp(
+    'Mobi|Android|iPhone|iPad|iPod',
+  );
+
   // Missing native metadata must never fail SDK init.
   Future<Map<String, dynamic>?> _getNativeDeviceMetadata() async {
     try {
@@ -147,4 +178,25 @@ class DeviceInfoProviderFactory {
       nativeMethods: nativeMethods,
     );
   }
+}
+
+/// Extracts the browser version from a user agent string.
+///
+/// Returns an empty string when the version cannot be determined.
+@visibleForTesting
+String parseBrowserVersion(BrowserName browserName, String userAgent) {
+  final pattern = switch (browserName) {
+    BrowserName.chrome => r'(?:Chrome|CriOS)/([\d.]+)',
+    BrowserName.firefox => r'(?:Firefox|FxiOS)/([\d.]+)',
+    BrowserName.safari => r'Version/([\d.]+)',
+    BrowserName.edge => r'(?:Edg|Edge|EdgA|EdgiOS)/([\d.]+)',
+    BrowserName.opera => r'(?:OPR|Opera)/([\d.]+)',
+    BrowserName.samsungInternet => r'SamsungBrowser/([\d.]+)',
+    BrowserName.msie => r'(?:MSIE |rv:)([\d.]+)',
+    _ => null,
+  };
+  if (pattern == null) {
+    return '';
+  }
+  return RegExp(pattern).firstMatch(userAgent)?.group(1) ?? '';
 }

@@ -44,6 +44,9 @@ void main() {
       when(
         () => mockInstallationIdProvider.getInstallationId(),
       ).thenAnswer((_) async => InstallationId('installation-id'));
+      when(
+        () => mockDeviceInfoProvider.getBrowser(),
+      ).thenAnswer((_) async => null);
 
       final collectedAttributes = await sut.collectAttributes();
 
@@ -61,6 +64,41 @@ void main() {
         'device_is_physical': true,
         'device_id': 'installation-id',
       });
+      expect(collectedAttributes.browser, isNull);
+    });
+
+    test('should pass the browser through when running on the web', () async {
+      final browser = Browser(
+        'chrome',
+        '157.0',
+        'MacIntel',
+        'Some-user-agent',
+        'en-US',
+        false,
+      );
+      when(() => mockDeviceInfoProvider.getDeviceInfo()).thenAnswer(
+        (_) async => DeviceInfo(
+          dartVersion: 'web',
+          deviceOs: 'web',
+          deviceOsVersion: '',
+          deviceOsDetail: 'unknown',
+          deviceManufacturer: 'unknown',
+          deviceModel: 'unknown',
+          deviceModelName: 'unknown',
+          deviceBrand: 'unknown',
+          deviceIsPhysical: true,
+        ),
+      );
+      when(
+        () => mockInstallationIdProvider.getInstallationId(),
+      ).thenAnswer((_) async => InstallationId('installation-id'));
+      when(
+        () => mockDeviceInfoProvider.getBrowser(),
+      ).thenAnswer((_) async => browser);
+
+      final collectedAttributes = await sut.collectAttributes();
+
+      expect(collectedAttributes.browser, same(browser));
     });
   });
 }
