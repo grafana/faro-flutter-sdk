@@ -81,8 +81,9 @@ class DynamicDeviceStateCapture {
 ///
 /// Two kinds of value:
 /// - **Listener-fed** values (battery, power, thermal and connection type).
-///   The native side pushes each change over the `faro/device_state`
-///   channel, so these never expire.
+///   The native side streams them over the `faro/device_state` event channel.
+///   The first event holds the current values and each later one the values
+///   after a change, so these never expire.
 /// - **Probed** values, which have no listener: the Android carrier name and
 ///   cellular subtype. iOS has none. [refreshIfStale] reads them again when
 ///   a signal is captured and they are older than [timeToLive]. The read
@@ -102,13 +103,17 @@ class DynamicDeviceStateProvider {
     this.timeToLive = defaultTimeToLive,
     this.maxStaleAge = defaultMaxStaleAge,
     this.failureBackoff = defaultFailureBackoff,
-    MethodChannel? changeChannel,
+    this.firstStateTimeout = defaultFirstStateTimeout,
+    Stream<Object?> Function()? openChangeStream,
   }) : _nativeMethods = nativeMethods,
        _isSupported =
            platformInfoProvider.isAndroid || platformInfoProvider.isIOS,
        _hasProbedValues = platformInfoProvider.isAndroid,
        _currentTime = currentTime,
-       _changeChannel = changeChannel ?? const MethodChannel(changeChannelName);
+       _openChangeStream =
+           openChangeStream ??
+           (() =>
+               const EventChannel(changeChannelName).receiveBroadcastStream());
 
   /// The longest a probed value is served before it is read again.
   static const defaultTimeToLive = Duration(seconds: 5);
@@ -120,11 +125,11 @@ class DynamicDeviceStateProvider {
   /// How long to wait before reading probed values again after a failed read.
   static const defaultFailureBackoff = Duration(seconds: 30);
 
-  /// The channel the native side pushes listener-fed changes on.
-  static const changeChannelName = 'faro/device_state';
+  /// How long [start] waits for the first listener-fed values.
+  static const defaultFirstStateTimeout = Duration(seconds: 2);
 
-  /// The key of the counter that numbers each listener-fed snapshot.
-  static const versionKey = 'version';
+  /// The event channel the native side streams listener-fed values on.
+  static const changeChannelName = 'faro/device_state';
 
   /// The probed values that describe one network. A new connection type makes
   /// them wrong, unlike the carrier name.
@@ -133,16 +138,17 @@ class DynamicDeviceStateProvider {
   final Duration timeToLive;
   final Duration maxStaleAge;
   final Duration failureBackoff;
+  final Duration firstStateTimeout;
   final FaroNativeMethods _nativeMethods;
   final bool _isSupported;
 
   /// Only Android has values without a listener.
   final bool _hasProbedValues;
   final DateTime Function() _currentTime;
-  final MethodChannel _changeChannel;
+  final Stream<Object?> Function() _openChangeStream;
+  StreamSubscription<Object?>? _changes;
 
   Map<String, dynamic>? _listened;
-  int _listenedVersion = -1;
   Map<String, dynamic> _probed = const {};
   DateTime? _probedAt;
   DateTime? _retryNotBefore;
@@ -179,56 +185,54 @@ class DynamicDeviceStateProvider {
         _currentTime().difference(probedAt) <= maxStaleAge;
   }
 
-  /// Starts receiving pushed changes and reads the listener-fed values once.
+  /// Starts receiving the listener-fed values and waits for the first ones.
   /// The probed values are read in the background, so a slow network never
-  /// delays the caller. Never throws.
+  /// delays the caller. When the first values do not arrive within
+  /// [firstStateTimeout], the provider has no value until they do. Never
+  /// throws.
   Future<void> start() async {
-    if (!_isSupported) {
+    if (!_isSupported || _changes != null) {
       return;
     }
-    _changeChannel.setMethodCallHandler(_onNativeCall);
-    try {
-      final listened = await _nativeMethods.getListenedDeviceState();
-      if (listened == null) {
-        _listened = null;
-        return;
+    final firstState = Completer<void>();
+    void completeFirstState() {
+      if (!firstState.isCompleted) {
+        firstState.complete();
       }
-      applyListened(listened);
-    } catch (error) {
-      _listened = null;
-      log('Faro: Native dynamic device state unavailable: $error');
-      return;
     }
-    unawaited(refreshProbed());
+
+    try {
+      _changes = _openChangeStream().listen(
+        (event) {
+          if (event is Map) {
+            applyListened(Map<String, dynamic>.from(event));
+            completeFirstState();
+          }
+        },
+        onError: (Object error) {
+          log('Faro: Native dynamic device state unavailable: $error');
+          completeFirstState();
+        },
+      );
+      await firstState.future.timeout(firstStateTimeout);
+    } on TimeoutException {
+      log('Faro: Native dynamic device state did not answer in time.');
+    } catch (error) {
+      log('Faro: Native dynamic device state unavailable: $error');
+    }
+    if (_listened != null) {
+      unawaited(refreshProbed());
+    }
   }
 
   void dispose() {
-    _changeChannel.setMethodCallHandler(null);
+    unawaited(_changes?.cancel());
+    _changes = null;
   }
 
-  Future<dynamic> _onNativeCall(MethodCall call) async {
-    if (call.method == 'onDynamicDeviceStateChanged') {
-      final arguments = call.arguments;
-      if (arguments is Map) {
-        applyListened(Map<String, dynamic>.from(arguments));
-      }
-    }
-  }
-
-  /// Replaces the listener-fed values with a snapshot.
-  ///
-  /// A snapshot can arrive late: the reply to the first read can land after
-  /// the changes pushed behind it. Native numbers every snapshot. A snapshot
-  /// no newer than the one in use is dropped.
+  /// Replaces the listener-fed values with the latest ones from native.
   @visibleForTesting
   void applyListened(Map<String, dynamic> listened) {
-    final version = listened[versionKey];
-    if (version is int) {
-      if (version <= _listenedVersion) {
-        return;
-      }
-      _listenedVersion = version;
-    }
     if (_listened?['connectionType'] != listened['connectionType']) {
       _networkEpoch++;
       _probed = {

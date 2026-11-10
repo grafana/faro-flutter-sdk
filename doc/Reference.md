@@ -209,9 +209,22 @@ Android reads the cellular subtype from `TelephonyManager.getDataNetworkType`
 on API 33 and later. The SDK declares the `READ_BASIC_PHONE_STATE` permission
 for it. It is a normal permission, granted at install, with no prompt. If an
 app removes the permission, or on older versions, the SDK uses
-`ConnectivityManager`. On iOS the subtype is the technology of the SIM that
-carries mobile data. A dual-SIM phone with no known data SIM sends none. A VPN
-does not hide the connection type under it.
+`ConnectivityManager`. Nothing else breaks, and the subtype then comes from
+the deprecated `NetworkInfo` API. To remove the permission, add this to the
+app manifest:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission
+        android:name="android.permission.READ_BASIC_PHONE_STATE"
+        tools:node="remove" />
+</manifest>
+```
+
+On iOS the subtype is the technology of the SIM that carries mobile data. A
+dual-SIM phone with no known data SIM sends none. A VPN does not hide the
+connection type under it.
 
 On iOS, `connection_type` is `unavailable` when there is no route. A wifi
 network without internet still has a route, so it reads as `wifi`.

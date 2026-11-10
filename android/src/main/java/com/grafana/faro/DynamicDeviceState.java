@@ -46,19 +46,16 @@ final class DynamicDeviceState {
     static final String CONNECTION_TYPE_KEY = "connectionType";
     static final String CONNECTION_SUBTYPE_KEY = "connectionSubtype";
     static final String CARRIER_NAME_KEY = "carrierName";
-    static final String VERSION_KEY = "version";
 
-    /** Receives the listener-fed values each time one of them changes. */
+    /** Told each time a listener-fed value changes. Read {@link #listenedState} for the values. */
     interface Listener {
-        void onChanged(@NonNull Map<String, Object> listenedState);
+        void onChanged();
     }
 
     private static final Object LOCK = new Object();
     private static final Set<Listener> listeners = new CopyOnWriteArraySet<>();
     private static boolean started = false;
     private static Map<String, Object> lastNotified = new HashMap<>();
-    // Numbers each listener-fed snapshot, so Dart can tell which of two is newer.
-    private static int listenedVersion = 0;
     private static volatile Integer batteryLevel;
     private static volatile Boolean isCharging;
     private static volatile Boolean lowPowerMode;
@@ -91,9 +88,7 @@ final class DynamicDeviceState {
         }
         start(context.getApplicationContext());
         synchronized (LOCK) {
-            Map<String, Object> state = snapshot();
-            state.put(VERSION_KEY, listenedVersion);
-            return state;
+            return snapshot();
         }
     }
 
@@ -132,22 +127,17 @@ final class DynamicDeviceState {
         }
     }
 
-    /** Sends the listener-fed values to the listeners when they differ from the last send. */
+    /** Tells the listeners when the listener-fed values differ from the last notice. */
     private static void notifyIfChanged() {
-        Map<String, Object> pushed;
         synchronized (LOCK) {
-            // Read under the lock, so a snapshot never takes a newer version than a fresher one.
             Map<String, Object> state = snapshot();
             if (state.equals(lastNotified)) {
                 return;
             }
             lastNotified = state;
-            listenedVersion++;
-            pushed = new HashMap<>(state);
-            pushed.put(VERSION_KEY, listenedVersion);
         }
         for (Listener listener : listeners) {
-            listener.onChanged(pushed);
+            listener.onChanged();
         }
     }
 
@@ -271,8 +261,12 @@ final class DynamicDeviceState {
                                             manager.getNetworkCapabilities(network);
                                     if (capabilities != null) {
                                         applyCapabilities(capabilities);
-                                        notifyIfChanged();
+                                    } else {
+                                        // The system gave none yet. Read the active network,
+                                        // so the old type does not outlive the old network.
+                                        readNetwork(manager);
                                     }
+                                    notifyIfChanged();
                                 }
                             }
 

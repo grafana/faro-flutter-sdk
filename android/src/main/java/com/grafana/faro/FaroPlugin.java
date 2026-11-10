@@ -34,6 +34,7 @@ import io.flutter.Log;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
+import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
@@ -56,7 +57,8 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
     private MethodChannel channel;
-    private MethodChannel deviceStateChannel;
+    private EventChannel deviceStateChannel;
+    private @Nullable EventChannel.EventSink deviceStateSink;
     private DynamicDeviceState.Listener deviceStateListener;
     private Context applicationContext;
     private @Nullable WeakReference<Activity> activity = null;
@@ -175,15 +177,32 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         this.applicationContext = flutterPluginBinding.getApplicationContext();
 
         deviceStateChannel =
-                new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "faro/device_state");
+                new EventChannel(flutterPluginBinding.getBinaryMessenger(), "faro/device_state");
+        deviceStateChannel.setStreamHandler(
+                new EventChannel.StreamHandler() {
+                    @Override
+                    public void onListen(Object arguments, EventChannel.EventSink events) {
+                        deviceStateSink = events;
+                        events.success(DynamicDeviceState.listenedState(applicationContext));
+                    }
+
+                    @Override
+                    public void onCancel(Object arguments) {
+                        deviceStateSink = null;
+                    }
+                });
         Handler mainHandler = new Handler(Looper.getMainLooper());
+        // Read the cache when the event is sent, not when the change happened. A later
+        // change then never arrives before an earlier one.
         deviceStateListener =
-                state ->
+                () ->
                         mainHandler.post(
                                 () -> {
-                                    if (deviceStateChannel != null) {
-                                        deviceStateChannel.invokeMethod(
-                                                "onDynamicDeviceStateChanged", state);
+                                    EventChannel.EventSink sink = deviceStateSink;
+                                    if (sink != null) {
+                                        sink.success(
+                                                DynamicDeviceState.listenedState(
+                                                        applicationContext));
                                     }
                                 });
         DynamicDeviceState.addListener(deviceStateListener);
@@ -357,7 +376,11 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             DynamicDeviceState.removeListener(deviceStateListener);
             deviceStateListener = null;
         }
-        deviceStateChannel = null;
+        if (deviceStateChannel != null) {
+            deviceStateChannel.setStreamHandler(null);
+            deviceStateChannel = null;
+        }
+        deviceStateSink = null;
         releaseSessionPersistenceOwnership();
     }
 
@@ -443,9 +466,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         break;
                     case "getDeviceMetadata":
                         result.success(DeviceMetadata.current(applicationContext));
-                        break;
-                    case "getListenedDeviceState":
-                        result.success(DynamicDeviceState.listenedState(applicationContext));
                         break;
                     case "getProbedDeviceState":
                         result.success(DynamicDeviceState.probedState(applicationContext));

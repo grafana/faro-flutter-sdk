@@ -120,11 +120,6 @@ struct DynamicDeviceStateTests {
     #expect(DynamicDeviceState.dataRadioTechnology(technologies: nil, dataServiceIdentifier: nil) == nil)
   }
 
-  @Test("every listener-fed snapshot carries a version")
-  func listenedStateIsNumbered() {
-    #expect(DynamicDeviceState.listenedState()[DynamicDeviceState.versionKey] is Int)
-  }
-
   @Test("the state has power-saving and thermal values")
   func listenedStateHasSystemValues() {
     let listened = DynamicDeviceState.listenedState()

@@ -17,6 +17,8 @@ void main() {
 
   late MockFaroNativeMethods nativeMethods;
   late MockPlatformInfoProvider platformInfoProvider;
+  late StreamController<Object?> changes;
+  late Object? firstEvent;
 
   const listenedNative = <String, dynamic>{
     'batteryLevel': 87,
@@ -40,11 +42,13 @@ void main() {
 
   DynamicDeviceStateProvider createProvider({
     DateTime Function()? currentTime,
+    Stream<Object?> Function()? openChangeStream,
   }) {
     return DynamicDeviceStateProvider(
       nativeMethods: nativeMethods,
       platformInfoProvider: platformInfoProvider,
       currentTime: currentTime ?? DateTime.now,
+      openChangeStream: openChangeStream ?? () => changes.stream,
     );
   }
 
@@ -53,12 +57,25 @@ void main() {
     platformInfoProvider = MockPlatformInfoProvider();
     when(() => platformInfoProvider.isAndroid).thenReturn(true);
     when(() => platformInfoProvider.isIOS).thenReturn(false);
-    when(
-      () => nativeMethods.getListenedDeviceState(),
-    ).thenAnswer((_) async => listenedNative);
+    // Like the native side: the first event holds the current values.
+    firstEvent = listenedNative;
+    changes = StreamController<Object?>.broadcast(
+      onListen: () {
+        final event = firstEvent;
+        if (event is Error || event is Exception) {
+          changes.addError(event!);
+        } else if (event != null) {
+          changes.add(event);
+        }
+      },
+    );
     when(
       () => nativeMethods.getProbedDeviceState(),
     ).thenAnswer((_) async => probedNative);
+  });
+
+  tearDown(() async {
+    await changes.close();
   });
 
   group('DynamicDeviceState.fromNative', () {
@@ -122,7 +139,8 @@ void main() {
       expect(createProvider().current, isNull);
     });
 
-    test('start reads the listened values, then the probed ones', () async {
+    test('start takes the first listened values, then reads the probed '
+        'ones', () async {
       final provider = createProvider();
 
       await provider.start();
@@ -131,10 +149,7 @@ void main() {
       expect(provider.current?.device.batteryLevel, 87);
       expect(provider.current?.network.connectionType, 'cell');
       expect(provider.current?.network.carrierName, 'Example Mobile');
-      verifyInOrder([
-        () => nativeMethods.getListenedDeviceState(),
-        () => nativeMethods.getProbedDeviceState(),
-      ]);
+      verify(() => nativeMethods.getProbedDeviceState()).called(1);
       provider.dispose();
     });
 
@@ -161,75 +176,72 @@ void main() {
       });
     });
 
-    test('a pushed change shows at once and costs no native read', () async {
+    test('a streamed change shows at once and costs no native read', () async {
       final provider = createProvider();
       await provider.start();
       clearInteractions(nativeMethods);
 
-      provider.applyListened({...listenedNative, 'batteryLevel': 12});
+      changes.add({...listenedNative, 'batteryLevel': 12});
+      await pumpEventQueue();
 
       expect(provider.current?.device.batteryLevel, 12);
-      verifyNever(() => nativeMethods.getListenedDeviceState());
       verifyNever(() => nativeMethods.getProbedDeviceState());
       provider.dispose();
     });
 
-    test('an older snapshot never replaces a newer one', () async {
+    test('a later event replaces an earlier one', () async {
       final provider = createProvider();
       await provider.start();
 
-      provider.applyListened({
-        ...listenedNative,
-        'version': 2,
-        'batteryLevel': 50,
-      });
-      provider.applyListened({
-        ...listenedNative,
-        'version': 1,
-        'batteryLevel': 70,
-      });
+      changes
+        ..add({...listenedNative, 'batteryLevel': 50})
+        ..add({...listenedNative, 'batteryLevel': 70});
+      await pumpEventQueue();
 
-      expect(provider.current?.device.batteryLevel, 50);
+      expect(provider.current?.device.batteryLevel, 70);
       provider.dispose();
     });
 
-    test('a late reply to the first read does not undo a newer push', () async {
-      // The reply carries version 1 and arrives after a push with version 2.
-      final reply = Completer<Map<String, dynamic>?>();
-      when(
-        () => nativeMethods.getListenedDeviceState(),
-      ).thenAnswer((_) => reply.future);
-      final provider = createProvider();
-      final started = provider.start();
-
-      provider.applyListened({
-        ...listenedNative,
-        'version': 2,
-        'connectionType': 'wifi',
-      });
-      reply.complete({...listenedNative, 'version': 1});
-      await started;
-
-      expect(provider.current?.network.connectionType, 'wifi');
-      provider.dispose();
-    });
-
-    test('a change pushed over the channel reaches the provider', () async {
+    test('an event that is not a map is ignored', () async {
       final provider = createProvider();
       await provider.start();
-      const codec = StandardMethodCodec();
 
-      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .handlePlatformMessage(
-            DynamicDeviceStateProvider.changeChannelName,
-            codec.encodeMethodCall(
-              const MethodCall('onDynamicDeviceStateChanged', criticalNative),
-            ),
-            (_) {},
-          );
+      changes.add('not a map');
+      await pumpEventQueue();
+
+      expect(provider.current?.device.batteryLevel, 87);
+      provider.dispose();
+    });
+
+    test('values stream over the real event channel', () async {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channel = EventChannel(
+        DynamicDeviceStateProvider.changeChannelName,
+      );
+      MockStreamHandlerEventSink? sink;
+      messenger.setMockStreamHandler(
+        channel,
+        MockStreamHandler.inline(
+          onListen: (arguments, events) {
+            sink = events..success(listenedNative);
+          },
+        ),
+      );
+      final provider = DynamicDeviceStateProvider(
+        nativeMethods: nativeMethods,
+        platformInfoProvider: platformInfoProvider,
+      );
+
+      await provider.start();
+      expect(provider.current?.device.thermalState, 'fair');
+
+      sink?.success(criticalNative);
+      await pumpEventQueue();
 
       expect(provider.current?.device.thermalState, 'critical');
       provider.dispose();
+      messenger.setMockStreamHandler(channel, null);
     });
 
     test('listened values never expire', () {
@@ -304,7 +316,6 @@ void main() {
         async.flushMicrotasks();
 
         verify(() => nativeMethods.getProbedDeviceState()).called(1);
-        verifyNever(() => nativeMethods.getListenedDeviceState());
         expect(provider.current?.network.carrierName, 'Example Mobile');
         provider.dispose();
       });
@@ -469,10 +480,8 @@ void main() {
       });
     });
 
-    test('a failed listened read leaves no value and never throws', () async {
-      when(
-        () => nativeMethods.getListenedDeviceState(),
-      ).thenThrow(Exception('channel down'));
+    test('a stream error leaves no value and never throws', () async {
+      firstEvent = Exception('channel down');
       final provider = createProvider();
 
       await provider.start();
@@ -481,16 +490,46 @@ void main() {
       provider.dispose();
     });
 
-    test('a null answer from native leaves no value', () async {
-      when(
-        () => nativeMethods.getListenedDeviceState(),
-      ).thenAnswer((_) async => null);
-      final provider = createProvider();
+    test('no first event leaves no value after the timeout', () {
+      fakeAsync((async) {
+        firstEvent = null;
+        final provider = createProvider();
+        var started = false;
 
+        provider.start().then((_) => started = true);
+        async.elapse(const Duration(seconds: 1));
+        expect(started, isFalse);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(started, isTrue);
+        expect(provider.current, isNull);
+        verifyNever(() => nativeMethods.getProbedDeviceState());
+        provider.dispose();
+      });
+    });
+
+    test('values that arrive after the timeout still apply', () {
+      fakeAsync((async) {
+        firstEvent = null;
+        final provider = createProvider();
+        provider.start();
+        async.elapse(const Duration(seconds: 2));
+
+        changes.add(listenedNative);
+        async.flushMicrotasks();
+
+        expect(provider.current?.device.batteryLevel, 87);
+        provider.dispose();
+      });
+    });
+
+    test('dispose stops listening', () async {
+      final provider = createProvider();
       await provider.start();
 
-      expect(provider.current, isNull);
       provider.dispose();
+
+      expect(changes.hasListener, isFalse);
     });
 
     test('iOS has no probed values, so it never reads them', () {
@@ -508,7 +547,6 @@ void main() {
         async.flushMicrotasks();
 
         expect(provider.current?.device.batteryLevel, 87);
-        verify(() => nativeMethods.getListenedDeviceState()).called(1);
         verifyNever(() => nativeMethods.getProbedDeviceState());
         provider.dispose();
       });
@@ -522,7 +560,7 @@ void main() {
       provider.refreshIfStale();
 
       expect(provider.current, isNull);
-      verifyNever(() => nativeMethods.getListenedDeviceState());
+      expect(changes.hasListener, isFalse);
       verifyNever(() => nativeMethods.getProbedDeviceState());
     });
   });

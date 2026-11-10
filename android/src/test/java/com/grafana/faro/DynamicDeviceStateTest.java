@@ -106,6 +106,5 @@ public class DynamicDeviceStateTest {
         assertEquals("connectionType", DynamicDeviceState.CONNECTION_TYPE_KEY);
         assertEquals("connectionSubtype", DynamicDeviceState.CONNECTION_SUBTYPE_KEY);
         assertEquals("carrierName", DynamicDeviceState.CARRIER_NAME_KEY);
-        assertEquals("version", DynamicDeviceState.VERSION_KEY);
     }
 }

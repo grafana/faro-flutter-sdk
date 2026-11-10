@@ -18,17 +18,13 @@ enum DynamicDeviceState {
   static let thermalStateKey = "thermalState"
   static let connectionTypeKey = "connectionType"
   static let connectionSubtypeKey = "connectionSubtype"
-  static let versionKey = "version"
 
   private static let lock = NSLock()
   private static var started = false
   private static var monitor: NWPathMonitor?
   private static var latestPath: NWPath?
   private static var listenedCache: [String: Any] = [:]
-  /// Numbers each listener-fed snapshot, so Dart can tell which of two is
-  /// newer.
-  private static var listenedVersion = 0
-  private static var observers: [ObjectIdentifier: ([String: Any]) -> Void] = [:]
+  private static var observers: [ObjectIdentifier: () -> Void] = [:]
   private static let telephonyInfo = CTTelephonyNetworkInfo()
   private static let dataServiceObserver = DataServiceObserver()
 
@@ -104,10 +100,10 @@ enum DynamicDeviceState {
     refreshListened()
   }
 
-  /// Calls `observer` with the listener-fed values each time they change. The
-  /// listeners start on the first read, so an app that never reads pays
-  /// nothing.
-  static func addObserver(_ owner: AnyObject, _ observer: @escaping ([String: Any]) -> Void) {
+  /// Calls `observer` each time the listener-fed values change. Read
+  /// `listenedState()` for the values. The listeners start on the first read,
+  /// so an app that never reads pays nothing.
+  static func addObserver(_ owner: AnyObject, _ observer: @escaping () -> Void) {
     lock.lock()
     observers[ObjectIdentifier(owner)] = observer
     lock.unlock()
@@ -124,13 +120,7 @@ enum DynamicDeviceState {
     start()
     lock.lock()
     defer { lock.unlock() }
-    return withVersion(listenedCache)
-  }
-
-  private static func withVersion(_ state: [String: Any]) -> [String: Any] {
-    var numbered = state
-    numbered[versionKey] = listenedVersion
-    return numbered
+    return listenedCache
   }
 
   /// Reads the system into the cache and tells observers when it changed.
@@ -165,14 +155,10 @@ enum DynamicDeviceState {
     lock.lock()
     let changed = !NSDictionary(dictionary: listenedCache).isEqual(to: state)
     listenedCache = state
-    if changed {
-      listenedVersion += 1
-    }
-    let numbered = withVersion(state)
     let callbacks = Array(observers.values)
     lock.unlock()
     if changed {
-      callbacks.forEach { $0(numbered) }
+      callbacks.forEach { $0() }
     }
   }
 
