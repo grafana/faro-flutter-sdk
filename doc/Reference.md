@@ -99,6 +99,81 @@ GoRouter(
 
 ---
 
+## Web (Beta)
+
+The SDK can run in Flutter web builds. Web support is in **beta** and covers
+core telemetry only. Initialize it the same way as on mobile, but skip the
+two mobile-only setup steps:
+
+```dart
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+if (!kIsWeb) {
+  // Browsers do not use dart:io's HttpClient, so this has no effect on web.
+  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  // OfflineTransport caches to the file system, which web does not have.
+  Faro().transports.add(OfflineTransport());
+}
+
+await Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+### What works on web
+
+- Logs, events, custom measurements and exceptions
+- Automatic Flutter error capture
+- Session tracking, user identity, navigation, user actions and asset tracking
+- Browser and page metadata (see below)
+
+### What is not available on web yet
+
+| Feature                                  | Behavior on web                                    |
+| ---------------------------------------- | -------------------------------------------------- |
+| HTTP network tracking                    | Requests are not captured automatically            |
+| `OfflineTransport`                       | Not supported. Do not add it on web                |
+| CPU, memory, refresh rate and ANR vitals | Not collected. The related config flags are ignored |
+| Cold and warm start measurements         | Not collected                                      |
+| Crash reporting                          | Not collected                                      |
+| Session persistence across page loads    | A page reload starts a new session                 |
+| Web vitals (TTFB, FCP, LCP)              | Not collected                                      |
+
+### Web metadata
+
+On web, every payload carries `meta.browser` and `meta.page` instead of
+`meta.device`:
+
+| Field                  | Description                                  | Example                  |
+| ---------------------- | -------------------------------------------- | ------------------------ |
+| `meta.browser.name`    | Browser name, parsed from the user agent     | `chrome`                 |
+| `meta.browser.version` | Browser version, or empty if it is unknown   | `157.0.0.0`              |
+| `meta.browser.os`      | The browser's reported platform              | `MacIntel`               |
+| `meta.browser.userAgent` | Full user agent string                     | `Mozilla/5.0 (...)`      |
+| `meta.browser.language`  | Browser language                           | `en-US`                  |
+| `meta.browser.mobile`  | Whether the user agent looks like a mobile one | `false`                |
+| `meta.page.url`        | Page URL when Faro was initialized           | `https://app.example.com/` |
+
+`meta.page.url` is set once at startup and is not updated on navigation.
+The `device_*` session attributes are not meaningful on web and hold
+placeholder values such as `unknown`.
+
+### Collector CORS configuration
+
+A browser enforces CORS on requests to the collector. The collector must:
+
+- Allow the `x-api-key`, `x-faro-session-id` and `content-type` request headers
+  in `Access-Control-Allow-Headers`, and your app's origin in
+  `Access-Control-Allow-Origin`.
+- List `x-faro-session-status` in `Access-Control-Expose-Headers`. Without it
+  the browser hides the header from the SDK, and the SDK cannot see that a
+  session was invalidated.
+
+---
+
 ## Automatic Event Metadata
 
 Every event captured by Faro includes rich metadata to give you complete context about your app's performance and user behavior.
@@ -113,6 +188,7 @@ Every event captured by Faro includes rich metadata to give you complete context
 ### Device & System Information
 
 - **Operating System**: iOS/Android version and device model
+- **Browser** (web only): Browser name, version, user agent and page URL. See [Web (Beta)](#web-beta)
 - **Device Specifications**: Memory, CPU architecture, and hardware details
 - **User Information**: Optional user ID, username, email, and custom attributes
 - **User Persistence**: Automatically restore user identity across app restarts for consistent session tracking
