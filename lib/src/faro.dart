@@ -3,13 +3,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 import 'dart:ui' show RootIsolateToken;
 
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
+import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/device_info/session_attributes_provider.dart';
 import 'package:faro/src/faro_widgets_binding_observer.dart';
 import 'package:faro/src/integrations/flutter_error_integration.dart';
@@ -91,10 +91,12 @@ class Faro {
   SessionPersistence? _sessionPersistence;
   SessionPersistenceFactory _sessionPersistenceFactory =
       SessionPersistenceFactory();
-  bool Function() _isMobilePlatform = () =>
-      Platform.isAndroid || Platform.isIOS;
-  bool Function() _isAndroidPlatform = () => Platform.isAndroid;
-  bool Function() _isIOSPlatform = () => Platform.isIOS;
+  final PlatformInfoProvider _platformInfoProvider =
+      PlatformInfoProviderFactory().create();
+  late bool Function() _isMobilePlatform = () => _platformInfoProvider.isMobile;
+  late bool Function() _isAndroidPlatform = () =>
+      _platformInfoProvider.isAndroid;
+  late bool Function() _isIOSPlatform = () => _platformInfoProvider.isIOS;
   List<PersistedSessionRecord> _recoveredSessionHistory =
       const <PersistedSessionRecord>[];
   String? _sessionProcessIdentifier;
@@ -292,7 +294,7 @@ class Faro {
         ),
       );
     }
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (_isMobilePlatform()) {
       _nativeIntegration.init(
         memusage: optionsConfiguration.memoryUsageVitals,
         cpuusage: optionsConfiguration.cpuUsageVitals,
