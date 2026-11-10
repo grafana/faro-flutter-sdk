@@ -8,11 +8,12 @@ import UIKit
 /// Every value a system notification can update is listener-fed: battery, Low
 /// Power Mode, thermal state, connection type and the cellular technology. The
 /// notifications keep a cache and tell observers when it changes. They start
-/// on the first read, not when the plugin loads, and only for the groups the
-/// app asks for: a group that is off registers no notification and reads no
-/// value. Nothing here needs a
-/// permission, and every value is omitted when it cannot be read. iOS never
-/// reports a carrier.
+/// when a Flutter engine first asks, not when the plugin loads, and only for
+/// the groups the app asks for: a group that is off registers no notification
+/// and reads no value. Each engine is an owner. A group stops, and its cached
+/// values clear, when the last engine that asked for it leaves. Nothing here
+/// needs a permission, and every value is omitted when it cannot be read. iOS
+/// never reports a carrier.
 enum DynamicDeviceState {
   /// The three groups the app can turn off. The raw values are the names the
   /// Dart side sends.
@@ -30,7 +31,9 @@ enum DynamicDeviceState {
   static let connectionSubtypeKey = "connectionSubtype"
 
   private static let lock = NSLock()
-  private static var startedGroups: Set<Group> = []
+  private static var owners = GroupOwners()
+  private static var notificationTokens: [Group: [NSObjectProtocol]] = [:]
+  private static var batteryMonitoringWasEnabled = false
   private static var monitor: NWPathMonitor?
   private static var latestPath: NWPath?
   private static var listenedCache: [String: Any] = [:]
@@ -82,35 +85,63 @@ enum DynamicDeviceState {
     }
   }
 
-  /// Starts the system listeners of the given groups that are not running yet.
-  /// Safe to call more than once. The plugin calls it on the main thread, where
-  /// it seeds the cache before it returns. A call from another thread hops to
-  /// the main thread, and a second caller that races it can read an empty
-  /// cache.
-  static func start(groups: Set<Group>) {
+  /// The cache keys that belong to a group.
+  static func keys(for group: Group) -> Set<String> {
+    switch group {
+    case .battery:
+      return [batteryLevelKey, isChargingKey, lowPowerModeKey]
+    case .thermal:
+      return [thermalStateKey]
+    case .network:
+      return [connectionTypeKey, connectionSubtypeKey]
+    }
+  }
+
+  /// Makes `owner` an owner of `groups`, starts the listeners of any group that
+  /// was not running, and stops those that no owner wants any more. Returns the
+  /// cached values of `groups`. The work runs on the main thread, where it
+  /// seeds the cache before it returns.
+  static func startListening(owner: AnyObject, groups: Set<Group>) -> [String: Any] {
+    apply { $0.set(ObjectIdentifier(owner), groups: groups) }
+    return listenedState(groups: groups)
+  }
+
+  /// Removes `owner`. A group no other owner wants stops.
+  static func stopListening(owner: AnyObject) {
+    apply { $0.release(ObjectIdentifier(owner)) }
+  }
+
+  private static func apply(_ change: (inout GroupOwners) -> GroupOwners.Change) {
+    if Thread.isMainThread {
+      applyOnMain(change)
+    } else {
+      DispatchQueue.main.sync { applyOnMain(change) }
+    }
+  }
+
+  private static func applyOnMain(_ change: (inout GroupOwners) -> GroupOwners.Change) {
     lock.lock()
-    let toStart = groups.subtracting(startedGroups)
-    startedGroups.formUnion(toStart)
+    let changed = change(&owners)
     lock.unlock()
-    if toStart.isEmpty {
+    if changed.isEmpty {
       return
     }
-
-    if Thread.isMainThread {
-      startListeners(toStart)
-    } else {
-      DispatchQueue.main.sync { startListeners(toStart) }
-    }
+    stopListeners(changed.stopped)
+    startListeners(changed.started)
+    refreshListened()
   }
 
   private static func startListeners(_ groups: Set<Group>) {
     if groups.contains(.battery) {
+      batteryMonitoringWasEnabled = UIDevice.current.isBatteryMonitoringEnabled
       UIDevice.current.isBatteryMonitoringEnabled = true
     }
     let center = NotificationCenter.default
-    for name in groups.flatMap({ notificationNames(for: $0) }) {
-      center.addObserver(forName: name, object: nil, queue: .main) { _ in
-        refreshListened()
+    for group in groups {
+      notificationTokens[group] = notificationNames(for: group).map { name in
+        center.addObserver(forName: name, object: nil, queue: .main) { _ in
+          refreshListened()
+        }
       }
     }
 
@@ -131,12 +162,29 @@ enum DynamicDeviceState {
       monitor = pathMonitor
       lock.unlock()
     }
-    refreshListened()
+  }
+
+  private static func stopListeners(_ groups: Set<Group>) {
+    let center = NotificationCenter.default
+    for group in groups {
+      notificationTokens[group]?.forEach { center.removeObserver($0) }
+      notificationTokens[group] = nil
+    }
+    if groups.contains(.battery) {
+      UIDevice.current.isBatteryMonitoringEnabled = batteryMonitoringWasEnabled
+    }
+    if groups.contains(.network) {
+      telephonyInfo.delegate = nil
+      lock.lock()
+      monitor?.cancel()
+      monitor = nil
+      latestPath = nil
+      lock.unlock()
+    }
   }
 
   /// Calls `observer` each time the listener-fed values change. Read
-  /// `listenedState()` for the values. The listeners start on the first read,
-  /// so an app that never reads pays nothing.
+  /// `listenedState(groups:)` for the values.
   static func addObserver(_ owner: AnyObject, _ observer: @escaping () -> Void) {
     lock.lock()
     observers[ObjectIdentifier(owner)] = observer
@@ -149,12 +197,13 @@ enum DynamicDeviceState {
     lock.unlock()
   }
 
-  /// The cached values that system notifications keep current.
-  static func listenedState(groups: Set<Group> = Set(Group.allCases)) -> [String: Any] {
-    start(groups: groups)
+  /// The cached values that system notifications keep current, for `groups`
+  /// only.
+  static func listenedState(groups: Set<Group>) -> [String: Any] {
+    let keys = groups.reduce(into: Set<String>()) { $0.formUnion(keys(for: $1)) }
     lock.lock()
     defer { lock.unlock() }
-    return listenedCache
+    return listenedCache.filter { keys.contains($0.key) }
   }
 
   /// Reads the system into the cache and tells observers when it changed.
@@ -163,7 +212,7 @@ enum DynamicDeviceState {
     var state: [String: Any] = [:]
 
     lock.lock()
-    let groups = startedGroups
+    let groups = owners.running
     let path = latestPath
     lock.unlock()
 

@@ -187,13 +187,14 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         deviceStateSink = events;
                         deviceStateGroups = groupsFrom(arguments);
                         events.success(
-                                DynamicDeviceState.listenedState(
-                                        applicationContext, deviceStateGroups));
+                                DynamicDeviceState.startListening(
+                                        applicationContext, FaroPlugin.this, deviceStateGroups));
                     }
 
                     @Override
                     public void onCancel(Object arguments) {
                         deviceStateSink = null;
+                        DynamicDeviceState.stopListening(FaroPlugin.this);
                     }
                 });
         Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -207,7 +208,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                                     if (sink != null) {
                                         sink.success(
                                                 DynamicDeviceState.listenedState(
-                                                        applicationContext, deviceStateGroups));
+                                                        deviceStateGroups));
                                     }
                                 });
         DynamicDeviceState.addListener(deviceStateListener);
@@ -402,6 +403,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             deviceStateChannel = null;
         }
         deviceStateSink = null;
+        DynamicDeviceState.stopListening(this);
         releaseSessionPersistenceOwnership();
     }
 

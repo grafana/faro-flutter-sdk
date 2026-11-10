@@ -98,7 +98,10 @@ public class DynamicDeviceStateTest {
 
     @Test
     public void listenedAndProbedStatesAreEmptyWithoutAContext() {
-        assertTrue(DynamicDeviceState.listenedState(null, Collections.<String>emptyList()).isEmpty());
+        assertTrue(
+                DynamicDeviceState.startListening(
+                                null, new Object(), Arrays.asList("battery", "thermal"))
+                        .isEmpty());
         assertTrue(DynamicDeviceState.probedState(null).isEmpty());
     }
 
@@ -114,47 +117,92 @@ public class DynamicDeviceStateTest {
     }
 
     @Test
-    public void everyRequestedGroupStartsWhenNoneIsRunning() {
-        Set<String> toStart =
-                DynamicDeviceState.groupsToStart(
-                        Arrays.asList("battery", "thermal", "network"), new HashSet<String>());
-
-        assertEquals(new HashSet<>(Arrays.asList("battery", "thermal", "network")), toStart);
-    }
-
-    @Test
-    public void aGroupThatIsOffIsNotStarted() {
-        Set<String> toStart =
-                DynamicDeviceState.groupsToStart(
-                        Arrays.asList("battery", "network"), new HashSet<String>());
-
-        assertEquals(new HashSet<>(Arrays.asList("battery", "network")), toStart);
-        assertFalse(toStart.contains("thermal"));
-    }
-
-    @Test
-    public void noGroupStartsWhenNoneIsRequested() {
-        assertTrue(
-                DynamicDeviceState.groupsToStart(
-                                Collections.<String>emptyList(), new HashSet<String>())
-                        .isEmpty());
-    }
-
-    @Test
-    public void aRunningGroupIsNotStartedAgain() {
-        Set<String> running = new HashSet<>(Collections.singleton("battery"));
-
-        Set<String> toStart =
-                DynamicDeviceState.groupsToStart(Arrays.asList("battery", "thermal"), running);
-
-        assertEquals(Collections.singleton("thermal"), toStart);
+    public void everyKnownGroupIsKept() {
+        assertEquals(
+                new HashSet<>(Arrays.asList("battery", "thermal", "network")),
+                DynamicDeviceState.knownGroups(Arrays.asList("battery", "thermal", "network")));
     }
 
     @Test
     public void anUnknownGroupIsIgnored() {
-        assertTrue(
-                DynamicDeviceState.groupsToStart(
-                                Collections.singletonList("location"), new HashSet<String>())
-                        .isEmpty());
+        assertTrue(DynamicDeviceState.knownGroups(Collections.singletonList("location")).isEmpty());
+    }
+
+    @Test
+    public void aGroupThatIsOffContributesNoKeys() {
+        Set<String> keys = DynamicDeviceState.keysOf(Arrays.asList("battery", "network"));
+
+        assertTrue(keys.contains("batteryLevel"));
+        assertTrue(keys.contains("isCharging"));
+        assertTrue(keys.contains("lowPowerMode"));
+        assertTrue(keys.contains("connectionType"));
+        assertFalse(keys.contains("thermalState"));
+    }
+
+    @Test
+    public void noGroupContributesNoKeys() {
+        assertTrue(DynamicDeviceState.keysOf(Collections.<String>emptyList()).isEmpty());
+    }
+
+    @Test
+    public void aFirstOwnerStartsItsGroups() {
+        GroupOwners owners = new GroupOwners();
+
+        GroupOwners.Change change = owners.set("engineA", Arrays.asList("battery", "thermal"));
+
+        assertEquals(new HashSet<>(Arrays.asList("battery", "thermal")), change.started);
+        assertTrue(change.stopped.isEmpty());
+    }
+
+    @Test
+    public void aSecondOwnerOfARunningGroupStartsNothing() {
+        GroupOwners owners = new GroupOwners();
+        owners.set("engineA", Arrays.asList("battery", "thermal"));
+
+        GroupOwners.Change change = owners.set("engineB", Collections.singletonList("thermal"));
+
+        assertTrue(change.isEmpty());
+    }
+
+    @Test
+    public void aGroupKeepsRunningUntilItsLastOwnerLeaves() {
+        GroupOwners owners = new GroupOwners();
+        owners.set("engineA", Arrays.asList("battery", "thermal"));
+        owners.set("engineB", Collections.singletonList("thermal"));
+
+        GroupOwners.Change first = owners.release("engineA");
+        GroupOwners.Change last = owners.release("engineB");
+
+        assertEquals(Collections.singleton("battery"), first.stopped);
+        assertEquals(Collections.singleton("thermal"), last.stopped);
+        assertTrue(owners.running().isEmpty());
+    }
+
+    @Test
+    public void anOwnerThatNarrowsItsGroupsStopsTheOnesItDropped() {
+        GroupOwners owners = new GroupOwners();
+        owners.set("engineA", Arrays.asList("battery", "thermal", "network"));
+
+        GroupOwners.Change change = owners.set("engineA", Collections.singletonList("thermal"));
+
+        assertEquals(new HashSet<>(Arrays.asList("battery", "network")), change.stopped);
+        assertTrue(change.started.isEmpty());
+    }
+
+    @Test
+    public void aReplacementEngineThatTurnsGroupsOffStopsThem() {
+        GroupOwners owners = new GroupOwners();
+        owners.set("oldEngine", Arrays.asList("battery", "thermal", "network"));
+        owners.release("oldEngine");
+
+        GroupOwners.Change change = owners.set("newEngine", Collections.singletonList("thermal"));
+
+        assertEquals(Collections.singleton("thermal"), change.started);
+        assertEquals(Collections.singleton("thermal"), owners.running());
+    }
+
+    @Test
+    public void releasingAnUnknownOwnerChangesNothing() {
+        assertTrue(new GroupOwners().release("nobody").isEmpty());
     }
 }

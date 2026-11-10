@@ -8,7 +8,7 @@ import UIKit
 
 // The plugin reads this state on the main thread, so the tests do too.
 @MainActor
-@Suite("DynamicDeviceState")
+@Suite("DynamicDeviceState", .serialized)
 struct DynamicDeviceStateTests {
 
   @Test("battery level is a whole percent")
@@ -122,7 +122,9 @@ struct DynamicDeviceStateTests {
 
   @Test("the state has power-saving and thermal values")
   func listenedStateHasSystemValues() {
-    let listened = DynamicDeviceState.listenedState()
+    let owner = NSObject()
+    let listened = DynamicDeviceState.startListening(owner: owner, groups: [.battery, .thermal])
+    defer { DynamicDeviceState.stopListening(owner: owner) }
 
     #expect(listened[DynamicDeviceState.lowPowerModeKey] is Bool)
     #expect(listened[DynamicDeviceState.thermalStateKey] is String)
@@ -130,9 +132,114 @@ struct DynamicDeviceStateTests {
 
   @Test("a change of the data SIM refreshes the cache")
   func dataSimChangeIsObserved() {
-    _ = DynamicDeviceState.listenedState()
+    let owner = NSObject()
+    _ = DynamicDeviceState.startListening(owner: owner, groups: [.network])
+    defer { DynamicDeviceState.stopListening(owner: owner) }
 
     #expect(DynamicDeviceState.isObservingDataService)
+  }
+
+  @Test("the last owner of a group stops it and clears its values")
+  func lastOwnerStopsTheGroup() {
+    let first = NSObject()
+    let second = NSObject()
+    _ = DynamicDeviceState.startListening(owner: first, groups: [.thermal, .network])
+    _ = DynamicDeviceState.startListening(owner: second, groups: [.network])
+
+    DynamicDeviceState.stopListening(owner: first)
+    #expect(DynamicDeviceState.isObservingDataService)
+    #expect(DynamicDeviceState.listenedState(groups: [.thermal]).isEmpty)
+
+    DynamicDeviceState.stopListening(owner: second)
+    #expect(!DynamicDeviceState.isObservingDataService)
+    #expect(DynamicDeviceState.listenedState(groups: [.network, .thermal, .battery]).isEmpty)
+  }
+
+  @Test("a replacement engine with a group off leaves that group stopped")
+  func replacementEngineLeavesOffGroupStopped() {
+    let oldEngine = NSObject()
+    let newEngine = NSObject()
+    _ = DynamicDeviceState.startListening(owner: oldEngine, groups: [.battery, .thermal, .network])
+    DynamicDeviceState.stopListening(owner: oldEngine)
+
+    let listened = DynamicDeviceState.startListening(owner: newEngine, groups: [.thermal])
+    defer { DynamicDeviceState.stopListening(owner: newEngine) }
+
+    #expect(listened[DynamicDeviceState.thermalStateKey] is String)
+    #expect(listened[DynamicDeviceState.lowPowerModeKey] == nil)
+    #expect(!DynamicDeviceState.isObservingDataService)
+  }
+
+  @Test("an engine gets only the values of its own groups")
+  func engineGetsOnlyItsGroups() {
+    let all = NSObject()
+    let thermalOnly = NSObject()
+    _ = DynamicDeviceState.startListening(owner: all, groups: [.battery, .thermal])
+    defer { DynamicDeviceState.stopListening(owner: all) }
+
+    let listened = DynamicDeviceState.startListening(owner: thermalOnly, groups: [.thermal])
+    defer { DynamicDeviceState.stopListening(owner: thermalOnly) }
+
+    #expect(listened[DynamicDeviceState.thermalStateKey] is String)
+    #expect(listened[DynamicDeviceState.lowPowerModeKey] == nil)
+  }
+
+  @Test("a first owner starts its groups")
+  func firstOwnerStartsGroups() {
+    var owners = GroupOwners()
+    let engine = NSObject()
+
+    let change = owners.set(ObjectIdentifier(engine), groups: [.battery, .thermal])
+
+    #expect(change == GroupOwners.Change(started: [.battery, .thermal], stopped: []))
+  }
+
+  @Test("a second owner of a running group starts nothing")
+  func secondOwnerStartsNothing() {
+    var owners = GroupOwners()
+    let engineA = NSObject()
+    let engineB = NSObject()
+    _ = owners.set(ObjectIdentifier(engineA), groups: [.battery, .thermal])
+
+    let change = owners.set(ObjectIdentifier(engineB), groups: [.thermal])
+
+    #expect(change.isEmpty)
+  }
+
+  @Test("a group runs until its last owner leaves")
+  func groupRunsUntilLastOwnerLeaves() {
+    var owners = GroupOwners()
+    let engineA = NSObject()
+    let engineB = NSObject()
+    _ = owners.set(ObjectIdentifier(engineA), groups: [.battery, .thermal])
+    _ = owners.set(ObjectIdentifier(engineB), groups: [.thermal])
+
+    let first = owners.release(ObjectIdentifier(engineA))
+    let last = owners.release(ObjectIdentifier(engineB))
+
+    #expect(first.stopped == [.battery])
+    #expect(last.stopped == [.thermal])
+    #expect(owners.running.isEmpty)
+  }
+
+  @Test("an owner that narrows its groups stops the ones it dropped")
+  func narrowingStopsDroppedGroups() {
+    var owners = GroupOwners()
+    let engine = NSObject()
+    _ = owners.set(ObjectIdentifier(engine), groups: [.battery, .thermal, .network])
+
+    let change = owners.set(ObjectIdentifier(engine), groups: [.thermal])
+
+    #expect(change.stopped == [.battery, .network])
+    #expect(change.started.isEmpty)
+  }
+
+  @Test("releasing an unknown owner changes nothing")
+  func releasingUnknownOwnerChangesNothing() {
+    var owners = GroupOwners()
+    let nobody = NSObject()
+
+    #expect(owners.release(ObjectIdentifier(nobody)).isEmpty)
   }
 
   @Test("the groups come from the names the Dart side sends")

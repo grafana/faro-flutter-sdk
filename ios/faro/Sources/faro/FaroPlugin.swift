@@ -211,17 +211,19 @@ private final class DeviceStateStreamHandler: NSObject, FlutterStreamHandler {
         sink(DynamicDeviceState.listenedState(groups: self.groups))
       }
     }
-    events(DynamicDeviceState.listenedState(groups: groups))
+    events(DynamicDeviceState.startListening(owner: self, groups: groups))
     return nil
   }
 
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     DynamicDeviceState.removeObserver(self)
+    DynamicDeviceState.stopListening(owner: self)
     sink = nil
     return nil
   }
 
   deinit {
     DynamicDeviceState.removeObserver(self)
+    DynamicDeviceState.stopListening(owner: self)
   }
 }

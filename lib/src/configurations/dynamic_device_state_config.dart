@@ -17,8 +17,8 @@ class DynamicDeviceStateConfig {
   /// `meta.device.thermal_state`.
   final bool thermal;
 
-  /// `meta.network.connection_type`, `meta.network.connection_subtype`,
-  /// `meta.network.carrier_name` and `meta.network.reachable`.
+  /// `meta.network.connection_type`, `meta.network.connection_subtype` and
+  /// `meta.network.carrier_name`.
   final bool network;
 
   /// Whether at least one group is on.

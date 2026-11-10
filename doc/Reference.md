@@ -197,7 +197,8 @@ How the SDK keeps them current:
   happens at start, before the first read ends, and after a connection type
   change or a failed read.
 - The native listeners start on the first read, which is `Faro.init`, not when
-  the app starts. A group that is off never starts its listeners.
+  the app starts. They stop when the last Flutter engine that uses them
+  detaches. A group that is off never starts its listeners.
 - A crash sent on the next launch carries none of them. The values of the
   relaunch would not describe the crash.
 
@@ -234,7 +235,9 @@ network without internet still has a route, so it reads as `wifi`.
 The fields form three groups. All three are on by default. A group that is off
 adds none of its fields to any signal. The SDK also registers none of its
 system listeners and makes none of its native reads. With all three off, the
-SDK does not call the native side for this state at all.
+SDK does not call the native side for this state at all. Each Flutter engine
+counts as one user of a group. A group stops, and its cached values clear, when
+the last engine that asked for it detaches.
 
 | Group     | Fields                                                                                 |
 | --------- | -------------------------------------------------------------------------------------- |
