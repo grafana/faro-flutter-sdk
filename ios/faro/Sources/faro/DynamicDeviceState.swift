@@ -149,18 +149,23 @@ enum DynamicDeviceState {
       telephonyInfo.delegate = dataServiceObserver
 
       let pathMonitor = NWPathMonitor()
-      pathMonitor.pathUpdateHandler = { path in
+      // A handler that runs after the group stopped must not write the path again.
+      pathMonitor.pathUpdateHandler = { [weak pathMonitor] path in
         lock.lock()
+        guard let pathMonitor, monitor === pathMonitor else {
+          lock.unlock()
+          return
+        }
         latestPath = path
         lock.unlock()
         DispatchQueue.main.async {
           refreshListened()
         }
       }
-      pathMonitor.start(queue: DispatchQueue(label: "com.grafana.faro.network-path", qos: .utility))
       lock.lock()
       monitor = pathMonitor
       lock.unlock()
+      pathMonitor.start(queue: DispatchQueue(label: "com.grafana.faro.network-path", qos: .utility))
     }
   }
 
@@ -200,10 +205,10 @@ enum DynamicDeviceState {
   /// The cached values that system notifications keep current, for `groups`
   /// only.
   static func listenedState(groups: Set<Group>) -> [String: Any] {
-    let keys = groups.reduce(into: Set<String>()) { $0.formUnion(keys(for: $1)) }
+    let wantedKeys = groups.reduce(into: Set<String>()) { $0.formUnion(keys(for: $1)) }
     lock.lock()
     defer { lock.unlock() }
-    return listenedCache.filter { keys.contains($0.key) }
+    return listenedCache.filter { wantedKeys.contains($0.key) }
   }
 
   /// Reads the system into the cache and tells observers when it changed.
