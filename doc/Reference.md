@@ -137,6 +137,7 @@ await Faro().runApp(
 ### What works on web
 
 - Logs, events and custom measurements
+- Manually created tracing spans (not automatic HTTP spans, see below)
 - Exceptions and automatic Flutter error capture
 - Session tracking, user identity, navigation, user actions and asset tracking
 - App lifecycle events (`app_lifecycle_changed`), sent when Flutter reports a
@@ -167,19 +168,23 @@ await Faro().runApp(
 - Lifecycle events are sent, and no start measurements are, when lifecycle
   changes are simulated. This was not checked by switching real browser tabs.
 
+**Checked in a real Flutter web app** (a debug run, sending to a Grafana Alloy
+`faro.receiver`): logs, events and manually created spans reached Grafana.
+
 **Expected to work, but not individually checked on web:** exceptions and
 Flutter error capture, custom measurements, user identity, navigation, user
 actions and asset tracking.
 
 **Not checked yet:**
 
-- Delivery of telemetry to a real collector or Grafana Cloud. The CORS
-  requirements below come from reading the transport code, not from testing
-  against a collector.
-- Custom tracing spans on web.
+- Grafana Cloud Frontend Observability as the receiver. Delivery was checked
+  against a Grafana Alloy `faro.receiver` only.
+- Whether a collector needs CORS changes. Delivery worked in the setup above,
+  but it is not known whether that collector's CORS settings were changed, so
+  the requirements below still come from reading the transport code.
 - Release and WebAssembly builds. The example app builds for release and
   passes a WebAssembly dry run, but the behavior above was checked in debug
-  test runs.
+  runs.
 
 ### Device information on web
 
@@ -188,7 +193,8 @@ and hold placeholder values such as `unknown`. `meta.os.name` is `web`.
 
 ### Collector CORS configuration
 
-A browser enforces CORS on requests to the collector. The collector must:
+A browser enforces CORS on requests to the collector. Based on the headers the
+SDK sends and reads, the collector should:
 
 - Allow the `x-api-key`, `x-faro-session-id` and `content-type` request headers
   in `Access-Control-Allow-Headers`, and your app's origin in
