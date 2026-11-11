@@ -75,6 +75,7 @@ example/                     # Example Flutter app
 ```bash
 flutter test                              # Run all tests
 flutter test test/path/to/test.dart       # Run single test file
+flutter test --platform chrome test/web   # Run web tests in Chrome
 flutter analyze                           # Static analysis and linting
 dart format .                             # Format code
 flutter pub get                           # Install dependencies
