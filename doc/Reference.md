@@ -99,6 +99,67 @@ GoRouter(
 
 ---
 
+## Web (Beta)
+
+The SDK can run in Flutter web builds. Web support is in **beta** and covers
+core telemetry only. Initialize it the same way as on mobile, but skip the
+two mobile-only setup steps:
+
+```dart
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+if (!kIsWeb) {
+  // Browsers do not use dart:io's HttpClient, so this has no effect on web.
+  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+  // OfflineTransport caches to the file system, which web does not have.
+  Faro().transports.add(OfflineTransport());
+}
+
+await Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+### What works on web
+
+- Logs, events, custom measurements and exceptions
+- Automatic Flutter error capture
+- Session tracking, user identity, navigation, user actions and asset tracking
+
+### What is not available on web yet
+
+| Feature                                  | Behavior on web                                    |
+| ---------------------------------------- | -------------------------------------------------- |
+| HTTP network tracking                    | Requests are not captured automatically            |
+| `OfflineTransport`                       | Not supported. Do not add it on web                |
+| CPU, memory, refresh rate and ANR vitals | Not collected. The related config flags are ignored |
+| Cold and warm start measurements         | Not collected                                      |
+| Crash reporting                          | Not collected                                      |
+| Session persistence across page loads    | A page reload starts a new session                 |
+| Web vitals (TTFB, FCP, LCP)              | Not collected                                      |
+| Browser and page metadata                | Not sent yet (`meta.browser` and `meta.page`)      |
+
+### Device information on web
+
+On web, `meta.device` and the `device_*` session attributes are not meaningful
+and hold placeholder values such as `unknown`. `meta.os.name` is `web`.
+
+### Collector CORS configuration
+
+A browser enforces CORS on requests to the collector. The collector must:
+
+- Allow the `x-api-key`, `x-faro-session-id` and `content-type` request headers
+  in `Access-Control-Allow-Headers`, and your app's origin in
+  `Access-Control-Allow-Origin`.
+- List `x-faro-session-status` in `Access-Control-Expose-Headers`. Without it
+  the browser hides the header from the SDK, and the SDK cannot see that a
+  session was invalidated.
+
+---
+
 ## Automatic Event Metadata
 
 Every event captured by Faro includes rich metadata to give you complete context about your app's performance and user behavior.
