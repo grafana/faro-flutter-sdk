@@ -31,12 +31,7 @@ void main() async {
   // The http package uses IOClient on mobile, which creates an HttpClient
   // at construction time. If HttpOverrides is set after the client is created,
   // Faro won't intercept those HTTP requests.
-  //
-  // Not available on web: browsers do not use dart:io's HttpClient, so
-  // HttpOverrides has no effect there and is skipped.
-  if (!kIsWeb) {
-    HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
-  }
+  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();

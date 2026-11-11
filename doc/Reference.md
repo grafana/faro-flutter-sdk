@@ -101,16 +101,21 @@ GoRouter(
 
 ## Web (Beta)
 
-The SDK can run in Flutter web builds. Web support is in **beta** and covers
-core telemetry only. Initialize it the same way as on mobile, but skip the
-two mobile-only setup steps:
+The SDK can run in Flutter web builds. Web support is in **beta**. It covers
+core telemetry, several mobile features are not available, and not everything
+has been tested on web yet. See [Validation status](#validation-status-on-web)
+for what has and has not been checked.
+
+Initialize Faro the same way as on mobile. Only `OfflineTransport` needs a
+guard:
 
 ```dart
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+// Safe to keep on web, but it does nothing there (see below).
+HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
+
 if (!kIsWeb) {
-  // Browsers do not use dart:io's HttpClient, so this has no effect on web.
-  HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
   // OfflineTransport caches to the file system, which web does not have.
   Faro().transports.add(OfflineTransport());
 }
@@ -123,24 +128,58 @@ await Faro().runApp(
 );
 ```
 
+> **HTTP requests are not tracked on web.** Assigning `HttpOverrides.global`
+> does not fail on web, but it does nothing. Browsers do not use `dart:io`'s
+> `HttpClient`, so requests are not captured and **no HTTP telemetry is sent
+> to Grafana**. Do not expect network requests from web builds to appear in
+> your dashboards.
+
 ### What works on web
 
-- Logs, events, custom measurements and exceptions
-- Automatic Flutter error capture
+- Logs, events and custom measurements
+- Exceptions and automatic Flutter error capture
 - Session tracking, user identity, navigation, user actions and asset tracking
+- App lifecycle events (`app_lifecycle_changed`), sent when Flutter reports a
+  lifecycle change, for example when the browser tab is hidden or shown again
 
 ### What is not available on web yet
 
 | Feature                                  | Behavior on web                                    |
 | ---------------------------------------- | -------------------------------------------------- |
-| HTTP network tracking                    | Requests are not captured automatically            |
-| `OfflineTransport`                       | Not supported. Do not add it on web                |
+| HTTP network tracking                    | Not available. `HttpOverrides` does nothing on web and no HTTP telemetry is sent |
+| `OfflineTransport`                       | Not supported. It relies on the file system and `path_provider`, which have no web implementation. Do not add it on web |
 | CPU, memory, refresh rate and ANR vitals | Not collected. The related config flags are ignored |
-| Cold and warm start measurements         | Not collected                                      |
+| Cold and warm start measurements         | Not reported. Cold start depends on native code, and a warm start on web would only cover the time to the next frame |
 | Crash reporting                          | Not collected                                      |
 | Session persistence across page loads    | A page reload starts a new session                 |
 | Web vitals (TTFB, FCP, LCP)              | Not collected                                      |
 | Browser and page metadata                | Not sent yet (`meta.browser` and `meta.page`)      |
+
+### Validation status on web
+
+**Checked in a real browser** (automated tests in Chrome, and the example app):
+
+- `Faro().runApp` initializes without errors, and no native calls are made
+  during initialization.
+- Logs and events are accepted.
+- Assigning `HttpOverrides.global` does not fail, and does not cause any
+  request to be captured or any HTTP telemetry to be sent.
+- Lifecycle events are sent, and no start measurements are, when lifecycle
+  changes are simulated. This was not checked by switching real browser tabs.
+
+**Expected to work, but not individually checked on web:** exceptions and
+Flutter error capture, custom measurements, user identity, navigation, user
+actions and asset tracking.
+
+**Not checked yet:**
+
+- Delivery of telemetry to a real collector or Grafana Cloud. The CORS
+  requirements below come from reading the transport code, not from testing
+  against a collector.
+- Custom tracing spans on web.
+- Release and WebAssembly builds. The example app builds for release and
+  passes a WebAssembly dry run, but the behavior above was checked in debug
+  test runs.
 
 ### Device information on web
 
