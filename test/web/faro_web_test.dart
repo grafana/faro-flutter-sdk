@@ -10,6 +10,7 @@ import 'package:faro/faro.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/transport/batch_transport.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -102,6 +103,51 @@ void main() {
       expect(Faro().meta.session?.id, isNotEmpty);
       expect(Faro().meta.os?.name, 'web');
       verify(() => batchTransport.addLog(any())).called(1);
+    });
+
+    testWidgets('lifecycle changes send events but no start measurements', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await Faro().init(
+          optionsConfiguration: FaroConfig(
+            appName: 'WebTestApp',
+            appEnv: 'test',
+            apiKey: 'key',
+            collectorUrl: null,
+            transports: [],
+            persistSession: false,
+            persistUser: false,
+            enableUiActivityMonitoring: false,
+          ),
+        );
+      });
+      await tester.pumpWidget(const SizedBox());
+
+      // The browser tab being hidden and shown again.
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final events = verify(
+        () => batchTransport.addEvent(captureAny()),
+      ).captured.cast<Event>();
+      expect(
+        events.where((event) => event.name == 'app_lifecycle_changed'),
+        isNotEmpty,
+      );
+      // Cold and warm start are not reported on web.
+      verifyNever(() => batchTransport.addMeasurement(any()));
+      verifyZeroInteractions(nativeMethods);
     });
 
     test('init does not call native code', () async {

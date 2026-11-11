@@ -326,6 +326,7 @@ class Faro {
       nativeIntegration: _nativeIntegration,
       sessionManager: sessionManager,
       onAppBackgrounded: _flushSessionPersistence,
+      reportWarmStart: !_platformInfoProvider.isWeb,
     );
     WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
     if (optionsConfiguration.enableUiActivityMonitoring) {
@@ -536,6 +537,10 @@ class Faro {
   /// called, so an app that initialises Faro after the first frame is measured
   /// to `init`, the future having already completed.
   void _reportColdStartAfterFirstFrame() {
+    // Cold start comes from native code, which web does not have.
+    if (_platformInfoProvider.isWeb) {
+      return;
+    }
     unawaited(
       WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
         (_) => _nativeIntegration.getAppStart(),
