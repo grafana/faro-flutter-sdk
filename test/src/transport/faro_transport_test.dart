@@ -1,5 +1,6 @@
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/transport/delivery_result.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -80,6 +81,32 @@ void main() {
     });
 
     group('historical acknowledgement:', () {
+      test(
+        'returns HTTP retry details without discarding the outcome',
+        () async {
+          client = MockClient(
+            (_) async =>
+                http.Response('', 429, headers: {'Retry-After': '120'}),
+          );
+          final started = DateTime.now();
+          final result = await buildTransport().sendWithResult(payload());
+          expect(result.status, DeliveryStatus.retryableFailure);
+          expect(result.statusCode, 429);
+          expect(
+            result.retryAt?.isBefore(started.add(const Duration(seconds: 120))),
+            isFalse,
+          );
+        },
+      );
+
+      test('reports a full buffer as not attempted', () async {
+        final result = await buildTransport(
+          maxBufferLimit: 0,
+        ).sendWithResult(payload());
+        expect(result.status, DeliveryStatus.notAttempted);
+        expect(captured, isEmpty);
+      });
+
       test('returns true for a successful collector response', () async {
         final accepted = await buildTransport().sendHistoricalAcknowledged(
           payload(),

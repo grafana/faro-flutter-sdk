@@ -16,6 +16,7 @@ export './src/session/sampling_context.dart';
 export './src/tracing/faro_span_context.dart';
 export './src/tracing/span.dart';
 export './src/tracing/span_exception_options.dart';
+export './src/transport/delivery_result.dart';
 export './src/transport/faro_transport.dart';
 export './src/user_actions/constants.dart';
 export './src/user_actions/start_user_action_options.dart';
