@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:faro/src/configurations/dynamic_device_state_config.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/models/device.dart';
 import 'package:faro/src/models/network.dart';
@@ -13,19 +14,29 @@ class DynamicDeviceState {
   const DynamicDeviceState({required this.device, required this.network});
 
   /// Reads the map the native side returns. Drops every value of the wrong
-  /// type or range, so one bad field never costs the others.
-  factory DynamicDeviceState.fromNative(Map<String, dynamic> native) {
+  /// type or range, so one bad field never costs the others. A group that is
+  /// off in [config] yields none of its fields.
+  factory DynamicDeviceState.fromNative(
+    Map<String, dynamic> native, {
+    DynamicDeviceStateConfig config = const DynamicDeviceStateConfig(),
+  }) {
     return DynamicDeviceState(
       device: Device(
-        batteryLevel: _percent(native['batteryLevel']),
-        isCharging: _bool(native['isCharging']),
-        lowPowerMode: _bool(native['lowPowerMode']),
-        thermalState: _oneOf(native['thermalState'], _thermalStates),
+        batteryLevel: config.battery ? _percent(native['batteryLevel']) : null,
+        isCharging: config.battery ? _bool(native['isCharging']) : null,
+        lowPowerMode: config.battery ? _bool(native['lowPowerMode']) : null,
+        thermalState: config.thermal
+            ? _oneOf(native['thermalState'], _thermalStates)
+            : null,
       ),
       network: Network(
-        connectionType: _oneOf(native['connectionType'], _connectionTypes),
-        connectionSubtype: _text(native['connectionSubtype']),
-        carrierName: _text(native['carrierName']),
+        connectionType: config.network
+            ? _oneOf(native['connectionType'], _connectionTypes)
+            : null,
+        connectionSubtype: config.network
+            ? _text(native['connectionSubtype'])
+            : null,
+        carrierName: config.network ? _text(native['carrierName']) : null,
       ),
     );
   }
@@ -79,6 +90,10 @@ class DynamicDeviceStateCapture {
 
 /// Keeps the dynamic device and network values current without blocking.
 ///
+/// A group that is off in the [DynamicDeviceStateConfig] is never asked for.
+/// With every group off, nothing here touches the native side. With the
+/// network group off, the probed values are never read.
+///
 /// Two kinds of value:
 /// - **Listener-fed** values (battery, power, thermal and connection type).
 ///   The native side streams them over the `faro/device_state` event channel.
@@ -99,6 +114,7 @@ class DynamicDeviceStateProvider {
   DynamicDeviceStateProvider({
     required FaroNativeMethods nativeMethods,
     required PlatformInfoProvider platformInfoProvider,
+    this.config = const DynamicDeviceStateConfig(),
     DateTime Function() currentTime = DateTime.now,
     this.timeToLive = defaultTimeToLive,
     this.maxStaleAge = defaultMaxStaleAge,
@@ -107,13 +123,15 @@ class DynamicDeviceStateProvider {
     Stream<Object?> Function()? openChangeStream,
   }) : _nativeMethods = nativeMethods,
        _isSupported =
-           platformInfoProvider.isAndroid || platformInfoProvider.isIOS,
-       _hasProbedValues = platformInfoProvider.isAndroid,
+           (platformInfoProvider.isAndroid || platformInfoProvider.isIOS) &&
+           config.isAnyEnabled,
+       _hasProbedValues = platformInfoProvider.isAndroid && config.network,
        _currentTime = currentTime,
        _openChangeStream =
            openChangeStream ??
-           (() =>
-               const EventChannel(changeChannelName).receiveBroadcastStream());
+           (() => const EventChannel(changeChannelName).receiveBroadcastStream(
+             <String, Object?>{'groups': config.enabledGroups},
+           ));
 
   /// The longest a probed value is served before it is read again.
   static const defaultTimeToLive = Duration(seconds: 5);
@@ -135,6 +153,7 @@ class DynamicDeviceStateProvider {
   /// them wrong, unlike the carrier name.
   static const _networkSpecificKeys = {'connectionSubtype'};
 
+  final DynamicDeviceStateConfig config;
   final Duration timeToLive;
   final Duration maxStaleAge;
   final Duration failureBackoff;
@@ -142,7 +161,8 @@ class DynamicDeviceStateProvider {
   final FaroNativeMethods _nativeMethods;
   final bool _isSupported;
 
-  /// Only Android has values without a listener.
+  /// Only Android has values without a listener, and only the network group
+  /// has them.
   final bool _hasProbedValues;
   final DateTime Function() _currentTime;
   final Stream<Object?> Function() _openChangeStream;
@@ -170,7 +190,7 @@ class DynamicDeviceStateProvider {
     return DynamicDeviceState.fromNative({
       if (_isProbedUsable) ..._probed,
       ...listened,
-    });
+    }, config: config);
   }
 
   bool get _isProbedFresh {
@@ -292,9 +312,11 @@ class DynamicDeviceStateProvider {
 class DynamicDeviceStateProviderFactory {
   DynamicDeviceStateProvider create({
     required FaroNativeMethods nativeMethods,
+    DynamicDeviceStateConfig config = const DynamicDeviceStateConfig(),
   }) {
     return DynamicDeviceStateProvider(
       nativeMethods: nativeMethods,
+      config: config,
       platformInfoProvider: PlatformInfoProviderFactory().create(),
     );
   }

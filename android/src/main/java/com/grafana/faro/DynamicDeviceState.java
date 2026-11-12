@@ -19,7 +19,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -29,10 +31,15 @@ import io.flutter.Log;
 /**
  * Device and network values that change while the app runs.
  *
+ * <p>The values form three groups: battery, thermal and network. A group starts only when a
+ * Flutter engine asks for it, so a group that is off registers no listener and reads nothing.
+ * Each engine is an owner. A group stops, and its cached values clear, when the last engine
+ * that asked for it leaves.
+ *
  * <p>Every value a system listener can update is listener-fed: battery, charging, battery
  * saver, thermal state and connection type. Listeners keep cached values and tell
- * {@link Listener}s when the set changes. They start on the first read, not when the plugin
- * loads. Only values with no permission-free listener are read on demand: the cellular subtype
+ * {@link Listener}s when the set changes. They start when an engine first asks, not when the
+ * plugin loads. Only values with no permission-free listener are read on demand: the cellular subtype
  * and the carrier name. Nothing here needs a runtime permission, and every value is omitted when
  * it cannot be read.
  */
@@ -47,6 +54,10 @@ final class DynamicDeviceState {
     static final String CONNECTION_SUBTYPE_KEY = "connectionSubtype";
     static final String CARRIER_NAME_KEY = "carrierName";
 
+    static final String BATTERY_GROUP = "battery";
+    static final String THERMAL_GROUP = "thermal";
+    static final String NETWORK_GROUP = "network";
+
     /** Told each time a listener-fed value changes. Read {@link #listenedState} for the values. */
     interface Listener {
         void onChanged();
@@ -54,7 +65,8 @@ final class DynamicDeviceState {
 
     private static final Object LOCK = new Object();
     private static final Set<Listener> listeners = new CopyOnWriteArraySet<>();
-    private static boolean started = false;
+    private static final Object LIFECYCLE = new Object();
+    private static final GroupOwners owners = new GroupOwners();
     private static Map<String, Object> lastNotified = new HashMap<>();
     private static volatile Integer batteryLevel;
     private static volatile Boolean isCharging;
@@ -65,6 +77,14 @@ final class DynamicDeviceState {
     // The loss of the default network must not be confused with the loss of a network it
     // replaced. Seeded at start, then written by the connectivity callback thread.
     private static volatile Network defaultNetwork;
+
+    // What each running group registered, kept so that its last owner can undo it. Written only
+    // while holding LIFECYCLE. The network callback also reads itself from its own thread.
+    private static Context listenerContext;
+    private static BroadcastReceiver batteryReceiver;
+    private static Object thermalListener;
+    private static volatile ConnectivityManager.NetworkCallback networkCallback;
+    private static BroadcastReceiver networkReceiver;
 
     private DynamicDeviceState() {}
 
@@ -80,16 +100,42 @@ final class DynamicDeviceState {
         listeners.remove(listener);
     }
 
-    /** The cached values that system listeners keep current. */
+    /**
+     * Makes {@code owner} an owner of {@code groups}, starts the listeners of any group that
+     * was not running, and stops those that no owner wants any more. Returns the cached values
+     * of {@code groups}.
+     */
     @NonNull
-    static Map<String, Object> listenedState(@Nullable Context context) {
+    static Map<String, Object> startListening(
+            @Nullable Context context,
+            @NonNull Object owner,
+            @NonNull Collection<String> groups) {
         if (context == null) {
             return new HashMap<>();
         }
-        start(context.getApplicationContext());
-        synchronized (LOCK) {
-            return snapshot();
+        synchronized (LIFECYCLE) {
+            listenerContext = context.getApplicationContext();
+            apply(owners.set(owner, knownGroups(groups)));
         }
+        return listenedState(groups);
+    }
+
+    /** Removes {@code owner}. A group no other owner wants stops. */
+    static void stopListening(@NonNull Object owner) {
+        synchronized (LIFECYCLE) {
+            apply(owners.release(owner));
+        }
+    }
+
+    /** The cached values that system listeners keep current, for {@code groups} only. */
+    @NonNull
+    static Map<String, Object> listenedState(@NonNull Collection<String> groups) {
+        Map<String, Object> state;
+        synchronized (LOCK) {
+            state = snapshot();
+        }
+        state.keySet().retainAll(keysOf(groups));
+        return state;
     }
 
     /** The values with no listener, read now: cellular subtype and carrier name. */
@@ -97,6 +143,9 @@ final class DynamicDeviceState {
     static Map<String, Object> probedState(@Nullable Context context) {
         Map<String, Object> state = new HashMap<>();
         if (context == null) {
+            return state;
+        }
+        if (!owners.running().contains(NETWORK_GROUP)) {
             return state;
         }
         try {
@@ -141,20 +190,70 @@ final class DynamicDeviceState {
         }
     }
 
-    /** Registers the listeners once and seeds the cache from the current state. */
-    private static void start(@NonNull Context context) {
-        synchronized (LOCK) {
-            if (started) {
-                return;
-            }
-            started = true;
+    /** Starts the groups that began running, stops those that ended, and resets the notice. */
+    private static void apply(@NonNull GroupOwners.Change change) {
+        if (change.isEmpty()) {
+            return;
         }
-        startBatteryAndPowerListener(context);
-        startThermalListener(context);
-        startNetworkListener(context);
+        if (change.stopped.contains(BATTERY_GROUP)) {
+            stopBatteryAndPowerListener();
+        }
+        if (change.stopped.contains(THERMAL_GROUP)) {
+            stopThermalListener();
+        }
+        if (change.stopped.contains(NETWORK_GROUP)) {
+            stopNetworkListener();
+        }
+        if (change.started.contains(BATTERY_GROUP)) {
+            startBatteryAndPowerListener(listenerContext);
+        }
+        if (change.started.contains(THERMAL_GROUP)) {
+            startThermalListener(listenerContext);
+        }
+        if (change.started.contains(NETWORK_GROUP)) {
+            startNetworkListener(listenerContext);
+        }
         synchronized (LOCK) {
             lastNotified = snapshot();
         }
+    }
+
+    /** The known groups in {@code requested}. */
+    @VisibleForTesting
+    @NonNull
+    static Set<String> knownGroups(@NonNull Collection<String> requested) {
+        Set<String> known = new HashSet<>();
+        for (String group : requested) {
+            if (BATTERY_GROUP.equals(group)
+                    || THERMAL_GROUP.equals(group)
+                    || NETWORK_GROUP.equals(group)) {
+                known.add(group);
+            }
+        }
+        return known;
+    }
+
+    /** The cache keys that belong to {@code groups}. */
+    @VisibleForTesting
+    @NonNull
+    static Set<String> keysOf(@NonNull Collection<String> groups) {
+        Set<String> keys = new HashSet<>();
+        for (String group : knownGroups(groups)) {
+            switch (group) {
+                case BATTERY_GROUP:
+                    keys.add(BATTERY_LEVEL_KEY);
+                    keys.add(IS_CHARGING_KEY);
+                    keys.add(LOW_POWER_MODE_KEY);
+                    break;
+                case THERMAL_GROUP:
+                    keys.add(THERMAL_STATE_KEY);
+                    break;
+                default:
+                    keys.add(CONNECTION_TYPE_KEY);
+                    break;
+            }
+        }
+        return keys;
     }
 
     private static void startBatteryAndPowerListener(@NonNull Context context) {
@@ -179,9 +278,29 @@ final class DynamicDeviceState {
                     };
             // Battery changes are sticky, so registering also returns the current value.
             readBattery(context.registerReceiver(receiver, filter));
+            batteryReceiver = receiver;
             readLowPowerMode(context);
         } catch (RuntimeException e) {
             Log.w(TAG, "Battery state unavailable: " + e.getMessage());
+        }
+    }
+
+    private static void stopBatteryAndPowerListener() {
+        unregister(batteryReceiver);
+        batteryReceiver = null;
+        batteryLevel = null;
+        isCharging = null;
+        lowPowerMode = null;
+    }
+
+    private static void unregister(@Nullable BroadcastReceiver receiver) {
+        if (receiver == null || listenerContext == null) {
+            return;
+        }
+        try {
+            listenerContext.unregisterReceiver(receiver);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Receiver was not registered: " + e.getMessage());
         }
     }
 
@@ -222,14 +341,36 @@ final class DynamicDeviceState {
                 return;
             }
             thermalState = thermalStateName(powerManager.getCurrentThermalStatus());
-            powerManager.addThermalStatusListener(
-                    context.getMainExecutor(),
+            PowerManager.OnThermalStatusChangedListener listener =
                     status -> {
                         thermalState = thermalStateName(status);
                         notifyIfChanged();
-                    });
+                    };
+            powerManager.addThermalStatusListener(context.getMainExecutor(), listener);
+            thermalListener = listener;
         } catch (RuntimeException e) {
             Log.w(TAG, "Thermal state unavailable: " + e.getMessage());
+        }
+    }
+
+    private static void stopThermalListener() {
+        Object listener = thermalListener;
+        thermalListener = null;
+        thermalState = null;
+        if (listener == null
+                || listenerContext == null
+                || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return;
+        }
+        try {
+            PowerManager powerManager =
+                    (PowerManager) listenerContext.getSystemService(Context.POWER_SERVICE);
+            if (powerManager != null) {
+                powerManager.removeThermalStatusListener(
+                        (PowerManager.OnThermalStatusChangedListener) listener);
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Thermal listener was not removed: " + e.getMessage());
         }
     }
 
@@ -248,10 +389,14 @@ final class DynamicDeviceState {
             readNetwork(connectivityManager);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 final ConnectivityManager manager = connectivityManager;
-                connectivityManager.registerDefaultNetworkCallback(
+                ConnectivityManager.NetworkCallback callback =
                         new ConnectivityManager.NetworkCallback() {
                             @Override
                             public void onAvailable(@NonNull Network network) {
+                                // A callback from a stopped or replaced registration does nothing.
+                                if (networkCallback != this) {
+                                    return;
+                                }
                                 // Before API 26, capabilities do not always follow this
                                 // callback, so read them here. Setting the default network
                                 // first lets a loss that comes next match it.
@@ -273,6 +418,9 @@ final class DynamicDeviceState {
                             public void onCapabilitiesChanged(
                                     @NonNull Network network,
                                     @NonNull NetworkCapabilities capabilities) {
+                                if (networkCallback != this) {
+                                    return;
+                                }
                                 defaultNetwork = network;
                                 applyCapabilities(capabilities);
                                 notifyIfChanged();
@@ -280,6 +428,9 @@ final class DynamicDeviceState {
 
                             @Override
                             public void onLost(@NonNull Network network) {
+                                if (networkCallback != this) {
+                                    return;
+                                }
                                 // A switch from wifi to cell can report the loss of wifi after
                                 // cell is applied. Only the loss of the current default network
                                 // means there is no connection.
@@ -289,9 +440,17 @@ final class DynamicDeviceState {
                                     notifyIfChanged();
                                 }
                             }
-                        });
+                        };
+                // Set before registering, so the first callback passes its own check.
+                networkCallback = callback;
+                try {
+                    connectivityManager.registerDefaultNetworkCallback(callback);
+                } catch (RuntimeException e) {
+                    networkCallback = null;
+                    throw e;
+                }
             } else {
-                context.registerReceiver(
+                BroadcastReceiver receiver =
                         new BroadcastReceiver() {
                             @Override
                             public void onReceive(Context receiverContext, Intent intent) {
@@ -304,12 +463,35 @@ final class DynamicDeviceState {
                                     notifyIfChanged();
                                 }
                             }
-                        },
-                        new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+                        };
+                context.registerReceiver(
+                        receiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+                networkReceiver = receiver;
             }
         } catch (RuntimeException e) {
             Log.w(TAG, "Network state unavailable: " + e.getMessage());
         }
+    }
+
+    private static void stopNetworkListener() {
+        ConnectivityManager.NetworkCallback callback = networkCallback;
+        networkCallback = null;
+        if (callback != null && listenerContext != null) {
+            try {
+                ConnectivityManager manager =
+                        (ConnectivityManager)
+                                listenerContext.getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (manager != null) {
+                    manager.unregisterNetworkCallback(callback);
+                }
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Network callback was not removed: " + e.getMessage());
+            }
+        }
+        unregister(networkReceiver);
+        networkReceiver = null;
+        connectionType = null;
+        defaultNetwork = null;
     }
 
     private static void applyCapabilities(@NonNull NetworkCapabilities capabilities) {

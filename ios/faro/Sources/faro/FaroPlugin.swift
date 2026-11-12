@@ -195,31 +195,35 @@ public class FaroPlugin: NSObject, FlutterPlugin {
 /// cache when it is sent, so a later change never arrives before an earlier one.
 private final class DeviceStateStreamHandler: NSObject, FlutterStreamHandler {
   private var sink: FlutterEventSink?
+  private var groups: Set<DynamicDeviceState.Group> = []
 
   func onListen(
     withArguments arguments: Any?,
     eventSink events: @escaping FlutterEventSink
   ) -> FlutterError? {
     sink = events
+    groups = DynamicDeviceState.groups(from: arguments)
     DynamicDeviceState.addObserver(self) { [weak self] in
       DispatchQueue.main.async {
         guard let self, let sink = self.sink else {
           return
         }
-        sink(DynamicDeviceState.listenedState())
+        sink(DynamicDeviceState.listenedState(groups: self.groups))
       }
     }
-    events(DynamicDeviceState.listenedState())
+    events(DynamicDeviceState.startListening(owner: self, groups: groups))
     return nil
   }
 
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     DynamicDeviceState.removeObserver(self)
+    DynamicDeviceState.stopListening(owner: self)
     sink = nil
     return nil
   }
 
   deinit {
     DynamicDeviceState.removeObserver(self)
+    DynamicDeviceState.stopListening(owner: self)
   }
 }

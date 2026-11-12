@@ -8,10 +8,21 @@ import UIKit
 /// Every value a system notification can update is listener-fed: battery, Low
 /// Power Mode, thermal state, connection type and the cellular technology. The
 /// notifications keep a cache and tell observers when it changes. They start
-/// on the first read, not when the plugin loads. Nothing here needs a
-/// permission, and every value is omitted when it cannot be read. iOS never
-/// reports a carrier.
+/// when a Flutter engine first asks, not when the plugin loads, and only for
+/// the groups the app asks for: a group that is off registers no notification
+/// and reads no value. Each engine is an owner. A group stops, and its cached
+/// values clear, when the last engine that asked for it leaves. Nothing here
+/// needs a permission, and every value is omitted when it cannot be read. iOS
+/// never reports a carrier.
 enum DynamicDeviceState {
+  /// The three groups the app can turn off. The raw values are the names the
+  /// Dart side sends.
+  enum Group: String, CaseIterable {
+    case battery
+    case thermal
+    case network
+  }
+
   static let batteryLevelKey = "batteryLevel"
   static let isChargingKey = "isCharging"
   static let lowPowerModeKey = "lowPowerMode"
@@ -20,7 +31,9 @@ enum DynamicDeviceState {
   static let connectionSubtypeKey = "connectionSubtype"
 
   private static let lock = NSLock()
-  private static var started = false
+  private static var owners = GroupOwners()
+  private static var notificationTokens: [Group: [NSObjectProtocol]] = [:]
+  private static var batteryMonitoringWasEnabled = false
   private static var monitor: NWPathMonitor?
   private static var latestPath: NWPath?
   private static var listenedCache: [String: Any] = [:]
@@ -44,65 +57,139 @@ enum DynamicDeviceState {
     telephonyInfo.delegate != nil
   }
 
-  /// Starts the system listeners once. Safe to call more than once. The plugin
-  /// calls it on the main thread, where it seeds the cache before it returns.
-  /// A call from another thread hops to the main thread, and a second caller
-  /// that races it can read an empty cache.
-  static func start() {
-    lock.lock()
-    if started {
-      lock.unlock()
-      return
+  /// Reads the groups the Dart side sends. Unknown names are ignored.
+  static func groups(from argument: Any?) -> Set<Group> {
+    guard let arguments = argument as? [String: Any],
+      let names = arguments["groups"] as? [String]
+    else {
+      return []
     }
-    started = true
-    lock.unlock()
+    return Set(names.compactMap { Group(rawValue: $0) })
+  }
 
-    if Thread.isMainThread {
-      startListeners()
-    } else {
-      DispatchQueue.main.sync { startListeners() }
+  /// The system notifications that keep a group current.
+  static func notificationNames(for group: Group) -> [Notification.Name] {
+    switch group {
+    case .battery:
+      return [
+        UIDevice.batteryLevelDidChangeNotification,
+        UIDevice.batteryStateDidChangeNotification,
+        .NSProcessInfoPowerStateDidChange,
+      ]
+    case .thermal:
+      return [ProcessInfo.thermalStateDidChangeNotification]
+    case .network:
+      // Newer SDKs import this constant as a Notification.Name and older ones as
+      // a String, so the literal compiles on both.
+      return [Notification.Name("CTServiceRadioAccessTechnologyDidChangeNotification")]
     }
   }
 
-  private static func startListeners() {
-    UIDevice.current.isBatteryMonitoringEnabled = true
-    let center = NotificationCenter.default
-    let names: [Notification.Name] = [
-      UIDevice.batteryLevelDidChangeNotification,
-      UIDevice.batteryStateDidChangeNotification,
-      .NSProcessInfoPowerStateDidChange,
-      ProcessInfo.thermalStateDidChangeNotification,
-      // Newer SDKs import this constant as a Notification.Name and older ones as
-      // a String, so the literal compiles on both.
-      Notification.Name("CTServiceRadioAccessTechnologyDidChangeNotification"),
-    ]
-    for name in names {
-      center.addObserver(forName: name, object: nil, queue: .main) { _ in
-        refreshListened()
-      }
+  /// The cache keys that belong to a group.
+  static func keys(for group: Group) -> Set<String> {
+    switch group {
+    case .battery:
+      return [batteryLevelKey, isChargingKey, lowPowerModeKey]
+    case .thermal:
+      return [thermalStateKey]
+    case .network:
+      return [connectionTypeKey, connectionSubtypeKey]
     }
+  }
 
-    telephonyInfo.delegate = dataServiceObserver
+  /// Makes `owner` an owner of `groups`, starts the listeners of any group that
+  /// was not running, and stops those that no owner wants any more. Returns the
+  /// cached values of `groups`. The work runs on the main thread, where it
+  /// seeds the cache before it returns.
+  static func startListening(owner: AnyObject, groups: Set<Group>) -> [String: Any] {
+    apply { $0.set(ObjectIdentifier(owner), groups: groups) }
+    return listenedState(groups: groups)
+  }
 
-    let pathMonitor = NWPathMonitor()
-    pathMonitor.pathUpdateHandler = { path in
-      lock.lock()
-      latestPath = path
-      lock.unlock()
-      DispatchQueue.main.async {
-        refreshListened()
-      }
+  /// Removes `owner`. A group no other owner wants stops.
+  static func stopListening(owner: AnyObject) {
+    apply { $0.release(ObjectIdentifier(owner)) }
+  }
+
+  private static func apply(_ change: (inout GroupOwners) -> GroupOwners.Change) {
+    if Thread.isMainThread {
+      applyOnMain(change)
+    } else {
+      DispatchQueue.main.sync { applyOnMain(change) }
     }
-    pathMonitor.start(queue: DispatchQueue(label: "com.grafana.faro.network-path", qos: .utility))
+  }
+
+  private static func applyOnMain(_ change: (inout GroupOwners) -> GroupOwners.Change) {
     lock.lock()
-    monitor = pathMonitor
+    let changed = change(&owners)
     lock.unlock()
+    if changed.isEmpty {
+      return
+    }
+    stopListeners(changed.stopped)
+    startListeners(changed.started)
     refreshListened()
   }
 
+  private static func startListeners(_ groups: Set<Group>) {
+    if groups.contains(.battery) {
+      batteryMonitoringWasEnabled = UIDevice.current.isBatteryMonitoringEnabled
+      UIDevice.current.isBatteryMonitoringEnabled = true
+    }
+    let center = NotificationCenter.default
+    for group in groups {
+      notificationTokens[group] = notificationNames(for: group).map { name in
+        center.addObserver(forName: name, object: nil, queue: .main) { _ in
+          refreshListened()
+        }
+      }
+    }
+
+    if groups.contains(.network) {
+      telephonyInfo.delegate = dataServiceObserver
+
+      let pathMonitor = NWPathMonitor()
+      // A handler that runs after the group stopped must not write the path again.
+      pathMonitor.pathUpdateHandler = { [weak pathMonitor] path in
+        lock.lock()
+        guard let pathMonitor, monitor === pathMonitor else {
+          lock.unlock()
+          return
+        }
+        latestPath = path
+        lock.unlock()
+        DispatchQueue.main.async {
+          refreshListened()
+        }
+      }
+      lock.lock()
+      monitor = pathMonitor
+      lock.unlock()
+      pathMonitor.start(queue: DispatchQueue(label: "com.grafana.faro.network-path", qos: .utility))
+    }
+  }
+
+  private static func stopListeners(_ groups: Set<Group>) {
+    let center = NotificationCenter.default
+    for group in groups {
+      notificationTokens[group]?.forEach { center.removeObserver($0) }
+      notificationTokens[group] = nil
+    }
+    if groups.contains(.battery) {
+      UIDevice.current.isBatteryMonitoringEnabled = batteryMonitoringWasEnabled
+    }
+    if groups.contains(.network) {
+      telephonyInfo.delegate = nil
+      lock.lock()
+      monitor?.cancel()
+      monitor = nil
+      latestPath = nil
+      lock.unlock()
+    }
+  }
+
   /// Calls `observer` each time the listener-fed values change. Read
-  /// `listenedState()` for the values. The listeners start on the first read,
-  /// so an app that never reads pays nothing.
+  /// `listenedState(groups:)` for the values.
   static func addObserver(_ owner: AnyObject, _ observer: @escaping () -> Void) {
     lock.lock()
     observers[ObjectIdentifier(owner)] = observer
@@ -115,12 +202,13 @@ enum DynamicDeviceState {
     lock.unlock()
   }
 
-  /// The cached values that system notifications keep current.
-  static func listenedState() -> [String: Any] {
-    start()
+  /// The cached values that system notifications keep current, for `groups`
+  /// only.
+  static func listenedState(groups: Set<Group>) -> [String: Any] {
+    let wantedKeys = groups.reduce(into: Set<String>()) { $0.formUnion(keys(for: $1)) }
     lock.lock()
     defer { lock.unlock() }
-    return listenedCache
+    return listenedCache.filter { wantedKeys.contains($0.key) }
   }
 
   /// Reads the system into the cache and tells observers when it changed.
@@ -128,21 +216,25 @@ enum DynamicDeviceState {
   private static func refreshListened() {
     var state: [String: Any] = [:]
 
-    let device = UIDevice.current
-    if let level = batteryPercent(device.batteryLevel) {
-      state[batteryLevelKey] = level
-    }
-    if let charging = isCharging(device.batteryState) {
-      state[isChargingKey] = charging
-    }
-    let processInfo = ProcessInfo.processInfo
-    state[lowPowerModeKey] = processInfo.isLowPowerModeEnabled
-    state[thermalStateKey] = thermalStateName(processInfo.thermalState)
-
     lock.lock()
+    let groups = owners.running
     let path = latestPath
     lock.unlock()
-    if let path {
+
+    if groups.contains(.battery) {
+      let device = UIDevice.current
+      if let level = batteryPercent(device.batteryLevel) {
+        state[batteryLevelKey] = level
+      }
+      if let charging = isCharging(device.batteryState) {
+        state[isChargingKey] = charging
+      }
+      state[lowPowerModeKey] = ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+    if groups.contains(.thermal) {
+      state[thermalStateKey] = thermalStateName(ProcessInfo.processInfo.thermalState)
+    }
+    if groups.contains(.network), let path {
       let type = connectionType(for: path)
       state[connectionTypeKey] = type
       if type == "cell",

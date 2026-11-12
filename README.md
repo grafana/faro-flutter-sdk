@@ -25,6 +25,7 @@ The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile appli
 The Faro Flutter SDK provides real user monitoring capabilities including:
 
 - **Device Information**: OS, version, Flutter version
+- **Device and Network State**: Battery, thermal and network state on every signal. Each group can be turned off with `FaroConfig.dynamicDeviceState`
 - **Application Information**: App name, version, environment
 - **Session Information**: Session tracking and events
 - **Performance Monitoring**:

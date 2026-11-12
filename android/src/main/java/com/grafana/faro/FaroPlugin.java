@@ -22,6 +22,7 @@ import org.json.JSONObject;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private MethodChannel channel;
     private EventChannel deviceStateChannel;
     private @Nullable EventChannel.EventSink deviceStateSink;
+    private List<String> deviceStateGroups = Collections.emptyList();
     private DynamicDeviceState.Listener deviceStateListener;
     private Context applicationContext;
     private @Nullable WeakReference<Activity> activity = null;
@@ -183,12 +185,16 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                     @Override
                     public void onListen(Object arguments, EventChannel.EventSink events) {
                         deviceStateSink = events;
-                        events.success(DynamicDeviceState.listenedState(applicationContext));
+                        deviceStateGroups = groupsFrom(arguments);
+                        events.success(
+                                DynamicDeviceState.startListening(
+                                        applicationContext, FaroPlugin.this, deviceStateGroups));
                     }
 
                     @Override
                     public void onCancel(Object arguments) {
                         deviceStateSink = null;
+                        DynamicDeviceState.stopListening(FaroPlugin.this);
                     }
                 });
         Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -202,7 +208,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                                     if (sink != null) {
                                         sink.success(
                                                 DynamicDeviceState.listenedState(
-                                                        applicationContext));
+                                                        deviceStateGroups));
                                     }
                                 });
         DynamicDeviceState.addListener(deviceStateListener);
@@ -367,6 +373,22 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         isActivityResumed = false;
     }
 
+    private static List<String> groupsFrom(@Nullable Object arguments) {
+        if (arguments instanceof Map) {
+            Object groups = ((Map<?, ?>) arguments).get("groups");
+            if (groups instanceof List) {
+                List<String> names = new ArrayList<>();
+                for (Object group : (List<?>) groups) {
+                    if (group instanceof String) {
+                        names.add((String) group);
+                    }
+                }
+                return names;
+            }
+        }
+        return Collections.emptyList();
+    }
+
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         Log.d(TAG, "onDetachedFromEngine");
@@ -381,6 +403,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             deviceStateChannel = null;
         }
         deviceStateSink = null;
+        DynamicDeviceState.stopListening(this);
         releaseSessionPersistenceOwnership();
     }
 
