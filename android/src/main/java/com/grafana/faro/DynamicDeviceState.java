@@ -78,12 +78,12 @@ final class DynamicDeviceState {
     // replaced. Seeded at start, then written by the connectivity callback thread.
     private static volatile Network defaultNetwork;
 
-    // What each running group registered, kept so that its last owner can undo it. Only touched
-    // while holding LIFECYCLE.
+    // What each running group registered, kept so that its last owner can undo it. Written only
+    // while holding LIFECYCLE. The network callback also reads itself from its own thread.
     private static Context listenerContext;
     private static BroadcastReceiver batteryReceiver;
     private static Object thermalListener;
-    private static ConnectivityManager.NetworkCallback networkCallback;
+    private static volatile ConnectivityManager.NetworkCallback networkCallback;
     private static BroadcastReceiver networkReceiver;
 
     private DynamicDeviceState() {}
@@ -393,6 +393,10 @@ final class DynamicDeviceState {
                         new ConnectivityManager.NetworkCallback() {
                             @Override
                             public void onAvailable(@NonNull Network network) {
+                                // A callback from a stopped or replaced registration does nothing.
+                                if (networkCallback != this) {
+                                    return;
+                                }
                                 // Before API 26, capabilities do not always follow this
                                 // callback, so read them here. Setting the default network
                                 // first lets a loss that comes next match it.
@@ -414,6 +418,9 @@ final class DynamicDeviceState {
                             public void onCapabilitiesChanged(
                                     @NonNull Network network,
                                     @NonNull NetworkCapabilities capabilities) {
+                                if (networkCallback != this) {
+                                    return;
+                                }
                                 defaultNetwork = network;
                                 applyCapabilities(capabilities);
                                 notifyIfChanged();
@@ -421,6 +428,9 @@ final class DynamicDeviceState {
 
                             @Override
                             public void onLost(@NonNull Network network) {
+                                if (networkCallback != this) {
+                                    return;
+                                }
                                 // A switch from wifi to cell can report the loss of wifi after
                                 // cell is applied. Only the loss of the current default network
                                 // means there is no connection.
@@ -431,8 +441,14 @@ final class DynamicDeviceState {
                                 }
                             }
                         };
-                connectivityManager.registerDefaultNetworkCallback(callback);
+                // Set before registering, so the first callback passes its own check.
                 networkCallback = callback;
+                try {
+                    connectivityManager.registerDefaultNetworkCallback(callback);
+                } catch (RuntimeException e) {
+                    networkCallback = null;
+                    throw e;
+                }
             } else {
                 BroadcastReceiver receiver =
                         new BroadcastReceiver() {
