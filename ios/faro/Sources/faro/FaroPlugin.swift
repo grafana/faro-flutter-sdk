@@ -28,6 +28,12 @@ public class FaroPlugin: NSObject, FlutterPlugin {
 //          let crashreporter = CrashReportingIntegration()
 //    }
     registrar.addMethodCallDelegate(instance, channel: channel)
+
+    let deviceStateChannel = FlutterEventChannel(
+      name: "faro/device_state",
+      binaryMessenger: registrar.messenger()
+    )
+    deviceStateChannel.setStreamHandler(DeviceStateStreamHandler())
   }
     
     private static func isCrashReportAutoEnabled() -> Bool{
@@ -182,4 +188,38 @@ public class FaroPlugin: NSObject, FlutterPlugin {
         }
 
 
+}
+
+/// Streams the listener-fed device state: the current values when Dart starts
+/// listening, then the latest values after each change. Each event reads the
+/// cache when it is sent, so a later change never arrives before an earlier one.
+private final class DeviceStateStreamHandler: NSObject, FlutterStreamHandler {
+  private var sink: FlutterEventSink?
+
+  func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    sink = events
+    DynamicDeviceState.addObserver(self) { [weak self] in
+      DispatchQueue.main.async {
+        guard let self, let sink = self.sink else {
+          return
+        }
+        sink(DynamicDeviceState.listenedState())
+      }
+    }
+    events(DynamicDeviceState.listenedState())
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    DynamicDeviceState.removeObserver(self)
+    sink = nil
+    return nil
+  }
+
+  deinit {
+    DynamicDeviceState.removeObserver(self)
+  }
 }
