@@ -37,7 +37,7 @@ void main() {
     service = InternetConnectivityService(
       connectivity: mockConnectivity,
       internetConnectionCheckerUrl: 'localhost',
-      addressLookup: InternetAddress.lookup,
+      addressLookup: (_) async => [InternetAddress.loopbackIPv4],
     );
   });
 
@@ -47,6 +47,29 @@ void main() {
   });
 
   group('InternetConnectivityService:', () {
+    test('ignores a probe completing after disposal', () async {
+      service.dispose();
+      final lookup = Completer<List<InternetAddress>>();
+      final started = Completer<void>();
+      when(
+        () => mockConnectivity.checkConnectivity(),
+      ).thenAnswer((_) async => [ConnectivityResult.wifi]);
+      service = InternetConnectivityService(
+        connectivity: mockConnectivity,
+        internetConnectionCheckerUrl: 'test.example',
+        addressLookup: (_) {
+          started.complete();
+          return lookup.future;
+        },
+      );
+      final subscription = service.onConnectivityChanged.listen((_) {});
+      await started.future;
+      service.dispose();
+      lookup.complete([InternetAddress.loopbackIPv4]);
+      await Future<void>.delayed(Duration.zero);
+      await subscription.cancel();
+    });
+
     group('isOnline:', () {
       test('returns false when no connectivity initially', () async {
         fakeConnectivityResults = [ConnectivityResult.none];
@@ -54,7 +77,7 @@ void main() {
         final service = InternetConnectivityService(
           connectivity: mockConnectivity,
           internetConnectionCheckerUrl: 'localhost',
-          addressLookup: InternetAddress.lookup,
+          addressLookup: (_) async => [InternetAddress.loopbackIPv4],
         );
 
         await waitForAsyncWork();
@@ -68,7 +91,7 @@ void main() {
         final service = InternetConnectivityService(
           connectivity: mockConnectivity,
           internetConnectionCheckerUrl: 'localhost',
-          addressLookup: InternetAddress.lookup,
+          addressLookup: (_) async => [InternetAddress.loopbackIPv4],
         );
 
         await waitForAsyncWork();
@@ -97,7 +120,7 @@ void main() {
           service = InternetConnectivityService(
             connectivity: mockConnectivity,
             internetConnectionCheckerUrl: 'invalid.domain.that.does.not.exist',
-            addressLookup: InternetAddress.lookup,
+            addressLookup: (_) async => throw const SocketException('offline'),
           );
 
           fakeConnectivityController.add([ConnectivityResult.wifi]);
@@ -267,6 +290,7 @@ void main() {
       test('does not emit same value multiple times', () async {
         final states = <bool>[];
         final subscription = service.onConnectivityChanged.listen(states.add);
+        await waitForAsyncWork();
 
         fakeConnectivityController.add([ConnectivityResult.wifi]);
         await waitForAsyncWork();
@@ -283,6 +307,7 @@ void main() {
       test('emits when connectivity state changes', () async {
         final states = <bool>[];
         final subscription = service.onConnectivityChanged.listen(states.add);
+        await waitForAsyncWork();
 
         fakeConnectivityController.add([ConnectivityResult.wifi]);
         await waitForAsyncWork();

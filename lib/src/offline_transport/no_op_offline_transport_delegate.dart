@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:faro/src/offline_transport/offline_transport_delegate.dart';
+import 'package:faro/src/transport/faro_transport.dart';
 
 /// Used on web, which has no file system to cache payloads in.
 class NoOpOfflineTransportDelegate implements OfflineTransportDelegate {
@@ -10,8 +11,17 @@ class NoOpOfflineTransportDelegate implements OfflineTransportDelegate {
   }
 
   @override
+  set collector(FaroTransport? collector) {}
+
+  @override
   Future<void> send(Map<String, dynamic> payloadJson) async {}
 
   @override
   Future<void> replayCachedData() async {}
+
+  @override
+  Future<void> discardCachedData() async {}
+
+  @override
+  Future<void> dispose() async {}
 }

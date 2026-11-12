@@ -35,6 +35,7 @@ import 'package:faro/src/tracing/span_exception_options.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
+import 'package:faro/src/transport/transport_dispatcher.dart';
 import 'package:faro/src/user/user_manager.dart';
 import 'package:faro/src/user_actions/start_user_action_options.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
@@ -78,8 +79,12 @@ class Faro {
   set enableDataCollection(bool enable) {
     if (enable) {
       _dataCollectionPolicy?.enable();
+      final outbox = _transports.whereType<OfflineTransport>().firstOrNull;
+      if (outbox != null) unawaited(outbox.replayCachedData());
     } else {
       _dataCollectionPolicy?.disable();
+      final outbox = _transports.whereType<OfflineTransport>().firstOrNull;
+      if (outbox != null) unawaited(outbox.discardCachedData());
     }
   }
 
@@ -294,6 +299,8 @@ class Faro {
     for (final transport in _transports.whereType<FaroTransport>()) {
       transport.sessionInvalidatedHandler = sessionManager.invalidateSession;
     }
+    _transports.whereType<OfflineTransport>().firstOrNull?.collector =
+        _transports.whereType<FaroTransport>().firstOrNull;
     _httpTrackingFilter.configure(
       collectorUrl: optionsConfiguration.collectorUrl,
       ignoreUrls: optionsConfiguration.ignoreUrls,
@@ -327,6 +334,7 @@ class Faro {
       sessionManager: sessionManager,
       onAppBackgrounded: _flushSessionPersistence,
       reportWarmStart: !_platformInfoProvider.isWeb,
+      onAppForegrounded: _replayOutbox,
     );
     WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
     if (optionsConfiguration.enableUiActivityMonitoring) {
@@ -334,9 +342,14 @@ class Faro {
       _didAttachUiActivityMonitor = true;
     }
     _isInitialized = true;
-    for (final transport in _transports.whereType<OfflineTransport>()) {
-      unawaited(transport.replayCachedData());
-    }
+    unawaited(_replayOutbox());
+  }
+
+  Future<void> _replayOutbox() async {
+    await _transports
+        .whereType<OfflineTransport>()
+        .firstOrNull
+        ?.replayCachedData();
   }
 
   Future<void> runApp({
@@ -549,6 +562,9 @@ class Faro {
   }
 
   Future<void> _tearDownForReset() async {
+    for (final outbox in _transports.whereType<OfflineTransport>().toList()) {
+      await outbox.dispose();
+    }
     _dynamicDeviceState?.dispose();
     _dynamicDeviceState = null;
     await _sessionPersistence?.flush();
@@ -1574,7 +1590,10 @@ class Faro {
     final payloadJson = payload.toJson();
     var accepted = true;
     var hasDirectTransport = false;
-    for (final transport in List<BaseTransport>.of(_transports)) {
+    final destinations = nativeRetryAvailable
+        ? List<BaseTransport>.of(_transports)
+        : deliveryTransports(_transports);
+    for (final transport in destinations) {
       // PLCrashReporter keeps the iOS report until this handoff succeeds.
       // Sending it to OfflineTransport as well would create a second retry
       // owner and can deliver the same crash twice after connectivity returns.

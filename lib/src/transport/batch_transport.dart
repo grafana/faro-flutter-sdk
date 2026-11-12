@@ -1,6 +1,7 @@
 // ignore_for_file: use_setters_to_change_properties
 
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/configurations/batch_config.dart';
@@ -9,6 +10,7 @@ import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/no_op_batch_transport.dart';
+import 'package:faro/src/transport/transport_dispatcher.dart';
 import 'package:faro/src/util/payload_extension.dart';
 import 'package:flutter/foundation.dart';
 
@@ -107,9 +109,18 @@ class BatchTransport {
     _addDynamicDeviceState(payloadJson);
 
     if (_transports.isNotEmpty) {
-      final currentTransports = _transports;
+      final currentTransports = deliveryTransports(_transports);
       for (final transport in currentTransports) {
-        await transport.send(payloadJson);
+        try {
+          await transport.send(payloadJson);
+        } catch (error) {
+          // A failed durable handoff must not crash the host app or prevent
+          // independent destinations from receiving this batch.
+          log(
+            'Faro: ${transport.runtimeType} handoff failed '
+            '(${error.runtimeType}).',
+          );
+        }
       }
     }
   }

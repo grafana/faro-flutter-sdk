@@ -37,7 +37,7 @@ void main() {
       return OfflineTransportDelegateFactory(
         platformInfoProvider: platformInfoProvider,
       ).create(
-        onReconnected: () async {},
+        onReplayRequested: () async {},
         internetConnectivityService: connectivityService,
       );
     }
@@ -64,11 +64,13 @@ void main() {
   });
 
   group('NoOpOfflineTransportDelegate', () {
-    test('send and replayCachedData complete without doing anything', () async {
-      final delegate = NoOpOfflineTransportDelegate();
+    test('every operation completes without doing anything', () async {
+      final delegate = NoOpOfflineTransportDelegate()..collector = null;
 
       await expectLater(delegate.send({'any': 'payload'}), completes);
       await expectLater(delegate.replayCachedData(), completes);
+      await expectLater(delegate.discardCachedData(), completes);
+      await expectLater(delegate.dispose(), completes);
     });
   });
 }
