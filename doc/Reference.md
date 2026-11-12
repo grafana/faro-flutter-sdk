@@ -683,9 +683,9 @@ void dispose() {
 ```
 
 Use the same tracker setup with `StatefulShellRoute.indexedStack`; no Faro
-observers are needed on its branches. The SDK accepts Flutter's `Listenable`
-interface and a name extractor, so it does not add a runtime dependency on
-`go_router`.
+observers are needed on its branches for router pages. The SDK accepts
+Flutter's `Listenable` interface and a name extractor, so it does not add a
+runtime dependency on `go_router`.
 
 Listen to `routerDelegate` and read the resolved `router.state`. Listening only
 to `routeInformationProvider` can report requested locations before redirects
@@ -693,10 +693,65 @@ finish and does not reliably observe imperative push/pop changes. The tracker
 records the initial resolved view and then emits one `view_changed` event per
 distinct extracted name, with the previous name in `fromView`.
 
-**Choose one tracking mode.** Do not combine the router tracker with separate
-`FaroNavigationObserver()` instances on the root or nested navigators. Router
-tracking listens directly to the delegate; independent Navigator observers
-still emit their own events.
+**Keep `FaroNavigationObserver` next to the tracker.** The tracker sees router
+pages, but dialogs, bottom sheets and `Navigator.push` routes never reach the
+router. With both in place, each change is recorded once:
+
+```dart
+_router = GoRouter(
+  observers: [FaroNavigationObserver()],
+  routes: [/* ... */],
+);
+_navigationTracker = FaroRouterTracker(
+  routeChanges: _router.routerDelegate,
+  viewNameExtractor: () => /* ... */,
+);
+```
+
+| Route | Recorded by |
+|---|---|
+| Router page (`GoRoute`, shell and branch pages) | `FaroRouterTracker` |
+| Dialog, bottom sheet, `Navigator.push` route | `FaroNavigationObserver` |
+| Route on a Navigator outside the tracked router | `FaroNavigationObserver` |
+
+An observer leaves a page to the tracker when the nearest `Router` above its
+Navigator has a tracked delegate. This applies to the root, `ShellRoute` and
+`StatefulShellBranch` Navigators. Pageless routes use the tracker's view name
+for the page side, so `fromView` and `toView` keep one naming style. While a
+pageless route is open, the tracker records router changes at the end of the
+frame, so popping a router page back to that route gives one event. In debug
+builds each observer logs once when it first defers. After the tracker is
+disposed, the observers record every route again.
+
+This works for page-based routers like `go_router`, where every router screen
+is a `Page`. Pass the delegate the `Router` widget uses, such as
+`routerDelegate`. A wrapping `Listenable` or the `routeInformationProvider`
+does not match, and observers then keep recording pages too. Routers that push
+their screens imperatively also still record twice; use only one of the two
+there.
+
+##### A Navigator inside a router page
+
+A router page can host its own `Navigator(pages: ...)`, for example a signup
+wizard that changes steps while the URL stays `/signup`. The tracker never sees
+those steps, and an observer on that Navigator defers by default. Set
+`deferToRouterTracker: false` on that observer:
+
+```dart
+Navigator(
+  observers: [FaroNavigationObserver(deferToRouterTracker: false)],
+  pages: wizardPages,
+  onDidRemovePage: _onStepRemoved,
+)
+```
+
+| `/home` → `/signup` → step 1 → step 2 | Events |
+|---|---|
+| Default | `/home → /signup` only |
+| `deferToRouterTracker: false` | `/home → /signup`, `null → step-1`, `step-1 → step-2` |
+
+The steps use their `RouteSettings.name`. Keep the default everywhere else, so
+a leftover observer does not duplicate router pages.
 
 **View naming changes when switching modes.** Plain Navigator mode uses
 `RouteSettings.name`. The example above uses stable route patterns from
@@ -719,7 +774,9 @@ an unnecessary startup diagnostic.
 
 Dispose the tracker before its router. Disposal removes Faro's listener without
 disposing the router and can safely be called more than once. Create a new
-tracker to resume tracking after disposal.
+tracker to resume tracking after disposal. Keep the tracker alive for the
+router's lifetime; a new tracker does not know about dialogs or
+`Navigator.push` routes that are already open.
 
 #### Using Navigator observers on individual shells
 
