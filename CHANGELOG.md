@@ -43,6 +43,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Opt-in offline delivery saves batches before sending**, including while
+  online, and retries temporary failures across restarts. **Interrupted
+  acknowledgements can cause duplicate delivery.** See the Reference docs for
+  details ([#376](https://github.com/grafana/faro-flutter-sdk/issues/376)).
+
+- **Offline storage defaults to 1,000 batches, 10 MiB and three days.** Expired
+  batches and the oldest batches beyond capacity are discarded. See the
+  Reference docs for details
+  ([#376](https://github.com/grafana/faro-flutter-sdk/issues/376)).
+
+- **Permanent HTTP 4xx rejections are dropped**, including 401 and 403;
+  408 and 429 remain eligible for retry. Correcting credentials later does not
+  recover discarded batches
+  ([#376](https://github.com/grafana/faro-flutter-sdk/issues/376)).
+
 - **Requires `dartastic_opentelemetry` 0.12.** The dependency is now
   `^0.12.0` instead of `^0.11.0`. Apps that pin `dartastic_opentelemetry`
   0.11 must upgrade it
