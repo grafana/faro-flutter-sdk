@@ -49,6 +49,7 @@ class InternetConnectivityService {
   StreamSubscription<List<ConnectivityResult>>?
   _connectivityChangedSubscription;
   bool _isOnline = true;
+  bool _disposed = false;
 
   /// Identifies the most recently started connectivity update.
   ///
@@ -64,11 +65,14 @@ class InternetConnectivityService {
 
   Stream<bool> get onConnectivityChanged {
     // Emit current value immediately for new subscribers
-    Future(() => _connectivityController.add(_isOnline));
+    Future(() {
+      if (!_disposed) _connectivityController.add(_isOnline);
+    });
     return _connectivityController.stream.distinct();
   }
 
   void dispose() {
+    _disposed = true;
     _connectivityChangedSubscription?.cancel();
     _connectivityController.close();
   }
@@ -85,6 +89,7 @@ class InternetConnectivityService {
   }
 
   void _setOnline(bool value) {
+    if (_disposed) return;
     if (_isOnline != value) {
       _isOnline = value;
       _connectivityController.add(value);
@@ -113,13 +118,10 @@ class InternetConnectivityService {
 
   /// Probes internet access via a DNS lookup, bounded by [_lookupTimeout].
   ///
-  /// Any probe failure (timeout, socket error, or unexpected platform
-  /// error) is treated as offline. This is deliberately conservative:
-  /// while reported offline, payloads are cached on disk by
-  /// `OfflineTransport` and flushed when connectivity returns, whereas a
-  /// send attempted while actually offline is dropped by `FaroTransport`
-  /// without retry. A false "offline" therefore only costs disk usage,
-  /// while a false "online" risks permanent data loss.
+  /// Any probe failure (timeout, socket error, or unexpected platform error)
+  /// is treated as offline. Persistent delivery uses this as a scheduling hint;
+  /// batches are saved regardless of the probe result, and HTTP outcomes decide
+  /// whether they remain in the outbox.
   Future<bool> _isConnectedToInternet() async {
     try {
       final result = await _addressLookup(

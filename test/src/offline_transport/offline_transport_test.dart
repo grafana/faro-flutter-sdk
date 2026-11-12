@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/models/models.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
 import 'package:faro/src/offline_transport/offline_transport.dart';
+import 'package:faro/src/transport/batch_transport.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 import 'package:flutter/services.dart';
@@ -17,626 +20,459 @@ import 'package:mocktail/mocktail.dart';
 class MockInternetConnectivityService extends Mock
     implements InternetConnectivityService {}
 
-class MockTransport extends Mock implements BaseTransport {}
-
-class MockFaroTransport extends Mock implements FaroTransport {}
-
 class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
 
-// Capture reconnect-triggered work without changing the production transport.
-class _TrackedOfflineTransport extends OfflineTransport {
-  _TrackedOfflineTransport({
-    required super.internetConnectivityService,
-    super.maxCacheDuration,
-    required this.pendingReplays,
-  });
+class _TrackedOutbox extends OfflineTransport {
+  _TrackedOutbox({required super.internetConnectivityService})
+    : super(maxCacheCount: 1);
 
-  final List<Future<void>> pendingReplays;
+  final List<Future<void>> replays = [];
 
   @override
   Future<void> replayCachedData() {
     final replay = super.replayCachedData();
-    pendingReplays.add(replay);
+    replays.add(replay);
     return replay;
+  }
+}
+
+class _RecordingTransport extends BaseTransport {
+  final List<Map<String, dynamic>> payloads = [];
+
+  @override
+  Future<void> send(Map<String, dynamic> payloadJson) async {
+    payloads.add(payloadJson);
   }
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
-
-  late Directory tempDir;
-  late MockInternetConnectivityService mockConnectivityService;
-  late StreamController<bool> connectivityController;
-  late List<Future<void>> pendingReplays;
-
-  setUpAll(() {
-    registerFallbackValue(<String, dynamic>{});
-  });
+  const channel = MethodChannel('plugins.flutter.io/path_provider');
+  late Directory directory;
+  late MockInternetConnectivityService connectivity;
+  late StreamController<bool> changes;
+  late List<OfflineTransport> outboxes;
+  late List<http.Request> requests;
 
   setUp(() async {
-    pendingReplays = [];
-    tempDir = await Directory.systemTemp.createTemp('faro_offline_test');
-
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(pathProviderChannel, (call) async {
-          if (call.method == 'getApplicationDocumentsDirectory') {
-            return tempDir.path;
-          }
-          return null;
-        });
-
-    connectivityController = StreamController<bool>.broadcast();
-    mockConnectivityService = MockInternetConnectivityService();
-    when(() => mockConnectivityService.isOnline).thenReturn(false);
+    directory = await Directory.systemTemp.createTemp('faro_outbox_transport_');
+    changes = StreamController<bool>.broadcast();
+    connectivity = MockInternetConnectivityService();
+    when(() => connectivity.isOnline).thenReturn(true);
     when(
-      () => mockConnectivityService.onConnectivityChanged,
-    ).thenAnswer((_) => connectivityController.stream);
+      () => connectivity.onConnectivityChanged,
+    ).thenAnswer((_) => changes.stream);
+    outboxes = [];
+    requests = [];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async => directory.path);
   });
 
   tearDown(() async {
-    await connectivityController.close();
-    // File contents can match before the rewrite closes its handle. Closing
-    // the event stream does not wait for the unawaited replay futures.
-    await Future.wait(pendingReplays);
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(pathProviderChannel, null);
-    if (tempDir.existsSync()) {
-      tempDir.deleteSync(recursive: true);
+    for (final outbox in outboxes) {
+      await outbox.dispose();
     }
+    Faro().transports = [];
+    Faro().dataCollectionPolicy = null;
+    await changes.close();
     await Faro.resetForTesting();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+    await directory.delete(recursive: true);
   });
-
-  OfflineTransport createTransport({Duration? maxCacheDuration}) {
-    return _TrackedOfflineTransport(
-      pendingReplays: pendingReplays,
-      internetConnectivityService: mockConnectivityService,
-      maxCacheDuration: maxCacheDuration,
-    );
-  }
-
-  File cacheFile() {
-    return File('${tempDir.path}/rum_log.json');
-  }
-
-  Future<void> waitForCache(String expected) async {
-    for (var attempt = 0; attempt < 100; attempt++) {
-      if (cacheFile().readAsStringSync() == expected) return;
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-    }
-    expect(cacheFile().readAsStringSync(), expected);
-  }
-
-  String cachedLine(Map<String, dynamic> payload) {
-    return jsonEncode({
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-      'payload': payload,
-    });
-  }
-
-  Future<OfflineTransport> replay(List<String> lines, String expected) async {
-    // Removing this corrupt entry proves replay finished even when all valid
-    // entries must remain cached.
-    await cacheFile().writeAsString('not-json\n${lines.join('\n')}\n');
-    final transport = createTransport();
-    connectivityController.add(true);
-    await waitForCache(expected);
-    return transport;
-  }
 
   FaroTransport collector(
     Future<http.Response> Function(http.Request) respond, {
     int? maxBufferLimit,
   }) {
-    final client = MockClient(respond);
+    final client = MockClient((request) async {
+      requests.add(request);
+      return respond(request);
+    });
     addTearDown(client.close);
     return FaroTransport(
       collectorUrl: 'https://collector.example/collect',
       apiKey: 'test-key',
       sessionIdResolver: () => 'live-session',
-      httpClient: client,
       maxBufferLimit: maxBufferLimit,
+      httpClient: client,
     );
   }
 
-  Map<String, dynamic> buildEventPayloadJson({
-    Map<String, dynamic>? attributes,
+  OfflineTransport outbox({
+    FaroTransport? destination,
+    Duration initialRetryDelay = const Duration(seconds: 10),
+    Duration maxRetryDelay = const Duration(seconds: 10),
+    Duration requestTimeout = const Duration(seconds: 30),
   }) {
-    return <String, dynamic>{
-      'events': [
-        <String, dynamic>{
-          'name': 'test_event',
-          'domain': 'flutter',
-          'timestamp': '2026-01-01T00:00:00.000Z',
-          'attributes': attributes ?? <String, dynamic>{'key': 'value'},
-        },
-      ],
-    };
+    final transport = OfflineTransport(
+      internetConnectivityService: connectivity,
+      initialRetryDelay: initialRetryDelay,
+      maxRetryDelay: maxRetryDelay,
+      requestTimeout: requestTimeout,
+    )..collector = destination;
+    outboxes.add(transport);
+    return transport;
   }
 
-  group('OfflineTransport write path:', () {
-    test('caches valid payload when offline', () async {
-      final transport = createTransport();
+  Map<String, dynamic> payload({String session = 'original-session'}) => {
+    'meta': {
+      'session': {'id': session},
+    },
+    'events': [
+      {'name': 'test_event', 'timestamp': '2026-11-12T00:00:00Z'},
+    ],
+  };
 
-      await transport.send(buildEventPayloadJson());
+  Future<void> waitUntil(bool Function() condition) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (!condition() && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(condition(), isTrue);
+  }
 
-      final lines = await cacheFile().readAsLines();
-      expect(lines, hasLength(1));
-      final cachedJson = jsonDecode(lines.first) as Map<String, dynamic>;
-      expect(cachedJson['timestamp'], isA<int>());
-      final cachedPayload = cachedJson['payload'] as Map<String, dynamic>;
-      final cachedEvents = cachedPayload['events'] as List<dynamic>;
-      expect(cachedEvents, hasLength(1));
-      final cachedEvent = cachedEvents.first as Map<String, dynamic>;
-      expect(cachedEvent['name'], 'test_event');
+  group('OfflineTransport outbox:', () {
+    test('an unbound extra outbox cannot prune the primary cache', () async {
+      final primary = outbox(
+        destination: collector((_) async => http.Response('', 503)),
+      );
+      for (final session in ['first', 'second', 'third']) {
+        await primary.send(payload(session: session));
+      }
+      await primary.replayCachedData();
+      final extra = _TrackedOutbox(internetConnectivityService: connectivity);
+      outboxes.add(extra);
+      Faro().transports = [primary, extra];
+
+      changes.add(true);
+      await Future<void>.delayed(Duration.zero);
+      await Future.wait(extra.replays);
+      await primary.replayCachedData();
+
+      final files = await Directory(
+        '${directory.path}/faro-outbox',
+      ).list().where((entity) => entity.path.endsWith('.batch.json')).toList();
+      expect(files, hasLength(3));
     });
 
     test(
-      'does not crash and drops payload with non-encodable attribute',
+      'new batches persist while an older HTTP request is pending',
       () async {
-        final transport = createTransport();
-        final payloadJson = buildEventPayloadJson(
-          attributes: <String, dynamic>{'when': DateTime.now()},
-        );
-
-        await expectLater(transport.send(payloadJson), completes);
-
-        // Nothing should be persisted for the dropped payload, and the
-        // cache file should not even be created for it.
-        expect(cacheFile().existsSync(), isFalse);
-      },
-    );
-
-    test('does not crash and drops payload with non-finite double', () async {
-      final transport = createTransport();
-      final payloadJson = buildEventPayloadJson(
-        attributes: <String, dynamic>{'value': double.nan},
-      );
-
-      await expectLater(transport.send(payloadJson), completes);
-
-      expect(cacheFile().existsSync(), isFalse);
-    });
-
-    test(
-      'keeps caching valid payloads after a non-encodable payload',
-      () async {
-        final transport = createTransport();
-        final badPayloadJson = buildEventPayloadJson(
-          attributes: <String, dynamic>{'object': Object()},
-        );
-
-        await transport.send(badPayloadJson);
-        await transport.send(buildEventPayloadJson());
-
-        final lines = await cacheFile().readAsLines();
-        expect(lines, hasLength(1));
-        final cachedJson = jsonDecode(lines.first) as Map<String, dynamic>;
-        expect(cachedJson['payload'], isNotNull);
-      },
-    );
-  });
-
-  group('OfflineTransport read path:', () {
-    setUp(() {
-      when(() => mockConnectivityService.isOnline).thenReturn(true);
-    });
-
-    test('skips corrupt cached lines and still sends valid ones when '
-        'back online', () async {
-      final validLine = jsonEncode(<String, dynamic>{
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'payload': buildEventPayloadJson(),
-      });
-      final corruptLines = [
-        // Not JSON at all.
-        'not-json-at-all',
-        // Valid JSON but the payload cannot be parsed.
-        jsonEncode(<String, dynamic>{
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'payload': 'garbage',
-        }),
-        // Valid JSON but the timestamp has the wrong type.
-        jsonEncode(<String, dynamic>{
-          'timestamp': 'not-an-int',
-          'payload': buildEventPayloadJson(),
-        }),
-      ];
-      await cacheFile().writeAsString(
-        '${corruptLines.join('\n')}\n$validLine\n',
-      );
-
-      final mockTransport = MockFaroTransport();
-      when(
-        () => mockTransport.sendHistoricalAcknowledged(any()),
-      ).thenAnswer((_) async => true);
-      Faro().transports = [mockTransport];
-
-      createTransport();
-      connectivityController.add(true);
-
-      await untilCalled(() => mockTransport.sendHistoricalAcknowledged(any()));
-      verify(() => mockTransport.sendHistoricalAcknowledged(any())).called(1);
-
-      // Wait for the cache file rewrite: all corrupt lines are dropped
-      // and the successfully sent line is removed.
-      const maxAttempts = 100;
-      var attempts = 0;
-      while (cacheFile().readAsStringSync().isNotEmpty &&
-          attempts < maxAttempts) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        attempts++;
-      }
-      expect(cacheFile().readAsStringSync(), isEmpty);
-    });
-
-    test('retains valid lines whose send fails and still drops corrupt '
-        'lines', () async {
-      final validLine = jsonEncode(<String, dynamic>{
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'payload': buildEventPayloadJson(),
-      });
-      // A corrupt line must be dropped regardless of send outcome.
-      const corruptLine = 'not-json-at-all';
-      await cacheFile().writeAsString('$corruptLine\n$validLine\n');
-
-      final mockTransport = MockFaroTransport();
-      when(
-        () => mockTransport.sendHistoricalAcknowledged(any()),
-      ).thenAnswer((_) async => throw Exception('network failure'));
-      Faro().transports = [mockTransport];
-
-      createTransport();
-      connectivityController.add(true);
-
-      await untilCalled(() => mockTransport.sendHistoricalAcknowledged(any()));
-
-      // The failed-but-valid line is written back; the corrupt line is gone.
-      const maxAttempts = 100;
-      var attempts = 0;
-      while (cacheFile().readAsStringSync() != '$validLine\n' &&
-          attempts < maxAttempts) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        attempts++;
-      }
-      expect(cacheFile().readAsStringSync(), '$validLine\n');
-    });
-
-    for (final status in [401, 429, 500, 503]) {
-      test('retains payload after HTTP $status', () async {
-        var requests = 0;
-        Faro().transports = [
-          collector((_) async {
-            requests++;
-            return http.Response('rejected', status);
+        final held = Completer<http.Response>();
+        var attempts = 0;
+        final transport = outbox(
+          destination: collector((_) {
+            attempts++;
+            return attempts == 1
+                ? held.future
+                : Future.value(http.Response('', 202));
           }),
-        ];
-        final line = cachedLine(buildEventPayloadJson());
+        );
+        try {
+          await transport.send(payload(session: 'first'));
+          await waitUntil(() => requests.isNotEmpty);
+          await transport
+              .send(payload(session: 'second'))
+              .timeout(const Duration(seconds: 2));
+          expect(
+            await (await transport.storeForTesting).pending(),
+            hasLength(2),
+          );
+        } finally {
+          held.complete(http.Response('', 202));
+        }
+        await transport.replayCachedData();
+        expect(requests, hasLength(2));
+      },
+    );
 
-        await replay([line], '$line\n');
+    test('opt-out during delivery cannot resurrect an old batch', () async {
+      final held = Completer<http.Response>();
+      var attempts = 0;
+      final transport = outbox(
+        destination: collector((_) {
+          attempts++;
+          return attempts == 1
+              ? held.future
+              : Future.value(http.Response('', 202));
+        }),
+      );
+      try {
+        await transport.send(payload(session: 'discard-me'));
+        await waitUntil(() => requests.isNotEmpty);
+        final policy = MockDataCollectionPolicy();
+        var enabled = false;
+        when(() => policy.isEnabled).thenAnswer((_) => enabled);
+        Faro().dataCollectionPolicy = policy;
+        await transport.discardCachedData();
+        enabled = true;
+        await transport.send(payload(session: 'keep-me'));
+      } finally {
+        held.complete(http.Response('', 503));
+      }
+      await transport.replayCachedData();
+      expect(requests, hasLength(2));
+      expect(jsonDecode(requests.last.body), payload(session: 'keep-me'));
+      expect(await (await transport.storeForTesting).pending(), isEmpty);
+    });
 
-        expect(requests, 1);
+    test('persists online payload before collector delivery', () async {
+      final response = Completer<http.Response>();
+      final transport = outbox(destination: collector((_) => response.future));
+      try {
+        await transport.send(payload());
+        final store = await transport.storeForTesting;
+        await waitUntil(() => requests.isNotEmpty);
+        expect(await store.pending(), hasLength(1));
+        response.complete(http.Response('unavailable', 503));
+        await transport.replayCachedData();
+        expect(await store.pending(), hasLength(1));
+      } finally {
+        if (!response.isCompleted) response.complete(http.Response('', 503));
+      }
+    });
+
+    test('snapshots nested payloads before awaiting storage', () async {
+      final transport = outbox();
+      final original = payload();
+      final handoff = transport.send(original);
+      (original['meta'] as Map<String, dynamic>)['session'] = {'id': 'changed'};
+      await handoff;
+      final store = await transport.storeForTesting;
+      final entries = await store.pending();
+      expect(await entries.single.readPayload(), payload());
+    });
+
+    test('connectivity is only a hint and cannot prevent delivery', () async {
+      when(() => connectivity.isOnline).thenReturn(false);
+      final transport = outbox(
+        destination: collector((_) async => http.Response('', 202)),
+      );
+      await transport.send(payload());
+      await transport.replayCachedData();
+      expect(requests, hasLength(1));
+      expect(await (await transport.storeForTesting).pending(), isEmpty);
+    });
+
+    for (final status in [200, 202, 204, 400, 401, 403, 413, 422]) {
+      test('removes terminal HTTP $status', () async {
+        final transport = outbox(
+          destination: collector((_) async => http.Response('', status)),
+        );
+        await transport.send(payload());
+        await transport.replayCachedData();
+        expect(requests, hasLength(1));
+        expect(await (await transport.storeForTesting).pending(), isEmpty);
       });
     }
 
-    test('retains payload after a network failure', () async {
-      var requests = 0;
-      Faro().transports = [
-        collector((_) async {
-          requests++;
-          throw http.ClientException('collector unavailable');
-        }),
-      ];
-      final line = cachedLine(buildEventPayloadJson());
-
-      await replay([line], '$line\n');
-
-      expect(requests, 1);
-    });
-
-    test('retains payload when the task buffer rejects it', () async {
-      var requests = 0;
-      Faro().transports = [
-        collector((_) async {
-          requests++;
-          return http.Response('', 200);
-        }, maxBufferLimit: 0),
-      ];
-      final line = cachedLine(buildEventPayloadJson());
-
-      await replay([line], '$line\n');
-
-      expect(requests, 0);
-    });
-
-    test('discards payload while data collection is disabled', () async {
-      final policy = MockDataCollectionPolicy();
-      when(() => policy.isEnabled).thenReturn(false);
-      Faro().dataCollectionPolicy = policy;
-      var requests = 0;
-      Faro().transports = [
-        collector((_) async {
-          requests++;
-          return http.Response('', 200);
-        }),
-      ];
-      final line = cachedLine(buildEventPayloadJson());
-
-      final transport = await replay([line], '');
-
-      when(() => policy.isEnabled).thenReturn(true);
-      await transport.replayCachedData();
-
-      expect(requests, 0);
-      expect(cacheFile().readAsStringSync(), isEmpty);
-    });
-
-    test('discards opted-out payload without a collector', () async {
-      final policy = MockDataCollectionPolicy();
-      when(() => policy.isEnabled).thenReturn(false);
-      Faro().dataCollectionPolicy = policy;
-      Faro().transports = [];
-
-      await replay([cachedLine(buildEventPayloadJson())], '');
-    });
-
-    test(
-      'discards the whole cache if collection stops during replay',
-      () async {
-        final policy = MockDataCollectionPolicy();
-        when(() => policy.isEnabled).thenReturn(true);
-        Faro().dataCollectionPolicy = policy;
-        final response = Completer<http.Response>();
-        final requested = Completer<void>();
-        var requests = 0;
-        Faro().transports = [
-          collector((_) async {
-            requests++;
-            if (requests == 1) return http.Response('', 503);
-            requested.complete();
-            return response.future;
-          }),
-        ];
-        final line = cachedLine(buildEventPayloadJson());
-        await cacheFile().writeAsString('$line\n$line\n$line\n');
-        final transport = createTransport();
-        final replaying = transport.replayCachedData();
-        try {
-          await requested.future.timeout(const Duration(seconds: 2));
-          when(() => policy.isEnabled).thenReturn(false);
-          when(() => mockConnectivityService.isOnline).thenReturn(false);
-          final queuedWrite = transport.send(buildEventPayloadJson());
-          response.complete(http.Response('', 503));
-          await replaying;
-          await queuedWrite;
-          expect(cacheFile().readAsStringSync(), isEmpty);
-
-          when(() => policy.isEnabled).thenReturn(true);
-          when(() => mockConnectivityService.isOnline).thenReturn(true);
-          await transport.replayCachedData();
-          expect(requests, 2);
-        } finally {
-          if (!response.isCompleted) response.complete(http.Response('', 503));
-          await replaying;
-        }
-      },
-    );
-
-    test('serializes overlapping replays and a queued write', () async {
-      final response = Completer<http.Response>();
-      final requested = Completer<void>();
-      final names = <String>[];
-      Faro().transports = [
-        collector((request) async {
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          names.add(body['events'][0]['attributes']['key'] as String);
-          if (names.length == 1) {
-            requested.complete();
-            return response.future;
-          }
-          return http.Response('', 200);
-        }),
-      ];
-      final line = cachedLine(buildEventPayloadJson());
-      await cacheFile().writeAsString('$line\n');
-      final transport = createTransport();
-      final first = transport.replayCachedData();
-      try {
-        await requested.future.timeout(const Duration(seconds: 2));
-        final second = transport.replayCachedData();
-        when(() => mockConnectivityService.isOnline).thenReturn(false);
-        final write = transport.send(
-          buildEventPayloadJson(attributes: {'key': 'queued'}),
-        );
-        when(() => mockConnectivityService.isOnline).thenReturn(true);
-        final third = transport.replayCachedData();
-        response.complete(http.Response('', 200));
-        await Future.wait([
-          first,
-          second,
-          write,
-          third,
-        ]).timeout(const Duration(seconds: 2));
-        expect(names, ['value', 'queued']);
-        expect(cacheFile().readAsStringSync(), isEmpty);
-      } finally {
-        if (!response.isCompleted) response.complete(http.Response('', 200));
-        await first;
-      }
-    });
-
-    test('releases the file lock after a failed cache lookup', () async {
-      final line = cachedLine(buildEventPayloadJson());
-      await cacheFile().writeAsString('$line\n');
-      var attempts = 0;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(pathProviderChannel, (_) async {
-            if (attempts++ == 0) throw PlatformException(code: 'unavailable');
-            return tempDir.path;
-          });
-      var requests = 0;
-      Faro().transports = [
-        collector((_) async {
-          requests++;
-          return http.Response('', 200);
-        }),
-      ];
-      final transport = createTransport();
-
-      await expectLater(transport.replayCachedData(), completes);
-      expect(cacheFile().readAsStringSync(), '$line\n');
-      await transport.replayCachedData().timeout(const Duration(seconds: 2));
-
-      expect(requests, 1);
-      expect(cacheFile().readAsStringSync(), isEmpty);
-    });
-
-    test('retains payload without a collector transport', () async {
-      Faro().transports = [];
-      final line = cachedLine(buildEventPayloadJson());
-
-      await replay([line], '$line\n');
-    });
-
-    test(
-      'does not treat a custom transport as a collector acknowledgement',
-      () async {
-        final customTransport = MockTransport();
-        when(() => customTransport.send(any())).thenAnswer((_) async {});
-        Faro().transports = [customTransport];
-        final line = cachedLine(buildEventPayloadJson());
-
-        await replay([line], '$line\n');
-
-        verifyNever(() => customTransport.send(any()));
-      },
-    );
-
-    test(
-      'uses only the first collector, not other replay destinations',
-      () async {
-        final customTransport = MockTransport();
-        final firstCollector = MockFaroTransport();
-        final secondCollector = MockFaroTransport();
-        when(
-          () => firstCollector.sendHistoricalAcknowledged(any()),
-        ).thenAnswer((_) async => false);
-        Faro().transports = [customTransport, firstCollector, secondCollector];
-        final line = cachedLine(buildEventPayloadJson());
-
-        await replay([line], '$line\n');
-
-        verify(
-          () => firstCollector.sendHistoricalAcknowledged(any()),
-        ).called(1);
-        verifyZeroInteractions(customTransport);
-        verifyZeroInteractions(secondCollector);
-      },
-    );
-
-    test('keeps the cache until the collector responds', () async {
-      final response = Completer<http.Response>();
-      final requested = Completer<void>();
-      Faro().transports = [
-        collector((_) {
-          requested.complete();
-          return response.future;
-        }),
-      ];
-      final line = cachedLine(buildEventPayloadJson());
-      await cacheFile().writeAsString('$line\n');
-      createTransport();
-      connectivityController.add(true);
-
-      try {
-        await requested.future.timeout(const Duration(seconds: 2));
-        expect(cacheFile().readAsStringSync(), '$line\n');
-      } finally {
-        response.complete(http.Response('', 200));
-        await waitForCache('');
-      }
-    });
-
-    test('still discards expired entries when delivery fails', () async {
-      var requests = 0;
-      Faro().transports = [
-        collector((_) async {
-          requests++;
-          return http.Response('', 503);
-        }),
-      ];
-      final expired = jsonEncode({
-        'timestamp': DateTime.now()
-            .subtract(const Duration(days: 2))
-            .millisecondsSinceEpoch,
-        'payload': buildEventPayloadJson(),
-      });
-      final valid = cachedLine(buildEventPayloadJson());
-      await cacheFile().writeAsString('$expired\n$valid\n');
-      createTransport(maxCacheDuration: const Duration(days: 1));
-
-      connectivityController.add(true);
-      await waitForCache('$valid\n');
-
-      expect(requests, 1);
-    });
-
-    for (final status in [200, 202, 204]) {
+    for (final status in [408, 429, 500, 503]) {
       test(
-        'removes payload after HTTP $status without invalidating the session',
+        'retains retryable HTTP $status without overlapping replays',
         () async {
-          final requests = <http.Request>[];
-          final invalidated = <String>[];
-          final transport = collector((request) async {
-            requests.add(request);
-            return http.Response(
-              '',
-              status,
-              headers: {'x-faro-session-status': 'invalid'},
-            );
-          })..sessionInvalidatedHandler = invalidated.add;
-          Faro().transports = [transport];
-          final payload = buildEventPayloadJson()
-            ..['meta'] = {
-              'session': {'id': 'cached-session'},
-            };
-
-          await replay([cachedLine(payload)], '');
-
+          final transport = outbox(
+            destination: collector((_) async => http.Response('', status)),
+          );
+          await transport.send(payload());
+          await Future.wait(
+            List.generate(5, (_) => transport.replayCachedData()),
+          );
           expect(requests, hasLength(1));
-          final body = jsonDecode(requests.single.body) as Map<String, dynamic>;
-          expect(body['meta']['session']['id'], 'cached-session');
-          expect(requests.single.headers['x-faro-session-id'], 'live-session');
-          expect(invalidated, isEmpty);
+          expect(
+            await (await transport.storeForTesting).pending(),
+            hasLength(1),
+          );
         },
       );
     }
 
+    test('retains network failures', () async {
+      final transport = outbox(
+        destination: collector((_) async {
+          throw http.ClientException('unavailable');
+        }),
+      );
+      await transport.send(payload());
+      await transport.replayCachedData();
+      expect(await (await transport.storeForTesting).pending(), hasLength(1));
+    });
+
+    test('retains payloads rejected by a full task buffer', () async {
+      final transport = outbox(
+        destination: collector(
+          (_) async => http.Response('', 202),
+          maxBufferLimit: 0,
+        ),
+      );
+      await transport.send(payload());
+      await transport.replayCachedData();
+      expect(requests, isEmpty);
+      expect(await (await transport.storeForTesting).pending(), hasLength(1));
+    });
+
+    test('timer retries without any connectivity transition', () async {
+      final delivered = Completer<void>();
+      var attempts = 0;
+      final transport = outbox(
+        initialRetryDelay: const Duration(milliseconds: 30),
+        maxRetryDelay: const Duration(milliseconds: 30),
+        destination: collector((_) async {
+          attempts++;
+          if (attempts == 1) return http.Response('', 503);
+          if (!delivered.isCompleted) delivered.complete();
+          return http.Response('', 202);
+        }),
+      );
+      await transport.send(payload());
+      await delivered.future.timeout(const Duration(seconds: 5));
+      await transport.replayCachedData();
+      expect(attempts, 2);
+      expect(await (await transport.storeForTesting).pending(), isEmpty);
+    });
+
+    test('new batches and reconnects respect persisted Retry-After', () async {
+      final destination = collector(
+        (_) async => http.Response('', 429, headers: {'Retry-After': '120'}),
+      );
+      final first = outbox(destination: destination);
+      await first.send(payload());
+      await first.replayCachedData();
+      await first.dispose();
+      final restarted = outbox(destination: destination);
+      await restarted.send(payload());
+      changes.add(true);
+      await restarted.replayCachedData();
+      expect(requests, hasLength(1));
+      expect(await (await restarted.storeForTesting).pending(), hasLength(2));
+      final retry = await (await restarted.storeForTesting).readRetryState();
+      expect(
+        retry.retryAt?.isAfter(
+          DateTime.now().add(const Duration(seconds: 110)),
+        ),
+        isTrue,
+      );
+    });
+
+    test('startup sends the saved copy after interrupted delivery', () async {
+      final held = Completer<http.Response>();
+      final first = outbox(destination: collector((_) => held.future));
+      await first.send(payload());
+      await waitUntil(() => requests.isNotEmpty);
+      final stopping = first.dispose();
+      held.complete(http.Response('', 503));
+      await stopping;
+      final restarted = outbox(
+        destination: collector((_) async => http.Response('', 202)),
+      );
+      await restarted.replayCachedData();
+      expect(requests, hasLength(2));
+      expect(jsonDecode(requests.last.body), payload());
+      expect(await (await restarted.storeForTesting).pending(), isEmpty);
+    });
+
     test(
-      'keeps only failed payloads and retries them on the next reconnect',
+      'bounded request timeout releases delivery for later retries',
       () async {
-        final names = <String>[];
-        Faro().transports = [
-          collector((request) async {
-            final body = jsonDecode(request.body) as Map<String, dynamic>;
-            names.add(body['events'][0]['attributes']['key'] as String);
-            return http.Response('', names.length == 1 ? 503 : 200);
-          }),
-        ];
-        final failed = cachedLine(buildEventPayloadJson());
-        final accepted = cachedLine(
-          buildEventPayloadJson(attributes: {'key': 'accepted'}),
+        final held = Completer<http.Response>();
+        final transport = outbox(
+          destination: collector((_) => held.future),
+          requestTimeout: const Duration(milliseconds: 20),
         );
+        await transport.send(payload());
+        await transport.replayCachedData();
+        expect(await (await transport.storeForTesting).pending(), hasLength(1));
+        held.complete(http.Response('', 202));
+      },
+    );
 
-        await replay([failed, accepted], '$failed\n');
-        expect(names, ['value', 'accepted']);
+    test('historical replay does not invalidate the current session', () async {
+      final invalidated = <String>[];
+      final destination = collector(
+        (_) async => http.Response(
+          '',
+          202,
+          headers: {'x-faro-session-status': 'invalid'},
+        ),
+      );
+      destination.sessionInvalidatedHandler = invalidated.add;
+      final transport = outbox(destination: destination);
+      Faro().meta.session = Session('new-session');
+      await transport.send(payload(session: 'old-session'));
+      await transport.replayCachedData();
+      expect(invalidated, isEmpty);
+      expect(jsonDecode(requests.single.body), payload(session: 'old-session'));
+    });
 
-        connectivityController.add(false);
-        connectivityController.add(true);
-        await waitForCache('');
+    test(
+      'a fresh live batch still processes receiver session invalidation',
+      () async {
+        final invalidated = <String>[];
+        final destination = collector(
+          (_) async => http.Response(
+            '',
+            202,
+            headers: {'x-faro-session-status': 'invalid'},
+          ),
+        );
+        destination.sessionInvalidatedHandler = invalidated.add;
+        final transport = outbox(destination: destination);
+        Faro().meta.session = Session('live-session');
+        await transport.send(payload(session: 'live-session'));
+        await transport.replayCachedData();
+        expect(invalidated, ['live-session']);
+      },
+    );
 
-        expect(names, ['value', 'accepted', 'value']);
+    test('disabled collection purges cache without delivering it', () async {
+      final transport = outbox();
+      await transport.send(payload());
+      final policy = MockDataCollectionPolicy();
+      when(() => policy.isEnabled).thenReturn(false);
+      Faro().dataCollectionPolicy = policy;
+      transport.collector = collector((_) async => http.Response('', 202));
+      await transport.replayCachedData();
+      expect(requests, isEmpty);
+      expect(await (await transport.storeForTesting).pending(), isEmpty);
+    });
+
+    test(
+      'serialization failure does not acknowledge durable handoff',
+      () async {
+        final transport = outbox();
+        await expectLater(
+          transport.send({'invalid': DateTime.now()}),
+          throwsA(isA<JsonUnsupportedObjectError>()),
+        );
+        expect(await (await transport.storeForTesting).pending(), isEmpty);
+      },
+    );
+
+    test(
+      'batching routes only the primary collector through the outbox',
+      () async {
+        final primary = collector((_) async => http.Response('', 202));
+        var secondaryRequests = 0;
+        final secondary = collector((_) async {
+          secondaryRequests++;
+          return http.Response('', 202);
+        });
+        final transport = outbox(destination: primary);
+        final custom = _RecordingTransport();
+        final batch = BatchTransport(
+          payload: Payload(Meta()),
+          batchConfig: BatchConfig(enabled: false),
+          transports: [primary, custom, transport, secondary],
+        );
+        final data = Payload(Meta())..events.add(Event('test'));
+        await batch.flush(data);
+        await transport.replayCachedData();
+        expect(requests, hasLength(2));
+        expect(secondaryRequests, 1);
+        expect(custom.payloads, hasLength(1));
+        await transport.replayCachedData();
+        expect(custom.payloads, hasLength(1));
+        batch.dispose();
       },
     );
   });
