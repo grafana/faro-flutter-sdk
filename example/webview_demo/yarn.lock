@@ -278,32 +278,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@grafana/faro-core@npm:^2.13.0":
-  version: 2.13.0
-  resolution: "@grafana/faro-core@npm:2.13.0"
+"@grafana/faro-core@npm:^2.14.0":
+  version: 2.14.0
+  resolution: "@grafana/faro-core@npm:2.14.0"
   dependencies:
     "@opentelemetry/api": "npm:^1.9.0"
     "@opentelemetry/otlp-transformer": "npm:^0.223.0"
-  checksum: 10c0/b9a69e3f89f708a6133d4a6bb4f38a96f9a63a0e59a2cf913d3a8a3c60592f9332955da138b12e983cd67cf4224f3e8966032748bfe92c36d79a83dda160083f
+  checksum: 10c0/34fd3d209ae88f5601bc39fffa0ef3e41ee795ccaff05de420985ce08b3a72361b176065c8477f41b2bead0fb7991725683121ac8d335d221f60a2591c10ef02
   languageName: node
   linkType: hard
 
-"@grafana/faro-web-sdk@npm:^2.13.0, @grafana/faro-web-sdk@npm:^2.2.4":
-  version: 2.13.0
-  resolution: "@grafana/faro-web-sdk@npm:2.13.0"
+"@grafana/faro-web-sdk@npm:^2.14.0, @grafana/faro-web-sdk@npm:^2.2.4":
+  version: 2.14.0
+  resolution: "@grafana/faro-web-sdk@npm:2.14.0"
   dependencies:
-    "@grafana/faro-core": "npm:^2.13.0"
+    "@grafana/faro-core": "npm:^2.14.0"
     ua-parser-js: "npm:1.0.41"
     web-vitals: "npm:^6.0.0"
-  checksum: 10c0/60419e9bfcb52ed1c493575ec9bfb12d49ee96287d34a1e3058fb1663fb333efea74cc1aded6fc204098756c802258a2f1d5848c3ed1d5891f68eaf4f1097313
+  checksum: 10c0/84f52f0124b90addf7959a9e8fdb3232005c1aea154adae97afbce3427676e57d37bff4818aded4c9d3637a480943863b0c10b778943121484a1665ba45eb3a9
   languageName: node
   linkType: hard
 
 "@grafana/faro-web-tracing@npm:^2.2.4":
-  version: 2.13.0
-  resolution: "@grafana/faro-web-tracing@npm:2.13.0"
+  version: 2.14.0
+  resolution: "@grafana/faro-web-tracing@npm:2.14.0"
   dependencies:
-    "@grafana/faro-web-sdk": "npm:^2.13.0"
+    "@grafana/faro-web-sdk": "npm:^2.14.0"
     "@opentelemetry/api": "npm:^1.9.0"
     "@opentelemetry/core": "npm:^2.0.0"
     "@opentelemetry/exporter-trace-otlp-http": "npm:^0.223.0"
@@ -314,7 +314,7 @@ __metadata:
     "@opentelemetry/resources": "npm:^2.0.0"
     "@opentelemetry/sdk-trace-web": "npm:^2.0.0"
     "@opentelemetry/semantic-conventions": "npm:^1.32.0"
-  checksum: 10c0/9c4d97c9b2d7df9ba0307b3a638b7f6acc2063be19cbace885d6e421222fad37a02b7563a23707e668996552849d1b4fdb6472e0da4e0f377dc38b35eed60b6a
+  checksum: 10c0/4683820af3426c41612ddbe3d511d8471d95e40e327507bbffe1dea0d87fab684a85fc771581db32764002b2e13820ac8f4ebf21b393cffe4a5c0a443550bed7
   languageName: node
   linkType: hard
 
@@ -794,15 +794,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vitejs/plugin-react@npm:6.1.2":
-  version: 6.1.2
-  resolution: "@vitejs/plugin-react@npm:6.1.2"
+"@vitejs/plugin-react@npm:6.3.0":
+  version: 6.3.0
+  resolution: "@vitejs/plugin-react@npm:6.3.0"
   dependencies:
     "@rolldown/pluginutils": "npm:^1.0.1"
   peerDependencies:
-    "@rolldown/plugin-babel": ^0.1.7 || ^0.2.0
+    "@rolldown/plugin-babel": ^0.1.7 || ^0.2.0 || ^0.3.0
     babel-plugin-react-compiler: ^1.0.0
-    oxc-transform-react: ^0.152.0
+    oxc-transform-react: ">=0.152.0 <0.157.0"
     vite: ^8.0.0
   peerDependenciesMeta:
     "@rolldown/plugin-babel":
@@ -811,7 +811,7 @@ __metadata:
       optional: true
     oxc-transform-react:
       optional: true
-  checksum: 10c0/5c49e9098455e40662c60e7e3daf81088f8f3dc94dbd55746c310fc08a47962321c432dab202d5c240c91bf951c6a62ea64784b183e7ed47e6f9378d6e00e565
+  checksum: 10c0/4a938ca2deda70f25738ae6c2397f03b22a0690205f1a519b84fb175542912d4a9db2343b5505c113bf5c7ab5975a504f8ff75a817f1c6716db0e12338289dbc
   languageName: node
   linkType: hard
 
@@ -1262,10 +1262,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globals@npm:17.13.0":
-  version: 17.13.0
-  resolution: "globals@npm:17.13.0"
-  checksum: 10c0/8371d9e4e5581640141b5cce70a098edd765d2e3ab063b14998e590698071e0afb4a4a6739ccfbdcbdeb2565c5553697ba07d95703c51039912cf341a7dba7a7
+"globals@npm:17.14.0":
+  version: 17.14.0
+  resolution: "globals@npm:17.14.0"
+  checksum: 10c0/422d17c24e87170d4aa566b97a53339ae451c2f4d78512594a7ca951cdb939bc4a85c10071e6dcf77ca63de48713a77f2e71eb9214e44880233dff2090e92731
   languageName: node
   linkType: hard
 
@@ -2039,11 +2039,11 @@ __metadata:
     "@opentelemetry/api": "npm:^1.9.0"
     "@types/react": "npm:19.3.0"
     "@types/react-dom": "npm:19.3.0"
-    "@vitejs/plugin-react": "npm:6.1.2"
+    "@vitejs/plugin-react": "npm:6.3.0"
     eslint: "npm:10.14.0"
     eslint-plugin-react-hooks: "npm:7.1.1"
     eslint-plugin-react-refresh: "npm:0.5.7"
-    globals: "npm:17.13.0"
+    globals: "npm:17.14.0"
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
     vite: "npm:8.3.5"
