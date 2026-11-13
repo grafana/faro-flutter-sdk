@@ -3,6 +3,38 @@ import 'dart:io';
 
 import 'package:faro/src/offline_transport/outbox_store.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockFile extends Mock implements File {}
+
+class _MockDirectory extends Mock implements Directory {}
+
+final class _FailingWrites extends IOOverrides {
+  _FailingWrites(this.stage);
+
+  final String stage;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    if (!path.endsWith('.batch.json.tmp')) return file;
+    final failing = _MockFile();
+    when(() => failing.writeAsString(any(), flush: true)).thenAnswer((call) {
+      if (stage == 'write') {
+        throw FileSystemException('Injected write failure', path);
+      }
+      return file.writeAsString(
+        call.positionalArguments.single as String,
+        flush: true,
+      );
+    });
+    when(
+      () => failing.rename(any()),
+    ).thenThrow(FileSystemException('Injected rename failure', path));
+    when(failing.delete).thenAnswer((_) => file.delete());
+    return failing;
+  }
+}
 
 void main() {
   late Directory root;
@@ -26,6 +58,70 @@ void main() {
   }
 
   group('OutboxStore:', () {
+    for (final (limit, stage) in [
+      ('count', 'write'),
+      ('count', 'rename'),
+      ('bytes', 'write'),
+      ('bytes', 'rename'),
+    ]) {
+      test('failed $stage preserves batches at the $limit cap', () async {
+        final cache = store(
+          count: limit == 'count' ? 1 : 1000,
+          bytes: limit == 'bytes' ? 100 : 100000,
+        );
+        final original = await cache.enqueue('{"id":1}');
+        now = now.add(const Duration(seconds: 1));
+        await IOOverrides.runWithIOOverrides(() async {
+          await expectLater(
+            cache.enqueue('{"id":2}'),
+            throwsA(isA<FileSystemException>()),
+          );
+        }, _FailingWrites(stage));
+        expect(original?.file.existsSync(), isTrue);
+        final retained = await store().pending();
+        expect(await retained.single.readPayload(), {'id': 1});
+        await cache.enqueue('{"id":3}');
+        expect(await (await cache.pending()).single.readPayload(), {'id': 3});
+      });
+    }
+
+    test('unreadable startup file does not block valid batches', () async {
+      final cache = store();
+      final first = await cache.enqueue('{"id":1}');
+      now = now.add(const Duration(seconds: 1));
+      final second = await cache.enqueue('{"id":2}');
+      if (first == null || second == null) fail('Expected two saved batches.');
+      final unreadable = _MockFile();
+      when(() => unreadable.path).thenReturn(first.file.path);
+      when(unreadable.length).thenAnswer((_) => first.file.length());
+      var blocked = true;
+      when(unreadable.readAsString).thenAnswer((_) {
+        if (blocked) throw const FileSystemException('Injected read failure');
+        return first.file.readAsString();
+      });
+      final directory = _MockDirectory();
+      when(() => directory.path).thenReturn(cache.directory.path);
+      when(
+        () => directory.create(recursive: true),
+      ).thenAnswer((_) async => cache.directory);
+      when(
+        () => directory.list(followLinks: false),
+      ).thenAnswer((_) => Stream.fromIterable([unreadable, second.file]));
+      final recovered = OutboxStore(
+        directory: directory,
+        maxCount: 1000,
+        maxBytes: 100000,
+        maxAge: const Duration(days: 3),
+        clock: () => now,
+      );
+      expect(await (await recovered.pending()).single.readPayload(), {'id': 2});
+      expect(recovered.hasUnreadableFiles, isTrue);
+      expect(first.file.existsSync(), isTrue);
+      blocked = false;
+      expect(await recovered.pending(), hasLength(2));
+      expect(recovered.hasUnreadableFiles, isFalse);
+    });
+
     test(
       'an interrupted legacy import does not duplicate committed entries',
       () async {

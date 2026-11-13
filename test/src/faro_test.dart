@@ -1151,6 +1151,44 @@ void main() {
       expect(capturedException.fatal, isTrue);
     });
 
+    for (final handoff in ['saved', 'failed', 'disabled', 'no collector']) {
+      test('Android recovered crash with outbox handoff $handoff', () async {
+        final outbox = MockOfflineTransport();
+        when(() => outbox.send(any())).thenAnswer((_) async {
+          if (handoff == 'saved') return;
+          if (handoff == 'disabled') {
+            when(() => mockDataCollectionPolicy.isEnabled).thenReturn(false);
+          }
+          throw const FileSystemException('Injected storage failure');
+        });
+        Faro().dataCollectionPolicy = mockDataCollectionPolicy;
+        Faro().transports = [
+          outbox,
+          if (handoff != 'no collector') mockFaroTransport,
+          mockBaseTransport,
+        ];
+        await Faro().reportAndroidCrashesForTesting([
+          jsonEncode({
+            'reason': 'CRASH',
+            'timestamp': '1749080960296',
+            'trace': 'original trace',
+          }),
+        ]);
+        verify(() => outbox.send(any())).called(1);
+        verify(() => mockBaseTransport.send(any())).called(1);
+        if (handoff == 'failed') {
+          expect(
+            recoveredException()['context']['stacktrace'],
+            'original trace',
+          );
+        } else {
+          verifyNever(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          );
+        }
+      });
+    }
+
     test('native Android crash forwards the captured trace', () async {
       const nativeTrace = '''
 java.lang.NullPointerException: test crash

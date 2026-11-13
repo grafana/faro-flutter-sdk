@@ -22,6 +22,30 @@ class MockInternetConnectivityService extends Mock
 
 class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
 
+final class _ReadFailures extends IOOverrides {
+  bool blocked = false;
+  String? blockedPath;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    if (!path.endsWith('.batch.json')) return file;
+    final wrapped = _MockFile();
+    when(() => wrapped.path).thenReturn(path);
+    when(() => wrapped.uri).thenReturn(file.uri);
+    when(wrapped.delete).thenAnswer((_) => file.delete());
+    when(wrapped.readAsString).thenAnswer((_) {
+      if (blocked && path == blockedPath) {
+        throw const FileSystemException('Injected read failure');
+      }
+      return file.readAsString();
+    });
+    return wrapped;
+  }
+}
+
+class _MockFile extends Mock implements File {}
+
 class _TrackedOutbox extends OfflineTransport {
   _TrackedOutbox({required super.internetConnectivityService})
     : super(maxCacheCount: 1);
@@ -133,6 +157,29 @@ void main() {
   }
 
   group('OfflineTransport outbox:', () {
+    test('an unreadable oldest file does not stall later delivery', () async {
+      final faults = _ReadFailures();
+      await IOOverrides.runWithIOOverrides(() async {
+        final transport = outbox();
+        await transport.send(payload(session: 'unreadable'));
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        await transport.send(payload(session: 'readable'));
+        await transport.replayCachedData();
+        final store = await transport.storeForTesting;
+        faults.blockedPath = (await store.pending()).first.file.path;
+        faults.blocked = true;
+        transport.collector = collector((_) async => http.Response('', 202));
+        await transport.replayCachedData();
+        expect(requests, hasLength(1));
+        expect(jsonDecode(requests.single.body), payload(session: 'readable'));
+        expect(await store.pending(), hasLength(1));
+        faults.blocked = false;
+        await transport.replayCachedData();
+        expect(requests, hasLength(2));
+        expect(await store.pending(), isEmpty);
+      }, faults);
+    });
+
     test('an unbound extra outbox cannot prune the primary cache', () async {
       final primary = outbox(
         destination: collector((_) async => http.Response('', 503)),
