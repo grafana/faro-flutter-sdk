@@ -110,7 +110,7 @@ class OfflineTransport extends BaseTransport {
   }
 
   /// Persists a snapshot and completes after durable handoff, before delivery.
-  /// Failed handoffs throw so crash recovery can retain its native copy.
+  /// Failed handoffs throw so callers can distinguish them from saved batches.
   @override
   Future<void> send(Map<String, dynamic> payloadJson) async {
     if (_disposed || !Faro().enableDataCollection) return;
