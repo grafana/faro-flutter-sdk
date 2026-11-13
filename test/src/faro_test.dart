@@ -18,6 +18,7 @@ import 'package:faro/src/session/session_persistence.dart';
 import 'package:faro/src/tracing/faro_span_context.dart';
 import 'package:faro/src/tracing/span.dart';
 import 'package:faro/src/transport/batch_transport.dart';
+import 'package:faro/src/transport/delivery_result.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/faro_transport.dart';
 import 'package:faro/src/util/constants.dart';
@@ -34,7 +35,12 @@ class MockBatchTransport extends Mock implements BatchTransport {}
 
 class MockBaseTransport extends Mock implements BaseTransport {}
 
-class MockOfflineTransport extends Mock implements OfflineTransport {}
+class MockOfflineTransport extends Mock implements OfflineTransport {
+  MockOfflineTransport() {
+    when(dispose).thenAnswer((_) async {});
+    when(discardCachedData).thenAnswer((_) async {});
+  }
+}
 
 class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
@@ -207,6 +213,17 @@ void main() {
       },
     );
 
+    test('reset disposes every configured outbox', () async {
+      final first = MockOfflineTransport();
+      final second = MockOfflineTransport();
+      Faro().transports = [first, second];
+
+      await Faro.resetForTesting();
+
+      verify(first.dispose).called(1);
+      verify(second.dispose).called(1);
+    });
+
     test('init called with no error', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
       SharedPreferences.setMockInitialValues({
@@ -250,17 +267,8 @@ void main() {
       late Directory directory;
       late StreamController<bool> connectivity;
       late MockInternetConnectivityService service;
+      late _TrackedOfflineTransport outbox;
       late List<Future<void>> pendingReplays;
-
-      File cacheFile() => File('${directory.path}/rum_log.json');
-
-      Future<void> waitForCache(String expected) async {
-        for (var attempt = 0; attempt < 100; attempt++) {
-          if (cacheFile().readAsStringSync() == expected) return;
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
-        expect(cacheFile().readAsStringSync(), expected);
-      }
 
       Future<void> initialize() => Faro().init(
         optionsConfiguration: FaroConfig(
@@ -285,133 +293,131 @@ void main() {
         when(
           () => service.onConnectivityChanged,
         ).thenAnswer((_) => connectivity.stream.distinct());
+        when(
+          () => mockFaroTransport.sendWithResult(
+            any(),
+            historical: any(named: 'historical'),
+            timeout: any(named: 'timeout'),
+          ),
+        ).thenAnswer(
+          (_) async => const DeliveryResult(DeliveryStatus.accepted),
+        );
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(pathChannel, (_) async => directory.path);
-        Faro().transports = [
-          _TrackedOfflineTransport(
-            internetConnectivityService: service,
-            pendingReplays: pendingReplays,
-          ),
-        ];
+        outbox = _TrackedOfflineTransport(
+          internetConnectivityService: service,
+          pendingReplays: pendingReplays,
+        );
+        Faro().transports = [outbox];
+        await File('${directory.path}/rum_log.json').writeAsString(
+          jsonEncode({
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'payload': {
+              'meta': {
+                'session': {'id': 'cached-session'},
+              },
+              'events': [
+                {'name': 'cached-event'},
+              ],
+            },
+          }),
+        );
       });
 
       tearDown(() async {
+        await outbox.dispose();
         await connectivity.close();
-        // Cache contents may be visible before the write closes its handle.
         await Future.wait(pendingReplays);
+        Faro().transports = [];
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(pathChannel, null);
         await directory.delete(recursive: true);
       });
 
-      Future<String> seedCache() async {
-        final line = jsonEncode({
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'payload': {
-            'meta': {
-              'session': {'id': 'cached-session'},
-            },
-            'events': [
-              {
-                'name': 'cached-event',
-                'domain': 'flutter',
-                'timestamp': '2026-10-23T10:00:00.000Z',
-              },
-            ],
-          },
-        });
-        await cacheFile().writeAsString('not-json\n$line\n');
-        return '$line\n';
-      }
-
       test('replays cached data after init without a network change', () async {
-        final cached = await seedCache();
-        connectivity.add(true);
-        // The corrupt marker disappears when the pre-init attempt finishes.
-        await waitForCache(cached);
-
         await initialize();
-        await waitForCache('');
-
+        await outbox.replayCachedData();
         final sent =
             verify(
-                  () => mockFaroTransport.sendHistoricalAcknowledged(
+                  () => mockFaroTransport.sendWithResult(
                     captureAny(),
+                    historical: true,
+                    timeout: const Duration(seconds: 30),
                   ),
                 ).captured.single
                 as Map<String, dynamic>;
         expect(sent['meta']['session']['id'], 'cached-session');
+        expect(await (await outbox.storeForTesting).pending(), isEmpty);
         await initialize();
-        await Future<void>.delayed(Duration.zero);
-        verifyNever(() => mockFaroTransport.sendHistoricalAcknowledged(any()));
+        await outbox.replayCachedData();
+        verifyNever(
+          () => mockFaroTransport.sendWithResult(
+            any(),
+            historical: any(named: 'historical'),
+            timeout: any(named: 'timeout'),
+          ),
+        );
       });
 
       test(
-        'waits for connectivity when initialization finishes offline',
+        'attempts startup delivery even when the probe says offline',
         () async {
           when(() => service.isOnline).thenReturn(false);
-          await seedCache();
-
           await initialize();
-
-          verifyNever(
-            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
-          );
-          expect(cacheFile().readAsStringSync(), isNotEmpty);
-          when(() => service.isOnline).thenReturn(true);
-          connectivity.add(true);
-          await waitForCache('');
+          await outbox.replayCachedData();
           verify(
-            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+            () => mockFaroTransport.sendWithResult(
+              any(),
+              historical: true,
+              timeout: const Duration(seconds: 30),
+            ),
           ).called(1);
         },
       );
 
-      test(
-        'does not wait for collector delivery to finish initialization',
-        () async {
-          await seedCache();
-          final requested = Completer<void>();
-          final response = Completer<bool>();
-          when(
-            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
-          ).thenAnswer((_) {
-            requested.complete();
-            return response.future;
-          });
-          try {
-            await initialize().timeout(const Duration(seconds: 2));
-            await requested.future.timeout(const Duration(seconds: 2));
-            expect(response.isCompleted, isFalse);
-            expect(cacheFile().readAsStringSync(), isNotEmpty);
-          } finally {
-            response.complete(true);
-            await waitForCache('');
-          }
-        },
-      );
+      test('does not block initialization on delivery', () async {
+        final requested = Completer<void>();
+        final response = Completer<DeliveryResult>();
+        when(
+          () => mockFaroTransport.sendWithResult(
+            any(),
+            historical: any(named: 'historical'),
+            timeout: any(named: 'timeout'),
+          ),
+        ).thenAnswer((_) {
+          requested.complete();
+          return response.future;
+        });
+        try {
+          await initialize().timeout(const Duration(seconds: 2));
+          await requested.future.timeout(const Duration(seconds: 2));
+          expect(response.isCompleted, isFalse);
+          expect(await (await outbox.storeForTesting).pending(), hasLength(1));
+        } finally {
+          response.complete(const DeliveryResult(DeliveryStatus.accepted));
+          await outbox.replayCachedData();
+        }
+      });
 
       for (final online in [true, false]) {
-        test(
-          'discards cached data after opted-out init (online: $online)',
-          () async {
-            SharedPreferences.setMockInitialValues({
-              'faro_enable_data_collection': false,
-            });
-            when(() => service.isOnline).thenReturn(online);
-            await seedCache();
-
-            await initialize();
-            await waitForCache('');
-
-            verifyNever(
-              () => mockFaroTransport.sendHistoricalAcknowledged(any()),
-            );
-          },
-        );
+        test('discards opted-out cache (online: $online)', () async {
+          SharedPreferences.setMockInitialValues({
+            'faro_enable_data_collection': false,
+          });
+          when(() => service.isOnline).thenReturn(online);
+          await initialize();
+          await outbox.replayCachedData();
+          expect(await (await outbox.storeForTesting).pending(), isEmpty);
+          verifyNever(
+            () => mockFaroTransport.sendWithResult(
+              any(),
+              historical: any(named: 'historical'),
+              timeout: any(named: 'timeout'),
+            ),
+          );
+        });
       }
     });
-
     group('session persistence integration', () {
       late Directory temporaryDirectory;
       late SessionPersistenceFactory persistenceFactory;
@@ -1145,6 +1151,44 @@ void main() {
       expect(capturedException.fatal, isTrue);
     });
 
+    for (final handoff in ['saved', 'failed', 'disabled', 'no collector']) {
+      test('Android recovered crash with outbox handoff $handoff', () async {
+        final outbox = MockOfflineTransport();
+        when(() => outbox.send(any())).thenAnswer((_) async {
+          if (handoff == 'saved') return;
+          if (handoff == 'disabled') {
+            when(() => mockDataCollectionPolicy.isEnabled).thenReturn(false);
+          }
+          throw const FileSystemException('Injected storage failure');
+        });
+        Faro().dataCollectionPolicy = mockDataCollectionPolicy;
+        Faro().transports = [
+          outbox,
+          if (handoff != 'no collector') mockFaroTransport,
+          mockBaseTransport,
+        ];
+        await Faro().reportAndroidCrashesForTesting([
+          jsonEncode({
+            'reason': 'CRASH',
+            'timestamp': '1749080960296',
+            'trace': 'original trace',
+          }),
+        ]);
+        verify(() => outbox.send(any())).called(1);
+        verify(() => mockBaseTransport.send(any())).called(1);
+        if (handoff == 'failed') {
+          expect(
+            recoveredException()['context']['stacktrace'],
+            'original trace',
+          );
+        } else {
+          verifyNever(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          );
+        }
+      });
+    }
+
     test('native Android crash forwards the captured trace', () async {
       const nativeTrace = '''
 java.lang.NullPointerException: test crash
@@ -1250,10 +1294,7 @@ java.lang.NullPointerException: test crash
       ], recoveredSession: recoveredSession);
 
       final payload =
-          verify(
-                () =>
-                    mockFaroTransport.sendHistoricalAcknowledged(captureAny()),
-              ).captured.single
+          verify(() => offlineTransport.send(captureAny())).captured.single
               as Map<String, dynamic>;
       expect(payload['meta']['session']['id'], 'crashed-session');
       expect(
@@ -1271,7 +1312,7 @@ java.lang.NullPointerException: test crash
       expect(payload['meta'], isNot(contains('view')));
       expect(payload['meta'], isNot(contains('user')));
       expect(payload['meta'], isNot(contains('page')));
-      verify(() => offlineTransport.send(any())).called(1);
+      verifyNever(() => mockFaroTransport.sendHistoricalAcknowledged(any()));
       expect(
         payload['exceptions'][0]['context']['crashedSessionId'],
         'crashed-session',
