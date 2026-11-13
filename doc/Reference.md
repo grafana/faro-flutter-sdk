@@ -99,6 +99,15 @@ GoRouter(
 
 ---
 
+## Web (Beta)
+
+**Community-supported.** Web is not currently prioritized by the
+maintainers. Our focus is iOS and Android. Web fixes and features mostly
+depend on community contributions.
+See [Web](./web.md) for setup, what works and what is not available yet.
+
+---
+
 ## Automatic Event Metadata
 
 Every event captured by Faro includes rich metadata to give you complete context about your app's performance and user behavior.

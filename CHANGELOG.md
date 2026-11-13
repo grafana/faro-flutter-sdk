@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Beta support for Flutter web.** `Faro().runApp` now initializes in the
+  browser instead of throwing. Web is **community-supported** and not
+  currently prioritized by the maintainers. **HTTP tracking, offline caching,
+  mobile vitals, crash reporting, session persistence and browser metadata are
+  not available on web yet**. See the [web docs](./doc/web.md) for setup and
+  CORS requirements
+  ([#45](https://github.com/grafana/faro-flutter-sdk/pull/45)).
+
 - **Router-aware view tracking** covers nested navigators, stateful tab
   switches, and root-screen push/pop transitions through
   `FaroRouterTracker`. The tracker deduplicates view changes,

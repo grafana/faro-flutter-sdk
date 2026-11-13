@@ -11,11 +11,19 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
     required NativeIntegration nativeIntegration,
     required SessionManager sessionManager,
     required Future<void> Function() onAppBackgrounded,
+    bool reportWarmStart = true,
   }) : _nativeIntegration = nativeIntegration,
        _sessionManager = sessionManager,
-       _onAppBackgrounded = onAppBackgrounded;
+       _onAppBackgrounded = onAppBackgrounded,
+       _reportWarmStart = reportWarmStart;
 
   final NativeIntegration _nativeIntegration;
+
+  /// Whether returning to the foreground also reports a warm start.
+  ///
+  /// Turned off on web, where the measurement would only cover the time to the
+  /// next frame and is not comparable with mobile.
+  final bool _reportWarmStart;
   final SessionManager _sessionManager;
   final Future<void> Function() _onAppBackgrounded;
   AppLifecycleState? _previousState;
@@ -35,10 +43,12 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
     } else if (state == AppLifecycleState.resumed && _hasLeftForeground) {
       _sessionManager.checkSession(activity: SessionActivityKind.meaningful);
       _hasLeftForeground = false;
-      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-        _nativeIntegration.getWarmStart();
-      });
-      _nativeIntegration.setWarmStart();
+      if (_reportWarmStart) {
+        WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+          _nativeIntegration.getWarmStart();
+        });
+        _nativeIntegration.setWarmStart();
+      }
     }
 
     Faro().pushEvent(
