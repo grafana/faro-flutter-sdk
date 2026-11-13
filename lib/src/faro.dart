@@ -1611,6 +1611,23 @@ class Faro {
           'Faro: ${transport.runtimeType} failed for recovered crash: $error',
           stackTrace: stacktrace,
         );
+        if (!nativeRetryAvailable &&
+            transport is OfflineTransport &&
+            _dataCollectionPolicy?.isEnabled != false) {
+          // Android has no retained native report. If durable handoff fails,
+          // still offer the isolated historical payload to the primary sink.
+          final collector = _transports.whereType<FaroTransport>().firstOrNull;
+          if (collector != null) {
+            try {
+              await collector.sendHistoricalAcknowledged(payloadJson);
+            } catch (fallbackError, fallbackStacktrace) {
+              log(
+                'Faro: Recovered crash fallback failed: $fallbackError',
+                stackTrace: fallbackStacktrace,
+              );
+            }
+          }
+        }
       }
     }
     return accepted && (!nativeRetryAvailable || hasDirectTransport);

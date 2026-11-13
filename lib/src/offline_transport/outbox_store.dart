@@ -84,6 +84,10 @@ class OutboxStore {
   final List<OutboxEntry> _entries = [];
   Future<void> _operations = Future<void>.value();
   bool _initialized = false;
+  bool _hasUnreadableFiles = false;
+
+  /// Whether a later scan must retry files that could not be read.
+  bool get hasUnreadableFiles => _hasUnreadableFiles;
 
   Future<T> _locked<T>(Future<T> Function() action) {
     final operation = _operations.then((_) => action());
@@ -128,6 +132,7 @@ class OutboxStore {
     if (legacy != null) await _delete(legacy);
     _entries.clear();
     _initialized = true;
+    _hasUnreadableFiles = false;
   });
 
   /// Loads the persisted collector-wide retry deadline and failure count.
@@ -171,6 +176,7 @@ class OutboxStore {
     if (_initialized) return;
     await directory.create(recursive: true);
     _entries.clear();
+    _hasUnreadableFiles = false;
     await for (final entity in directory.list(followLinks: false)) {
       if (entity is File && entity.path.endsWith('.tmp')) {
         await _delete(entity);
@@ -193,12 +199,15 @@ class OutboxStore {
         );
       } on FormatException {
         await _delete(entity);
+      } on FileSystemException {
+        // Keep inaccessible files for a later scan without blocking others.
+        _hasUnreadableFiles = true;
       }
     }
     _sort();
     await _prune();
     await _importLegacy();
-    _initialized = true;
+    _initialized = !_hasUnreadableFiles;
   }
 
   Future<OutboxEntry?> _append(
@@ -217,17 +226,14 @@ class OutboxStore {
         '-$id.batch.json';
     final file = File('${directory.path}/$filename');
     if (_entries.any((entry) => entry.file.uri == file.uri)) return null;
-    // Evict before committing so the committed queue stays within its limits.
-    while (_entries.isNotEmpty &&
-        (_entries.length >= maxCount || _totalBytes + bytes > maxBytes)) {
-      await _delete(_entries.first.file);
-      _entries.removeAt(0);
-    }
+    // Preserve committed data if writing its replacement fails. A crash
+    // before pruning is handled by the same retention check on startup.
     await _atomicWrite(file, contents);
     final entry = OutboxEntry(file, timestamp, bytes);
     _entries.add(entry);
     _sort();
-    return entry;
+    await _prune();
+    return _entries.contains(entry) ? entry : null;
   }
 
   Future<void> _importLegacy() async {

@@ -160,6 +160,7 @@ class OfflineTransport extends BaseTransport {
 
   Future<void> _drainSafely() async {
     final generation = _generation;
+    final unreadable = <String>{};
     try {
       await _purge;
       final store = await _getStore();
@@ -183,7 +184,11 @@ class OfflineTransport extends BaseTransport {
         final paths = entries.map((entry) => entry.file.path).toSet();
         _freshSessions.removeWhere((path, _) => !paths.contains(path));
         if (entries.isEmpty) {
-          _retryTimer?.cancel();
+          if (store.hasUnreadableFiles) {
+            _schedule(_maxRetryDelay);
+          } else {
+            _retryTimer?.cancel();
+          }
           return;
         }
         final retryAt = _retryAt;
@@ -196,7 +201,13 @@ class OfflineTransport extends BaseTransport {
           _schedule(_maxRetryDelay);
           return;
         }
-        final entry = entries.first;
+        final entry = entries
+            .where((entry) => !unreadable.contains(entry.file.path))
+            .firstOrNull;
+        if (entry == null) {
+          _schedule(_maxRetryDelay);
+          return;
+        }
         final Map<String, dynamic> payload;
         try {
           payload = await entry.readPayload();
@@ -205,6 +216,10 @@ class OfflineTransport extends BaseTransport {
           continue;
         } on PathNotFoundException {
           await store.remove(entry);
+          continue;
+        } on FileSystemException {
+          // Retry this file on a later pass while delivering readable batches.
+          unreadable.add(entry.file.path);
           continue;
         }
         final fresh = _freshSessions.containsKey(entry.file.path);

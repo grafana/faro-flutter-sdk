@@ -1905,22 +1905,30 @@ batch files including their envelopes, and three days of age. Omitting
 `maxCacheDuration`, or passing null, uses three days. Limits are enforced when
 adding batches, during recovery and during drain attempts, including retry
 waits. Expired batches are removed first; capacity pressure evicts the oldest
-batches. A batch larger than the byte limit cannot be queued. Temporary write
+batches after the replacement file commits. A failed replacement write leaves
+the previously committed batches intact. Limits can temporarily be exceeded
+by one batch between commit and pruning; startup also enforces the limits.
+A batch larger than the byte limit cannot be queued. Temporary write
 files and the small retry-state file are outside the committed-batch byte
 limit.
 
 Without a collector, batches remain stored within these limits. Corrupt
-records are discarded without preventing valid records from being delivered. A
-failed write cannot be acknowledged as durable; normal batching logs a
-diagnostic and continues without crashing the host application. There is no
-memory-only fallback that claims durable delivery.
+records are discarded without preventing valid records from being delivered.
+A file that cannot be read is retained for a later scan or drain attempt while
+readable batches continue. Retention of inaccessible files is enforced once
+they can be read again. A failed write cannot be acknowledged as durable;
+normal batching logs a diagnostic and continues without crashing the host
+application. There is no memory-only fallback that claims durable delivery.
 
 Payloads retain their original timestamps, user, session and device metadata.
 Only the first attempt of a newly queued batch belonging to the current
 session can apply receiver invalidation to that session. Historical replay
 does not invalidate the live session. Recovered iOS crashes with a retained
 native report keep their existing native retry ownership rather than also
-entering the outbox.
+entering the outbox. Android recovered crashes use the outbox; if durable
+handoff fails, they attempt a direct historical send to the primary collector
+because Android has no retained native copy. This fallback cannot guarantee
+delivery if the collector is also unavailable.
 
 Disabling data collection cancels retries and requests removal of saved
 telemetry, including the legacy cache. Initialization also discards saved
