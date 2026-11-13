@@ -7,7 +7,7 @@
 [![pub package](https://img.shields.io/pub/v/faro.svg)](https://pub.dev/packages/faro)
 ![iOS](https://img.shields.io/badge/iOS-supported-brightgreen?logo=apple&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-supported-brightgreen?logo=android&logoColor=white)
-![Web](https://img.shields.io/badge/Web-beta-yellow?logo=googlechrome&logoColor=white)
+![Web](https://img.shields.io/badge/Web-beta%20(community)-yellow?logo=googlechrome&logoColor=white)
 
 The Grafana Faro Flutter SDK enables real user monitoring (RUM) for mobile applications by instrumenting Flutter apps to collect telemetry.
 
@@ -39,7 +39,7 @@ The Faro Flutter SDK provides real user monitoring capabilities including:
 - **HTTP Network Monitoring**: Request/response details and timing
 - **Asset Loading**: Track asset loading performance
 - **Offline Support**: Caching of events when offline
-- **Web (beta)**: Core telemetry in Flutter web builds. See the [Web section](./doc/Reference.md#web-beta) for what is and is not supported
+- **Web (beta, community-supported)**: Core telemetry in Flutter web builds. See the [web docs](./doc/web.md) for what is and is not supported
 
 See [SDK Reference](./doc/Reference.md) for complete documentation.
 
