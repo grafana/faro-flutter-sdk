@@ -1914,8 +1914,9 @@ limit.
 
 Without a collector, batches remain stored within these limits. Corrupt
 records are discarded without preventing valid records from being delivered.
-A file that cannot be read is retained for a later scan or drain attempt while
-readable batches continue. Retention of inaccessible files is enforced once
+A file that cannot be read is retained for a later drain attempt while readable
+batches continue. Failed startup reads are retried once per drain without
+rescanning readable files. Retention of inaccessible files is enforced once
 they can be read again. A failed write cannot be acknowledged as durable;
 normal batching logs a diagnostic and continues without crashing the host
 application. There is no memory-only fallback that claims durable delivery.

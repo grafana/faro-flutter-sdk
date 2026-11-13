@@ -58,6 +58,140 @@ void main() {
   }
 
   group('OutboxStore:', () {
+    test('retries only failed files after indexing a full outbox', () async {
+      final directory = _MockDirectory();
+      final files = <File>[];
+      final deleted = <String>{};
+      final reads = <String, int>{};
+      var blocked = true;
+      for (var index = 0; index < 1000; index++) {
+        final file = _MockFile();
+        final path = '${root.path}/$index.batch.json';
+        final contents = jsonEncode({
+          'version': 1,
+          'timestamp': now.millisecondsSinceEpoch + index,
+          'payload': {'id': index},
+        });
+        when(() => file.path).thenReturn(path);
+        when(() => file.uri).thenReturn(Uri.file(path));
+        when(file.length).thenAnswer((_) async => utf8.encode(contents).length);
+        when(file.readAsString).thenAnswer((_) async {
+          reads[path] = (reads[path] ?? 0) + 1;
+          if (index == 0 && blocked) {
+            throw const FileSystemException('Injected read failure');
+          }
+          return contents;
+        });
+        when(file.delete).thenAnswer((_) async {
+          deleted.add(path);
+          return file;
+        });
+        files.add(file);
+      }
+      when(() => directory.path).thenReturn(root.path);
+      when(
+        () => directory.create(recursive: true),
+      ).thenAnswer((_) async => directory);
+      when(() => directory.list(followLinks: false)).thenAnswer(
+        (_) => Stream.fromIterable(
+          files.where((file) => !deleted.contains(file.path)),
+        ),
+      );
+      final cache = OutboxStore(
+        directory: directory,
+        maxCount: 1000,
+        maxBytes: 1000000,
+        maxAge: const Duration(days: 3),
+        clock: () => now,
+      );
+      await cache.retryUnreadableFiles();
+      final entries = await cache.pending();
+      expect(entries, hasLength(999));
+      for (final entry in entries) {
+        await cache.pending();
+        await cache.remove(entry);
+      }
+      expect(reads.values.every((count) => count == 1), isTrue);
+      expect(await cache.pending(), isEmpty);
+      expect(cache.hasUnreadableFiles, isTrue);
+      await cache.retryUnreadableFiles();
+      expect(reads[files.first.path], 2);
+      expect(reads[files.last.path], 1);
+      blocked = false;
+      await cache.retryUnreadableFiles();
+      expect(await cache.pending(), hasLength(1));
+      expect(reads[files.first.path], 3);
+      expect(cache.hasUnreadableFiles, isFalse);
+      await cache.retryUnreadableFiles();
+      expect(reads[files.first.path], 3);
+      verify(() => directory.list(followLinks: false)).called(1);
+    });
+
+    for (final recovery in [
+      'deleted',
+      'corrupt',
+      'expired',
+      'oversized',
+      'clear',
+    ]) {
+      test('handles $recovery files after a failed startup read', () async {
+        final directory = _MockDirectory();
+        final realDirectory = Directory('${root.path}/outbox');
+        await realDirectory.create();
+        final file = File('${realDirectory.path}/blocked.batch.json');
+        await file.writeAsString(
+          jsonEncode({
+            'version': 1,
+            'timestamp': now.millisecondsSinceEpoch,
+            'payload': {'id': 'blocked'},
+          }),
+        );
+        final wrapped = _MockFile();
+        when(() => wrapped.path).thenReturn(file.path);
+        when(() => wrapped.uri).thenReturn(file.uri);
+        when(wrapped.length).thenAnswer((_) => file.length());
+        var blocked = true;
+        when(wrapped.readAsString).thenAnswer((_) {
+          if (blocked) throw const FileSystemException('Injected read failure');
+          return file.readAsString();
+        });
+        when(wrapped.delete).thenAnswer((_) => file.delete());
+        when(() => directory.path).thenReturn(realDirectory.path);
+        when(
+          () => directory.create(recursive: true),
+        ).thenAnswer((_) async => realDirectory);
+        when(
+          () => directory.list(followLinks: false),
+        ).thenAnswer((_) => Stream.fromIterable([wrapped]));
+        final cache = OutboxStore(
+          directory: directory,
+          maxCount: 1000,
+          maxBytes: 1000,
+          maxAge: const Duration(days: 3),
+          clock: () => now,
+        );
+        expect(await cache.pending(), isEmpty);
+        expect(cache.hasUnreadableFiles, isTrue);
+        blocked = false;
+        switch (recovery) {
+          case 'deleted':
+            await file.delete();
+          case 'corrupt':
+            await file.writeAsString('broken');
+          case 'expired':
+            now = now.add(const Duration(days: 4));
+          case 'oversized':
+            await file.writeAsString('x' * 1001);
+          case 'clear':
+            await cache.clear();
+        }
+        await cache.retryUnreadableFiles();
+        expect(cache.hasUnreadableFiles, isFalse);
+        expect(await cache.pending(), isEmpty);
+        expect(file.existsSync(), isFalse);
+      });
+    }
+
     for (final (limit, stage) in [
       ('count', 'write'),
       ('count', 'rename'),
@@ -117,7 +251,12 @@ void main() {
       expect(await (await recovered.pending()).single.readPayload(), {'id': 2});
       expect(recovered.hasUnreadableFiles, isTrue);
       expect(first.file.existsSync(), isTrue);
+      for (var index = 0; index < 10; index++) {
+        expect(await recovered.pending(), hasLength(1));
+      }
+      verify(() => directory.list(followLinks: false)).called(1);
       blocked = false;
+      await recovered.retryUnreadableFiles();
       expect(await recovered.pending(), hasLength(2));
       expect(recovered.hasUnreadableFiles, isFalse);
     });

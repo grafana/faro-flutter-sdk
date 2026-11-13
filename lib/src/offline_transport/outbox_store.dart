@@ -82,12 +82,12 @@ class OutboxStore {
   final File? legacyFile;
   final DateTime Function() _clock;
   final List<OutboxEntry> _entries = [];
+  final Map<String, File> _unreadableFiles = {};
   Future<void> _operations = Future<void>.value();
   bool _initialized = false;
-  bool _hasUnreadableFiles = false;
 
-  /// Whether a later scan must retry files that could not be read.
-  bool get hasUnreadableFiles => _hasUnreadableFiles;
+  /// Whether a later drain must retry files that could not be read.
+  bool get hasUnreadableFiles => _unreadableFiles.isNotEmpty;
 
   Future<T> _locked<T>(Future<T> Function() action) {
     final operation = _operations.then((_) => action());
@@ -113,6 +113,20 @@ class OutboxStore {
     return List<OutboxEntry>.of(_entries);
   });
 
+  /// Retries failed startup reads once, without rescanning readable batches.
+  /// Call once per drain, rather than once per delivered batch.
+  Future<void> retryUnreadableFiles() => _locked(() async {
+    if (!_initialized) {
+      await _initialize();
+      return;
+    }
+    for (final file in List<File>.of(_unreadableFiles.values)) {
+      await _recoverFile(file);
+    }
+    _sort();
+    await _prune();
+  });
+
   /// Removes a terminal batch. A failed deletion leaves it eligible for replay.
   Future<void> remove(OutboxEntry entry) => _locked(() async {
     await _delete(entry.file);
@@ -131,8 +145,8 @@ class OutboxStore {
     final legacy = legacyFile;
     if (legacy != null) await _delete(legacy);
     _entries.clear();
+    _unreadableFiles.clear();
     _initialized = true;
-    _hasUnreadableFiles = false;
   });
 
   /// Loads the persisted collector-wide retry deadline and failure count.
@@ -176,38 +190,44 @@ class OutboxStore {
     if (_initialized) return;
     await directory.create(recursive: true);
     _entries.clear();
-    _hasUnreadableFiles = false;
+    _unreadableFiles.clear();
     await for (final entity in directory.list(followLinks: false)) {
       if (entity is File && entity.path.endsWith('.tmp')) {
         await _delete(entity);
         continue;
       }
       if (entity is! File || !entity.path.endsWith('.batch.json')) continue;
-      try {
-        final size = await entity.length();
-        if (size > maxBytes) {
-          await _delete(entity);
-          continue;
-        }
-        final record = _decodeMap(await entity.readAsString());
-        if (record['version'] != 1 ||
-            record['payload'] is! Map<String, dynamic>) {
-          throw const FormatException('Invalid outbox record.');
-        }
-        _entries.add(
-          OutboxEntry(entity, _timestamp(record['timestamp']), size),
-        );
-      } on FormatException {
-        await _delete(entity);
-      } on FileSystemException {
-        // Keep inaccessible files for a later scan without blocking others.
-        _hasUnreadableFiles = true;
-      }
+      await _recoverFile(entity);
     }
     _sort();
     await _prune();
     await _importLegacy();
-    _initialized = !_hasUnreadableFiles;
+    _initialized = true;
+  }
+
+  Future<void> _recoverFile(File file) async {
+    try {
+      final size = await file.length();
+      if (size > maxBytes) {
+        await _delete(file);
+      } else {
+        final record = _decodeMap(await file.readAsString());
+        if (record['version'] != 1 ||
+            record['payload'] is! Map<String, dynamic>) {
+          throw const FormatException('Invalid outbox record.');
+        }
+        _entries.add(OutboxEntry(file, _timestamp(record['timestamp']), size));
+      }
+      _unreadableFiles.remove(file.path);
+    } on PathNotFoundException {
+      _unreadableFiles.remove(file.path);
+    } on FormatException {
+      await _delete(file);
+      _unreadableFiles.remove(file.path);
+    } on FileSystemException {
+      // Keep inaccessible files for a later drain without rereading others.
+      _unreadableFiles[file.path] = file;
+    }
   }
 
   Future<OutboxEntry?> _append(
@@ -229,6 +249,7 @@ class OutboxStore {
     // Preserve committed data if writing its replacement fails. A crash
     // before pruning is handled by the same retention check on startup.
     await _atomicWrite(file, contents);
+    _unreadableFiles.remove(file.path);
     final entry = OutboxEntry(file, timestamp, bytes);
     _entries.add(entry);
     _sort();
