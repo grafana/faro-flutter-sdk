@@ -9,6 +9,7 @@ library;
 import 'package:faro/faro.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,9 @@ class _MockBatchTransport extends Mock implements BatchTransport {}
 
 class _MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
+class _MockInternetConnectivityService extends Mock
+    implements InternetConnectivityService {}
+
 void main() {
   group('PlatformInfoProviderFactory on web', () {
     test('creates a web provider without throwing', () {
@@ -30,6 +34,20 @@ void main() {
       expect(provider.isIOS, isFalse);
       expect(provider.isMobile, isFalse);
       expect(provider.operatingSystem, 'web');
+    });
+  });
+
+  group('OfflineTransport on web', () {
+    test('does nothing and never touches connectivity', () async {
+      final connectivityService = _MockInternetConnectivityService();
+      final transport = OfflineTransport(
+        internetConnectivityService: connectivityService,
+      );
+
+      await expectLater(transport.send({'any': 'payload'}), completes);
+      await expectLater(transport.replayCachedData(), completes);
+
+      verifyZeroInteractions(connectivityService);
     });
   });
 
