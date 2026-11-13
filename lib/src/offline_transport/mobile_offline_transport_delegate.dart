@@ -155,6 +155,7 @@ class MobileOfflineTransportDelegate implements OfflineTransportDelegate {
         return;
       }
       if (_discardPending) await _finishPurge(store);
+      await store.retryUnreadableFiles();
       if (!_loadedRetryState) {
         final state = await store.readRetryState();
         if (_disposed || generation != _generation) return;
