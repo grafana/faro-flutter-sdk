@@ -109,12 +109,14 @@ void main() {
     /// callback the warm start measurement is scheduled on.
     Future<void> lifecycle(
       WidgetTester tester,
-      List<AppLifecycleState> states,
-    ) async {
+      List<AppLifecycleState> states, {
+      bool reportWarmStart = true,
+    }) async {
       final observer = FaroWidgetsBindingObserver(
         nativeIntegration: mockNativeIntegration,
         sessionManager: mockSessionManager,
         onAppBackgrounded: () async {},
+        reportWarmStart: reportWarmStart,
       );
       await tester.pumpWidget(const SizedBox());
       for (final state in states) {
@@ -163,6 +165,20 @@ void main() {
         AppLifecycleState.resumed,
       ]);
 
+      verifyNever(() => mockNativeIntegration.getWarmStart());
+    });
+
+    testWidgets('is not measured when warm start reporting is off', (
+      tester,
+    ) async {
+      // Web turns it off: the value would only cover the time to the next
+      // frame.
+      await lifecycle(tester, [
+        AppLifecycleState.paused,
+        AppLifecycleState.resumed,
+      ], reportWarmStart: false);
+
+      verifyNever(() => mockNativeIntegration.setWarmStart());
       verifyNever(() => mockNativeIntegration.getWarmStart());
     });
 
