@@ -1,4 +1,5 @@
 import 'package:faro/src/configurations/batch_config.dart';
+import 'package:faro/src/configurations/dynamic_device_state_config.dart';
 import 'package:faro/src/configurations/sampling.dart';
 import 'package:faro/src/models/faro_user.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
@@ -43,6 +44,7 @@ class FaroConfig {
     this.initialUser,
     this.persistUser = true,
     this.persistSession = true,
+    this.dynamicDeviceState = const DynamicDeviceStateConfig(),
     this.engineRole = FaroEngineRole.automatic,
     this.sampling,
     this.spanExceptionOptions = SpanExceptionOptions.defaults,
@@ -130,6 +132,12 @@ class FaroConfig {
   /// contains only session identity, timing, sampling, and schema information.
   /// It never resumes the same live session across a process start.
   final bool persistSession;
+
+  /// Which dynamic device and network metadata groups the SDK collects.
+  ///
+  /// Battery, thermal and network are all on by default. A group that is off
+  /// adds none of its fields to `meta` and registers no system listeners.
+  final DynamicDeviceStateConfig dynamicDeviceState;
 
   /// The role of the Flutter engine that initializes Faro.
   ///

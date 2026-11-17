@@ -1,3 +1,4 @@
+import 'package:faro/src/device_info/dynamic_device_state_provider.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/models/user_action_context.dart';
@@ -39,6 +40,10 @@ class TelemetryItem {
 
   final TelemetryItemType type;
   final dynamic payload;
+
+  /// The device and network values read when the item was captured. Set before
+  /// the item is held back, so it keeps them when it is sent later.
+  DynamicDeviceStateCapture? deviceState;
 
   /// Gets the payload as an Event.
   Event? get asEvent =>

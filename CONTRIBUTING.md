@@ -202,6 +202,9 @@ flutter test --coverage
 
 # Run specific test file
 flutter test test/src/models/trace_test.dart
+
+# Run the web tests in Chrome (they are skipped by the plain `flutter test`)
+flutter test --platform chrome test/web
 ```
 
 ### Android Native Tests

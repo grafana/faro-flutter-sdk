@@ -1,3 +1,4 @@
+import 'package:faro/src/device_info/dynamic_device_state_provider.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/models/span_record.dart';
 import 'package:faro/src/transport/batch_transport.dart';
@@ -9,19 +10,28 @@ import 'package:faro/src/transport/batch_transport.dart';
 /// public interface of [BatchTransport], not its private members.
 class NoOpBatchTransport implements BatchTransport {
   @override
-  void addEvent(Event event) {}
+  void addEvent(Event event, {DynamicDeviceStateCapture? capture}) {}
 
   @override
-  void addMeasurement(Measurement measurement) {}
+  void addMeasurement(
+    Measurement measurement, {
+    DynamicDeviceStateCapture? capture,
+  }) {}
 
   @override
-  void addLog(FaroLog faroLog) {}
+  void addLog(FaroLog faroLog, {DynamicDeviceStateCapture? capture}) {}
 
   @override
-  void addSpan(SpanRecord spanRecord) {}
+  void addSpan(SpanRecord spanRecord, {DynamicDeviceStateCapture? capture}) {}
 
   @override
-  void addExceptions(FaroException exception) {}
+  void addExceptions(
+    FaroException exception, {
+    DynamicDeviceStateCapture? capture,
+  }) {}
+
+  @override
+  DynamicDeviceStateCapture? captureDynamicDeviceState() => null;
 
   @override
   void updatePayloadMeta(Meta meta) {}

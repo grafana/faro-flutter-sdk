@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Beta support for Flutter web.** `Faro().runApp` now initializes in the
+  browser instead of throwing. Web is **community-supported** and not
+  currently prioritized by the maintainers. **HTTP tracking, offline caching,
+  mobile vitals, crash reporting, session persistence and browser metadata are
+  not available on web yet**. See the [web docs](./doc/web.md) for setup and
+  CORS requirements
+  ([#45](https://github.com/grafana/faro-flutter-sdk/pull/45)).
+
 - **Router-aware view tracking** covers nested navigators, stateful tab
   switches, and root-screen push/pop transitions through
   `FaroRouterTracker`. The tracker deduplicates view changes,
@@ -21,6 +29,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   size and density, and total device memory**, in `meta.os.api_level` and new
   `meta.device` fields. See the Reference docs for details
   ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
+
+- **Payloads include battery, power, thermal and network state**, in
+  `meta.device` and the new `meta.network`. Each signal carries the value
+  current when it was captured, and a crash sent on the next launch carries
+  none of them. Android also sends the carrier name. See the Reference docs
+  for details
+  ([#372](https://github.com/grafana/faro-flutter-sdk/issues/372)).
+
+  - **Android now declares the `READ_BASIC_PHONE_STATE` permission** to read
+    the cellular technology on API 33 and later. It is granted at install,
+    with no prompt.
+
+- **Turn off battery, thermal or network state with
+  `FaroConfig.dynamicDeviceState`.** All three groups stay on by default. A
+  group that is off adds none of its fields to `meta` and starts none of its
+  native listeners. An app that turns `network` off can remove the
+  `READ_BASIC_PHONE_STATE` permission from its manifest. See the Reference docs
+  for details
+  ([#389](https://github.com/grafana/faro-flutter-sdk/issues/389)).
 
 ### Changed
 
@@ -48,6 +75,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING: `DeviceInfo.deviceType` and `Device.type` are removed.** The SDK
   no longer sets either field. Code that reads or sets them must drop them
   ([#371](https://github.com/grafana/faro-flutter-sdk/issues/371)).
+
+### Fixed
+
+- **Taps after cold-start deep links no longer produce layout errors.**
+  Interaction tracking skips detached or unlaid-out render objects and
+  continues past unavailable geometry without interrupting the app's tap
+  callbacks
+  ([#345](https://github.com/grafana/faro-flutter-sdk/issues/345)).
 
 ## [0.18.0] - 2026-10-28
 

@@ -10,6 +10,10 @@ class Device {
     this.screenHeight,
     this.screenDensity,
     this.memoryTotal,
+    this.batteryLevel,
+    this.isCharging,
+    this.lowPowerMode,
+    this.thermalState,
   });
 
   Device.fromJson(dynamic json) {
@@ -23,6 +27,10 @@ class Device {
     screenHeight = json['screen_height'];
     screenDensity = (json['screen_density'] as num?)?.toDouble();
     memoryTotal = json['memory_total'];
+    batteryLevel = json['battery_level'];
+    isCharging = json['is_charging'];
+    lowPowerMode = json['low_power_mode'];
+    thermalState = json['thermal_state'];
   }
 
   String? manufacturer;
@@ -46,6 +54,19 @@ class Device {
 
   /// Total device memory in whole MB, where 1 MB is 1,048,576 bytes.
   int? memoryTotal;
+
+  /// Battery level as a whole percent from 0 to 100.
+  int? batteryLevel;
+
+  /// Whether the device is connected to power: AC, USB or wireless, charging
+  /// or full.
+  bool? isCharging;
+
+  /// Whether Android battery saver or iOS Low Power Mode is on.
+  bool? lowPowerMode;
+
+  /// Thermal state: "nominal", "fair", "serious" or "critical".
+  String? thermalState;
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{};
@@ -78,6 +99,18 @@ class Device {
     }
     if (memoryTotal != null) {
       map['memory_total'] = memoryTotal;
+    }
+    if (batteryLevel != null) {
+      map['battery_level'] = batteryLevel;
+    }
+    if (isCharging != null) {
+      map['is_charging'] = isCharging;
+    }
+    if (lowPowerMode != null) {
+      map['low_power_mode'] = lowPowerMode;
+    }
+    if (thermalState != null) {
+      map['thermal_state'] = thermalState;
     }
     return map;
   }

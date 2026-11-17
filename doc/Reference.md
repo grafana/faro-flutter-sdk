@@ -99,6 +99,15 @@ GoRouter(
 
 ---
 
+## Web (Beta)
+
+**Community-supported.** Web is not currently prioritized by the
+maintainers. Our focus is iOS and Android. Web fixes and features mostly
+depend on community contributions.
+See [Web](./web.md) for setup, what works and what is not available yet.
+
+---
+
 ## Automatic Event Metadata
 
 Every event captured by Faro includes rich metadata to give you complete context about your app's performance and user behavior.
@@ -160,6 +169,109 @@ than the advertised RAM.
 
 Android sends its preferred ABI, such as `arm64-v8a`. iOS sends the architecture 
 the app is built for, such as `arm64` or `x86_64`.
+
+### Dynamic Device and Network State
+
+These fields change while the app runs. Each signal carries the value that was
+current when the SDK captured it, in `meta.device` and `meta.network`. A field
+the platform cannot supply is omitted. None of them needs a runtime permission.
+
+| Field                             | Description                                                | iOS Example | Android Example  |
+| --------------------------------- | ---------------------------------------------------------- | ----------- | ---------------- |
+| `meta.device.battery_level`       | Battery level, a whole percent from 0 to 100               | `87`        | `87`             |
+| `meta.device.is_charging`         | Connected to power (AC, USB or wireless), charging or full | `true`      | `false`          |
+| `meta.device.low_power_mode`      | iOS Low Power Mode or Android battery saver                | `false`     | `true`           |
+| `meta.device.thermal_state`       | `nominal`, `fair`, `serious` or `critical`                 | `fair`      | `nominal`        |
+| `meta.network.connection_type`    | `wifi`, `cell`, `wired`, `unavailable` or `unknown`        | `wifi`      | `cell`           |
+| `meta.network.connection_subtype` | Cellular technology, only on `cell`                        | `lte`       | `nr`             |
+| `meta.network.carrier_name`       | Mobile carrier name                                        | _(omitted)_ | `Example Mobile` |
+
+How the SDK keeps them current:
+
+- **Listener-fed values never expire.** Battery level, charging, low power
+  mode, thermal state and connection type come from system listeners. On iOS
+  so does the cellular subtype. The native side pushes each change to Dart, so
+  a payload always carries the latest value.
+- **Values with no listener are read again after a signal.** These are the
+  Android carrier name and cellular subtype. iOS has none. The SDK reads them
+  when a signal is captured and the last read is more than 5 seconds old, or
+  when the connection type changes. The signal carries the previous value
+  while the read runs, up to 60 seconds old, and none after that. A read never
+  blocks capture or send. After a failed read, the SDK waits 30 seconds before
+  it tries again.
+- A payload has one `meta`, so a change of value closes the open payload and
+  the next signal starts a new one. Every signal in a payload shares the values
+  it was captured with.
+- A signal captured without a usable value goes out without the field. This
+  happens at start, before the first read ends, and after a connection type
+  change or a failed read.
+- The native listeners start on the first read, which is `Faro.init`, not when
+  the app starts. They stop when the last Flutter engine that uses them
+  detaches. A group that is off never starts its listeners.
+- A crash sent on the next launch carries none of them. The values of the
+  relaunch would not describe the crash.
+
+Android thermal state maps `NONE`, `LIGHT` and `MODERATE` to `nominal`, `fair`
+and `serious`, and `SEVERE` and above to `critical`. Android reads the carrier
+with `TelephonyManager.getNetworkOperatorName`. iOS never sends a carrier name.
+
+Android reads the cellular subtype from `TelephonyManager.getDataNetworkType`
+on API 33 and later. The SDK declares the `READ_BASIC_PHONE_STATE` permission
+for it. It is a normal permission, granted at install, with no prompt. If an
+app removes the permission, or on older versions, the SDK uses
+`ConnectivityManager`. Nothing else breaks, and the subtype then comes from
+the deprecated `NetworkInfo` API. To remove the permission, add this to the
+app manifest:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission
+        android:name="android.permission.READ_BASIC_PHONE_STATE"
+        tools:node="remove" />
+</manifest>
+```
+
+On iOS the subtype is the technology of the SIM that carries mobile data. A
+dual-SIM phone with no known data SIM sends none. A VPN does not hide the
+connection type under it.
+
+On iOS, `connection_type` is `unavailable` when there is no route. A wifi
+network without internet still has a route, so it reads as `wifi`.
+
+#### Turn a group off
+
+The fields form three groups. All three are on by default. A group that is off
+adds none of its fields to any signal. The SDK also registers none of its
+system listeners and makes none of its native reads. With all three off, the
+SDK does not call the native side for this state at all. Each Flutter engine
+counts as one user of a group. A group stops, and its cached values clear, when
+the last engine that asked for it detaches.
+
+| Group     | Fields                                                                                 |
+| --------- | -------------------------------------------------------------------------------------- |
+| `battery` | `meta.device.battery_level`, `meta.device.is_charging`, `meta.device.low_power_mode`   |
+| `thermal` | `meta.device.thermal_state`                                                            |
+| `network` | `meta.network.connection_type`, `connection_subtype` and `carrier_name`                |
+
+```dart
+Faro().runApp(
+  optionsConfiguration: FaroConfig(
+    // ...
+    dynamicDeviceState: DynamicDeviceStateConfig(
+      battery: true,   // default: true
+      thermal: false,  // default: true
+      network: true,   // default: true
+    ),
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+The SDK keeps declaring `READ_BASIC_PHONE_STATE` on Android, because the
+manifest cannot depend on this option. An app that turns the `network` group
+off can remove the permission in its own manifest. The snippet is in the
+section above.
 
 ### SDK Metadata
 
@@ -757,6 +869,12 @@ Faro().runApp(
   ),
 );
 ```
+
+Interaction tracking skips detached render objects and those that have not
+completed layout, including hidden routes created by cold-start deep links.
+If hit testing, coordinate conversion, or paint-bounds lookup fails, that
+subtree is skipped and tracking continues in the remaining subtrees. These
+best-effort geometry checks do not interrupt normal tap handling.
 
 ### Asset Bundle Tracking
 

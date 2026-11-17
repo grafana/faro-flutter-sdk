@@ -1,6 +1,7 @@
 library;
 
 export './src/configurations/batch_config.dart';
+export './src/configurations/dynamic_device_state_config.dart';
 export './src/configurations/faro_config.dart';
 export './src/configurations/sampling.dart';
 export './src/faro.dart';

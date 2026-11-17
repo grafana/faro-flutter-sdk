@@ -40,6 +40,10 @@ class TelemetryRouter {
   }) {
     _sessionManager.checkSession(activity: activity);
 
+    // A buffered item reaches the transport only when its action ends, so the
+    // device state is read now, at capture.
+    item.deviceState ??= _transportResolver()?.captureDynamicDeviceState();
+
     if (!skipBuffer &&
         _shouldBuffer(item.type) &&
         _userActionsService.tryBuffer(item)) {

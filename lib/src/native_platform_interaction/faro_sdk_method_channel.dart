@@ -97,4 +97,11 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
   Future<Map<String, dynamic>?> getDeviceMetadata() {
     return methodChannel.invokeMapMethod<String, dynamic>('getDeviceMetadata');
   }
+
+  @override
+  Future<Map<String, dynamic>?> getProbedDeviceState() {
+    return methodChannel.invokeMapMethod<String, dynamic>(
+      'getProbedDeviceState',
+    );
+  }
 }
