@@ -92,7 +92,20 @@ class FaroNavigationObserver extends RouteObserver<PageRoute<dynamic>> {
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didRemove(route, previousRoute);
-    for (final view in _trackedViews()) {
+    final views = _trackedViews();
+    // A removed top route reveals the route below, like a pop. Without a
+    // tracker, removal keeps its existing behavior and records nothing.
+    if (views.isNotEmpty && (previousRoute?.isCurrent ?? false)) {
+      _recordNavigation(
+        from: route,
+        to: previousRoute,
+        opened: null,
+        closed: route,
+        activitySource: 'navigation.remove',
+      );
+      return;
+    }
+    for (final view in views) {
       view.pagelessRouteClosed(route);
     }
   }

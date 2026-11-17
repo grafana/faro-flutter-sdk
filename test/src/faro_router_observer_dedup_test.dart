@@ -660,14 +660,15 @@ void main() {
         final route = pageless('native');
         unawaited(navigator.push(route));
         await tester.pumpAndSettle();
+        events.clear();
         navigator.removeRoute(route);
         await tester.pumpAndSettle();
-        events.clear();
+        expect(events, [
+          {'fromView': 'native', 'toView': '/home'},
+        ]);
         router.go('/detail');
         // No open pageless route is left, so the tracker records right away.
-        expect(events, [
-          {'fromView': 'native', 'toView': '/detail'},
-        ]);
+        expect(events.last, {'fromView': '/home', 'toView': '/detail'});
       });
 
       testWidgets('didReplace between pageless routes is recorded', (
