@@ -315,15 +315,26 @@ App startup times are automatically captured and sent as `app_startup` measureme
 | ------------------ | --------------------------------------------------------------- |
 | `appStartDuration` | Milliseconds the start took                                       |
 | `coldStart`        | `1` for a cold start, `0` for a warm start                        |
-| `prewarmed`        | `1` when iOS prewarmed the process, `0` otherwise (always `0` on Android) |
+| `prewarmed`        | `1` when iOS prewarming was detected, `0` otherwise (always `0` on Android) |
 
-A **cold start** is measured from process start until the first frame is
-rasterized. An app that calls `Faro.init` after that frame is measured up to
-`init` instead, since by then the frame has already passed unobserved.
-A **warm start** is measured from the app returning to the
-foreground until the next frame, and is only reported when the app had actually
-been backgrounded. A launch reports a cold start alone, and a momentary loss of
-focus such as a notification banner reports nothing.
+For a **cold start**, the SDK requests the native duration after Flutter reports
+that the first frame has been rasterized. The interval normally starts at
+process creation; detected iOS prewarming uses the anchor described below.
+It ends when native code reads the clock, not at an exact frame timestamp.
+If `Faro.init` runs after the first frame, the measurement includes that delay.
+A **warm start** begins in Flutter's `resumed` handler and ends in a post-frame
+callback. It is only reported when the app had actually been backgrounded.
+A launch reports a cold start alone, and a momentary loss of focus such as a
+notification banner reports nothing.
+
+These callbacks do not confirm that the frame reached the display or that the
+app is ready for interaction. Cold starts wait for
+[`waitUntilFirstFrameRasterized`](https://api.flutter.dev/flutter/widgets/WidgetsBinding/waitUntilFirstFrameRasterized.html);
+warm starts end in an
+[`addPostFrameCallback`](https://api.flutter.dev/flutter/scheduler/SchedulerBinding/addPostFrameCallback.html).
+The latter marks the end of a framework frame, not rasterization or presentation.
+The delay from rendering to display varies; these callbacks do not establish a
+fixed one-frame error bound.
 
 #### Which cold starts are reported
 
@@ -346,25 +357,25 @@ How much of that the SDK can rule out differs by platform:
   exposes no process start time.
 - **iOS**: a background launch cannot be told apart from a user-initiated one,
   so every launch with a usable anchor is reported. Prewarmed launches are
-  re-based onto a monotonic anchor taken when the SDK loads, so they measure
-  the launch rather than the idle time before it, and are flagged with
-  `prewarmed`. Beyond that re-basing, the 60-second cap below is the only
-  guard on iOS.
+  flagged with `prewarmed` when detected and measured from a monotonic anchor
+  taken during the first plugin registration. This can exclude time before
+  registration, but not elapsed uptime during a prewarm pause after it; see the
+  limitation below. Beyond that, the 60-second cap below is the only guard on iOS.
 
 As a final guard, any cold start longer than 60 seconds is discarded on both
 platforms. This is the same bound commonly used across mobile RUM tooling, so
 the metric stays comparable with what you may collect elsewhere.
 
-> **Known limitation — prewarmed launches on iOS undercount.** The anchor above
-> is taken during plugin registration, which runs inside
-> `application(_:didFinishLaunchingWithOptions:)`. Apple documents prewarming as
-> stopping before that point, but on apps adopting the `UIScene` lifecycle —
-> which Flutter's iOS template does — iOS may run it during the prewarm itself.
-> The anchor is then set long before the user taps, and because the uptime clock
-> keeps running the measured duration includes the idle gap. A long prewarm
-> trips the 60 second guard and is dropped, so treat `prewarmed=1` as a lower
-> bound on volume; a short one is reported with the idle gap included, so treat
-> `prewarmed=1` durations as an upper bound on the real launch time.
+> **Known limitation — iOS prewarming can still skew startup timings.** The
+> anchor above is taken during the first plugin registration, whose timing
+> depends on the host app.
+> Detection also depends on `ActivePrewarm` still being set at that point. If
+> registration happens before a prewarm pause, elapsed uptime during that pause
+> is included in the measurement. Values over 60 seconds are dropped; shorter
+> pauses can inflate reported durations. Do not assume prewarmed samples exclude
+> all idle time or that the flag identifies every prewarmed launch.
+> An undetected prewarm is measured from process creation instead. This can
+> report idle time with `prewarmed=0` or exceed the cap and be dropped.
 
 > **Known limitation — split screen.** The importance sample reads
 > `IMPORTANCE_FOREGROUND`. A launch into a split-screen or multi-window slot can
