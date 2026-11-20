@@ -17,6 +17,8 @@ class PersistedSessionRecord {
     required this.startedAt,
     required this.lastActivityAt,
     required this.isSampled,
+    this.dynamicDeviceState,
+    this.metaSnapshot,
   });
 
   factory PersistedSessionRecord.fromJson(Map<String, dynamic> json) {
@@ -61,6 +63,8 @@ class PersistedSessionRecord {
       startedAt: startedAt,
       lastActivityAt: lastActivityAt,
       isSampled: isSampled,
+      dynamicDeviceState: _readObject(json['dynamicDeviceState']),
+      metaSnapshot: _readObject(json['metaSnapshot']),
     );
   }
 
@@ -72,6 +76,45 @@ class PersistedSessionRecord {
   final DateTime lastActivityAt;
   final bool isSampled;
 
+  /// The last known dynamic device and network values of the session, in the
+  /// map `DynamicDeviceState.fromNative` reads. A recovered crash of this
+  /// session carries them. Null when none were stored or they were unreadable.
+  final Map<String, dynamic>? dynamicDeviceState;
+
+  /// The `sdk`, `app`, `os` and `device` meta of the process that owned the
+  /// session, as the JSON of `Meta`. A recovered crash of this session carries
+  /// them, so an app or OS update since then does not relabel it. Null for a
+  /// record that an older SDK wrote, or when they were unreadable.
+  final Map<String, dynamic>? metaSnapshot;
+
+  /// Returns a copy with new stored values. A null [dynamicDeviceState] drops
+  /// them.
+  PersistedSessionRecord withDynamicDeviceState(
+    Map<String, dynamic>? dynamicDeviceState,
+  ) {
+    return PersistedSessionRecord(
+      currentSessionId: currentSessionId,
+      previousSessionId: previousSessionId,
+      startedAt: startedAt,
+      lastActivityAt: lastActivityAt,
+      isSampled: isSampled,
+      dynamicDeviceState: dynamicDeviceState,
+      metaSnapshot: metaSnapshot,
+    );
+  }
+
+  // The values are optional context, so a bad value must not cost the record.
+  static Map<String, dynamic>? _readObject(Object? value) {
+    if (value is! Map || value.isEmpty) {
+      return null;
+    }
+    try {
+      return Map<String, dynamic>.from(value);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'schemaVersion': schemaVersion,
     'currentSessionId': currentSessionId,
@@ -79,6 +122,8 @@ class PersistedSessionRecord {
     'startedAt': startedAt.toUtc().toIso8601String(),
     'lastActivityAt': lastActivityAt.toUtc().toIso8601String(),
     'isSampled': isSampled,
+    if (dynamicDeviceState != null) 'dynamicDeviceState': dynamicDeviceState,
+    if (metaSnapshot != null) 'metaSnapshot': metaSnapshot,
   };
 }
 
@@ -140,6 +185,7 @@ class SessionPersistence {
   static const int _historySchemaVersion = 2;
 
   Timer? _activityWriteTimer;
+  String? _currentSessionId;
   List<PersistedSessionRecord> _history = <PersistedSessionRecord>[];
   List<PersistedSessionRecord>? _pendingHistory;
   List<PersistedSessionRecord>? _enqueuedHistory;
@@ -176,24 +222,30 @@ class SessionPersistence {
     SessionState state, {
     required bool isSampled,
     required bool immediate,
+    Map<String, dynamic>? dynamicDeviceState,
+    Map<String, dynamic>? metaSnapshot,
   }) {
     final lastActivityAt = state.lastActivityAt.isBefore(state.startedAt)
         ? state.startedAt
         : state.lastActivityAt;
+    final existingIndex = _history.indexWhere(
+      (item) => item.currentSessionId == state.currentSessionId,
+    );
+    final existing = existingIndex == -1 ? null : _history[existingIndex];
     final record = PersistedSessionRecord(
       currentSessionId: state.currentSessionId,
       previousSessionId: state.previousSessionId,
       startedAt: state.startedAt,
       lastActivityAt: lastActivityAt,
       isSampled: isSampled,
-    );
-    final existingIndex = _history.indexWhere(
-      (item) => item.currentSessionId == record.currentSessionId,
+      dynamicDeviceState: dynamicDeviceState ?? existing?.dynamicDeviceState,
+      metaSnapshot: metaSnapshot ?? existing?.metaSnapshot,
     );
     if (existingIndex != -1) {
       _history.removeAt(existingIndex);
     }
     _history.add(record);
+    _currentSessionId = record.currentSessionId;
     if (_history.length > _maxHistoryLength) {
       _history.removeRange(0, _history.length - _maxHistoryLength);
     }
@@ -206,6 +258,46 @@ class SessionPersistence {
       return;
     }
 
+    _scheduleCoalescedWrite();
+  }
+
+  /// Stores the last known values of the current session. Writes share the
+  /// activity timer, so a burst of changes costs one write per
+  /// [activityWriteDelay]. Does nothing before the first [record] call.
+  void recordDynamicDeviceState(Map<String, dynamic> dynamicDeviceState) {
+    final sessionId = _currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+    _replaceDynamicDeviceState(sessionId, dynamicDeviceState);
+  }
+
+  /// Drops the stored values of a session, for example after its crash was
+  /// sent.
+  void discardDynamicDeviceState(String sessionId) {
+    _replaceDynamicDeviceState(sessionId, null);
+  }
+
+  void _replaceDynamicDeviceState(
+    String sessionId,
+    Map<String, dynamic>? dynamicDeviceState,
+  ) {
+    final index = _history.indexWhere(
+      (item) => item.currentSessionId == sessionId,
+    );
+    if (index == -1 ||
+        _history[index].dynamicDeviceState == null &&
+            dynamicDeviceState == null) {
+      return;
+    }
+    _history[index] = _history[index].withDynamicDeviceState(
+      dynamicDeviceState,
+    );
+    _pendingHistory = List<PersistedSessionRecord>.unmodifiable(_history);
+    _scheduleCoalescedWrite();
+  }
+
+  void _scheduleCoalescedWrite() {
     _activityWriteTimer ??= Timer(activityWriteDelay, () {
       _activityWriteTimer = null;
       _enqueuePendingWrite();
@@ -215,6 +307,7 @@ class SessionPersistence {
   Future<void> clear() async {
     _activityWriteTimer?.cancel();
     _activityWriteTimer = null;
+    _currentSessionId = null;
     _history = <PersistedSessionRecord>[];
     _pendingHistory = null;
     _writeQueue = _writeQueue.then((_) => _deleteSafely());
