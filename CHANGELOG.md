@@ -32,8 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Payloads include battery, power, thermal and network state**, in
   `meta.device` and the new `meta.network`. Each signal carries the value
-  current when it was captured, and a crash sent on the next launch carries
-  none of them. Android also sends the carrier name. See the Reference docs
+  current when it was captured. Android also sends the carrier name. See the Reference docs
   for details
   ([#372](https://github.com/grafana/faro-flutter-sdk/issues/372)).
 
@@ -48,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `READ_BASIC_PHONE_STATE` permission from its manifest. See the Reference docs
   for details
   ([#389](https://github.com/grafana/faro-flutter-sdk/issues/389)).
+
+- **A crash recovered on the next launch carries the last known battery,
+  power, thermal and network state of the crashed session.** They are the last
+  values the SDK stored, up to 30 seconds behind the crash, not the values at
+  the moment of the crash. The values of the relaunch are never used. They
+  are stored with the session record, so they follow the session persistence
+  setting. See the Reference docs for details
+  ([#387](https://github.com/grafana/faro-flutter-sdk/issues/387)).
 
 ### Changed
 
@@ -83,6 +90,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   continues past unavailable geometry without interrupting the app's tap
   callbacks
   ([#345](https://github.com/grafana/faro-flutter-sdk/issues/345)).
+
+- **A crash recovered on the next launch carries the app, OS, device and SDK
+  metadata of the crashed session.** It used the metadata of the relaunch, so
+  after an app or OS update the crash showed the new version. A session saved
+  by an earlier SDK version has no stored metadata, so its crash still uses
+  the relaunch values once. See the Reference docs for details
+  ([#387](https://github.com/grafana/faro-flutter-sdk/issues/387)).
 
 ## [0.18.0] - 2026-10-28
 

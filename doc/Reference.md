@@ -208,8 +208,9 @@ How the SDK keeps them current:
 - The native listeners start on the first read, which is `Faro.init`, not when
   the app starts. They stop when the last Flutter engine that uses them
   detaches. A group that is off never starts its listeners.
-- A crash sent on the next launch carries none of them. The values of the
-  relaunch would not describe the crash.
+- A crash sent on the next launch carries the last known values of the
+  crashed session, never the values of the relaunch. See
+  [Recovered crashes](#recovered-crashes).
 
 Android thermal state maps `NONE`, `LIGHT` and `MODERATE` to `nominal`, `fair`
 and `serious`, and `SEVERE` and above to `critical`. Android reads the carrier
@@ -591,6 +592,8 @@ isolate and are not checked against the native signal, so configure each
 entrypoint separately. Reusing either override for an engine with the opposite
 role would mislabel that engine.
 
+<a id="recovered-crashes"></a>
+
 **Recovered crashes.** When crash reporting and session persistence are
 enabled, Android and iOS native crashes recovered on the next launch retain
 the persisted session ID that was active when the process stopped. The crash
@@ -621,6 +624,25 @@ acceptance. Custom transports must complete with an error when they cannot
 accept or durably queue the payload; hiding that failure can cause the SDK to
 purge the retained native report. A pending iOS report is discarded without
 being sent when data collection was disabled at launch.
+
+A recovered crash also carries the battery, power, thermal and network fields
+of [Dynamic Device and Network State](#dynamic-device-and-network-state). They
+are the **last known values** of the crashed session, not the values at the
+moment of the crash. The SDK stores them in the session record when a value
+changes, at most once every 30 seconds, so they can be up to 30 seconds
+behind. Values do not expire, because a listener-fed value stays true until its
+next change. The SDK sends them with the crash of that session only, and
+deletes them once the crash is sent or the session record is dropped. A group
+that is off in `dynamicDeviceState` is never stored or sent. A crash with no
+stored values, or values the SDK cannot read, still goes out without the fields.
+Because the values live in the session record, they need `persistSession`.
+
+A recovered crash also carries the `meta.app`, `meta.os`, `meta.device` and
+`meta.sdk` fields of the crashed session, so an app or OS update since then
+does not relabel it. The SDK stores them in the session record when the session
+starts. A session saved by an earlier SDK version has none, so its crash uses
+the values of the relaunch. `meta.user`, `meta.view` and `meta.page` are never
+stored or sent with a recovered crash.
 
 If persistence is active but a recovered crash cannot be matched to a
 persisted session, the SDK discards that crash rather than attributing it to
