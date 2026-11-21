@@ -60,7 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#394](https://github.com/grafana/faro-flutter-sdk/issues/394)).
 
 - **Opt-in offline delivery saves batches before sending**, including while
-  online, and retries temporary failures across restarts. **Interrupted
+  online, and retries temporary failures across restarts. Turn it on with
+  `FaroConfig(offlineStorage: OfflineStorageConfig(enabled: true))`. Batches
+  are kept in the app's private Application Support directory. **Interrupted
   acknowledgements can cause duplicate delivery.** See the Reference docs for
   details ([#376](https://github.com/grafana/faro-flutter-sdk/issues/376)).
 
@@ -78,6 +80,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `^0.12.0` instead of `^0.11.0`. Apps that pin `dartastic_opentelemetry`
   0.11 must upgrade it
   ([#383](https://github.com/grafana/faro-flutter-sdk/pull/383)).
+
+### Deprecated
+
+- **`OfflineTransport` is deprecated** in favor of `FaroConfig.offlineStorage`.
+  It keeps working for now: adding it before `init` turns offline storage on
+  with its `maxCacheDuration`, but it no longer receives batches itself. It
+  will be removed in a future release
+  ([#376](https://github.com/grafana/faro-flutter-sdk/issues/376)).
 
 ### Removed
 

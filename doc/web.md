@@ -16,12 +16,11 @@ Initialize Faro the same way as on mobile, with no web-specific code:
 // Safe to keep on web, but it does nothing there (see below).
 HttpOverrides.global = FaroHttpOverrides(HttpOverrides.current);
 
-// Also safe on web. Offline caching does nothing there.
-Faro().transports.add(OfflineTransport());
-
 await Faro().runApp(
   optionsConfiguration: FaroConfig(
     // ...
+    // Also safe on web. It is ignored there and batches are sent directly.
+    offlineStorage: const OfflineStorageConfig(enabled: true),
   ),
   appRunner: () => runApp(const MyApp()),
 );
@@ -47,7 +46,7 @@ await Faro().runApp(
 | Feature                                  | Behavior on web                                    |
 | ---------------------------------------- | -------------------------------------------------- |
 | HTTP network tracking                    | Not available. `HttpOverrides` does nothing on web and no HTTP telemetry is sent |
-| `OfflineTransport`                       | Does nothing. Web has no file system to cache payloads in, so nothing is cached or replayed. Adding it is harmless |
+| Offline storage                          | Ignored. Web has no file system to save batches in, so `FaroConfig.offlineStorage` and the deprecated `OfflineTransport` are ignored and the collector sends each batch directly |
 | CPU, memory, refresh rate and ANR vitals | Not collected. The related config flags are ignored |
 | Cold and warm start measurements         | Not reported. Cold start depends on native code, and a warm start on web would only cover the time to the next frame |
 | Crash reporting                          | Not collected                                      |

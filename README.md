@@ -39,7 +39,7 @@ The Faro Flutter SDK provides real user monitoring capabilities including:
 - **HTTP Network Monitoring**: Request/response details and timing
 - **Asset Loading**: Track asset loading performance
 - **Offline Support**: Opt-in persistent delivery with bounded storage and
-  automatic retries
+  automatic retries, through `FaroConfig.offlineStorage`
 - **Web (beta, community-supported)**: Core telemetry in Flutter web builds. See the [web docs](./doc/web.md) for what is and is not supported
 
 See [SDK Reference](./doc/Reference.md) for complete documentation.
