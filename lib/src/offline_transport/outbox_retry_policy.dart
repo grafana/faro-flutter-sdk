@@ -13,6 +13,12 @@ class OutboxRetryPolicy {
     }
   }
 
+  /// The longest wait a collector can request through `Retry-After`.
+  ///
+  /// A misconfigured or hostile header must not stall delivery until saved
+  /// batches age out, so later server deadlines are clamped to this bound.
+  static const Duration maxServerDelay = Duration(hours: 1);
+
   /// The upper bound for the first retry delay before jitter.
   final Duration initialDelay;
 
@@ -20,7 +26,8 @@ class OutboxRetryPolicy {
   final Duration maxDelay;
   final Random _random;
 
-  /// Chooses the next deadline, never preceding a valid server retry deadline.
+  /// Chooses the next deadline, never preceding a valid server retry deadline
+  /// after it has been limited by [clampServerDeadline].
   DateTime nextAttempt({
     required DateTime now,
     required int failures,
@@ -38,8 +45,21 @@ class OutboxRetryPolicy {
       milliseconds: (ceiling / 2 + _random.nextDouble() * ceiling / 2).ceil(),
     );
     final next = now.add(delay);
-    return serverRetryAt != null && serverRetryAt.isAfter(next)
-        ? serverRetryAt
-        : next;
+    final server = serverRetryAt == null
+        ? null
+        : clampServerDeadline(serverRetryAt, now: now);
+    return server != null && server.isAfter(next) ? server : next;
+  }
+
+  /// Limits a server deadline to [maxServerDelay] from [now].
+  ///
+  /// Also applied to deadlines loaded from disk, so a restart, an old release
+  /// or a device clock moved backwards cannot extend the wait.
+  static DateTime clampServerDeadline(
+    DateTime deadline, {
+    required DateTime now,
+  }) {
+    final latest = now.add(maxServerDelay);
+    return deadline.isAfter(latest) ? latest : deadline;
   }
 }

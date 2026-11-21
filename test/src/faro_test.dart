@@ -5,12 +5,14 @@ import 'dart:io';
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
+import 'package:faro/src/configurations/offline_storage_config.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/http_url_redaction_policy.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/collector_outbox.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
 import 'package:faro/src/offline_transport/offline_transport.dart';
 import 'package:faro/src/session/session_manager.dart';
@@ -35,13 +37,6 @@ class MockBatchTransport extends Mock implements BatchTransport {}
 
 class MockBaseTransport extends Mock implements BaseTransport {}
 
-class MockOfflineTransport extends Mock implements OfflineTransport {
-  MockOfflineTransport() {
-    when(dispose).thenAnswer((_) async {});
-    when(discardCachedData).thenAnswer((_) async {});
-  }
-}
-
 class MockFaroNativeMethods extends Mock implements FaroNativeMethods {}
 
 class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
@@ -49,20 +44,31 @@ class MockDataCollectionPolicy extends Mock implements DataCollectionPolicy {}
 class MockInternetConnectivityService extends Mock
     implements InternetConnectivityService {}
 
-// Track both initialization and connectivity-triggered cache replays.
-class _TrackedOfflineTransport extends OfflineTransport {
-  _TrackedOfflineTransport({
-    required super.internetConnectivityService,
-    required this.pendingReplays,
-  });
+/// Creates outboxes with a test connectivity service and records them.
+class _RecordingOutboxFactory extends CollectorOutboxFactory {
+  _RecordingOutboxFactory(this.connectivity);
 
-  final List<Future<void>> pendingReplays;
+  final InternetConnectivityService connectivity;
+  final List<CollectorOutbox> created = [];
+  final List<bool> acceptsNewBatches = [];
 
   @override
-  Future<void> replayCachedData() {
-    final replay = super.replayCachedData();
-    pendingReplays.add(replay);
-    return replay;
+  CollectorOutbox create({
+    required FaroTransport collector,
+    required OfflineStorageConfig config,
+    required bool acceptsNewBatches,
+    InternetConnectivityService? internetConnectivityService,
+    String? internetConnectionCheckerUrl,
+  }) {
+    final outbox = CollectorOutbox(
+      collector: collector,
+      config: config,
+      acceptsNewBatches: acceptsNewBatches,
+      internetConnectivityService: internetConnectivityService ?? connectivity,
+    );
+    created.add(outbox);
+    this.acceptsNewBatches.add(acceptsNewBatches);
+    return outbox;
   }
 }
 
@@ -213,17 +219,6 @@ void main() {
       },
     );
 
-    test('reset disposes every configured outbox', () async {
-      final first = MockOfflineTransport();
-      final second = MockOfflineTransport();
-      Faro().transports = [first, second];
-
-      await Faro.resetForTesting();
-
-      verify(first.dispose).called(1);
-      verify(second.dispose).called(1);
-    });
-
     test('init called with no error', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
       SharedPreferences.setMockInitialValues({
@@ -262,15 +257,20 @@ void main() {
       verify(() => mockBatchTransport.addEvent(any())).called(1);
     });
 
-    group('offline replay after initialization', () {
+    group('offline storage after initialization', () {
       const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
       late Directory directory;
       late StreamController<bool> connectivity;
       late MockInternetConnectivityService service;
-      late _TrackedOfflineTransport outbox;
-      late List<Future<void>> pendingReplays;
+      late _RecordingOutboxFactory factory;
 
-      Future<void> initialize() => Faro().init(
+      CollectorOutbox outbox() => factory.created.single;
+
+      Future<void> initialize({
+        OfflineStorageConfig storage = const OfflineStorageConfig(
+          enabled: true,
+        ),
+      }) => Faro().init(
         optionsConfiguration: FaroConfig(
           appName: appName,
           appVersion: appVersion,
@@ -281,11 +281,21 @@ void main() {
           persistSession: false,
           persistUser: false,
           enableUiActivityMonitoring: false,
+          offlineStorage: storage,
         ),
       );
 
+      void verifyNothingSent() {
+        verifyNever(
+          () => mockFaroTransport.sendWithResult(
+            any(),
+            historical: any(named: 'historical'),
+            timeout: any(named: 'timeout'),
+          ),
+        );
+      }
+
       setUp(() async {
-        pendingReplays = [];
         directory = await Directory.systemTemp.createTemp('faro_init_replay');
         connectivity = StreamController<bool>.broadcast();
         service = MockInternetConnectivityService();
@@ -293,6 +303,8 @@ void main() {
         when(
           () => service.onConnectivityChanged,
         ).thenAnswer((_) => connectivity.stream.distinct());
+        factory = _RecordingOutboxFactory(service);
+        pod.overrideProvider(collectorOutboxFactoryProvider, (_) => factory);
         when(
           () => mockFaroTransport.sendWithResult(
             any(),
@@ -304,11 +316,7 @@ void main() {
         );
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(pathChannel, (_) async => directory.path);
-        outbox = _TrackedOfflineTransport(
-          internetConnectivityService: service,
-          pendingReplays: pendingReplays,
-        );
-        Faro().transports = [outbox];
+        Faro().transports = [];
         await File('${directory.path}/rum_log.json').writeAsString(
           jsonEncode({
             'timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -325,18 +333,26 @@ void main() {
       });
 
       tearDown(() async {
-        await outbox.dispose();
+        for (final created in factory.created) {
+          await created.dispose();
+        }
+        pod.removeOverride(collectorOutboxFactoryProvider);
         await connectivity.close();
-        await Future.wait(pendingReplays);
         Faro().transports = [];
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(pathChannel, null);
         await directory.delete(recursive: true);
       });
 
+      test('attaches the outbox to the primary collector', () async {
+        await initialize();
+        expect(factory.acceptsNewBatches, [true]);
+        expect(collectorOutboxOf(mockFaroTransport), same(outbox()));
+      });
+
       test('replays cached data after init without a network change', () async {
         await initialize();
-        await outbox.replayCachedData();
+        await outbox().replayCachedData();
         final sent =
             verify(
                   () => mockFaroTransport.sendWithResult(
@@ -347,16 +363,10 @@ void main() {
                 ).captured.single
                 as Map<String, dynamic>;
         expect(sent['meta']['session']['id'], 'cached-session');
-        expect(await (await outbox.storeForTesting).pending(), isEmpty);
+        expect(await (await outbox().storeForTesting).pending(), isEmpty);
         await initialize();
-        await outbox.replayCachedData();
-        verifyNever(
-          () => mockFaroTransport.sendWithResult(
-            any(),
-            historical: any(named: 'historical'),
-            timeout: any(named: 'timeout'),
-          ),
-        );
+        await outbox().replayCachedData();
+        verifyNothingSent();
       });
 
       test(
@@ -364,7 +374,7 @@ void main() {
         () async {
           when(() => service.isOnline).thenReturn(false);
           await initialize();
-          await outbox.replayCachedData();
+          await outbox().replayCachedData();
           verify(
             () => mockFaroTransport.sendWithResult(
               any(),
@@ -392,11 +402,26 @@ void main() {
           await initialize().timeout(const Duration(seconds: 2));
           await requested.future.timeout(const Duration(seconds: 2));
           expect(response.isCompleted, isFalse);
-          expect(await (await outbox.storeForTesting).pending(), hasLength(1));
+          expect(
+            await (await outbox().storeForTesting).pending(),
+            hasLength(1),
+          );
         } finally {
           response.complete(const DeliveryResult(DeliveryStatus.accepted));
-          await outbox.replayCachedData();
+          await outbox().replayCachedData();
         }
+      });
+
+      test('early re-enable does not send opted-out data', () async {
+        SharedPreferences.setMockInitialValues({
+          'faro_enable_data_collection': false,
+        });
+        await initialize();
+        // A consent flow that turns collection back on immediately.
+        Faro().enableDataCollection = true;
+        await outbox().replayCachedData();
+        expect(await (await outbox().storeForTesting).pending(), isEmpty);
+        verifyNothingSent();
       });
 
       for (final online in [true, false]) {
@@ -406,17 +431,62 @@ void main() {
           });
           when(() => service.isOnline).thenReturn(online);
           await initialize();
-          await outbox.replayCachedData();
-          expect(await (await outbox.storeForTesting).pending(), isEmpty);
-          verifyNever(
-            () => mockFaroTransport.sendWithResult(
-              any(),
-              historical: any(named: 'historical'),
-              timeout: any(named: 'timeout'),
-            ),
-          );
+          await outbox().replayCachedData();
+          expect(await (await outbox().storeForTesting).pending(), isEmpty);
+          verifyNothingSent();
         });
       }
+
+      test(
+        'storage off still drains a backlog from an earlier launch',
+        () async {
+          await initialize(storage: const OfflineStorageConfig());
+          expect(factory.acceptsNewBatches, [false]);
+          expect(collectorOutboxOf(mockFaroTransport), isNull);
+          await outbox().replayCachedData();
+          verify(
+            () => mockFaroTransport.sendWithResult(
+              any(),
+              historical: true,
+              timeout: const Duration(seconds: 30),
+            ),
+          ).called(1);
+        },
+      );
+
+      test('deprecated OfflineTransport turns offline storage on', () async {
+        Faro().transports = [
+          // ignore: deprecated_member_use_from_same_package
+          OfflineTransport(internetConnectivityService: service),
+        ];
+        await initialize(storage: const OfflineStorageConfig());
+        expect(factory.acceptsNewBatches, [true]);
+        expect(collectorOutboxOf(mockFaroTransport), same(outbox()));
+      });
+
+      test('no outbox without a collector', () async {
+        await Faro().init(
+          optionsConfiguration: FaroConfig(
+            appName: appName,
+            appVersion: appVersion,
+            appEnv: appEnv,
+            apiKey: apiKey,
+            collectorUrl: null,
+            transports: const <FaroTransport>[],
+            persistSession: false,
+            persistUser: false,
+            enableUiActivityMonitoring: false,
+            offlineStorage: const OfflineStorageConfig(enabled: true),
+          ),
+        );
+        expect(factory.created, isEmpty);
+      });
+
+      test('reset disposes the outbox', () async {
+        await initialize();
+        await Faro.resetForTesting();
+        expect(collectorOutboxOf(mockFaroTransport), isNull);
+      });
     });
     group('session persistence integration', () {
       late Directory temporaryDirectory;
@@ -674,8 +744,6 @@ void main() {
       test('iOS retains the pending crash when delivery is rejected', () async {
         final deliveryStarted = Completer<void>();
         final deliveryResult = Completer<bool>();
-        final offlineTransport = MockOfflineTransport();
-        when(offlineTransport.replayCachedData).thenAnswer((_) async {});
         stubRuntimeInfo(ownsPersistence: true);
         Faro().iosPlatformResolver = () => true;
         Faro().androidPlatformResolver = () => false;
@@ -694,10 +762,7 @@ void main() {
           deliveryStarted.complete();
           return deliveryResult.future;
         });
-        Faro().transports = <BaseTransport>[
-          offlineTransport,
-          mockFaroTransport,
-        ];
+        Faro().transports = <BaseTransport>[mockFaroTransport];
 
         await Faro().init(
           optionsConfiguration: createConfig(
@@ -709,7 +774,6 @@ void main() {
         await deliveryStarted.future;
         deliveryResult.complete(false);
         await Future<void>.delayed(Duration.zero);
-        verifyNever(() => offlineTransport.send(any()));
         verifyNever(() => mockFaroNativeMethods.purgeCrashReport());
       });
 
@@ -1151,22 +1215,26 @@ void main() {
       expect(capturedException.fatal, isTrue);
     });
 
-    for (final handoff in ['saved', 'failed', 'disabled', 'no collector']) {
-      test('Android recovered crash with outbox handoff $handoff', () async {
-        final outbox = MockOfflineTransport();
-        when(() => outbox.send(any())).thenAnswer((_) async {
-          if (handoff == 'saved') return;
-          if (handoff == 'disabled') {
-            when(() => mockDataCollectionPolicy.isEnabled).thenReturn(false);
-          }
-          throw const FileSystemException('Injected storage failure');
-        });
-        Faro().dataCollectionPolicy = mockDataCollectionPolicy;
-        Faro().transports = [
-          outbox,
-          if (handoff != 'no collector') mockFaroTransport,
-          mockBaseTransport,
-        ];
+    group('with an outbox on the primary collector', () {
+      late CollectorOutbox outbox;
+
+      setUp(() {
+        final connectivity = MockInternetConnectivityService();
+        when(
+          () => connectivity.onConnectivityChanged,
+        ).thenAnswer((_) => const Stream<bool>.empty());
+        when(() => mockFaroTransport.send(any())).thenAnswer((_) async {});
+        outbox = CollectorOutbox(
+          collector: mockFaroTransport,
+          config: const OfflineStorageConfig(enabled: true),
+          internetConnectivityService: connectivity,
+        );
+        Faro().transports = [mockFaroTransport, mockBaseTransport];
+      });
+
+      tearDown(() => outbox.dispose());
+
+      test('Android recovered crash is saved in the outbox', () async {
         await Faro().reportAndroidCrashesForTesting([
           jsonEncode({
             'reason': 'CRASH',
@@ -1174,20 +1242,37 @@ void main() {
             'trace': 'original trace',
           }),
         ]);
-        verify(() => outbox.send(any())).called(1);
+        // FaroTransport.send saves it, or makes one direct attempt.
+        final payload =
+            verify(() => mockFaroTransport.send(captureAny())).captured.single
+                as Map<String, dynamic>;
+        final exception =
+            (payload['exceptions'] as List).single as Map<String, dynamic>;
+        expect(exception['context']['stacktrace'], 'original trace');
+        verifyNever(() => mockFaroTransport.sendHistoricalAcknowledged(any()));
         verify(() => mockBaseTransport.send(any())).called(1);
-        if (handoff == 'failed') {
-          expect(
-            recoveredException()['context']['stacktrace'],
-            'original trace',
-          );
-        } else {
-          verifyNever(
-            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
-          );
-        }
       });
-    }
+
+      test('iOS recovered crash bypasses the outbox', () async {
+        Faro().iosPlatformResolver = () => true;
+        Faro().androidPlatformResolver = () => false;
+        when(
+          () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+        ).thenAnswer((_) async => true);
+        final accepted = await Faro().reportIOSCrashesForTesting([
+          json.encode({
+            'type': 'SIGSEGV',
+            'value': 'Application crash',
+            'timestamp': '2026-08-14T12:03:00.000Z',
+          }),
+        ]);
+        expect(accepted, isTrue);
+        verify(
+          () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+        ).called(1);
+        verifyNever(() => mockFaroTransport.send(any()));
+      });
+    });
 
     test('native Android crash forwards the captured trace', () async {
       const nativeTrace = '''
@@ -1269,9 +1354,7 @@ java.lang.NullPointerException: test crash
     });
 
     test('recovered crash is sent with the crashed session metadata', () async {
-      final offlineTransport = MockOfflineTransport();
-      when(() => offlineTransport.send(any())).thenAnswer((_) async {});
-      Faro().transports = <BaseTransport>[offlineTransport, mockFaroTransport];
+      Faro().transports = <BaseTransport>[mockFaroTransport];
       final currentSessionId = Faro().meta.session?.id;
       final recoveredSession = PersistedSessionRecord(
         currentSessionId: 'crashed-session',
@@ -1294,7 +1377,10 @@ java.lang.NullPointerException: test crash
       ], recoveredSession: recoveredSession);
 
       final payload =
-          verify(() => offlineTransport.send(captureAny())).captured.single
+          verify(
+                () =>
+                    mockFaroTransport.sendHistoricalAcknowledged(captureAny()),
+              ).captured.single
               as Map<String, dynamic>;
       expect(payload['meta']['session']['id'], 'crashed-session');
       expect(
@@ -1542,8 +1628,8 @@ java.lang.NullPointerException: test crash
     test(
       'iOS keeps the native report when only offline retry is configured',
       () async {
-        final offlineTransport = MockOfflineTransport();
-        Faro().transports = <BaseTransport>[offlineTransport];
+        // ignore: deprecated_member_use_from_same_package
+        Faro().transports = <BaseTransport>[OfflineTransport()];
         final crashReport = json.encode({
           'type': 'SIGSEGV',
           'value': 'Application crash',
@@ -1553,7 +1639,6 @@ java.lang.NullPointerException: test crash
         final accepted = await Faro().reportIOSCrashesForTesting([crashReport]);
 
         expect(accepted, isFalse);
-        verifyNever(() => offlineTransport.send(any()));
       },
     );
 

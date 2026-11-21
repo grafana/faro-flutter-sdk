@@ -69,10 +69,6 @@ void main() async {
       ? qaConfig.initialUser
       : userSettingsService.initialUser;
 
-  Faro().transports.add(
-    OfflineTransport(maxCacheDuration: const Duration(days: 3)),
-  );
-
   await Faro().runApp(
     optionsConfiguration: FaroConfig(
       appName: 'faro-flutter-sdk-example',
@@ -91,6 +87,7 @@ void main() async {
       sessionAttributes: sessionAttributes,
       initialUser: initialUser,
       persistUser: userSettingsService.persistUser,
+      offlineStorage: const OfflineStorageConfig(enabled: true),
     ),
     appRunner: () async {
       runApp(

@@ -1,5 +1,6 @@
 import 'package:faro/src/configurations/batch_config.dart';
 import 'package:faro/src/configurations/dynamic_device_state_config.dart';
+import 'package:faro/src/configurations/offline_storage_config.dart';
 import 'package:faro/src/configurations/sampling.dart';
 import 'package:faro/src/models/faro_user.dart';
 import 'package:faro/src/tracing/span_exception_options.dart';
@@ -45,6 +46,7 @@ class FaroConfig {
     this.persistUser = true,
     this.persistSession = true,
     this.dynamicDeviceState = const DynamicDeviceStateConfig(),
+    this.offlineStorage = const OfflineStorageConfig(),
     this.engineRole = FaroEngineRole.automatic,
     this.sampling,
     this.spanExceptionOptions = SpanExceptionOptions.defaults,
@@ -138,6 +140,12 @@ class FaroConfig {
   /// Battery, thermal and network are all on by default. A group that is off
   /// adds none of its fields to `meta` and registers no system listeners.
   final DynamicDeviceStateConfig dynamicDeviceState;
+
+  /// Saves batches on disk before the primary collector sends them, so
+  /// temporary failures and app restarts do not lose telemetry.
+  ///
+  /// Off by default. Ignored on web. See [OfflineStorageConfig].
+  final OfflineStorageConfig offlineStorage;
 
   /// The role of the Flutter engine that initializes Faro.
   ///

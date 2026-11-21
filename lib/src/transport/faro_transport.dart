@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/offline_transport/collector_outbox.dart';
 import 'package:faro/src/transport/delivery_result.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
 import 'package:faro/src/transport/task_buffer.dart';
@@ -57,9 +58,29 @@ class FaroTransport extends BaseTransport {
     _onSessionInvalidated = handler;
   }
 
+  /// Sends a batch to the collector.
+  ///
+  /// When offline storage is enabled for this collector, the batch is saved
+  /// first and delivered by the outbox. If it cannot be saved, it gets one
+  /// direct attempt, unless the collector is currently throttling.
   @override
   Future<void> send(Map<String, dynamic> payloadJson) async {
-    await _send(payloadJson, processSessionInvalidation: true);
+    final outbox = collectorOutboxOf(this);
+    if (outbox == null) {
+      await _send(payloadJson, processSessionInvalidation: true);
+      return;
+    }
+    final handoff = await outbox.send(payloadJson);
+    if (handoff != OutboxHandoff.notSaved) return;
+    if (outbox.isThrottled) {
+      log('Faro: Batch not saved while the collector is throttling.');
+      return;
+    }
+    // Nothing is on disk, so this direct attempt cannot cause a duplicate.
+    await _send(
+      payloadJson,
+      processSessionInvalidation: !CollectorOutbox.isHistorical(payloadJson),
+    );
   }
 
   /// Sends historical telemetry without applying receiver session

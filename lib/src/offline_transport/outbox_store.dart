@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:uuid/uuid.dart';
@@ -99,11 +100,20 @@ class OutboxStore {
   }
 
   /// Saves an immutable, already encoded payload before acknowledging handoff.
+  ///
   /// Returns null for an oversized batch or one already outside retention.
+  /// Throws only when the batch was not committed. A returned entry is on disk
+  /// even if evicting older batches failed afterwards; that eviction is
+  /// retried by the next store operation.
   Future<OutboxEntry?> enqueue(String payload) => _locked(() async {
     await _initialize();
     await _prune();
-    return _append(payload, _clock(), const Uuid().v4());
+    return _append(
+      payload,
+      _clock(),
+      const Uuid().v4(),
+      tolerateCleanupFailure: true,
+    );
   });
 
   /// Lists oldest batches first, enforcing retention even without connectivity.
@@ -233,8 +243,9 @@ class OutboxStore {
   Future<OutboxEntry?> _append(
     String payload,
     DateTime timestamp,
-    String id,
-  ) async {
+    String id, {
+    bool tolerateCleanupFailure = false,
+  }) async {
     if (_clock().difference(timestamp) > maxAge) return null;
     final contents =
         '{"version":1,"timestamp":'
@@ -253,7 +264,19 @@ class OutboxStore {
     final entry = OutboxEntry(file, timestamp, bytes);
     _entries.add(entry);
     _sort();
-    await _prune();
+    if (tolerateCleanupFailure) {
+      try {
+        await _prune();
+      } catch (error) {
+        // The batch is committed, so callers must not treat it as unsaved and
+        // send it again. Pending entries stay indexed, and the next enqueue,
+        // drain or startup prunes them.
+        log('Faro: Outbox eviction failed (${error.runtimeType}).');
+      }
+    } else {
+      // Legacy import appends in a loop and must stop on a failed eviction.
+      await _prune();
+    }
     return _entries.contains(entry) ? entry : null;
   }
 
@@ -309,8 +332,15 @@ class OutboxStore {
     try {
       await temporary.writeAsString(contents, flush: true);
       await temporary.rename(file.path);
-    } finally {
-      await _delete(temporary);
+    } catch (_) {
+      // Only an uncommitted write leaves a temporary file. A cleanup error
+      // must not hide the original failure; startup removes leftovers.
+      try {
+        await _delete(temporary);
+      } on FileSystemException {
+        // Keep the original error.
+      }
+      rethrow;
     }
   }
 

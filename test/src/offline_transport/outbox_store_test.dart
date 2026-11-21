@@ -36,6 +36,29 @@ final class _FailingWrites extends IOOverrides {
   }
 }
 
+/// Fails deletes of committed batch files, as a failed eviction would.
+final class _FailingDeletes extends IOOverrides {
+  bool blocked = true;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    if (!path.endsWith('.batch.json')) return file;
+    final failing = _MockFile();
+    when(() => failing.path).thenReturn(path);
+    when(() => failing.uri).thenReturn(file.uri);
+    when(failing.length).thenAnswer((_) => file.length());
+    when(failing.readAsString).thenAnswer((_) => file.readAsString());
+    when(failing.delete).thenAnswer((_) {
+      if (blocked) {
+        throw FileSystemException('Injected delete failure', path);
+      }
+      return file.delete();
+    });
+    return failing;
+  }
+}
+
 void main() {
   late Directory root;
   late DateTime now;
@@ -218,6 +241,58 @@ void main() {
         expect(await (await cache.pending()).single.readPayload(), {'id': 3});
       });
     }
+
+    test('a failed eviction after commit still reports the batch', () async {
+      final failures = _FailingDeletes();
+      await IOOverrides.runWithIOOverrides(() async {
+        // Both batches are created in the zone, so eviction uses a file whose
+        // delete fails after the second batch has been renamed into place.
+        final cache = store(count: 1);
+        await cache.enqueue('{"id":1}');
+        now = now.add(const Duration(seconds: 1));
+        final saved = await cache.enqueue('{"id":2}');
+        expect(saved, isNotNull);
+        // Both batches are on disk until eviction succeeds.
+        final committed = root
+            .listSync(recursive: true)
+            .map((entity) => entity.path)
+            .where((path) => path.endsWith('.batch.json'));
+        expect(committed, hasLength(2));
+        expect(
+          committed.map((path) => path.split(RegExp(r'[\\/]')).last),
+          contains(saved!.file.uri.pathSegments.last),
+        );
+        failures.blocked = false;
+        final pending = await cache.pending();
+        expect(await pending.single.readPayload(), {'id': 2});
+      }, failures);
+    });
+
+    test('legacy import stops on a failed eviction', () async {
+      final legacy = File('${root.path}/rum_log.json');
+      await legacy.writeAsString(
+        [1, 2]
+            .map(
+              (id) => jsonEncode({
+                'timestamp': now
+                    .subtract(Duration(seconds: 10 - id))
+                    .millisecondsSinceEpoch,
+                'payload': {'id': id},
+              }),
+            )
+            .join('\n'),
+      );
+      final failures = _FailingDeletes();
+      await IOOverrides.runWithIOOverrides(() async {
+        final cache = store(count: 1, legacy: legacy);
+        await expectLater(cache.pending(), throwsA(isA<FileSystemException>()));
+        expect(legacy.existsSync(), isTrue);
+        failures.blocked = false;
+        final pending = await cache.pending();
+        expect(await pending.single.readPayload(), {'id': 2});
+        expect(legacy.existsSync(), isFalse);
+      }, failures);
+    });
 
     test('unreadable startup file does not block valid batches', () async {
       final cache = store();

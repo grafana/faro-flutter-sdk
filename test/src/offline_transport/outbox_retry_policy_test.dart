@@ -36,6 +36,37 @@ void main() {
     );
   });
 
+  test('caps a far-future server deadline at maxServerDelay', () {
+    final policy = OutboxRetryPolicy(
+      initialDelay: const Duration(seconds: 1),
+      maxDelay: const Duration(seconds: 8),
+    );
+    final cap = now.add(OutboxRetryPolicy.maxServerDelay);
+    // Retry-After: 99999999 seconds, about three years.
+    expect(
+      policy.nextAttempt(
+        now: now,
+        failures: 1,
+        serverRetryAt: now.add(const Duration(seconds: 99999999)),
+      ),
+      cap,
+    );
+    // A far-future HTTP date.
+    expect(
+      policy.nextAttempt(
+        now: now,
+        failures: 1,
+        serverRetryAt: DateTime.utc(2099),
+      ),
+      cap,
+    );
+  });
+
+  test('keeps a server deadline inside maxServerDelay unchanged', () {
+    final deadline = now.add(const Duration(minutes: 59));
+    expect(OutboxRetryPolicy.clampServerDeadline(deadline, now: now), deadline);
+  });
+
   test('past server deadlines still use backoff', () {
     final policy = OutboxRetryPolicy(
       initialDelay: const Duration(seconds: 1),
