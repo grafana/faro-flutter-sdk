@@ -9,10 +9,13 @@ library;
 import 'package:faro/faro.dart';
 import 'package:faro/src/device_info/platform_info_provider.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/collector_outbox.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
 import 'package:faro/src/transport/batch_transport.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,6 +43,7 @@ void main() {
   group('OfflineTransport on web', () {
     test('does nothing and never touches connectivity', () async {
       final connectivityService = _MockInternetConnectivityService();
+      // ignore: deprecated_member_use
       final transport = OfflineTransport(
         internetConnectivityService: connectivityService,
       );
@@ -167,6 +171,46 @@ void main() {
       verifyNever(() => batchTransport.addMeasurement(any()));
       verifyZeroInteractions(nativeMethods);
     });
+
+    test(
+      'offline storage is ignored and the collector sends directly',
+      () async {
+        final requests = <http.Request>[];
+        final collector = FaroTransport(
+          collectorUrl: 'https://collector.example/collect',
+          apiKey: 'key',
+          sessionIdResolver: () => 'web-session',
+          httpClient: MockClient((request) async {
+            requests.add(request);
+            return http.Response('', 202);
+          }),
+        );
+        // Both ways of turning offline storage on.
+        Faro().transports = [
+          // ignore: deprecated_member_use
+          OfflineTransport(
+            internetConnectivityService: _MockInternetConnectivityService(),
+          ),
+        ];
+        await Faro().init(
+          optionsConfiguration: FaroConfig(
+            appName: 'WebTestApp',
+            appEnv: 'test',
+            apiKey: 'key',
+            collectorUrl: null,
+            transports: [collector],
+            persistSession: false,
+            persistUser: false,
+            enableUiActivityMonitoring: false,
+            offlineStorage: const OfflineStorageConfig(enabled: true),
+          ),
+        );
+
+        expect(collectorOutboxOf(collector), isNull);
+        await collector.send({'events': <Object>[]});
+        expect(requests, hasLength(1));
+      },
+    );
 
     test('init does not call native code', () async {
       await Faro().init(

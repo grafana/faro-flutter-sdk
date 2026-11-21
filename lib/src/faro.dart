@@ -20,6 +20,8 @@ import 'package:faro/src/integrations/native_integration.dart';
 import 'package:faro/src/integrations/on_error_integration.dart';
 import 'package:faro/src/models/models.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
+import 'package:faro/src/offline_transport/collector_outbox.dart';
+import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
 import 'package:faro/src/offline_transport/offline_transport.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_id_provider.dart';
@@ -78,14 +80,21 @@ class Faro {
   set enableDataCollection(bool enable) {
     if (enable) {
       _dataCollectionPolicy?.enable();
+      unawaited(_replayOutbox());
     } else {
       _dataCollectionPolicy?.disable();
+      final outbox = _outbox;
+      if (outbox != null) unawaited(outbox.discardCachedData());
     }
   }
 
   FaroConfig? config;
   List<BaseTransport> _transports = [];
   BatchTransport? _batchTransport;
+
+  /// The primary collector's outbox, when offline storage is enabled or a
+  /// backlog from an earlier launch is being drained. Null on web.
+  CollectorOutbox? _outbox;
   List<BaseTransport> get transports => _transports;
   DataCollectionPolicy? _dataCollectionPolicy;
   UserManager? _userManager;
@@ -202,6 +211,9 @@ class Faro {
         .resolve(httpUrlRedactionPolicyProvider)
         .configure(optionsConfiguration.sensitiveHttpQueryParameters);
     _dataCollectionPolicy = await DataCollectionPolicyFactory().create();
+    // Captured before later awaits, so a consent flow that re-enables
+    // collection during init cannot release data saved before the opt-out.
+    final collectionDisabledAtLaunch = !enableDataCollection;
 
     final nativeChannel = _nativeChannel ??= FaroNativeMethods();
     final attributesProvider = await SessionAttributesProviderFactory().create(
@@ -294,6 +306,13 @@ class Faro {
     for (final transport in _transports.whereType<FaroTransport>()) {
       transport.sessionInvalidatedHandler = sessionManager.invalidateSession;
     }
+    final outbox = _outbox = _createOutbox(optionsConfiguration);
+    if (collectionDisabledAtLaunch && outbox != null) {
+      // Mark the purge pending before any drain can start. Sends and drains
+      // wait for it, so re-enabling right after init cannot deliver telemetry
+      // saved while collection was off, including a legacy rum_log.json.
+      unawaited(outbox.discardCachedData());
+    }
     _httpTrackingFilter.configure(
       collectorUrl: optionsConfiguration.collectorUrl,
       ignoreUrls: optionsConfiguration.ignoreUrls,
@@ -327,6 +346,7 @@ class Faro {
       sessionManager: sessionManager,
       onAppBackgrounded: _flushSessionPersistence,
       reportWarmStart: !_platformInfoProvider.isWeb,
+      onAppForegrounded: _replayOutbox,
     );
     WidgetsBinding.instance.addObserver(_widgetsBindingObserver!);
     if (optionsConfiguration.enableUiActivityMonitoring) {
@@ -334,9 +354,41 @@ class Faro {
       _didAttachUiActivityMonitor = true;
     }
     _isInitialized = true;
-    for (final transport in _transports.whereType<OfflineTransport>()) {
-      unawaited(transport.replayCachedData());
+    unawaited(_replayOutbox());
+  }
+
+  Future<void> _replayOutbox() async {
+    await _outbox?.replayCachedData();
+  }
+
+  /// Creates the outbox for the primary collector, the first [FaroTransport].
+  ///
+  /// With offline storage off, the outbox only drains a backlog left by an
+  /// earlier launch that had it on. Web has no file system and sends directly.
+  CollectorOutbox? _createOutbox(FaroConfig options) {
+    if (_platformInfoProvider.isWeb) return null;
+    final collector = _transports.whereType<FaroTransport>().firstOrNull;
+    if (collector == null) return null;
+    var storage = options.offlineStorage;
+    String? checkerUrl;
+    InternetConnectivityService? connectivity;
+    // ignore: deprecated_member_use_from_same_package
+    final legacy = _transports.whereType<OfflineTransport>().firstOrNull;
+    if (legacy != null) {
+      final settings = legacyOfflineStorageSettings(legacy, storage);
+      storage = settings.config;
+      checkerUrl = settings.internetConnectionCheckerUrl;
+      connectivity = settings.internetConnectivityService;
     }
+    return pod
+        .resolve(collectorOutboxFactoryProvider)
+        .create(
+          collector: collector,
+          config: storage,
+          acceptsNewBatches: storage.enabled,
+          internetConnectivityService: connectivity,
+          internetConnectionCheckerUrl: checkerUrl,
+        );
   }
 
   Future<void> runApp({
@@ -549,6 +601,8 @@ class Faro {
   }
 
   Future<void> _tearDownForReset() async {
+    await _outbox?.dispose();
+    _outbox = null;
     _dynamicDeviceState?.dispose();
     _dynamicDeviceState = null;
     await _sessionPersistence?.flush();
@@ -1575,21 +1629,23 @@ class Faro {
     var accepted = true;
     var hasDirectTransport = false;
     for (final transport in List<BaseTransport>.of(_transports)) {
-      // PLCrashReporter keeps the iOS report until this handoff succeeds.
-      // Sending it to OfflineTransport as well would create a second retry
-      // owner and can deliver the same crash twice after connectivity returns.
-      // Android ApplicationExitInfo has no retained native copy, so Android
-      // must continue using OfflineTransport when it is configured.
-      if (nativeRetryAvailable && transport is OfflineTransport) {
-        continue;
-      }
+      // ignore: deprecated_member_use_from_same_package
+      if (transport is OfflineTransport) continue;
       hasDirectTransport = true;
       try {
         if (transport is FaroTransport) {
-          final transportAccepted = await transport.sendHistoricalAcknowledged(
-            payloadJson,
-          );
-          accepted = accepted && transportAccepted;
+          if (!nativeRetryAvailable && collectorOutboxOf(transport) != null) {
+            // Android ApplicationExitInfo has no retained native copy, so the
+            // outbox keeps it. If saving fails, send makes one direct attempt.
+            await transport.send(payloadJson);
+          } else {
+            // PLCrashReporter keeps the iOS report until this acknowledged
+            // send succeeds. Saving it in the outbox as well would create a
+            // second retry owner and could deliver the crash twice.
+            final transportAccepted = await transport
+                .sendHistoricalAcknowledged(payloadJson);
+            accepted = accepted && transportAccepted;
+          }
         } else {
           await transport.send(payloadJson);
         }

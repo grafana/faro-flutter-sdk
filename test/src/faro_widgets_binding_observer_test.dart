@@ -41,6 +41,25 @@ void main() {
   });
 
   group('FaroWidgetsBindingObserver:', () {
+    test('requests outbox replay on resume only', () async {
+      var replays = 0;
+      final observer = FaroWidgetsBindingObserver(
+        nativeIntegration: mockNativeIntegration,
+        sessionManager: mockSessionManager,
+        onAppBackgrounded: () async {},
+        onAppForegrounded: () async {
+          replays++;
+        },
+      );
+
+      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await Future<void>.delayed(Duration.zero);
+      expect(replays, 0);
+      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+      expect(replays, 1);
+    });
+
     test('emits app_lifecycle_changed events', () {
       final observer = FaroWidgetsBindingObserver(
         nativeIntegration: mockNativeIntegration,
