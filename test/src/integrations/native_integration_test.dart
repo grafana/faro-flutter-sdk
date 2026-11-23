@@ -2,10 +2,13 @@ import 'package:fake_async/fake_async.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
 import 'package:faro/src/integrations/native_integration.dart';
+import 'package:faro/src/integrations/process_vitals.dart';
 import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -28,12 +31,27 @@ class _RecordingRouter implements TelemetryRouter {
   }
 }
 
+/// Delivers a method call from the native side to the Dart handler.
+Future<void> _sendFromNative(String method, Object? arguments) async {
+  await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .handlePlatformMessage(
+        'faro',
+        const StandardMethodCodec().encodeMethodCall(
+          MethodCall(method, arguments),
+        ),
+        (_) {},
+      );
+}
+
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
   late MockFaro mockFaro;
   late MockNativeChannel mockNativeChannel;
   late NativeIntegration nativeIntegration;
   late _RecordingRouter router;
+  var monotonicNanos = 0;
+  var wallClock = DateTime.now;
+  var cpuTimeSeconds = 0.0;
 
   setUp(() {
     mockFaro = MockFaro();
@@ -43,22 +61,47 @@ void main() {
 
     when(() => mockFaro.nativeChannel).thenReturn(mockNativeChannel);
     when(
-      () => mockNativeChannel.getMemoryUsage(),
-    ).thenAnswer((_) async => 50.0);
-    when(() => mockNativeChannel.initRefreshRate()).thenAnswer((_) async {});
+      () => mockNativeChannel.getProcessVitals(
+        cpu: any(named: 'cpu'),
+        memory: any(named: 'memory'),
+      ),
+    ).thenAnswer(
+      (invocation) async => {
+        'monotonicNanos': monotonicNanos,
+        'timestampMillis': wallClock().millisecondsSinceEpoch,
+        if (invocation.namedArguments[#cpu] == true) ...{
+          'cpuTimeSeconds': cpuTimeSeconds,
+          'cpuCount': 4,
+        },
+        if (invocation.namedArguments[#memory] == true) ...{
+          'memoryBytes': 222715904,
+          'memoryBasis': 'rss',
+        },
+      },
+    );
+    when(
+      () => mockNativeChannel.initFrameMonitoring(),
+    ).thenAnswer((_) async {});
 
     Faro.instance = mockFaro;
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   });
 
   tearDown(() {
+    wallClock = DateTime.now;
+    nativeIntegration.dispose();
     // Undo any pod mutations made by the scope-teardown test.
     pod.removeOverride(telemetryRouterProvider);
     pod.clearScope(faroInitScope);
   });
 
   group('NativeIntegration', () {
-    test('init initializes refresh rate and method channel', () async {
-      nativeIntegration.init(
+    test('init starts the Android frame sampler', () async {
+      nativeIntegration = NativeIntegration(
+        telemetryRouter: router,
+        isAndroid: true,
+      );
+      await nativeIntegration.init(
         memusage: true,
         cpuusage: true,
         anr: true,
@@ -66,7 +109,148 @@ void main() {
         setSendUsageInterval: const Duration(seconds: 60),
       );
 
-      verify(() => mockNativeChannel.initRefreshRate()).called(1);
+      verify(() => mockNativeChannel.initFrameMonitoring()).called(1);
+    });
+
+    test('init starts no frame sampler on iOS', () async {
+      nativeIntegration = NativeIntegration(
+        telemetryRouter: router,
+        isAndroid: false,
+      );
+      await nativeIntegration.init(
+        memusage: true,
+        cpuusage: true,
+        refreshrate: true,
+        setSendUsageInterval: const Duration(seconds: 60),
+      );
+
+      verifyNever(() => mockNativeChannel.initFrameMonitoring());
+    });
+
+    group('app CPU and memory', () {
+      final epoch = DateTime.utc(2026, 11, 17, 12);
+
+      test(
+        'are sent as app.cpu_usage and app.memory events, not measurements',
+        () {
+          fakeAsync((async) {
+            monotonicNanos = 0;
+            cpuTimeSeconds = 0;
+            nativeIntegration = NativeIntegration(
+              telemetryRouter: router,
+              isAndroid: false,
+            );
+            wallClock = () => epoch.add(async.elapsed);
+            nativeIntegration.init(
+              memusage: true,
+              cpuusage: true,
+              setSendUsageInterval: const Duration(seconds: 30),
+            );
+            async.flushMicrotasks();
+
+            monotonicNanos = 30 * 1000 * 1000 * 1000;
+            cpuTimeSeconds = 12;
+            async.elapse(const Duration(seconds: 30));
+
+            expect(router.ingested.map((item) => item.asMeasurement), [
+              isNull,
+              isNull,
+              isNull,
+            ]);
+            final events = router.ingested
+                .map((item) => item.asEvent!)
+                .toList();
+            expect(events.map((event) => event.name), [
+              appMemoryEventName,
+              appCpuUsageEventName,
+              appMemoryEventName,
+            ]);
+            expect(events[1].attributes, {
+              'value': '10',
+              'unit': 'percent',
+              'cpu.logical_count': '4',
+              'window_ms': '30000',
+              'cpu.basis': 'process_utilization',
+            });
+            expect(events[1].timestamp, '2026-11-17T12:00:30.000Z');
+            expect(events[2].attributes, {
+              'value': '212.4',
+              'unit': 'MB',
+              'memory.basis': 'rss',
+            });
+            expect(events[0].timestamp, '2026-11-17T12:00:02.000Z');
+            expect(router.activities.toSet(), {SessionActivityKind.passive});
+          });
+        },
+      );
+
+      test('stop while the app is hidden', () {
+        fakeAsync((async) {
+          nativeIntegration = NativeIntegration(
+            telemetryRouter: router,
+            isAndroid: false,
+          );
+          nativeIntegration.init(
+            memusage: true,
+            cpuusage: true,
+            setSendUsageInterval: const Duration(seconds: 30),
+          );
+          async.flushMicrotasks();
+          binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+          async.elapse(const Duration(minutes: 5));
+
+          expect(router.ingested, isEmpty);
+          expect(nativeIntegration.processVitalsSampler?.isVisible, isFalse);
+
+          binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+          async.elapse(const Duration(seconds: 2));
+          expect(router.ingested.single.asEvent?.name, appMemoryEventName);
+        });
+      });
+
+      test('are not sampled when both options are off', () {
+        fakeAsync((async) {
+          nativeIntegration.init(
+            setSendUsageInterval: const Duration(seconds: 30),
+          );
+          async.elapse(const Duration(minutes: 2));
+
+          expect(nativeIntegration.processVitalsSampler, isNull);
+          verifyNever(
+            () => mockNativeChannel.getProcessVitals(
+              cpu: any(named: 'cpu'),
+              memory: any(named: 'memory'),
+            ),
+          );
+        });
+      });
+    });
+
+    group('frame callbacks from native', () {
+      setUp(() {
+        nativeIntegration.initializeMethodChannel();
+      });
+
+      test('ignore a refresh rate', () async {
+        await _sendFromNative('onRefreshRate', 59.8);
+
+        expect(router.ingested, isEmpty);
+      });
+
+      test('still report slow and frozen frames', () async {
+        await _sendFromNative('onSlowFrames', 3);
+        await _sendFromNative('onFrozenFrame', 1);
+
+        final measurements = router.ingested
+            .map((item) => item.asMeasurement)
+            .toList();
+        expect(measurements.map((m) => m?.type), [
+          'app_frames_rate',
+          'app_frozen_frame',
+        ]);
+        expect(measurements[0]?.values, {'slow_frames': 3});
+        expect(measurements[1]?.values, {'frozen_frames': 1});
+      });
     });
 
     test('getWarmStart correctly pushes warm start measurement', () async {
@@ -233,6 +417,8 @@ void main() {
           memusage: true,
           setSendUsageInterval: const Duration(seconds: 10),
         );
+        async.flushMicrotasks();
+        monotonicNanos = 10 * 1000 * 1000 * 1000;
 
         async.elapse(const Duration(seconds: 10));
         final countBeforeClear = router.ingested.length;

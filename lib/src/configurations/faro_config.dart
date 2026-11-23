@@ -32,7 +32,7 @@ class FaroConfig {
     this.memoryUsageVitals = true,
     this.cpuUsageVitals = true,
     this.anrTracking = false,
-    this.refreshRateVitals = false,
+    @Deprecated(_refreshRateVitalsDeprecation) this.refreshRateVitals = false,
     this.enableUiActivityMonitoring = true,
     this.fetchVitalsInterval = const Duration(seconds: 30),
     BatchConfig? batchConfig,
@@ -64,12 +64,34 @@ class FaroConfig {
   final String? collectorUrl;
   final Map<String, String>? collectorHeaders;
   final List<FaroTransport>? transports;
+
+  /// Whether to send `app.memory` events while the app is visible.
+  ///
+  /// See [fetchVitalsInterval] for the cadence.
   final bool memoryUsageVitals;
+
+  /// Whether to send `app.cpu_usage` events while the app is visible.
+  ///
+  /// Each event covers one [fetchVitalsInterval] window. See the Reference
+  /// docs for the formula.
   final bool cpuUsageVitals;
   final bool anrTracking;
   final bool enableCrashReporting;
   final bool enableFlutterErrorReporting;
+
+  /// On Android, re-arms the slow and frozen frame sampler at every
+  /// [fetchVitalsInterval].
+  ///
+  /// The SDK no longer collects a refresh rate, whatever this is set to.
+  /// Android samples slow and frozen frames each time the app resumes even
+  /// when this is off. It has no effect on iOS.
+  @Deprecated(_refreshRateVitalsDeprecation)
   final bool refreshRateVitals;
+
+  static const _refreshRateVitalsDeprecation =
+      'refreshRateVitals no longer collects a refresh rate. It only re-runs '
+      'the Android slow and frozen frame sampler every fetchVitalsInterval, '
+      'and will change when slow and frozen frame reporting changes.';
 
   /// Whether to monitor widget rebuilds for user action lifecycle tracking.
   ///
@@ -79,6 +101,10 @@ class FaroConfig {
   final bool enableUiActivityMonitoring;
   final BatchConfig batchConfig;
   final int maxBufferLimit;
+
+  /// Length of an app CPU and memory window, and the ANR polling interval.
+  ///
+  /// CPU and memory are only sampled while the app is visible.
   final Duration? fetchVitalsInterval;
   final List<RegExp>? ignoreUrls;
 

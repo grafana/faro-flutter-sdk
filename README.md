@@ -30,7 +30,7 @@ The Faro Flutter SDK provides real user monitoring capabilities including:
 - **Application Information**: App name, version, environment
 - **Session Information**: Session tracking and events
 - **Performance Monitoring**:
-  - CPU and memory usage
+  - App CPU and memory while the app is visible
   - Cold/warm start metrics
   - ANR (Application Not Responding) detection
 - **Error Tracking**: Automatic capture of Flutter errors and exceptions

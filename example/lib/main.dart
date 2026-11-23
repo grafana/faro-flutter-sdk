@@ -86,7 +86,6 @@ void main() async {
       collectorUrl: faroCollectorUrl,
       enableCrashReporting: true,
       memoryUsageVitals: true,
-      refreshRateVitals: true,
       fetchVitalsInterval: const Duration(seconds: 30),
       sessionAttributes: sessionAttributes,
       initialUser: initialUser,

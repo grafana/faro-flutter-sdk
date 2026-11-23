@@ -310,6 +310,8 @@ class Faro {
         memusage: optionsConfiguration.memoryUsageVitals,
         cpuusage: optionsConfiguration.cpuUsageVitals,
         anr: optionsConfiguration.anrTracking,
+        // Kept working until slow and frozen frame reporting changes.
+        // ignore: deprecated_member_use_from_same_package
         refreshrate: optionsConfiguration.refreshRateVitals,
         setSendUsageInterval: optionsConfiguration.fetchVitalsInterval,
       );

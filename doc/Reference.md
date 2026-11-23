@@ -290,7 +290,9 @@ In Grafana Cloud Frontend Observability, these appear as `sdk_name` and `sdk_ver
 
 ### Mobile Vitals
 
-CPU usage and memory usage monitoring are **enabled by default**. ANR detection and refresh rate tracking are disabled by default. The interval for how often the vitals are sent defaults to 30 seconds.
+App CPU and memory are **enabled by default**. ANR detection is disabled by
+default. CPU and memory are sampled in windows of `fetchVitalsInterval`,
+30 seconds by default.
 
 ```dart
 Faro().runApp(
@@ -299,13 +301,101 @@ Faro().runApp(
     cpuUsageVitals: true,          // default: true
     memoryUsageVitals: true,       // default: true
     anrTracking: false,            // default: false
-    refreshRateVitals: false,      // default: false
     fetchVitalsInterval: const Duration(seconds: 30),  // default: 30 seconds
     // ...
   ),
   appRunner: () => runApp(const MyApp()),
 );
 ```
+
+#### App CPU and memory
+
+While your app is on screen, the SDK sends two events every
+`fetchVitalsInterval` (30 seconds by default):
+
+- **`app.cpu_usage`**: how busy your app kept the device's CPU during the
+  last interval, from `0` to `100` percent. `100` means your app used every
+  core the whole time. One fully busy thread on an eight-core phone shows as
+  `12.5`, and an idle app shows as `0`.
+- **`app.memory`**: how much physical memory your app uses right now, in MB.
+
+Both cover your app only, never the whole device. Android and iOS measure
+memory differently, so compare memory within one platform.
+
+> [!IMPORTANT]
+> Older SDK versions sent `app_cpu_usage` and `app_memory` measurements, which
+> are no longer sent.
+
+**When samples are sent**
+
+- Only while the app is visible. Nothing is collected in the background.
+- When the app is hidden before an interval ends, that interval is dropped,
+  so short visits send no CPU sample.
+- Memory is also read 2 seconds after the app starts or comes back to the
+  foreground, so short visits still get a memory sample.
+- If an interval ran far longer than expected, for example because the
+  device was suspended, it is dropped instead of reporting a misleading
+  value. A failed read sends nothing rather than `0`.
+
+Reads run on a background thread, so they never block your UI.
+
+**Example payload**
+
+```json
+[
+  {
+    "name": "app.cpu_usage",
+    "timestamp": "2026-11-17T12:00:30.000Z",
+    "attributes": {
+      "value": "7.81",
+      "unit": "percent",
+      "cpu.logical_count": "8",
+      "window_ms": "30004",
+      "cpu.basis": "process_utilization"
+    }
+  },
+  {
+    "name": "app.memory",
+    "timestamp": "2026-11-17T12:00:30.000Z",
+    "attributes": { "value": "212.4", "unit": "MB", "memory.basis": "rss" }
+  }
+]
+```
+
+- `cpu.logical_count` is the number of CPU cores the value is divided by,
+  and `window_ms` is the length of the interval.
+- `memory.basis` says which platform measure was used: `rss` on Android,
+  `phys_footprint` on iOS.
+- The timestamp is when the reading was taken. The events count as passive
+  session activity, so they never keep a session alive on their own.
+
+<details>
+<summary>How the values are measured</summary>
+
+CPU is `100 × CPU time used ÷ (interval length × CPU cores)`, measured over
+one interval. It matches OpenTelemetry's `process.cpu.utilization`, as a
+percentage. Values below 0 or above 100 are dropped, never clamped.
+
+| | Android | iOS |
+| --- | --- | --- |
+| CPU time | `utime` + `stime` from `/proc/self/stat` (`Process.getElapsedCpuTime()` on API 19–20) | `getrusage(RUSAGE_SELF)` |
+| Clock | `SystemClock.elapsedRealtimeNanos()` | `CLOCK_UPTIME_RAW` |
+| CPU cores | `Runtime.availableProcessors()` | `ProcessInfo.activeProcessorCount` |
+| Memory | `VmRSS` from `/proc/self/status` | `phys_footprint` from `task_info` |
+
+Memory uses 1 MB = 1,048,576 bytes. An interval counts as too long when it
+exceeds twice `fetchVitalsInterval`. A read that does not answer within
+`fetchVitalsInterval`, at most 10 seconds, counts as failed.
+
+</details>
+
+#### Refresh rate and frames
+
+The SDK does not collect a refresh rate. On Android, the SDK samples a few
+frames each time an activity resumes and reports slow and frozen frames as
+`app_frames_rate` (`slow_frames`) and `app_frozen_frame` (`frozen_frames`)
+measurements. The deprecated `refreshRateVitals` option only re-runs that
+sampler at every `fetchVitalsInterval` and has no effect on iOS.
 
 ### Cold/Warm Start
 

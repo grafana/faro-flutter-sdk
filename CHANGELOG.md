@@ -59,12 +59,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pages without the router noticing. See the Reference docs for details
   ([#394](https://github.com/grafana/faro-flutter-sdk/issues/394)).
 
+- **BREAKING: app CPU and memory are sent as `app.cpu_usage` and `app.memory`
+  events instead of `app_cpu_usage` and `app_memory` measurements.** CPU is
+  now the process's share of available CPU time per window, 0 to 100, on both
+  platforms; iOS previously reported device-wide counters. Memory is in MB
+  instead of KiB, and iOS reads `phys_footprint`. **Both are sampled only
+  while the app is visible.** Queries and dashboards on the old measurements
+  stop matching new data. See the Reference docs for details
+  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
+
 - **Requires `dartastic_opentelemetry` 0.12.** The dependency is now
   `^0.12.0` instead of `^0.11.0`. Apps that pin `dartastic_opentelemetry`
   0.11 must upgrade it
   ([#383](https://github.com/grafana/faro-flutter-sdk/pull/383)).
 
+### Deprecated
+
+- **`FaroConfig.refreshRateVitals` is deprecated.** It no longer collects a
+  refresh rate. It still re-runs the Android slow and frozen frame sampler
+  every `fetchVitalsInterval`, and has no effect on iOS. Slow and frozen
+  frames will move to a new signal, and this option will change with them
+  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
+
 ### Removed
+
+- **The SDK no longer sends `app_refresh_rate` measurements**, and iOS no
+  longer runs a display link for them. `app_frames_rate` and
+  `app_frozen_frame` are unchanged
+  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
 
 - **iOS no longer sends `meta.device.type`.** It was `tablet` for an iPad and
   `mobile` for any other device. Android never sent it. **Filters and

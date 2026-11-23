@@ -13,6 +13,11 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     label: "com.grafana.faro.crash-report",
     qos: .utility
   )
+  // task_info and getrusage must not run on the main thread.
+  private let processVitalsQueue = DispatchQueue(
+    label: "com.grafana.faro.process-vitals",
+    qos: .utility
+  )
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     // First thing the SDK does. iOS clears the prewarm flag once the app has
@@ -114,21 +119,18 @@ public class FaroPlugin: NSObject, FlutterPlugin {
                 result("IOS init");
             case "getAppStart":
                 result(AppStartTracker.coldStartMetrics());
-            case "getCpuUsage":
-                result(CPUInfo.getCpuInfo());
-            case "initRefreshRate":
-                let _ = RefreshRateVitals()
-                result(nil)
-            case "getRefreshRate":
-                result(RefreshRateVitals.lastRefreshRate)
+            case "getProcessVitals":
+                let arguments = call.arguments as? [String: Any]
+                let readCpu = arguments?["cpu"] as? Bool == true
+                let readMemory = arguments?["memory"] as? Bool == true
+                processVitalsQueue.async {
+                    let vitals = ProcessVitals.read(cpu: readCpu, memory: readMemory)
+                    DispatchQueue.main.async {
+                        result(vitals)
+                    }
+                }
             case "getANRStatus":
                 result("ANRStatus");
-            case "getMemoryUsage":
-                print("getMemoryUsage");
-            var _:[String] = [];
-                _ = CACurrentMediaTime();
-                let memory = getMemoryUsage()/1024
-                result( memory);
             case "getSessionRuntimeInfo":
                 let arguments = call.arguments as? [String: Any]
                 if arguments?["claimSessionPersistence"] as? Bool == true {
@@ -160,34 +162,6 @@ public class FaroPlugin: NSObject, FlutterPlugin {
     FaroPlugin.sessionPersistenceOwnerClaimed = true
     ownsSessionPersistence = true
   }
-
-      func getMemoryUsage() -> Double {
-         let task_vm_info_count = MemoryLayout<task_vm_info>.size / MemoryLayout<natural_t>.size
-
-                var vmInfo = task_vm_info()
-                var vmInfoSize = mach_msg_type_size_t(task_vm_info_count)
-
-                let kern: kern_return_t = withUnsafeMutablePointer(to: &vmInfo) {
-                    $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
-                        task_info(
-                            mach_task_self_,
-                            task_flavor_t(TASK_VM_INFO),
-                            $0,
-                            &vmInfoSize
-                        )
-                    }
-                }
-
-                if kern == KERN_SUCCESS {
-                   // print(vmInfo.resident_size);
-                     return Double(vmInfo.resident_size)
-                } else {
-                    //print("kern size undefined");
-                     return 0.0
-                }
-        }
-
-
 }
 
 /// Streams the listener-fed device state: the current values when Dart starts
