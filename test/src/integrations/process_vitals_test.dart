@@ -614,22 +614,29 @@ void main() {
       });
     });
 
-    test('discards a window longer than twice the interval', () {
+    test('sends only memory for a window longer than twice the interval', () {
       fakeAsync((async) {
         final process = _FakeProcess(async);
         createSampler(async, process).start(AppLifecycleState.resumed);
         async.elapse(const Duration(seconds: 10));
-        final beforeStall = emitted.length;
+        emitted.clear();
 
         // The device was suspended for 45 s while the timer was not running.
         process.clockOffset = const Duration(seconds: 45);
         process.cpuTimeSeconds = 3;
+        process.memoryBytes = 150 * bytesPerMegabyte;
         async.elapse(const Duration(seconds: 20));
-        expect(
-          emitted.length,
-          beforeStall,
-          reason: 'neither CPU nor memory from a 75 s window',
-        );
+
+        // No CPU from a 75 s window, but its end reading is a valid memory
+        // sample, stamped with that reading's own time.
+        expect(names(), [appMemoryEventName]);
+        expect(emitted.single.attributes, {
+          'value': '150',
+          'unit': 'MB',
+          'memory.basis': 'rss',
+        });
+        expect(emitted.single.time, epoch.add(const Duration(seconds: 75)));
+        emitted.clear();
 
         // The next window starts from that fresh reading.
         process.cpuTimeSeconds = 15;

@@ -334,8 +334,9 @@ memory differently, so compare memory within one platform.
 - Memory is also read 2 seconds after the app starts or comes back to the
   foreground, so short visits still get a memory sample.
 - If an interval ran far longer than expected, for example because the
-  device was suspended, it is dropped instead of reporting a misleading
-  value. A failed read sends nothing rather than `0`.
+  device was suspended or the app was blocked, its CPU sample is dropped
+  instead of reporting a misleading value. The memory read at its end is
+  still sent. A failed read sends nothing rather than `0`.
 
 Reads run on a background thread, so they never block your UI.
 
@@ -383,8 +384,8 @@ percentage. Values below 0 or above 100 are dropped, never clamped.
 | CPU cores | `Runtime.availableProcessors()` | `ProcessInfo.activeProcessorCount` |
 | Memory | `VmRSS` from `/proc/self/status` | `phys_footprint` from `task_info` |
 
-Memory uses 1 MB = 1,048,576 bytes. An interval counts as too long when it
-exceeds twice `fetchVitalsInterval`. A read that does not answer within
+Memory uses 1 MB = 1,048,576 bytes. An interval counts as too long, and sends
+no CPU sample, when it exceeds twice `fetchVitalsInterval`. A read that does not answer within
 `fetchVitalsInterval`, at most 10 seconds, counts as failed.
 
 </details>

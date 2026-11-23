@@ -194,9 +194,10 @@ bool isVisibleLifecycleState(AppLifecycleState? state) =>
 ///   and one `app.memory` read at that moment, then the next window starts
 ///   from the same reading.
 /// - Hiding the app discards the current window.
-/// - A window longer than twice [interval] (suspension or a stalled timer) is
-///   discarded with its memory sample, and the next window starts right away
-///   from that fresh reading.
+/// - A window longer than twice [interval] (suspension or a stalled timer)
+///   sends no CPU sample, since its value would be misleading. The memory
+///   read at its end is still a valid sample of that moment and is sent. The
+///   next window starts right away from that fresh reading.
 /// - When the reading that started a window failed, the window sends
 ///   nothing: its length cannot be checked on the native monotonic clock. The
 ///   reading that ends it starts the next window.
@@ -333,14 +334,14 @@ class ProcessVitalsSampler {
       return;
     }
     final windowNanos = reading.monotonicNanos - start.monotonicNanos;
-    if (windowNanos > 2 * interval.inMicroseconds * 1000) {
+    final windowTooLong = windowNanos > 2 * interval.inMicroseconds * 1000;
+    if (windowTooLong) {
       log(
-        'Faro: discarding a ${windowNanos ~/ 1000000} ms vitals window, '
-        'longer than twice the interval',
+        'Faro: dropping the CPU sample of a ${windowNanos ~/ 1000000} ms '
+        'vitals window, longer than twice the interval',
       );
-      return;
     }
-    if (cpuEnabled) {
+    if (cpuEnabled && !windowTooLong) {
       final cpu = cpuUsageAttributes(start, reading);
       if (cpu != null) {
         _emit(appCpuUsageEventName, cpu, reading.timestamp);
