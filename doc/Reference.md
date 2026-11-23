@@ -564,11 +564,14 @@ await Faro().resetSession();
 **Cold starts and persistence.** Faro stores a minimal versioned session record
 by default. A process start always creates a new session ID. When the prior ID
 is available, the new session links it through `previousSession`; Faro never
-resumes the same live session across a process start. The record contains only
-the current and previous IDs, start and last-activity timestamps, the sampling
-decision, and its schema version. Disable this behavior with
-`persistSession: false`; disabling it also clears the record owned by that
-process.
+resumes the same live session across a process start. The record contains the
+current and previous IDs, start and last-activity timestamps, the sampling
+decision, and its schema version. It also holds the metadata and last known
+device values that a [recovered crash](#recovered-crashes) carries: the
+`app`, `os`, `device` and `sdk` meta, and the battery, power, thermal, network
+and carrier values. Faro does not store these while data collection is
+disabled. Disable this behavior with `persistSession: false`; disabling it
+also clears the record owned by that process.
 
 Each Android process and iOS app or extension keeps its own session chain.
 Only the owning root Flutter isolate persists state, so secondary engines and
@@ -633,9 +636,10 @@ changes, at most once every 30 seconds, so they can be up to 30 seconds
 behind. Values do not expire, because a listener-fed value stays true until its
 next change. The SDK sends them with the crash of that session only, and
 deletes them once the crash is sent or the session record is dropped. A group
-that is off in `dynamicDeviceState` is never stored or sent. A crash with no
-stored values, or values the SDK cannot read, still goes out without the fields.
-Because the values live in the session record, they need `persistSession`.
+that is off in `dynamicDeviceState` is never stored or sent. Nothing is stored
+while data collection is disabled. A crash with no stored values, or values
+the SDK cannot read, still goes out without the fields. Because the values
+live in the session record, they need `persistSession`.
 
 A recovered crash also carries the `meta.app`, `meta.os`, `meta.device` and
 `meta.sdk` fields of the crashed session, so an app or OS update since then

@@ -439,16 +439,17 @@ class Faro {
     SessionState state,
     SessionStateChangeKind changeKind,
   ) {
+    final storeCrashContext =
+        changeKind == SessionStateChangeKind.sessionStarted &&
+        _dataCollectionPolicy?.isEnabled != false;
     _sessionPersistence?.record(
       state,
       isSampled: _isSampled,
       immediate: changeKind == SessionStateChangeKind.sessionStarted,
-      dynamicDeviceState: changeKind == SessionStateChangeKind.sessionStarted
+      dynamicDeviceState: storeCrashContext
           ? _dynamicDeviceState?.current?.toNative()
           : null,
-      metaSnapshot: changeKind == SessionStateChangeKind.sessionStarted
-          ? _staticMetaSnapshot()
-          : null,
+      metaSnapshot: storeCrashContext ? _staticMetaSnapshot() : null,
     );
   }
 
@@ -495,6 +496,9 @@ class Faro {
   }
 
   void _persistDynamicDeviceState(DynamicDeviceState state) {
+    if (_dataCollectionPolicy?.isEnabled == false) {
+      return;
+    }
     _sessionPersistence?.recordDynamicDeviceState(state.toNative());
   }
 
@@ -1667,6 +1671,7 @@ class Faro {
       _sessionPersistence?.discardDynamicDeviceState(
         recoveredSession.currentSessionId,
       );
+      await _sessionPersistence?.flush();
     }
     return sent;
   }

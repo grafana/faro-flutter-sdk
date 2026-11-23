@@ -526,6 +526,42 @@ void main() {
         expect(stored?.isSampled, Faro().isSampled);
       });
 
+      group('crash context at session start', () {
+        Future<PersistedSessionRecord?> storedCurrentSession() async {
+          final persistence = await persistenceFactory.create(
+            processIdentifier: 'com.example.app',
+          );
+          return persistence.load();
+        }
+
+        test('stores the static meta snapshot', () async {
+          stubRuntimeInfo(ownsPersistence: true);
+
+          await Faro().init(optionsConfiguration: createConfig());
+
+          final stored = await storedCurrentSession();
+          expect(
+            stored?.metaSnapshot,
+            containsPair('app', isA<Map<String, dynamic>>()),
+          );
+          expect(stored?.metaSnapshot, contains('sdk'));
+        });
+
+        test('stores nothing while data collection is disabled', () async {
+          SharedPreferences.setMockInitialValues({
+            'faro_enable_data_collection': false,
+          });
+          stubRuntimeInfo(ownsPersistence: true);
+
+          await Faro().init(optionsConfiguration: createConfig());
+
+          final stored = await storedCurrentSession();
+          expect(stored, isNotNull);
+          expect(stored?.metaSnapshot, isNull);
+          expect(stored?.dynamicDeviceState, isNull);
+        });
+      });
+
       group('recovered crash static meta', () {
         const snapshot = <String, dynamic>{
           'sdk': {'name': 'faro-flutter-sdk', 'version': '0.1.0'},
@@ -728,7 +764,7 @@ void main() {
           );
           expect(payload['meta']['network'], {'connection_type': 'cell'});
 
-          await Faro().resetSession();
+          await pumpEventQueue();
           expect((await storedSeededSession()).dynamicDeviceState, isNull);
         });
 
