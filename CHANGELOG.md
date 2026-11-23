@@ -82,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   collection is enabled.** Periodic polls reopen a short sampling window;
   headless and backgrounded polling do not. **The first callback in each window
   no longer emits a false slow-frame measurement**
-  ([#205](https://github.com/grafana/frontend-o11y-knowledge-workbench/issues/205)).
+  ([#411](https://github.com/grafana/faro-flutter-sdk/pull/411)).
 
 - **Taps after cold-start deep links no longer produce layout errors.**
   Interaction tracking skips detached or unlaid-out render objects and
