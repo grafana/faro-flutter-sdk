@@ -87,6 +87,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private boolean isAnrTrackerRunning = false;
     private boolean isActivityResumed = false;
     private boolean isFrameMonitoringRunning = false;
+    private boolean refreshRateVitalsEnabled = false;
     private Choreographer.FrameCallback frameCallback;
     
     private final Application.ActivityLifecycleCallbacks activityLifecycleCallbacks = new Application.ActivityLifecycleCallbacks() {
@@ -392,6 +393,9 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         Log.d(TAG, "onDetachedFromEngine");
+        stopFrameMonitoring();
+        refreshRateVitalsEnabled = false;
+        isActivityResumed = false;
         channel.setMethodCallHandler(null);
         channel = null;
         if (deviceStateListener != null) {
@@ -414,9 +418,12 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             if (call.method != null) {
                 switch (call.method) {
                     case "initRefreshRate":
-                        this.lastFrameTimeNanos = 0;
-                        this.count = 0;
-                        startFrameMonitoring();
+                        refreshRateVitalsEnabled = call.arguments == null || Boolean.TRUE.equals(call.arguments);
+                        if (!refreshRateVitalsEnabled) {
+                            stopFrameMonitoring();
+                        } else if (isActivityResumed && !isFrameMonitoringRunning) {
+                            startFrameMonitoring();
+                        }
                         result.success(checkFrozenFrames());
                         break;
                     case "getMemoryUsage":
@@ -505,8 +512,8 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void startFrameMonitoring() {
-        if (isFrameMonitoringRunning) {
-            return; // Already running
+        if (!refreshRateVitalsEnabled || isFrameMonitoringRunning) {
+            return;
         }
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
@@ -579,7 +586,26 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         if (!isFrameMonitoringRunning || channel == null) {
             return;
         }
-        
+
+        this.count++;
+        try {
+            processFrameInterval(frameTimeNanos);
+        } finally {
+            if (count >= 5) {
+                stopFrameMonitoring();
+            }
+        }
+    }
+
+    private void processFrameInterval(long frameTimeNanos) {
+        if (lastFrameTimeNanos == 0) {
+            lastFrameTimeNanos = frameTimeNanos;
+            return;
+        }
+        if (frameTimeNanos <= lastFrameTimeNanos) {
+            return;
+        }
+
         long frameDuration = frameTimeNanos - lastFrameTimeNanos;
         this.frameCount++;
         this.refreshRate = NANOSECONDS_IN_SECOND / (double) frameDuration;
@@ -589,8 +615,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         double fps = this.frameCount / (frameDuration / (double) NANOSECONDS_IN_SECOND);
         // Reset counters for the next second
         this.frameCount = 0;
-        this.count++;
-
         // Check for slow or frozen frames based on your thresholds
         if (fps < 60) {
             // Handle slow frames

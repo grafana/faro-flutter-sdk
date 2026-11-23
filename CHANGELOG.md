@@ -78,6 +78,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Android frame vitals update on later foreground polls when refresh-rate
+  collection is enabled.** Periodic polls reopen a short sampling window;
+  headless and backgrounded polling do not. **The first callback in each window
+  no longer emits a false slow-frame measurement.** **Disabling refresh-rate
+  vitals now stops Android frame sampling, including after activity resumes**
+  ([#411](https://github.com/grafana/faro-flutter-sdk/pull/411)).
+
 - **Taps after cold-start deep links no longer produce layout errors.**
   Interaction tracking skips detached or unlaid-out render objects and
   continues past unavailable geometry without interrupting the app's tap

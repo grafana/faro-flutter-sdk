@@ -11,6 +11,7 @@ import 'package:faro/src/models/measurement.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// NativeIntegration provides access to native platform metrics and events
@@ -47,7 +48,7 @@ class NativeIntegration implements Disposable {
       refreshrate: refreshrate ?? false,
       setSendUsageInterval: setSendUsageInterval ?? const Duration(seconds: 60),
     );
-    initRefreshRate();
+    initRefreshRate(enabled: refreshrate ?? false);
     initializeMethodChannel();
   }
 
@@ -78,9 +79,15 @@ class NativeIntegration implements Disposable {
   }
 
   /// Initialize refresh rate monitoring
-  Future<void> initRefreshRate() async {
+  Future<void> initRefreshRate({bool enabled = true}) async {
     try {
-      await Faro().nativeChannel?.initRefreshRate();
+      if (enabled) {
+        await Faro().nativeChannel?.initRefreshRate();
+      } else if (defaultTargetPlatform == TargetPlatform.android) {
+        // Keep the existing no-argument platform API; Android accepts false
+        // to stop an active window from an earlier initialization.
+        await _channel.invokeMethod<void>('initRefreshRate', false);
+      }
     } catch (error) {
       log('Error initializing refresh rate: $error');
     }
