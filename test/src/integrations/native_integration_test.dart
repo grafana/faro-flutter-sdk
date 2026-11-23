@@ -107,11 +107,37 @@ void main() {
         memusage: true,
         cpuusage: true,
         anr: true,
-        refreshrate: true,
         setSendUsageInterval: const Duration(seconds: 60),
       );
 
       verify(() => mockNativeChannel.initFrameMonitoring()).called(1);
+    });
+
+    test('the vitals timer polls ANR but never restarts the frame sampler', () {
+      fakeAsync((async) {
+        when(
+          () => mockNativeChannel.getANRStatus(),
+        ).thenAnswer((_) async => <String>[]);
+        nativeIntegration = NativeIntegration(
+          telemetryRouter: router,
+          isAndroid: true,
+        );
+        nativeIntegration.init(
+          anr: true,
+          setSendUsageInterval: const Duration(seconds: 30),
+        );
+        async.flushMicrotasks();
+        verify(() => mockNativeChannel.initFrameMonitoring()).called(1);
+
+        // Visible: the native sampler restarts itself on resume.
+        async.elapse(const Duration(seconds: 60));
+        // Hidden: restarting it here would sample frames in the background.
+        binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        async.elapse(const Duration(seconds: 60));
+
+        verifyNever(() => mockNativeChannel.initFrameMonitoring());
+        verify(() => mockNativeChannel.getANRStatus()).called(4);
+      });
     });
 
     test('init starts no frame sampler on iOS', () async {
@@ -122,7 +148,6 @@ void main() {
       await nativeIntegration.init(
         memusage: true,
         cpuusage: true,
-        refreshrate: true,
         setSendUsageInterval: const Duration(seconds: 60),
       );
 

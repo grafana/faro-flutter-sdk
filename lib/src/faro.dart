@@ -310,9 +310,6 @@ class Faro {
         memusage: optionsConfiguration.memoryUsageVitals,
         cpuusage: optionsConfiguration.cpuUsageVitals,
         anr: optionsConfiguration.anrTracking,
-        // Still passed through so behavior is unchanged; see the field docs.
-        // ignore: deprecated_member_use_from_same_package
-        refreshrate: optionsConfiguration.refreshRateVitals,
         setSendUsageInterval: optionsConfiguration.fetchVitalsInterval,
       );
     }

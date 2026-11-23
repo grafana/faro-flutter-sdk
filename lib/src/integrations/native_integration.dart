@@ -48,23 +48,15 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
   /// - [memusage]: Emit `app.memory` events while the app is visible
   /// - [cpuusage]: Emit `app.cpu_usage` events while the app is visible
   /// - [anr]: Enable ANR (Application Not Responding) detection
-  /// - [refreshrate]: On Android, calls the frame sampler initializer every
-  ///   interval. A finished burst stays stopped until the next resume, so
-  ///   this has no visible effect. No refresh rate is collected.
   /// - [setSendUsageInterval]: Interval of the vitals windows and ANR polling
   Future<void> init({
     bool? memusage,
     bool? cpuusage,
     bool? anr,
-    bool? refreshrate,
     Duration? setSendUsageInterval,
   }) async {
     final interval = setSendUsageInterval ?? const Duration(seconds: 60);
-    _scheduleCalls(
-      anr: anr ?? false,
-      refreshrate: refreshrate ?? false,
-      setSendUsageInterval: interval,
-    );
+    _scheduleCalls(anr: anr ?? false, setSendUsageInterval: interval);
     _startProcessVitals(
       cpu: cpuusage ?? false,
       memory: memusage ?? false,
@@ -253,26 +245,26 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
     }
   }
 
-  /// Runs ANR polling and, on Android, re-arms frame monitoring.
+  /// Polls the native ANR tracker on Android.
   ///
-  /// Unlike CPU and memory, this keeps running while the app is hidden.
+  /// Unlike CPU and memory, this keeps running while the app is hidden. That
+  /// is safe: it only reads what the native tracker collected, and the
+  /// tracker itself stops while the app is in the background.
+  ///
+  /// The timer does not touch the frame sampler. Android starts it on launch
+  /// and on each resume; restarting it from here would start a burst while
+  /// the app is hidden and could skip the one on the next resume.
   void _scheduleCalls({
     bool anr = false,
-    bool refreshrate = false,
     Duration setSendUsageInterval = const Duration(seconds: 60),
   }) {
     _vitalsTimer?.cancel();
     _vitalsTimer = null;
-    if (!_isAndroid || !(anr || refreshrate)) {
+    if (!_isAndroid || !anr) {
       return;
     }
     _vitalsTimer = Timer.periodic(setSendUsageInterval, (timer) {
-      if (anr) {
-        _getAnrStatus();
-      }
-      if (refreshrate) {
-        initFrameMonitoring();
-      }
+      _getAnrStatus();
     });
   }
 
