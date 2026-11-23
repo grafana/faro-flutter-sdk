@@ -6,16 +6,20 @@ import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/session/session_manager.dart';
 import 'package:flutter/cupertino.dart';
 
+/// Reports lifecycle telemetry and resumes pending SDK work on foregrounding.
 class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
+  /// Connects session transitions with background and foreground callbacks.
   FaroWidgetsBindingObserver({
     required NativeIntegration nativeIntegration,
     required SessionManager sessionManager,
     required Future<void> Function() onAppBackgrounded,
     bool reportWarmStart = true,
+    Future<void> Function()? onAppForegrounded,
   }) : _nativeIntegration = nativeIntegration,
        _sessionManager = sessionManager,
        _onAppBackgrounded = onAppBackgrounded,
-       _reportWarmStart = reportWarmStart;
+       _reportWarmStart = reportWarmStart,
+       _onAppForegrounded = onAppForegrounded;
 
   final NativeIntegration _nativeIntegration;
 
@@ -26,6 +30,7 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
   final bool _reportWarmStart;
   final SessionManager _sessionManager;
   final Future<void> Function() _onAppBackgrounded;
+  final Future<void> Function()? _onAppForegrounded;
   AppLifecycleState? _previousState;
 
   /// Whether the app has left the foreground since it last resumed.
@@ -60,6 +65,9 @@ class FaroWidgetsBindingObserver extends WidgetsBindingObserver {
     );
     if (state != AppLifecycleState.resumed) {
       unawaited(_onAppBackgrounded());
+    } else {
+      final onForegrounded = _onAppForegrounded;
+      if (onForegrounded != null) unawaited(onForegrounded());
     }
     _previousState = state;
   }

@@ -1914,48 +1914,128 @@ Faro().enableDataCollection = false;
 
 ## Offline Support
 
-Offline support is opt-in. Add `OfflineTransport` to the transports list **before** calling `runApp`:
+Persistent delivery is opt-in. Turn it on with `FaroConfig.offlineStorage`.
+The primary collector then saves each batch before sending it, including while
+the device appears online:
 
 ```dart
-Faro().transports.add(OfflineTransport(
-  maxCacheDuration: const Duration(days: 3), // how long to keep cached data
-));
-
 await Faro().runApp(
-  optionsConfiguration: FaroConfig(/* ... */),
+  optionsConfiguration: FaroConfig(
+    // ...
+    offlineStorage: const OfflineStorageConfig(
+      enabled: true,
+      maxAge: Duration(days: 3), // the defaults
+      maxCount: 1000,
+      maxBytes: 10 * 1024 * 1024,
+    ),
+  ),
   appRunner: () => runApp(const MyApp()),
 );
 ```
 
-Once enabled:
+The primary collector is the `FaroTransport` created from `collectorUrl`, or
+the first one in `FaroConfig.transports`. Custom transports and additional
+collectors keep receiving live batches, but never receive saved batches. The
+option is ignored on web, where the collector sends each batch directly.
 
-- **Offline Event Storage**: Events are automatically cached to disk when the device is offline
-- **Smart Synchronization**: Replay is attempted after initialization when online,
-  and when connectivity is restored, without blocking app startup
-- **Cache Expiry**: Cached events older than `maxCacheDuration` are discarded on sync
+Each completed batch is JSON-encoded, written to a temporary file, flushed and
+renamed into the outbox before its HTTP request starts. A successful save
+means the batch is on disk; it does not mean the collector has already
+accepted it. The outbox lives in a `faro-outbox` folder in the app's
+Application Support directory, which users cannot browse even when the host
+app enables iOS file sharing. The previous `rum_log.json` cache in the
+Documents directory is imported before delivery. Interrupted imports use
+deterministic file names so importing again does not create extra copies.
 
-Only the first configured `FaroTransport` receives replay. Custom transports and
-any additional `FaroTransport` are not replay destinations.
+If a batch cannot be saved, for example because the disk is full or the batch
+is larger than `maxBytes`, the collector makes one direct attempt instead,
+unless it is currently honoring a retry wait. Nothing is on disk in that case,
+so the direct attempt cannot create a duplicate.
 
-While collection is enabled, a valid, unexpired cached payload is removed only
-after the collector returns a 2xx response. Rejected requests, network failures
-and a full transport buffer leave it cached for the
-next initialization or connectivity-restored event; there is no timed retry
-while staying online.
-Replay preserves the payload's original session and does not apply receiver
-session invalidation to the live session.
+**`OfflineTransport` is deprecated.** Adding it to `Faro().transports` still
+works: it turns offline storage on, using its `maxCacheDuration` as `maxAge`.
+Faro reads it once in `init`, so add it before calling `init`; added later it
+has no effect. It no longer receives batches itself, and there is nothing to
+dispose. Move to `FaroConfig.offlineStorage` before it is removed in a future
+release.
 
-Set `maxCacheDuration` to limit how long rejected payloads are retained. By
-default, cached payloads do not expire, including those the collector permanently
-rejects. Expiry is checked during replay, not by a background timer. Dropping
-permanently rejected payloads is planned in [#376](https://github.com/grafana/faro-flutter-sdk/issues/376).
+If offline storage is off but batches were saved by an earlier launch with it
+on, they are delivered once on the next start and the folder is then removed.
+Turning offline storage off does not delete them.
 
-Without a `FaroTransport`, valid, unexpired entries remain cached while collection
-is enabled. Corrupt entries and entries older
-than `maxCacheDuration` are still discarded during replay.
+| Delivery outcome | Saved batch |
+| --- | --- |
+| HTTP 2xx | Removed after collector acceptance |
+| HTTP 4xx other than 408 and 429 | Permanently dropped |
+| HTTP 408, 429 or 5xx | Retained for retry |
+| Network error, timeout, or full transport buffer | Retained for retry |
+| Other unsuccessful HTTP responses | Retained for retry |
 
-If replay finds collection disabled, it discards the cache instead of retaining
-it for a later opt-in. Initialization also performs this cleanup while offline.
+**Permanent rejections are dropped**, including authentication failures such
+as 401 and 403. Fixing credentials later does not recover already dropped
+batches.
+
+Retries use exponential backoff with equal jitter: the first wait is between
+0.5 and 1 second; the upper bound doubles after each failure, up to one
+minute. `Retry-After` supports seconds and HTTP dates and can extend that wait
+beyond the backoff cap, up to one hour. Later server deadlines are limited to
+one hour, including a deadline already saved by an earlier launch. The
+collector-wide deadline is persisted, so a new batch, reconnect, foreground
+transition or restart does not bypass it. A successful send resets the failure
+count and continues draining the backlog.
+
+Delivery is attempted after initialization, on connectivity restoration, on
+foregrounding, and when the retry timer fires. Connectivity is a scheduling
+hint, not a prerequisite for saving or attempting a batch. There is one active
+drain; slow HTTP requests do not hold the storage lock. Initialization does
+not wait for HTTP delivery. Mobile timers cannot run while the process is
+killed and may be suspended in the background; startup and foregrounding
+resume work.
+
+Each outbox attempt times out after 30 seconds. All storage limits must be
+positive; `init` throws an `ArgumentError` otherwise.
+
+**Retention is bounded by default:** 1,000 batches, 10 MiB of encoded batch
+files including their envelopes, and three days of age. Limits are enforced when
+adding batches, during recovery and during drain attempts, including retry
+waits. Expired batches are removed first; capacity pressure evicts the oldest
+batches after the replacement file commits. A failed replacement write leaves
+the previously committed batches intact. Limits can temporarily be exceeded
+by one batch between commit and pruning; startup also enforces the limits.
+If evicting older batches fails after a batch commits, that batch still counts
+as saved, so it is not sent twice, and eviction is retried by the next save,
+drain or startup. A batch larger than the byte limit cannot be saved and gets
+one direct attempt instead. Temporary write files and the small retry-state
+file are outside the committed-batch byte limit.
+
+Corrupt records are discarded without preventing valid records from being
+delivered. A file that cannot be read is retained for a later drain attempt
+while readable batches continue. Failed startup reads are retried once per
+drain without rescanning readable files. Retention of inaccessible files is
+enforced once they can be read again.
+
+Payloads retain their original timestamps, user, session and device metadata.
+Only the first attempt of a newly queued batch belonging to the current
+session can apply receiver invalidation to that session. Historical replay
+does not invalidate the live session. Recovered iOS crashes with a retained
+native report keep their existing native retry ownership rather than also
+entering the outbox. Android recovered crashes have no retained native copy,
+so they are saved in the outbox, with the same single direct attempt if saving
+fails. That attempt cannot guarantee delivery if the collector is also
+unavailable.
+
+Disabling data collection cancels retries and requests removal of saved
+telemetry, including the legacy cache. Initialization also discards saved
+telemetry when collection is disabled, even when offline. Re-enabling
+collection right after `init`, for example from a consent flow, waits for that
+removal, so telemetry saved before the opt-out is never sent.
+
+This provides durable retries within the retention limits, not exactly-once
+delivery. If the collector accepts a batch and the process terminates before
+its file is deleted, that batch can be delivered again. Events still in the
+open in-memory batch, interrupted disk writes, storage failures, and retention
+eviction remain possible loss cases. Removing app data or uninstalling also
+removes the outbox.
 
 ---
 

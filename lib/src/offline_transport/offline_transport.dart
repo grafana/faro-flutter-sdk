@@ -1,36 +1,71 @@
-import 'package:faro/src/core/pod.dart';
+import 'package:faro/src/configurations/offline_storage_config.dart';
+import 'package:faro/src/faro.dart';
+import 'package:faro/src/offline_transport/collector_outbox.dart';
 import 'package:faro/src/offline_transport/internet_connectivity_service.dart';
-import 'package:faro/src/offline_transport/offline_transport_delegate.dart';
 import 'package:faro/src/transport/faro_base_transport.dart';
+import 'package:faro/src/transport/faro_transport.dart';
 
-/// Caches payloads while the device is offline and sends them again once the
-/// connection is back.
+/// Turns on offline storage for the primary collector.
+///
+/// Adding this to `Faro().transports` before initialization has the same
+/// effect as `FaroConfig(offlineStorage: OfflineStorageConfig(enabled: true))`
+/// with [maxCacheDuration] as the maximum age. It is not a transport anymore:
+/// batches are saved and delivered by the primary collector itself.
+@Deprecated(
+  'Use FaroConfig(offlineStorage: OfflineStorageConfig(enabled: true)) '
+  'instead. OfflineTransport will be removed in a future release.',
+)
 class OfflineTransport extends BaseTransport {
-  /// Creates an [OfflineTransport].
+  /// Enables offline storage, keeping batches for [maxCacheDuration]
+  /// (three days by default).
   OfflineTransport({
     Duration? maxCacheDuration,
     String? internetConnectionCheckerUrl,
     InternetConnectivityService? internetConnectivityService,
-  }) {
-    // Created in the body, since the initializer list can't use `this`.
-    _delegate = pod
-        .resolve(offlineTransportDelegateFactoryProvider)
-        .create(
-          onReconnected: replayCachedData,
-          maxCacheDuration: maxCacheDuration,
-          internetConnectionCheckerUrl: internetConnectionCheckerUrl,
-          internetConnectivityService: internetConnectivityService,
-        );
-  }
+  }) : _maxCacheDuration = maxCacheDuration,
+       _internetConnectionCheckerUrl = internetConnectionCheckerUrl,
+       _internetConnectivityService = internetConnectivityService;
 
-  late final OfflineTransportDelegate _delegate;
+  final Duration? _maxCacheDuration;
+  final String? _internetConnectionCheckerUrl;
+  final InternetConnectivityService? _internetConnectivityService;
 
+  /// Does nothing. The primary collector saves and delivers each batch.
   @override
-  Future<void> send(Map<String, dynamic> payloadJson) =>
-      _delegate.send(payloadJson);
+  Future<void> send(Map<String, dynamic> payloadJson) async {}
 
-  /// Attempts to deliver cached data when online, or discards it if
-  /// collection is disabled. Faro calls this after initialization and on
-  /// reconnection.
-  Future<void> replayCachedData() => _delegate.replayCachedData();
+  /// Attempts to deliver saved batches now. Faro already does this after
+  /// initialization, on reconnection and when the app returns to foreground.
+  Future<void> replayCachedData() async {
+    final collector = Faro().transports.whereType<FaroTransport>().firstOrNull;
+    if (collector == null) return;
+    await collectorOutboxOf(collector)?.replayCachedData();
+  }
+}
+
+/// The offline storage settings when [transport] is configured next to
+/// [configured]. An explicitly enabled [configured] wins over the limits of
+/// the deprecated transport; its connectivity settings still apply.
+({
+  OfflineStorageConfig config,
+  String? internetConnectionCheckerUrl,
+  InternetConnectivityService? internetConnectivityService,
+})
+legacyOfflineStorageSettings(
+  // ignore: deprecated_member_use_from_same_package
+  OfflineTransport transport,
+  OfflineStorageConfig configured,
+) {
+  return (
+    config: configured.enabled
+        ? configured
+        : OfflineStorageConfig(
+            enabled: true,
+            maxAge: transport._maxCacheDuration ?? const Duration(days: 3),
+            maxCount: configured.maxCount,
+            maxBytes: configured.maxBytes,
+          ),
+    internetConnectionCheckerUrl: transport._internetConnectionCheckerUrl,
+    internetConnectivityService: transport._internetConnectivityService,
+  );
 }
