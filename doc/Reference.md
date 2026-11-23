@@ -392,10 +392,10 @@ exceeds twice `fetchVitalsInterval`. A read that does not answer within
 #### Refresh rate and frames
 
 The SDK does not collect a refresh rate. On Android, the SDK samples a few
-frames each time an activity resumes and reports slow and frozen frames as
-`app_frames_rate` (`slow_frames`) and `app_frozen_frame` (`frozen_frames`)
-measurements. The deprecated `refreshRateVitals` option only re-runs that
-sampler at every `fetchVitalsInterval` and has no effect on iOS.
+frames when the app starts and each time an activity resumes, and reports
+slow and frozen frames as `app_frames_rate` (`slow_frames`) and
+`app_frozen_frame` (`frozen_frames`) measurements. The deprecated
+`refreshRateVitals` option has no effect.
 
 ### Cold/Warm Start
 

@@ -48,8 +48,9 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
   /// - [memusage]: Emit `app.memory` events while the app is visible
   /// - [cpuusage]: Emit `app.cpu_usage` events while the app is visible
   /// - [anr]: Enable ANR (Application Not Responding) detection
-  /// - [refreshrate]: On Android, re-arm the slow and frozen frame sampler on
-  ///   every interval. No refresh rate is collected.
+  /// - [refreshrate]: On Android, calls the frame sampler initializer every
+  ///   interval. A finished burst stays stopped until the next resume, so
+  ///   this has no visible effect. No refresh rate is collected.
   /// - [setSendUsageInterval]: Interval of the vitals windows and ANR polling
   Future<void> init({
     bool? memusage,

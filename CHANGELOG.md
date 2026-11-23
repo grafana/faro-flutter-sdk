@@ -75,13 +75,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- **`FaroConfig.refreshRateVitals` is deprecated.** It no longer collects a
-  refresh rate. It still re-runs the Android slow and frozen frame sampler
-  every `fetchVitalsInterval`, and has no effect on iOS. Slow and frozen
-  frames will move to a new signal, and this option will change with them
+- **`FaroConfig.refreshRateVitals` is deprecated and has no effect.** The SDK
+  no longer collects a refresh rate. Android still samples slow and frozen
+  frames on start and each time the app returns to the foreground, whatever
+  the option is set to
   ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
 
 ### Removed
+
+- **`getCpuUsage`, `getMemoryUsage`, `getRefreshRate` and `initRefreshRate`
+  are removed from `Faro().nativeChannel`**, so apps that call them no longer
+  compile. For raw CPU and memory counters use `getProcessVitals`; for the
+  Android frame sampler use `initFrameMonitoring`. Refresh rate has no
+  replacement
+  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
 
 - **The SDK no longer sends `app_refresh_rate` measurements**, and iOS no
   longer runs a display link for them. `app_frames_rate` and

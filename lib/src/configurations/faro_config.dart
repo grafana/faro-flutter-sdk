@@ -79,19 +79,18 @@ class FaroConfig {
   final bool enableCrashReporting;
   final bool enableFlutterErrorReporting;
 
-  /// On Android, re-arms the slow and frozen frame sampler at every
-  /// [fetchVitalsInterval].
+  /// Has no effect.
   ///
-  /// The SDK no longer collects a refresh rate, whatever this is set to.
-  /// Android samples slow and frozen frames each time the app resumes even
-  /// when this is off. It has no effect on iOS.
+  /// The SDK no longer collects a refresh rate. On Android, slow and frozen
+  /// frames are sampled when the app starts and each time it returns to the
+  /// foreground, whatever this is set to.
   @Deprecated(_refreshRateVitalsDeprecation)
   final bool refreshRateVitals;
 
   static const _refreshRateVitalsDeprecation =
-      'refreshRateVitals no longer collects a refresh rate. It only re-runs '
-      'the Android slow and frozen frame sampler every fetchVitalsInterval, '
-      'and will change when slow and frozen frame reporting changes.';
+      'refreshRateVitals has no effect. The SDK no longer collects a refresh '
+      'rate, and Android samples slow and frozen frames on start and on each '
+      'return to the foreground whatever this is set to.';
 
   /// Whether to monitor widget rebuilds for user action lifecycle tracking.
   ///
