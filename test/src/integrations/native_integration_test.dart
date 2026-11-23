@@ -6,6 +6,8 @@ import 'package:faro/src/native_platform_interaction/faro_native_methods.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -67,6 +69,31 @@ void main() {
       );
 
       verify(() => mockNativeChannel.initRefreshRate()).called(1);
+    });
+
+    test('init disables Android frame monitoring when flag is off', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      const channel = MethodChannel('faro');
+      final calls = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        return null;
+      });
+
+      try {
+        await nativeIntegration.init(refreshrate: false);
+        await pumpEventQueue();
+
+        verifyNever(() => mockNativeChannel.initRefreshRate());
+        expect(calls, hasLength(1));
+        expect(calls.single.method, 'initRefreshRate');
+        expect(calls.single.arguments, false);
+      } finally {
+        messenger.setMockMethodCallHandler(channel, null);
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
 
     test('getWarmStart correctly pushes warm start measurement', () async {

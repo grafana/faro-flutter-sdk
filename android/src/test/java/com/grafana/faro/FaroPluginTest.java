@@ -110,6 +110,35 @@ public class FaroPluginTest {
     }
 
     @Test
+    public void disabledRefreshRateStopsAnActiveFrameWindow() throws Exception {
+        FaroPlugin plugin = monitoringPlugin(new RecordingMessenger());
+        Field running = FaroPlugin.class.getDeclaredField("isFrameMonitoringRunning");
+        running.setAccessible(true);
+        assertTrue(running.getBoolean(plugin));
+
+        plugin.onMethodCall(new MethodCall("initRefreshRate", false), new MethodChannel.Result() {
+            @Override
+            public void success(Object result) {}
+
+            @Override
+            public void error(String code, String message, Object details) {
+                throw new AssertionError(message);
+            }
+
+            @Override
+            public void notImplemented() {
+                throw new AssertionError("initRefreshRate was not handled");
+            }
+        });
+
+        assertFalse(running.getBoolean(plugin));
+        Method startFrameMonitoring = FaroPlugin.class.getDeclaredMethod("startFrameMonitoring");
+        startFrameMonitoring.setAccessible(true);
+        startFrameMonitoring.invoke(plugin);
+        assertFalse(running.getBoolean(plugin));
+    }
+
+    @Test
     public void periodicInitDoesNotExtendAnActiveFrameWindow() throws Exception {
         FaroPlugin plugin = monitoringPlugin(new RecordingMessenger());
         Field resumed = FaroPlugin.class.getDeclaredField("isActivityResumed");

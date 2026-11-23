@@ -87,6 +87,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private boolean isAnrTrackerRunning = false;
     private boolean isActivityResumed = false;
     private boolean isFrameMonitoringRunning = false;
+    private boolean refreshRateVitalsEnabled = false;
     private Choreographer.FrameCallback frameCallback;
     
     private final Application.ActivityLifecycleCallbacks activityLifecycleCallbacks = new Application.ActivityLifecycleCallbacks() {
@@ -393,6 +394,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         Log.d(TAG, "onDetachedFromEngine");
         stopFrameMonitoring();
+        refreshRateVitalsEnabled = false;
         isActivityResumed = false;
         channel.setMethodCallHandler(null);
         channel = null;
@@ -416,7 +418,10 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
             if (call.method != null) {
                 switch (call.method) {
                     case "initRefreshRate":
-                        if (isActivityResumed && !isFrameMonitoringRunning) {
+                        refreshRateVitalsEnabled = call.arguments == null || Boolean.TRUE.equals(call.arguments);
+                        if (!refreshRateVitalsEnabled) {
+                            stopFrameMonitoring();
+                        } else if (isActivityResumed && !isFrameMonitoringRunning) {
                             startFrameMonitoring();
                         }
                         result.success(checkFrozenFrames());
@@ -507,8 +512,8 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void startFrameMonitoring() {
-        if (isFrameMonitoringRunning) {
-            return; // Already running
+        if (!refreshRateVitalsEnabled || isFrameMonitoringRunning) {
+            return;
         }
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
