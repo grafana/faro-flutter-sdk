@@ -111,6 +111,10 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
   }
 
   /// Pushes an SDK-emitted vitals event without extending inactivity.
+  ///
+  /// The event bypasses user-action buffering, like `session_start`: a
+  /// process sample describes the app, not the tap or flow in progress, and
+  /// must not wait for that action to end.
   void _pushVitalsEvent(
     String name,
     Map<String, String> attributes,
@@ -121,6 +125,7 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
     _telemetryRouter.ingest(
       TelemetryItem.fromEvent(event),
       activity: SessionActivityKind.passive,
+      skipBuffer: true,
     );
   }
 

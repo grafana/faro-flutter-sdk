@@ -19,6 +19,7 @@ class MockNativeChannel extends Mock implements FaroNativeMethods {}
 class _RecordingRouter implements TelemetryRouter {
   final List<TelemetryItem> ingested = [];
   final List<SessionActivityKind> activities = [];
+  final List<bool> skipBuffers = [];
 
   @override
   void ingest(
@@ -28,6 +29,7 @@ class _RecordingRouter implements TelemetryRouter {
   }) {
     ingested.add(item);
     activities.add(activity);
+    skipBuffers.add(skipBuffer);
   }
 }
 
@@ -180,6 +182,9 @@ void main() {
             });
             expect(events[0].timestamp, '2026-11-17T12:00:02.000Z');
             expect(router.activities.toSet(), {SessionActivityKind.passive});
+            // Process samples must not be held by, or attributed to, an
+            // in-progress user action.
+            expect(router.skipBuffers, [true, true, true]);
           });
         },
       );
