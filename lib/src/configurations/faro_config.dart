@@ -79,12 +79,13 @@ class FaroConfig {
   final bool enableCrashReporting;
   final bool enableFlutterErrorReporting;
 
-  /// Whether to sample slow and frozen frames on Android.
+  /// Whether to sample slow and frozen frames on Android. Defaults to false.
   ///
   /// When enabled, Android sends `app_frames_rate` and `app_frozen_frame`
-  /// from a short sampling window every [fetchVitalsInterval] while the app
-  /// is in the foreground. The SDK no longer collects a refresh rate, despite
-  /// the name. Has no effect on iOS.
+  /// from a short sampling window when the app starts, each time it returns
+  /// to the foreground, and every [fetchVitalsInterval] while it stays in the
+  /// foreground. Despite the name, the SDK no longer collects a refresh rate.
+  /// Has no effect on iOS.
   final bool refreshRateVitals;
 
   /// Whether to monitor widget rebuilds for user action lifecycle tracking.
@@ -96,7 +97,8 @@ class FaroConfig {
   final BatchConfig batchConfig;
   final int maxBufferLimit;
 
-  /// Length of an app CPU and memory window, and the ANR polling interval.
+  /// Length of an app CPU and memory window, the ANR polling interval, and,
+  /// with [refreshRateVitals], how often Android samples frames.
   ///
   /// CPU and memory are only sampled while the app is visible.
   final Duration? fetchVitalsInterval;

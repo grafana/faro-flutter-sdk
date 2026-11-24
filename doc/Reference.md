@@ -291,9 +291,9 @@ In Grafana Cloud Frontend Observability, these appear as `sdk_name` and `sdk_ver
 
 ### Mobile Vitals
 
-App CPU and memory are **enabled by default**. ANR detection is disabled by
-default. CPU and memory are sampled in windows of `fetchVitalsInterval`,
-30 seconds by default.
+App CPU and memory are **enabled by default**. ANR detection and Android
+frame sampling (`refreshRateVitals`) are disabled by default. CPU and memory
+are sampled in windows of `fetchVitalsInterval`, 30 seconds by default.
 
 ```dart
 Faro().runApp(
@@ -302,6 +302,7 @@ Faro().runApp(
     cpuUsageVitals: true,          // default: true
     memoryUsageVitals: true,       // default: true
     anrTracking: false,            // default: false
+    refreshRateVitals: false,      // default: false (Android frames only)
     fetchVitalsInterval: const Duration(seconds: 30),  // default: 30 seconds
     // ...
   ),
@@ -393,11 +394,13 @@ no CPU sample, when it exceeds twice `fetchVitalsInterval`. A read that does not
 
 #### Refresh rate and frames
 
-The SDK does not collect a refresh rate. With `refreshRateVitals` enabled,
-Android samples a few frames every `fetchVitalsInterval` while the app is in
-the foreground, and reports slow and frozen frames as `app_frames_rate`
-(`slow_frames`) and `app_frozen_frame` (`frozen_frames`) measurements. iOS
-does not sample frames.
+The SDK does not collect a refresh rate. Frame sampling is off by default.
+With `refreshRateVitals: true`, Android samples a few frames when the app
+starts, each time it returns to the foreground, and every
+`fetchVitalsInterval` while it stays in the foreground. It reports slow and
+frozen frames as `app_frames_rate` (`slow_frames`) and `app_frozen_frame`
+(`frozen_frames`) measurements. iOS does not sample frames, and the option has
+no effect there.
 
 ### Cold/Warm Start
 
