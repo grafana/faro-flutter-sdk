@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dartastic_opentelemetry/dartastic_opentelemetry.dart' as otel;
 import 'package:faro/src/configurations/batch_config.dart';
+import 'package:faro/src/configurations/dynamic_device_state_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
@@ -523,6 +524,283 @@ void main() {
         expect(stored?.currentSessionId, currentSessionId);
         expect(stored?.previousSessionId, initialSessionId);
         expect(stored?.isSampled, Faro().isSampled);
+      });
+
+      group('crash context at session start', () {
+        Future<PersistedSessionRecord?> storedCurrentSession() async {
+          final persistence = await persistenceFactory.create(
+            processIdentifier: 'com.example.app',
+          );
+          return persistence.load();
+        }
+
+        test('stores the static meta snapshot', () async {
+          stubRuntimeInfo(ownsPersistence: true);
+
+          await Faro().init(optionsConfiguration: createConfig());
+
+          final stored = await storedCurrentSession();
+          expect(
+            stored?.metaSnapshot,
+            containsPair('app', isA<Map<String, dynamic>>()),
+          );
+          expect(stored?.metaSnapshot, contains('sdk'));
+        });
+
+        test('stores nothing while data collection is disabled', () async {
+          SharedPreferences.setMockInitialValues({
+            'faro_enable_data_collection': false,
+          });
+          stubRuntimeInfo(ownsPersistence: true);
+
+          await Faro().init(optionsConfiguration: createConfig());
+
+          final stored = await storedCurrentSession();
+          expect(stored, isNotNull);
+          expect(stored?.metaSnapshot, isNull);
+          expect(stored?.dynamicDeviceState, isNull);
+        });
+      });
+
+      group('recovered crash static meta', () {
+        const snapshot = <String, dynamic>{
+          'sdk': {'name': 'faro-flutter-sdk', 'version': '0.1.0'},
+          'app': {
+            'name': 'Crashed App',
+            'version': '1.0.0',
+            'environment': 'prod',
+          },
+          'os': {'name': 'Android', 'version': '13'},
+          'device': {'model_name': 'Old Phone'},
+        };
+        final androidCrash = json.encode({
+          'reason': 'CRASH',
+          'status': 0,
+          'description': 'Native crash',
+          'timestamp': '1786710000000',
+          'importance': 100,
+          'processName': 'com.example.app',
+        });
+
+        PersistedSessionRecord crashedSession(Map<String, dynamic>? snapshot) {
+          return PersistedSessionRecord(
+            currentSessionId: 'crashed-session',
+            previousSessionId: null,
+            startedAt: DateTime.utc(2026, 8, 14, 12),
+            lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+            isSampled: true,
+            metaSnapshot: snapshot,
+          );
+        }
+
+        Map<String, dynamic> sentMeta() {
+          final payload =
+              verify(
+                    () => mockFaroTransport.sendHistoricalAcknowledged(
+                      captureAny(),
+                    ),
+                  ).captured.single
+                  as Map<String, dynamic>;
+          return payload['meta'] as Map<String, dynamic>;
+        }
+
+        setUp(() {
+          Faro().meta.app = App(
+            name: 'Relaunch App',
+            version: '2.0.0',
+            environment: 'prod',
+          );
+          Faro().meta.os = Os(name: 'Android', version: '14');
+          Faro().meta.device = Device(modelName: 'New Phone');
+          Faro().meta.sdk = Sdk('faro-flutter-sdk', '0.2.0');
+        });
+
+        test('a crash carries the meta of the crashed process', () async {
+          await Faro().reportAndroidCrashesForTesting([
+            androidCrash,
+          ], recoveredSession: crashedSession(snapshot));
+
+          final meta = sentMeta();
+          expect(meta['app'], containsPair('version', '1.0.0'));
+          expect(meta['app'], containsPair('name', 'Crashed App'));
+          expect(meta['os'], containsPair('version', '13'));
+          expect(meta['device'], containsPair('model_name', 'Old Phone'));
+          expect(meta['sdk'], containsPair('version', '0.1.0'));
+        });
+
+        test('an iOS crash carries it too', () async {
+          await Faro().reportIOSCrashesForTesting([
+            json.encode({
+              'type': 'SIGSEGV',
+              'value': 'Application crash',
+              'timestamp': '2026-08-14T12:03:00.000Z',
+            }),
+          ], recoveredSession: crashedSession(snapshot));
+
+          expect(sentMeta()['app'], containsPair('version', '1.0.0'));
+        });
+
+        test('a session from an older SDK falls back to this launch', () async {
+          await Faro().reportAndroidCrashesForTesting([
+            androidCrash,
+          ], recoveredSession: crashedSession(null));
+
+          final meta = sentMeta();
+          expect(meta['app'], containsPair('version', '2.0.0'));
+          expect(meta['os'], containsPair('version', '14'));
+        });
+
+        test('an unreadable snapshot falls back to this launch', () async {
+          await Faro().reportAndroidCrashesForTesting([
+            androidCrash,
+          ], recoveredSession: crashedSession({'app': 'broken', 'os': 3}));
+
+          expect(sentMeta()['app'], containsPair('version', '2.0.0'));
+        });
+
+        test('a readable part stays when another one is unreadable', () async {
+          await Faro().reportAndroidCrashesForTesting(
+            [androidCrash],
+            recoveredSession: crashedSession({
+              'app': {'name': 'Crashed App', 'version': '1.0.0'},
+              'os': 3,
+            }),
+          );
+
+          final meta = sentMeta();
+          expect(meta['app'], containsPair('version', '1.0.0'));
+          expect(meta, isNot(contains('os')));
+        });
+
+        test('the shared meta of this launch stays untouched', () async {
+          await Faro().reportAndroidCrashesForTesting([
+            androidCrash,
+          ], recoveredSession: crashedSession(snapshot));
+
+          expect(Faro().meta.app?.version, '2.0.0');
+          expect(Faro().meta.os?.version, '14');
+        });
+      });
+
+      group('recovered crash device state', () {
+        final crashTime = DateTime.utc(2026, 8, 11, 12, 5);
+
+        Future<void> seedWithDeviceState() async {
+          final persistence = await persistenceFactory.create(
+            processIdentifier: 'com.example.app',
+          );
+          final startedAt = DateTime.utc(2026, 8, 11, 12);
+          persistence.record(
+            SessionState(
+              currentSessionId: 'persisted-session',
+              previousSessionId: null,
+              startedAt: startedAt,
+              lastActivityAt: startedAt,
+            ),
+            isSampled: true,
+            immediate: true,
+            dynamicDeviceState: const {
+              'batteryLevel': 12,
+              'thermalState': 'serious',
+              'connectionType': 'cell',
+            },
+          );
+          await persistence.flush();
+        }
+
+        Future<PersistedSessionRecord> storedSeededSession() async {
+          final persistence = await persistenceFactory.create(
+            processIdentifier: 'com.example.app',
+          );
+          final history = await persistence.loadHistory();
+          return history.firstWhere(
+            (record) => record.currentSessionId == 'persisted-session',
+          );
+        }
+
+        void stubAndroidCrash() {
+          stubRuntimeInfo(ownsPersistence: true);
+          Faro().iosPlatformResolver = () => false;
+          Faro().androidPlatformResolver = () => true;
+          when(() => mockFaroNativeMethods.getCrashReport()).thenAnswer(
+            (_) async => <String>[
+              json.encode({
+                'reason': 'CRASH',
+                'status': 0,
+                'description': 'Native crash',
+                'timestamp': '${crashTime.millisecondsSinceEpoch}',
+                'importance': 100,
+                'processName': 'com.example.app',
+              }),
+            ],
+          );
+        }
+
+        test('is sent after a relaunch, then dropped from the store', () async {
+          await seedWithDeviceState();
+          stubAndroidCrash();
+
+          await Faro().init(
+            optionsConfiguration: createConfig(enableCrashReporting: true),
+          );
+          await untilCalled(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          );
+
+          final payload =
+              verify(
+                    () => mockFaroTransport.sendHistoricalAcknowledged(
+                      captureAny(),
+                    ),
+                  ).captured.single
+                  as Map<String, dynamic>;
+          expect(payload['meta']['session']['id'], 'persisted-session');
+          expect(
+            payload['meta']['device'],
+            allOf(
+              containsPair('battery_level', 12),
+              containsPair('thermal_state', 'serious'),
+            ),
+          );
+          expect(payload['meta']['network'], {'connection_type': 'cell'});
+
+          await pumpEventQueue();
+          expect((await storedSeededSession()).dynamicDeviceState, isNull);
+        });
+
+        test('stays stored when the crash is not accepted', () async {
+          await seedWithDeviceState();
+          stubAndroidCrash();
+          Faro().iosPlatformResolver = () => true;
+          Faro().androidPlatformResolver = () => false;
+          when(() => mockFaroNativeMethods.getCrashReport()).thenAnswer(
+            (_) async => <String>[
+              json.encode({
+                'type': 'SIGSEGV',
+                'value': 'Application crash',
+                'timestamp': crashTime.toIso8601String(),
+              }),
+            ],
+          );
+          when(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          ).thenAnswer((_) async => false);
+
+          await Faro().init(
+            optionsConfiguration: createConfig(enableCrashReporting: true),
+          );
+          await untilCalled(
+            () => mockFaroTransport.sendHistoricalAcknowledged(any()),
+          );
+          await pumpEventQueue();
+
+          await Faro().resetSession();
+          expect(
+            (await storedSeededSession()).dynamicDeviceState,
+            containsPair('batteryLevel', 12),
+          );
+          verifyNever(() => mockFaroNativeMethods.purgeCrashReport());
+        });
       });
 
       test('disabling persistence clears the owned record', () async {
@@ -1188,6 +1466,133 @@ java.lang.NullPointerException: test crash
       expect(payload['meta'], isNot(contains('network')));
       expect(payload['meta']['device'], isNot(contains('battery_level')));
       verifyNever(() => mockBatchTransport.addExceptions(any()));
+    });
+
+    group('recovered crash device state', () {
+      const storedState = <String, dynamic>{
+        'batteryLevel': 12,
+        'isCharging': false,
+        'lowPowerMode': true,
+        'thermalState': 'serious',
+        'connectionType': 'cell',
+        'connectionSubtype': 'lte',
+        'carrierName': 'Example Mobile',
+      };
+
+      PersistedSessionRecord crashedSession({Object? state = storedState}) {
+        return PersistedSessionRecord(
+          currentSessionId: 'crashed-session',
+          previousSessionId: null,
+          startedAt: DateTime.utc(2026, 8, 14, 12),
+          lastActivityAt: DateTime.utc(2026, 8, 14, 12, 5),
+          isSampled: true,
+          dynamicDeviceState: state as Map<String, dynamic>?,
+        );
+      }
+
+      final androidCrash = json.encode({
+        'reason': 'CRASH',
+        'status': 0,
+        'description': 'Native crash',
+        'timestamp': '1786710000000',
+        'importance': 100,
+        'processName': 'com.example.app',
+      });
+      final iosCrash = json.encode({
+        'type': 'SIGSEGV',
+        'value': 'Application crash',
+        'timestamp': '2026-08-14T12:03:00.000Z',
+      });
+
+      Map<String, dynamic> sentPayload() {
+        return verify(
+              () => mockFaroTransport.sendHistoricalAcknowledged(captureAny()),
+            ).captured.single
+            as Map<String, dynamic>;
+      }
+
+      test('an Android crash carries the last known values', () async {
+        await Faro().reportAndroidCrashesForTesting([
+          androidCrash,
+        ], recoveredSession: crashedSession());
+
+        final meta = sentPayload()['meta'] as Map<String, dynamic>;
+        expect(meta['device'], {
+          'battery_level': 12,
+          'is_charging': false,
+          'low_power_mode': true,
+          'thermal_state': 'serious',
+        });
+        expect(meta['network'], {
+          'connection_type': 'cell',
+          'connection_subtype': 'lte',
+          'carrier_name': 'Example Mobile',
+        });
+      });
+
+      test('an iOS crash carries the last known values', () async {
+        await Faro().reportIOSCrashesForTesting([
+          iosCrash,
+        ], recoveredSession: crashedSession());
+
+        final meta = sentPayload()['meta'] as Map<String, dynamic>;
+        expect(meta['device'], containsPair('battery_level', 12));
+        expect(meta['network'], containsPair('connection_type', 'cell'));
+      });
+
+      test('the values never reach the shared meta', () async {
+        await Faro().reportAndroidCrashesForTesting([
+          androidCrash,
+        ], recoveredSession: crashedSession());
+
+        expect(Faro().meta.network, isNull);
+        expect(Faro().meta.device?.batteryLevel, isNull);
+      });
+
+      test('a crash without stored values sends none', () async {
+        await Faro().reportAndroidCrashesForTesting([
+          androidCrash,
+        ], recoveredSession: crashedSession(state: null));
+
+        final meta = sentPayload()['meta'] as Map<String, dynamic>;
+        expect(meta, isNot(contains('network')));
+        expect(meta['device'], isNot(contains('battery_level')));
+      });
+
+      test('unreadable stored values do not block the crash', () async {
+        await Faro().reportAndroidCrashesForTesting([
+          androidCrash,
+        ], recoveredSession: crashedSession(state: {'batteryLevel': 'full'}));
+
+        final meta = sentPayload()['meta'] as Map<String, dynamic>;
+        expect(meta['device'], isNot(contains('battery_level')));
+      });
+
+      test('a group that is off now sends none of its values', () async {
+        Faro().config = FaroConfig(
+          appName: appName,
+          appVersion: appVersion,
+          appEnv: appEnv,
+          apiKey: apiKey,
+          collectorUrl: 'https://some-url.com',
+          dynamicDeviceState: const DynamicDeviceStateConfig(network: false),
+        );
+
+        await Faro().reportAndroidCrashesForTesting([
+          androidCrash,
+        ], recoveredSession: crashedSession());
+
+        final meta = sentPayload()['meta'] as Map<String, dynamic>;
+        expect(meta, isNot(contains('network')));
+        expect(meta['device'], containsPair('battery_level', 12));
+      });
+
+      test('a crash with no matching session sends none', () async {
+        await Faro().reportAndroidCrashesForTesting([androidCrash]);
+
+        final meta = sentPayload()['meta'] as Map<String, dynamic>;
+        expect(meta, isNot(contains('network')));
+      });
     });
 
     test('native Android crash accepts the legacy stacktrace key', () async {

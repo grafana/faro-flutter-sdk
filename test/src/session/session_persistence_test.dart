@@ -49,6 +49,26 @@ void main() {
     );
   }
 
+  Future<void> writeRecordFile({Map<String, dynamic>? extra}) async {
+    final start = DateTime.utc(2026, 8, 11, 12).toIso8601String();
+    await stateFile.writeAsString(
+      jsonEncode({
+        'schemaVersion': 2,
+        'records': [
+          {
+            'schemaVersion': 1,
+            'currentSessionId': 'current-session',
+            'previousSessionId': null,
+            'startedAt': start,
+            'lastActivityAt': start,
+            'isSampled': true,
+            ...?extra,
+          },
+        ],
+      }),
+    );
+  }
+
   test('round-trips a versioned history of minimal session records', () async {
     final sut = persistence();
     sut.record(state(), isSampled: true, immediate: true);
@@ -367,6 +387,228 @@ void main() {
 
     expect(await sut.load(), isNull);
     expect(await stateFile.exists(), isFalse);
+  });
+
+  group('dynamic device state', () {
+    const stored = <String, dynamic>{
+      'batteryLevel': 12,
+      'isCharging': false,
+      'thermalState': 'serious',
+      'connectionType': 'cell',
+    };
+
+    test('round-trips with the session record', () async {
+      final sut = persistence();
+      sut.record(
+        state(),
+        isSampled: true,
+        immediate: true,
+        dynamicDeviceState: stored,
+      );
+      await sut.flush();
+
+      expect((await sut.load())?.dynamicDeviceState, stored);
+    });
+
+    test('a record without values writes no key for them', () async {
+      final sut = persistence();
+      sut.record(state(), isSampled: true, immediate: true);
+      await sut.flush();
+
+      final decoded = jsonDecode(await stateFile.readAsString());
+      final record = (decoded['records'] as List).single as Map;
+      expect(record, isNot(contains('dynamicDeviceState')));
+    });
+
+    test('activity records keep the stored values', () async {
+      final sut = persistence();
+      sut.record(
+        state(),
+        isSampled: true,
+        immediate: true,
+        dynamicDeviceState: stored,
+      );
+      sut.record(
+        state(lastActivityAt: DateTime.utc(2026, 8, 11, 12, 5)),
+        isSampled: true,
+        immediate: false,
+      );
+      await sut.flush();
+
+      expect((await sut.load())?.dynamicDeviceState, stored);
+    });
+
+    test('a change is stored on the current session', () async {
+      final sut = persistence();
+      sut.record(state(), isSampled: true, immediate: true);
+      sut.recordDynamicDeviceState(stored);
+      await sut.flush();
+
+      expect((await sut.load())?.dynamicDeviceState, stored);
+    });
+
+    test('a change before any session record is ignored', () async {
+      final sut = persistence();
+      sut.recordDynamicDeviceState(stored);
+      await sut.flush();
+
+      expect(await stateFile.exists(), isFalse);
+    });
+
+    test('changes are coalesced until the write delay ends', () async {
+      final sut = persistence(activityWriteDelay: const Duration(hours: 1));
+      sut.record(state(), isSampled: true, immediate: true);
+      await sut.flush();
+
+      sut
+        ..recordDynamicDeviceState({'batteryLevel': 50})
+        ..recordDynamicDeviceState({'batteryLevel': 49});
+
+      final onDisk = jsonDecode(await stateFile.readAsString());
+      expect(
+        (onDisk['records'] as List).single,
+        isNot(contains('dynamicDeviceState')),
+      );
+
+      await sut.flush();
+      expect((await sut.load())?.dynamicDeviceState, {'batteryLevel': 49});
+    });
+
+    test('a change goes to the current session, not an older one', () async {
+      final sut = persistence();
+      sut.record(
+        state(currentSessionId: 'older', previousSessionId: null),
+        isSampled: true,
+        immediate: true,
+      );
+      sut.record(
+        state(currentSessionId: 'newer', previousSessionId: 'older'),
+        isSampled: true,
+        immediate: true,
+      );
+      sut.recordDynamicDeviceState(stored);
+      await sut.flush();
+
+      final history = await sut.loadHistory();
+      expect(history.first.dynamicDeviceState, isNull);
+      expect(history.last.dynamicDeviceState, stored);
+    });
+
+    test('discard removes the values of one session only', () async {
+      final sut = persistence();
+      sut.record(
+        state(currentSessionId: 'older', previousSessionId: null),
+        isSampled: true,
+        immediate: true,
+        dynamicDeviceState: stored,
+      );
+      sut.record(
+        state(currentSessionId: 'newer', previousSessionId: 'older'),
+        isSampled: true,
+        immediate: true,
+        dynamicDeviceState: stored,
+      );
+      sut.discardDynamicDeviceState('older');
+      await sut.flush();
+
+      final history = await sut.loadHistory();
+      expect(history.first.dynamicDeviceState, isNull);
+      expect(history.last.dynamicDeviceState, stored);
+    });
+
+    test('an unreadable value drops the values, not the record', () async {
+      final start = DateTime.utc(2026, 8, 11, 12).toIso8601String();
+      await stateFile.writeAsString(
+        jsonEncode({
+          'schemaVersion': 2,
+          'records': [
+            {
+              'schemaVersion': 1,
+              'currentSessionId': 'current-session',
+              'previousSessionId': null,
+              'startedAt': start,
+              'lastActivityAt': start,
+              'isSampled': true,
+              'dynamicDeviceState': 'not a map',
+            },
+          ],
+        }),
+      );
+
+      final loaded = await persistence().load();
+
+      expect(loaded?.currentSessionId, 'current-session');
+      expect(loaded?.dynamicDeviceState, isNull);
+    });
+  });
+
+  group('meta snapshot', () {
+    const snapshot = <String, dynamic>{
+      'app': {'name': 'Example', 'version': '1.0.0'},
+      'os': {'name': 'Android', 'version': '13'},
+    };
+
+    test('round-trips with the session record', () async {
+      final sut = persistence();
+      sut.record(
+        state(),
+        isSampled: true,
+        immediate: true,
+        metaSnapshot: snapshot,
+      );
+      await sut.flush();
+
+      expect((await sut.load())?.metaSnapshot, snapshot);
+    });
+
+    test('activity records keep the snapshot', () async {
+      final sut = persistence();
+      sut.record(
+        state(),
+        isSampled: true,
+        immediate: true,
+        metaSnapshot: snapshot,
+      );
+      sut.record(
+        state(lastActivityAt: DateTime.utc(2026, 8, 11, 12, 5)),
+        isSampled: true,
+        immediate: false,
+      );
+      await sut.flush();
+
+      expect((await sut.load())?.metaSnapshot, snapshot);
+    });
+
+    test('a dynamic value change keeps the snapshot', () async {
+      final sut = persistence();
+      sut.record(
+        state(),
+        isSampled: true,
+        immediate: true,
+        metaSnapshot: snapshot,
+      );
+      sut.recordDynamicDeviceState({'batteryLevel': 12});
+      await sut.flush();
+
+      final loaded = await sut.load();
+      expect(loaded?.metaSnapshot, snapshot);
+      expect(loaded?.dynamicDeviceState, {'batteryLevel': 12});
+    });
+
+    test('a record from an older SDK loads without one', () async {
+      await writeRecordFile();
+
+      expect((await persistence().load())?.metaSnapshot, isNull);
+    });
+
+    test('an unreadable snapshot drops the snapshot, not the record', () async {
+      await writeRecordFile(extra: {'metaSnapshot': 'not a map'});
+
+      final loaded = await persistence().load();
+
+      expect(loaded?.currentSessionId, 'current-session');
+      expect(loaded?.metaSnapshot, isNull);
+    });
   });
 }
 
