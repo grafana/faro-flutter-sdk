@@ -1,20 +1,26 @@
 import 'package:faro/src/native_platform_interaction/faro_sdk_platform_interface.dart';
 
 class FaroNativeMethods {
-  Future<double?> getMemoryUsage() {
-    return FaroSdkPlatform.instance.getMemoryUsage();
+  /// Reads the app process counters off the platform main thread.
+  ///
+  /// Always includes `monotonicNanos` and `timestampMillis` (wall-clock
+  /// capture time, ms since the epoch). With [cpu], adds `cpuTimeSeconds` and
+  /// `cpuCount`. With [memory], adds `memoryBytes` and `memoryBasis`. A
+  /// counter that could not be read is left out.
+  Future<Map<String, dynamic>?> getProcessVitals({
+    required bool cpu,
+    required bool memory,
+  }) {
+    return FaroSdkPlatform.instance.getProcessVitals(cpu: cpu, memory: memory);
   }
 
-  Future<double?> getRefreshRate() {
-    return FaroSdkPlatform.instance.getRefreshRate();
-  }
-
-  Future<void> initRefreshRate() {
-    return FaroSdkPlatform.instance.initRefreshRate();
-  }
-
-  Future<double?> getCpuUsage() {
-    return FaroSdkPlatform.instance.getCpuUsage();
+  /// Starts a short Android slow and frozen frame sampling window, or stops
+  /// sampling when [enabled] is false.
+  ///
+  /// Android only starts a window while an activity is resumed and no window
+  /// is running.
+  Future<void> initFrameMonitoring({bool enabled = true}) {
+    return FaroSdkPlatform.instance.initFrameMonitoring(enabled: enabled);
   }
 
   Future<Map<String, dynamic>?> getAppStart() {

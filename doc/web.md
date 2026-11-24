@@ -48,7 +48,7 @@ await Faro().runApp(
 | ---------------------------------------- | -------------------------------------------------- |
 | HTTP network tracking                    | Not available. `HttpOverrides` does nothing on web and no HTTP telemetry is sent |
 | `OfflineTransport`                       | Does nothing. Web has no file system to cache payloads in, so nothing is cached or replayed. Adding it is harmless |
-| CPU, memory, refresh rate and ANR vitals | Not collected. The related config flags are ignored |
+| CPU, memory, frame and ANR vitals        | Not collected. The related config flags are ignored |
 | Cold and warm start measurements         | Not reported. Cold start depends on native code, and a warm start on web would only cover the time to the next frame |
 | Crash reporting                          | Not collected                                      |
 | Session persistence across page loads    | A page reload starts a new session                 |

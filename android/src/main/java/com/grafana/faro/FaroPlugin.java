@@ -45,11 +45,10 @@ import io.flutter.plugin.common.MethodChannel.Result;
  * FaroPlugin
  * 
  * This plugin provides native functionality for the RUM SDK, including:
- * - Memory usage monitoring
- * - CPU usage monitoring
+ * - App process CPU and memory counters
  * - ANR detection
  * - Crash reporting
- * - Frame rate monitoring
+ * - Slow and frozen frame monitoring
  */
 public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
     private static final AtomicBoolean SESSION_PERSISTENCE_OWNER_CLAIMED = new AtomicBoolean(false);
@@ -79,15 +78,23 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     private static final long NANOSECONDS_IN_SECOND = 1_000_000_000L;
     private static final String TAG = "FaroPlugin";
 
-    Double refreshRate = 0.0;
     private int count = 0;
     private int frameCount = 0;
     private AtomicInteger slowFrames = new AtomicInteger(0);
 
+    // Process vitals read /proc, which must not happen on the main thread. One
+    // daemon thread shared by all engines; reads are short and rare.
+    private static final Executor vitalsExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "faro-process-vitals");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     private boolean isAnrTrackerRunning = false;
     private boolean isActivityResumed = false;
     private boolean isFrameMonitoringRunning = false;
-    private boolean refreshRateVitalsEnabled = false;
+    private boolean frameMonitoringEnabled = false;
     private Choreographer.FrameCallback frameCallback;
     
     private final Application.ActivityLifecycleCallbacks activityLifecycleCallbacks = new Application.ActivityLifecycleCallbacks() {
@@ -198,7 +205,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
                         DynamicDeviceState.stopListening(FaroPlugin.this);
                     }
                 });
-        Handler mainHandler = new Handler(Looper.getMainLooper());
         // Read the cache when the event is sent, not when the change happened. A later
         // change then never arrives before an earlier one.
         deviceStateListener =
@@ -394,7 +400,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         Log.d(TAG, "onDetachedFromEngine");
         stopFrameMonitoring();
-        refreshRateVitalsEnabled = false;
+        frameMonitoringEnabled = false;
         isActivityResumed = false;
         channel.setMethodCallHandler(null);
         channel = null;
@@ -417,25 +423,30 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         try {
             if (call.method != null) {
                 switch (call.method) {
-                    case "initRefreshRate":
-                        refreshRateVitalsEnabled = call.arguments == null || Boolean.TRUE.equals(call.arguments);
-                        if (!refreshRateVitalsEnabled) {
+                    case "initFrameMonitoring":
+                        frameMonitoringEnabled = call.arguments == null || Boolean.TRUE.equals(call.arguments);
+                        if (!frameMonitoringEnabled) {
                             stopFrameMonitoring();
                         } else if (isActivityResumed && !isFrameMonitoringRunning) {
                             startFrameMonitoring();
                         }
                         result.success(checkFrozenFrames());
                         break;
-                    case "getMemoryUsage":
-                        result.success(MemoryUsageInfo.onGetMemoryUsageInfo());
-                        break;
-                    case "getCpuUsage":
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                            result.success(CPUInfo.onGetCpuInfo());
-                        }
-                        else{
-                            result.success(null);
-                        }
+                    case "getProcessVitals":
+                        boolean readCpu = Boolean.TRUE.equals(call.argument("cpu"));
+                        boolean readMemory = Boolean.TRUE.equals(call.argument("memory"));
+                        // /proc reads stay off the main thread; the reply goes back on it.
+                        vitalsExecutor.execute(() -> {
+                            Map<String, Object> vitals;
+                            try {
+                                vitals = ProcessVitals.read(readCpu, readMemory);
+                            } catch (RuntimeException e) {
+                                Log.e(TAG, "Error reading process vitals", e);
+                                vitals = null;
+                            }
+                            Map<String, Object> reply = vitals;
+                            mainHandler.post(() -> result.success(reply));
+                        });
                         break;
                     case "getCrashReport":
                         if (!canRecoverCrashReports()) {
@@ -512,7 +523,7 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
     }
 
     private void startFrameMonitoring() {
-        if (!refreshRateVitalsEnabled || isFrameMonitoringRunning) {
+        if (!frameMonitoringEnabled || isFrameMonitoringRunning) {
             return;
         }
         
@@ -608,10 +619,6 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
 
         long frameDuration = frameTimeNanos - lastFrameTimeNanos;
         this.frameCount++;
-        this.refreshRate = NANOSECONDS_IN_SECOND / (double) frameDuration;
-        if(lastFrameTimeNanos !=0){
-            handleRefreshRate();
-        }
         double fps = this.frameCount / (frameDuration / (double) NANOSECONDS_IN_SECOND);
         // Reset counters for the next second
         this.frameCount = 0;
@@ -713,16 +720,5 @@ public class FaroPlugin implements FlutterPlugin, MethodCallHandler, ActivityAwa
         // Handle the frozen frame event, e.g., log, send an event to Dart, etc.
         channel.invokeMethod("onSlowFrames", slowFramesCount);
         this.slowFrames.set(0);
-    }
-
-    private void handleRefreshRate() {
-        if (channel == null) {
-            Log.w(TAG, "Channel is null, skipping handleRefreshRate");
-            return;
-        }
-        Object refreshRates = this.refreshRate;
-        // Handle the frozen frame event, e.g., log, send an event to Dart, etc.
-        channel.invokeMethod("onRefreshRate", refreshRates);
-        this.refreshRate = 0.0;
     }
 }

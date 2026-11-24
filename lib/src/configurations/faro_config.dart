@@ -64,11 +64,28 @@ class FaroConfig {
   final String? collectorUrl;
   final Map<String, String>? collectorHeaders;
   final List<FaroTransport>? transports;
+
+  /// Whether to send `app.memory` events while the app is visible.
+  ///
+  /// See [fetchVitalsInterval] for the cadence.
   final bool memoryUsageVitals;
+
+  /// Whether to send `app.cpu_usage` events while the app is visible.
+  ///
+  /// Each event covers one [fetchVitalsInterval] window. See the Reference
+  /// docs for the formula.
   final bool cpuUsageVitals;
   final bool anrTracking;
   final bool enableCrashReporting;
   final bool enableFlutterErrorReporting;
+
+  /// Whether to sample slow and frozen frames on Android. Defaults to false.
+  ///
+  /// When enabled, Android sends `app_frames_rate` and `app_frozen_frame`
+  /// from a short sampling window when the app starts, each time it returns
+  /// to the foreground, and every [fetchVitalsInterval] while it stays in the
+  /// foreground. Despite the name, the SDK no longer collects a refresh rate.
+  /// Has no effect on iOS.
   final bool refreshRateVitals;
 
   /// Whether to monitor widget rebuilds for user action lifecycle tracking.
@@ -79,6 +96,11 @@ class FaroConfig {
   final bool enableUiActivityMonitoring;
   final BatchConfig batchConfig;
   final int maxBufferLimit;
+
+  /// Length of an app CPU and memory window, the ANR polling interval, and,
+  /// with [refreshRateVitals], how often Android samples frames.
+  ///
+  /// CPU and memory are only sampled while the app is visible.
   final Duration? fetchVitalsInterval;
   final List<RegExp>? ignoreUrls;
 

@@ -6,34 +6,49 @@ import 'dart:io';
 import 'package:dartypod/dartypod.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/faro.dart';
+import 'package:faro/src/integrations/process_vitals.dart';
+import 'package:faro/src/models/event.dart';
 import 'package:faro/src/models/log_level.dart';
 import 'package:faro/src/models/measurement.dart';
 import 'package:faro/src/session/session_activity_kind.dart';
 import 'package:faro/src/user_actions/telemetry_router.dart';
 import 'package:faro/src/user_actions/user_action_types.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 /// NativeIntegration provides access to native platform metrics and events
-/// such as memory usage, CPU usage, ANR detection, and crash reporting.
-class NativeIntegration implements Disposable {
-  NativeIntegration({required TelemetryRouter telemetryRouter})
-    : _telemetryRouter = telemetryRouter;
+/// such as app CPU and memory, ANR detection, and crash reporting.
+class NativeIntegration with WidgetsBindingObserver implements Disposable {
+  NativeIntegration({
+    required TelemetryRouter telemetryRouter,
+    @visibleForTesting bool? isAndroid,
+  }) : _telemetryRouter = telemetryRouter,
+       _isAndroidOverride = isAndroid;
 
   final TelemetryRouter _telemetryRouter;
+  final bool? _isAndroidOverride;
   final MethodChannel _channel = const MethodChannel('faro');
+
+  // Read lazily: this instance is also created on web, where `Platform`
+  // throws. Only mobile code paths ask.
+  bool get _isAndroid => _isAndroidOverride ?? Platform.isAndroid;
 
   int _warmStart = 0;
   Timer? _vitalsTimer;
+  ProcessVitalsSampler? _processVitalsSampler;
+  bool _observesLifecycle = false;
+
+  /// The app CPU and memory sampler, once [init] has started it.
+  @visibleForTesting
+  ProcessVitalsSampler? get processVitalsSampler => _processVitalsSampler;
 
   /// Initialize the native integration with the specified features
   ///
   /// Parameters:
-  /// - [memusage]: Enable memory usage tracking
-  /// - [cpuusage]: Enable CPU usage tracking
+  /// - [memusage]: Emit `app.memory` events while the app is visible
+  /// - [cpuusage]: Emit `app.cpu_usage` events while the app is visible
   /// - [anr]: Enable ANR (Application Not Responding) detection
-  /// - [refreshrate]: Enable refresh rate monitoring
-  /// - [setSendUsageInterval]: Interval for sending usage metrics
+  /// - [setSendUsageInterval]: Interval of the vitals windows and ANR polling
   Future<void> init({
     bool? memusage,
     bool? cpuusage,
@@ -41,24 +56,28 @@ class NativeIntegration implements Disposable {
     bool? refreshrate,
     Duration? setSendUsageInterval,
   }) async {
+    final interval = setSendUsageInterval ?? const Duration(seconds: 60);
     _scheduleCalls(
-      memusage: memusage ?? false,
-      cpuusage: cpuusage ?? false,
       anr: anr ?? false,
-      refreshrate: refreshrate ?? false,
-      setSendUsageInterval: setSendUsageInterval ?? const Duration(seconds: 60),
+      frames: refreshrate ?? false,
+      setSendUsageInterval: interval,
     );
-    initRefreshRate(enabled: refreshrate ?? false);
+    _startProcessVitals(
+      cpu: cpuusage ?? false,
+      memory: memusage ?? false,
+      interval: interval,
+    );
+    initFrameMonitoring(enabled: refreshrate ?? false);
     initializeMethodChannel();
   }
 
-  /// Cancels the periodic vitals timer and detaches the method channel
-  /// handler.
+  /// Cancels the vitals timers and detaches the method channel handler and
+  /// the lifecycle observer.
   ///
   /// Invoked by dartypod when [nativeIntegrationProvider]'s scope is cleared.
   /// This instance is scoped to a single `Faro.init`; without teardown its
-  /// timer would keep firing and holding the (now stale) telemetry router and
-  /// session manager alive after `Faro.resetForTesting` or a re-init.
+  /// timers would keep firing and holding the (now stale) telemetry router
+  /// and session manager alive after `Faro.resetForTesting` or a re-init.
   ///
   /// Detaching the handler is safe because disposal always runs before the
   /// next `Faro.init` registers a new handler on the shared `'faro'` channel;
@@ -67,7 +86,18 @@ class NativeIntegration implements Disposable {
   void dispose() {
     _vitalsTimer?.cancel();
     _vitalsTimer = null;
+    _processVitalsSampler?.dispose();
+    _processVitalsSampler = null;
+    if (_observesLifecycle) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observesLifecycle = false;
+    }
     _channel.setMethodCallHandler(null);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _processVitalsSampler?.onLifecycleStateChanged(state);
   }
 
   /// Pushes an SDK-emitted vitals measurement without extending inactivity.
@@ -78,18 +108,74 @@ class NativeIntegration implements Disposable {
     );
   }
 
-  /// Initialize refresh rate monitoring
-  Future<void> initRefreshRate({bool enabled = true}) async {
+  /// Pushes an SDK-emitted vitals event without extending inactivity.
+  ///
+  /// The event bypasses user-action buffering, like `session_start`: a
+  /// process sample describes the app, not the tap or flow in progress, and
+  /// must not wait for that action to end.
+  void _pushVitalsEvent(
+    String name,
+    Map<String, String> attributes,
+    DateTime time,
+  ) {
+    final event = Event(name, attributes: attributes)
+      ..timestamp = time.toUtc().toIso8601String();
+    _telemetryRouter.ingest(
+      TelemetryItem.fromEvent(event),
+      activity: SessionActivityKind.passive,
+      skipBuffer: true,
+    );
+  }
+
+  void _startProcessVitals({
+    required bool cpu,
+    required bool memory,
+    required Duration interval,
+  }) {
+    _processVitalsSampler?.dispose();
+    _processVitalsSampler = null;
+    if (!cpu && !memory) {
+      return;
+    }
+    final sampler = ProcessVitalsSampler(
+      reader: _readProcessVitals,
+      emit: _pushVitalsEvent,
+      interval: interval,
+      cpuEnabled: cpu,
+      memoryEnabled: memory,
+    );
+    _processVitalsSampler = sampler;
+    if (!_observesLifecycle) {
+      WidgetsBinding.instance.addObserver(this);
+      _observesLifecycle = true;
+    }
+    sampler.start(WidgetsBinding.instance.lifecycleState);
+  }
+
+  Future<ProcessVitalsReading?> _readProcessVitals({
+    required bool cpu,
+    required bool memory,
+  }) async {
+    final map = await Faro().nativeChannel?.getProcessVitals(
+      cpu: cpu,
+      memory: memory,
+    );
+    return ProcessVitalsReading.fromMap(map);
+  }
+
+  /// Starts a short Android window that counts slow and frozen frames, or
+  /// stops frame sampling when [enabled] is false.
+  ///
+  /// Android only opens a window while an activity is resumed and no window
+  /// is running. iOS has no frame sampler, so this does nothing there.
+  Future<void> initFrameMonitoring({bool enabled = true}) async {
+    if (!_isAndroid) {
+      return;
+    }
     try {
-      if (enabled) {
-        await Faro().nativeChannel?.initRefreshRate();
-      } else if (defaultTargetPlatform == TargetPlatform.android) {
-        // Keep the existing no-argument platform API; Android accepts false
-        // to stop an active window from an earlier initialization.
-        await _channel.invokeMethod<void>('initRefreshRate', false);
-      }
+      await Faro().nativeChannel?.initFrameMonitoring(enabled: enabled);
     } catch (error) {
-      log('Error initializing refresh rate: $error');
+      log('Error initializing frame monitoring: $error');
     }
   }
 
@@ -166,49 +252,30 @@ class NativeIntegration implements Disposable {
     }
   }
 
+  /// Polls the native ANR tracker and reopens the frame sampling window on
+  /// Android.
+  ///
+  /// Unlike CPU and memory, this keeps running while the app is hidden. That
+  /// is safe: the ANR poll only reads what the native tracker collected, and
+  /// Android only opens a frame window while an activity is resumed.
   void _scheduleCalls({
-    bool memusage = false,
-    bool cpuusage = false,
     bool anr = false,
-    bool refreshrate = false,
+    bool frames = false,
     Duration setSendUsageInterval = const Duration(seconds: 60),
   }) {
-    if (memusage || cpuusage || anr || refreshrate) {
-      _vitalsTimer?.cancel();
-      _vitalsTimer = Timer.periodic(setSendUsageInterval, (timer) {
-        if (memusage) {
-          _pushMemoryUsage();
-        }
-        if (cpuusage) {
-          _pushCpuUsage();
-        }
-        if (anr && Platform.isAndroid) {
-          _getAnrStatus();
-        }
-        if (refreshrate) {
-          if (Platform.isAndroid) {
-            initRefreshRate();
-          } else {
-            _pushRefreshRate();
-          }
-        }
-      });
+    _vitalsTimer?.cancel();
+    _vitalsTimer = null;
+    if (!_isAndroid || (!anr && !frames)) {
+      return;
     }
-  }
-
-  Future<void> _pushRefreshRate() async {
-    final refreshRate = await Faro().nativeChannel?.getRefreshRate();
-    log('refreshRate $refreshRate');
-    if (refreshRate != null) {
-      _pushVitalsMeasurement({'refresh_rate': refreshRate}, 'app_refresh_rate');
-    }
-  }
-
-  Future<void> _pushCpuUsage() async {
-    final cpuUsage = await Faro().nativeChannel?.getCpuUsage();
-    if (cpuUsage! > 0.0 && cpuUsage < 100.0) {
-      _pushVitalsMeasurement({'cpu_usage': cpuUsage}, 'app_cpu_usage');
-    }
+    _vitalsTimer = Timer.periodic(setSendUsageInterval, (timer) {
+      if (anr) {
+        _getAnrStatus();
+      }
+      if (frames) {
+        initFrameMonitoring();
+      }
+    });
   }
 
   Future<void> _getAnrStatus() async {
@@ -236,11 +303,6 @@ class NativeIntegration implements Disposable {
     }
   }
 
-  Future<void> _pushMemoryUsage() async {
-    final memUsage = await Faro().nativeChannel?.getMemoryUsage();
-    _pushVitalsMeasurement({'mem_usage': memUsage}, 'app_memory');
-  }
-
   void initializeMethodChannel() {
     _channel.setMethodCallHandler((call) async {
       try {
@@ -256,14 +318,6 @@ class NativeIntegration implements Disposable {
               _pushVitalsMeasurement({
                 'frozen_frames': call.arguments,
               }, 'app_frozen_frame');
-            }
-            break;
-
-          case 'onRefreshRate':
-            if (call.arguments != null) {
-              _pushVitalsMeasurement({
-                'refresh_rate': call.arguments,
-              }, 'app_refresh_rate');
             }
             break;
 

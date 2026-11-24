@@ -36,7 +36,6 @@ Future<void> runSessionEngineHarness(List<String> args) async {
         memoryUsageVitals: false,
         cpuUsageVitals: false,
         anrTracking: false,
-        refreshRateVitals: false,
         enableUiActivityMonitoring: false,
         persistUser: false,
         persistSession: true,

@@ -155,9 +155,9 @@ Then run `verify_correlation.dart` (above). Read the output:
 
 - **CORRELATED** signals should be exactly those emitted inside a span (plus the
   span's own `span.<name>` event, which always carries its context).
-- **UNCORRELATED** should include background telemetry: `app_cpu_usage`,
-  `app_memory`, `app_frames_rate`, `app_refresh_rate`, `app_startup`,
-  `session_start`, `view_changed`, `user_interaction`, `app_lifecycle_changed`.
+- **UNCORRELATED** should include background telemetry: `app.cpu_usage`,
+  `app.memory`, `app_frames_rate`, `app_startup`, `session_start`,
+  `view_changed`, `user_interaction`, `app_lifecycle_changed`.
 - Any signal correlated to a span **not** found in Tempo is a bug (dangling
   correlation) → tool exits non-zero.
 

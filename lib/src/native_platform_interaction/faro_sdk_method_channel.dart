@@ -9,8 +9,8 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
   final methodChannel = const MethodChannel('faro');
 
   @override
-  Future<void> initRefreshRate() async {
-    await methodChannel.invokeMethod<void>('initRefreshRate');
+  Future<void> initFrameMonitoring({bool enabled = true}) async {
+    await methodChannel.invokeMethod<void>('initFrameMonitoring', enabled);
   }
 
   @override
@@ -36,21 +36,14 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
   }
 
   @override
-  Future<double?> getRefreshRate() async {
-    final refreshRate = await methodChannel.invokeMethod<double?>(
-      'getRefreshRate',
+  Future<Map<String, dynamic>?> getProcessVitals({
+    required bool cpu,
+    required bool memory,
+  }) {
+    return methodChannel.invokeMapMethod<String, dynamic>(
+      'getProcessVitals',
+      <String, dynamic>{'cpu': cpu, 'memory': memory},
     );
-    return refreshRate;
-  }
-
-  @override
-  Future<double?> getMemoryUsage() async {
-    return methodChannel.invokeMethod<double?>('getMemoryUsage');
-  }
-
-  @override
-  Future<double?> getCpuUsage() async {
-    return methodChannel.invokeMethod<double?>('getCpuUsage');
   }
 
   @override

@@ -26,12 +26,8 @@ abstract class FaroSdkPlatform extends PlatformInterface {
     throw UnimplementedError('getWarmStart() has not been implemented.');
   }
 
-  Future<double?> getRefreshRate() {
-    throw UnimplementedError('getRefreshRate() has not been implemented.');
-  }
-
-  Future<void> initRefreshRate() {
-    throw UnimplementedError('initRefreshRate() has not been implemented.');
+  Future<void> initFrameMonitoring({bool enabled = true}) {
+    throw UnimplementedError('initFrameMonitoring() has not been implemented.');
   }
 
   Future<String?> coldStart() {
@@ -42,12 +38,11 @@ abstract class FaroSdkPlatform extends PlatformInterface {
     throw UnimplementedError('warmStart() has not been implemented.');
   }
 
-  Future<double?> getMemoryUsage() {
-    throw UnimplementedError('getMemoryUsage() has not been implemented.');
-  }
-
-  Future<double?> getCpuUsage() {
-    throw UnimplementedError('getCpuUsage() has not been implemented.');
+  Future<Map<String, dynamic>?> getProcessVitals({
+    required bool cpu,
+    required bool memory,
+  }) {
+    throw UnimplementedError('getProcessVitals() has not been implemented.');
   }
 
   Future<void> startFramesTracker() {

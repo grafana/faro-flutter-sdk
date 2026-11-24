@@ -66,12 +66,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pages without the router noticing. See the Reference docs for details
   ([#394](https://github.com/grafana/faro-flutter-sdk/issues/394)).
 
+- **BREAKING: app CPU and memory are sent as `app.cpu_usage` and `app.memory`
+  events instead of `app_cpu_usage` and `app_memory` measurements.** CPU is
+  now the process's share of available CPU time per window, 0 to 100, on both
+  platforms; iOS previously reported device-wide counters. Memory is in MB
+  instead of KiB, and iOS reads `phys_footprint`. **Both are sampled only
+  while the app is visible.** Queries and dashboards on the old measurements
+  stop matching new data. See the Reference docs for details
+  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
+
+- **Apps on default settings no longer send `app_frames_rate` or
+  `app_frozen_frame`.** Android used to sample frames on start and on each
+  return to the foreground whatever `refreshRateVitals` was set to. It now
+  samples only when the option is on, and it is off by default. Set
+  `refreshRateVitals: true` to keep them
+  ([#411](https://github.com/grafana/faro-flutter-sdk/pull/411)).
+
 - **Requires `dartastic_opentelemetry` 0.12.** The dependency is now
   `^0.12.0` instead of `^0.11.0`. Apps that pin `dartastic_opentelemetry`
   0.11 must upgrade it
   ([#383](https://github.com/grafana/faro-flutter-sdk/pull/383)).
 
 ### Removed
+
+- **`getCpuUsage`, `getMemoryUsage`, `getRefreshRate` and `initRefreshRate`
+  are removed from `Faro().nativeChannel`**, so apps that call them no longer
+  compile. For raw CPU and memory counters use `getProcessVitals`; for the
+  Android frame sampler use `initFrameMonitoring`. Refresh rate has no
+  replacement
+  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
+
+- **The SDK no longer sends `app_refresh_rate` measurements**, and iOS no
+  longer runs a display link for them. `refreshRateVitals` keeps its name but
+  has no effect on iOS; on Android it still turns slow and frozen frame
+  sampling on and off
+  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
 
 - **iOS no longer sends `meta.device.type`.** It was `tablet` for an iPad and
   `mobile` for any other device. Android never sent it. **Filters and
@@ -85,11 +114,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Android frame vitals update on later foreground polls when refresh-rate
-  collection is enabled.** Periodic polls reopen a short sampling window;
-  headless and backgrounded polling do not. **The first callback in each window
-  no longer emits a false slow-frame measurement.** **Disabling refresh-rate
-  vitals now stops Android frame sampling, including after activity resumes**
+- **Android keeps sampling slow and frozen frames while the app is in the
+  foreground when `refreshRateVitals` is on.** Sampling used to stop after the
+  first window. A short window now reopens every `fetchVitalsInterval`, never
+  in the background or in a headless engine. **The first frame of each window
+  no longer counts as a false slow frame**
   ([#411](https://github.com/grafana/faro-flutter-sdk/pull/411)).
 
 - **Taps after cold-start deep links no longer produce layout errors.**

@@ -27,18 +27,19 @@ public class FaroPluginTest {
         checkFrameDuration.invoke(plugin, 1_000_000_000L);
         assertTrue(messenger.calls.isEmpty());
 
-        checkFrameDuration.invoke(plugin, 1_016_000_000L);
-        checkFrameDuration.invoke(plugin, 1_032_000_000L);
-        checkFrameDuration.invoke(plugin, 1_132_000_001L);
-        checkFrameDuration.invoke(plugin, 1_148_000_001L);
+        // 20 ms intervals are slow (50 fps), so each processed interval
+        // sends one slow-frame call.
+        checkFrameDuration.invoke(plugin, 1_020_000_000L);
+        checkFrameDuration.invoke(plugin, 1_040_000_000L);
+        checkFrameDuration.invoke(plugin, 1_140_000_001L);
+        checkFrameDuration.invoke(plugin, 1_160_000_001L);
 
-        assertEquals(4, messenger.count("onRefreshRate"));
-        assertEquals(1, messenger.count("onSlowFrames"));
+        assertEquals(4, messenger.count("onSlowFrames"));
         assertEquals(1, messenger.count("onFrozenFrame"));
     }
 
     @Test
-    public void nonIncreasingFrameTimestampDoesNotEmitInvalidRate() throws Exception {
+    public void nonIncreasingFrameTimestampIsIgnored() throws Exception {
         RecordingMessenger messenger = new RecordingMessenger();
         FaroPlugin plugin = monitoringPlugin(messenger);
         Method checkFrameDuration = frameMethod();
@@ -48,9 +49,9 @@ public class FaroPluginTest {
         checkFrameDuration.invoke(plugin, 999_000_000L);
         assertTrue(messenger.calls.isEmpty());
 
-        checkFrameDuration.invoke(plugin, 1_016_000_000L);
-        assertEquals(1, messenger.count("onRefreshRate"));
-        assertEquals(0, messenger.count("onSlowFrames"));
+        checkFrameDuration.invoke(plugin, 1_020_000_000L);
+        assertEquals(1, messenger.count("onSlowFrames"));
+        assertEquals(0, messenger.count("onFrozenFrame"));
     }
 
     @Test
@@ -60,7 +61,7 @@ public class FaroPluginTest {
         Method checkFrameDuration = frameMethod();
 
         for (int frame = 0; frame < 5; frame++) {
-            checkFrameDuration.invoke(plugin, 1_000_000_000L + frame * 16_000_000L);
+            checkFrameDuration.invoke(plugin, 1_000_000_000L + frame * 20_000_000L);
         }
 
         Field running = FaroPlugin.class.getDeclaredField("isFrameMonitoringRunning");
@@ -69,28 +70,28 @@ public class FaroPluginTest {
         Field count = FaroPlugin.class.getDeclaredField("count");
         count.setAccessible(true);
         assertEquals(0, count.getInt(plugin));
-        assertEquals(4, messenger.count("onRefreshRate"));
+        assertEquals(4, messenger.count("onSlowFrames"));
 
         checkFrameDuration.invoke(plugin, 1_100_000_000L);
-        assertEquals(4, messenger.count("onRefreshRate"));
+        assertEquals(4, messenger.count("onSlowFrames"));
 
         // The JVM Android stub cannot schedule a Choreographer callback. Simulate
         // startFrameMonitoring after the next visible-app polling call.
         running.setBoolean(plugin, true);
         for (int frame = 0; frame < 5; frame++) {
-            checkFrameDuration.invoke(plugin, 2_000_000_000L + frame * 16_000_000L);
+            checkFrameDuration.invoke(plugin, 2_000_000_000L + frame * 20_000_000L);
         }
 
         assertFalse(running.getBoolean(plugin));
         assertEquals(0, count.getInt(plugin));
-        assertEquals(8, messenger.count("onRefreshRate"));
+        assertEquals(8, messenger.count("onSlowFrames"));
     }
 
     @Test
     public void headlessPeriodicInitDoesNotStartFrameMonitoring() throws Exception {
         FaroPlugin plugin = new FaroPlugin();
         final boolean[] succeeded = {false};
-        plugin.onMethodCall(new MethodCall("initRefreshRate", null), new MethodChannel.Result() {
+        plugin.onMethodCall(new MethodCall("initFrameMonitoring", null), new MethodChannel.Result() {
             @Override
             public void success(Object result) {
                 succeeded[0] = true;
@@ -110,13 +111,13 @@ public class FaroPluginTest {
     }
 
     @Test
-    public void disabledRefreshRateStopsAnActiveFrameWindow() throws Exception {
+    public void disabledFrameMonitoringStopsAnActiveFrameWindow() throws Exception {
         FaroPlugin plugin = monitoringPlugin(new RecordingMessenger());
         Field running = FaroPlugin.class.getDeclaredField("isFrameMonitoringRunning");
         running.setAccessible(true);
         assertTrue(running.getBoolean(plugin));
 
-        plugin.onMethodCall(new MethodCall("initRefreshRate", false), new MethodChannel.Result() {
+        plugin.onMethodCall(new MethodCall("initFrameMonitoring", false), new MethodChannel.Result() {
             @Override
             public void success(Object result) {}
 
@@ -127,7 +128,7 @@ public class FaroPluginTest {
 
             @Override
             public void notImplemented() {
-                throw new AssertionError("initRefreshRate was not handled");
+                throw new AssertionError("initFrameMonitoring was not handled");
             }
         });
 
@@ -148,7 +149,7 @@ public class FaroPluginTest {
         count.setAccessible(true);
         count.setInt(plugin, 3);
 
-        plugin.onMethodCall(new MethodCall("initRefreshRate", null), new MethodChannel.Result() {
+        plugin.onMethodCall(new MethodCall("initFrameMonitoring", null), new MethodChannel.Result() {
             @Override
             public void success(Object result) {}
 
@@ -159,7 +160,7 @@ public class FaroPluginTest {
 
             @Override
             public void notImplemented() {
-                throw new AssertionError("initRefreshRate was not handled");
+                throw new AssertionError("initFrameMonitoring was not handled");
             }
         });
 
