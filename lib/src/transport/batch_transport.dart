@@ -159,18 +159,7 @@ class BatchTransport {
     if (state == null || meta is! Map<String, dynamic>) {
       return;
     }
-    final deviceJson = state.device.toJson();
-    if (deviceJson.isNotEmpty) {
-      final existing = meta['device'];
-      meta['device'] = {
-        if (existing is Map<String, dynamic>) ...existing,
-        ...deviceJson,
-      };
-    }
-    final networkJson = state.network.toJson();
-    if (networkJson.isNotEmpty) {
-      meta['network'] = networkJson;
-    }
+    state.addToMeta(meta);
   }
 
   void checkPayloadItemLimit() {

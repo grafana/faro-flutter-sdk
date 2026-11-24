@@ -82,7 +82,8 @@ void main() {
       },
     );
     when(
-      () => mockNativeChannel.initFrameMonitoring(),
+      () =>
+          mockNativeChannel.initFrameMonitoring(enabled: any(named: 'enabled')),
     ).thenAnswer((_) async {});
 
     Faro.instance = mockFaro;
@@ -98,7 +99,7 @@ void main() {
   });
 
   group('NativeIntegration', () {
-    test('init starts the Android frame sampler', () async {
+    test('init starts the Android frame sampler when enabled', () async {
       nativeIntegration = NativeIntegration(
         telemetryRouter: router,
         isAndroid: true,
@@ -107,13 +108,27 @@ void main() {
         memusage: true,
         cpuusage: true,
         anr: true,
+        refreshrate: true,
         setSendUsageInterval: const Duration(seconds: 60),
       );
 
       verify(() => mockNativeChannel.initFrameMonitoring()).called(1);
     });
 
-    test('the vitals timer polls ANR but never restarts the frame sampler', () {
+    test('init stops the Android frame sampler when disabled', () async {
+      nativeIntegration = NativeIntegration(
+        telemetryRouter: router,
+        isAndroid: true,
+      );
+      await nativeIntegration.init(refreshrate: false);
+
+      verify(
+        () => mockNativeChannel.initFrameMonitoring(enabled: false),
+      ).called(1);
+      verifyNever(() => mockNativeChannel.initFrameMonitoring());
+    });
+
+    test('the vitals timer reopens the frame window only when enabled', () {
       fakeAsync((async) {
         when(
           () => mockNativeChannel.getANRStatus(),
@@ -124,19 +139,34 @@ void main() {
         );
         nativeIntegration.init(
           anr: true,
+          refreshrate: true,
           setSendUsageInterval: const Duration(seconds: 30),
         );
         async.flushMicrotasks();
-        verify(() => mockNativeChannel.initFrameMonitoring()).called(1);
-
-        // Visible: the native sampler restarts itself on resume.
-        async.elapse(const Duration(seconds: 60));
-        // Hidden: restarting it here would sample frames in the background.
-        binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
         async.elapse(const Duration(seconds: 60));
 
+        // One call at init plus one per tick. Android itself skips a tick
+        // while no activity is resumed.
+        verify(() => mockNativeChannel.initFrameMonitoring()).called(3);
+        verify(() => mockNativeChannel.getANRStatus()).called(2);
+        nativeIntegration.dispose();
+
+        nativeIntegration = NativeIntegration(
+          telemetryRouter: router,
+          isAndroid: true,
+        );
+        nativeIntegration.init(
+          anr: true,
+          setSendUsageInterval: const Duration(seconds: 30),
+        );
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 60));
+
+        verify(
+          () => mockNativeChannel.initFrameMonitoring(enabled: false),
+        ).called(1);
         verifyNever(() => mockNativeChannel.initFrameMonitoring());
-        verify(() => mockNativeChannel.getANRStatus()).called(4);
+        verify(() => mockNativeChannel.getANRStatus()).called(2);
       });
     });
 
@@ -151,7 +181,11 @@ void main() {
         setSendUsageInterval: const Duration(seconds: 60),
       );
 
-      verifyNever(() => mockNativeChannel.initFrameMonitoring());
+      verifyNever(
+        () => mockNativeChannel.initFrameMonitoring(
+          enabled: any(named: 'enabled'),
+        ),
+      );
     });
 
     group('app CPU and memory', () {

@@ -26,7 +26,7 @@ abstract class FaroSdkPlatform extends PlatformInterface {
     throw UnimplementedError('getWarmStart() has not been implemented.');
   }
 
-  Future<void> initFrameMonitoring() {
+  Future<void> initFrameMonitoring({bool enabled = true}) {
     throw UnimplementedError('initFrameMonitoring() has not been implemented.');
   }
 

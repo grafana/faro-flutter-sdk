@@ -9,8 +9,8 @@ class MethodChannelFaroSdk extends FaroSdkPlatform {
   final methodChannel = const MethodChannel('faro');
 
   @override
-  Future<void> initFrameMonitoring() async {
-    await methodChannel.invokeMethod<void>('initFrameMonitoring');
+  Future<void> initFrameMonitoring({bool enabled = true}) async {
+    await methodChannel.invokeMethod<void>('initFrameMonitoring', enabled);
   }
 
   @override

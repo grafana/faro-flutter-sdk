@@ -50,6 +50,37 @@ class DynamicDeviceState {
         mapEquals(a.network.toJson(), b.network.toJson());
   }
 
+  /// The same map [fromNative] reads, for storing the values between launches.
+  Map<String, dynamic> toNative() {
+    return <String, dynamic>{
+      if (device.batteryLevel != null) 'batteryLevel': device.batteryLevel,
+      if (device.isCharging != null) 'isCharging': device.isCharging,
+      if (device.lowPowerMode != null) 'lowPowerMode': device.lowPowerMode,
+      if (device.thermalState != null) 'thermalState': device.thermalState,
+      if (network.connectionType != null)
+        'connectionType': network.connectionType,
+      if (network.connectionSubtype != null)
+        'connectionSubtype': network.connectionSubtype,
+      if (network.carrierName != null) 'carrierName': network.carrierName,
+    };
+  }
+
+  /// Adds the values to the `meta` of a payload, next to the fields it holds.
+  void addToMeta(Map<String, dynamic> metaJson) {
+    final deviceJson = device.toJson();
+    if (deviceJson.isNotEmpty) {
+      final existing = metaJson['device'];
+      metaJson['device'] = {
+        if (existing is Map<String, dynamic>) ...existing,
+        ...deviceJson,
+      };
+    }
+    final networkJson = network.toJson();
+    if (networkJson.isNotEmpty) {
+      metaJson['network'] = networkJson;
+    }
+  }
+
   /// Only the dynamic `meta.device` fields are set.
   final Device device;
 
@@ -109,7 +140,8 @@ class DynamicDeviceStateCapture {
 ///   SIM, so it stays.
 ///
 /// All of it lives in memory. A crash recovered on the next launch is sent
-/// from its own payload and never reads it.
+/// from its own payload and never reads it. [onChanged] lets the owner store
+/// the values, so the next launch can send the last known ones with the crash.
 class DynamicDeviceStateProvider {
   DynamicDeviceStateProvider({
     required FaroNativeMethods nativeMethods,
@@ -149,6 +181,10 @@ class DynamicDeviceStateProvider {
   /// The event channel the native side streams listener-fed values on.
   static const changeChannelName = 'faro/device_state';
 
+  /// Called with the new values after a listener-fed or probed value changes.
+  /// Never called with no usable value.
+  void Function(DynamicDeviceState state)? onChanged;
+
   /// The probed values that describe one network. A new connection type makes
   /// them wrong, unlike the carrier name.
   static const _networkSpecificKeys = {'connectionSubtype'};
@@ -169,6 +205,7 @@ class DynamicDeviceStateProvider {
   StreamSubscription<Object?>? _changes;
 
   Map<String, dynamic>? _listened;
+  DynamicDeviceState? _lastNotified;
   Map<String, dynamic> _probed = const {};
   DateTime? _probedAt;
   DateTime? _retryNotBefore;
@@ -248,6 +285,7 @@ class DynamicDeviceStateProvider {
   void dispose() {
     unawaited(_changes?.cancel());
     _changes = null;
+    onChanged = null;
   }
 
   /// Replaces the listener-fed values with the latest ones from native.
@@ -262,6 +300,21 @@ class DynamicDeviceStateProvider {
       _probedNeedsRead = true;
     }
     _listened = listened;
+    _notifyIfChanged();
+  }
+
+  void _notifyIfChanged() {
+    final state = current;
+    if (state == null ||
+        DynamicDeviceState.hasSameValues(state, _lastNotified)) {
+      return;
+    }
+    _lastNotified = state;
+    try {
+      onChanged?.call(state);
+    } catch (error) {
+      log('Faro: Dynamic device state listener failed: $error');
+    }
   }
 
   /// Reads the probed values when they are stale and no read is running.
@@ -300,6 +353,7 @@ class DynamicDeviceStateProvider {
       _probedAt = startedAt;
       _probedNeedsRead = false;
       _retryNotBefore = null;
+      _notifyIfChanged();
     } catch (error) {
       _probed = const {};
       _probedAt = null;

@@ -133,6 +133,46 @@ void main() {
     });
   });
 
+  group('DynamicDeviceState storage', () {
+    test('toNative round-trips through fromNative', () {
+      final state = DynamicDeviceState.fromNative(nativeState);
+
+      final restored = DynamicDeviceState.fromNative(state.toNative());
+
+      expect(restored.device.toJson(), state.device.toJson());
+      expect(restored.network.toJson(), state.network.toJson());
+    });
+
+    test('toNative keeps false and zero, and leaves out missing fields', () {
+      final state = DynamicDeviceState.fromNative({
+        'batteryLevel': 0,
+        'isCharging': false,
+      });
+
+      expect(state.toNative(), {'batteryLevel': 0, 'isCharging': false});
+    });
+
+    test('addToMeta merges into the device and sets the network', () {
+      final meta = <String, dynamic>{
+        'device': {'manufacturer': 'Example'},
+      };
+
+      DynamicDeviceState.fromNative(nativeState).addToMeta(meta);
+
+      expect(meta['device'], containsPair('manufacturer', 'Example'));
+      expect(meta['device'], containsPair('battery_level', 87));
+      expect(meta['network'], containsPair('connection_type', 'cell'));
+    });
+
+    test('addToMeta adds nothing for a state with no values', () {
+      final meta = <String, dynamic>{};
+
+      DynamicDeviceState.fromNative(const {}).addToMeta(meta);
+
+      expect(meta, isEmpty);
+    });
+  });
+
   group('DynamicDeviceStateProvider', () {
     DynamicDeviceStateProvider createFakeClockProvider(FakeAsync async) {
       return createProvider(currentTime: async.getClock(DateTime(2026)).now);
@@ -190,6 +230,60 @@ void main() {
       expect(provider.current?.device.batteryLevel, 12);
       verifyNever(() => nativeMethods.getProbedDeviceState());
       provider.dispose();
+    });
+
+    test('onChanged reports each new value once', () async {
+      final provider = createProvider();
+      final reported = <DynamicDeviceState>[];
+      provider.onChanged = reported.add;
+      await provider.start();
+      await pumpEventQueue();
+      final afterStart = reported.length;
+
+      changes.add({...listenedNative, 'batteryLevel': 12});
+      changes.add({...listenedNative, 'batteryLevel': 12});
+      await pumpEventQueue();
+
+      expect(reported, hasLength(afterStart + 1));
+      expect(reported.last.device.batteryLevel, 12);
+      provider.dispose();
+    });
+
+    test('onChanged reports a finished probed read', () async {
+      final provider = createProvider();
+      final reported = <DynamicDeviceState>[];
+      provider.onChanged = reported.add;
+      await provider.start();
+      await pumpEventQueue();
+
+      expect(reported.last.network.carrierName, 'Example Mobile');
+      provider.dispose();
+    });
+
+    test('a throwing onChanged never breaks the stream', () async {
+      final provider = createProvider();
+      provider.onChanged = (_) => throw StateError('listener failed');
+      await provider.start();
+
+      changes.add({...listenedNative, 'batteryLevel': 12});
+      await pumpEventQueue();
+
+      expect(provider.current?.device.batteryLevel, 12);
+      provider.dispose();
+    });
+
+    test('dispose stops onChanged', () async {
+      final provider = createProvider();
+      var calls = 0;
+      provider.onChanged = (_) => calls++;
+      await provider.start();
+      await pumpEventQueue();
+      final afterStart = calls;
+      provider.dispose();
+
+      provider.applyListened({...listenedNative, 'batteryLevel': 12});
+
+      expect(calls, afterStart);
     });
 
     test('a later event replaces an earlier one', () async {

@@ -6,6 +6,7 @@ import 'dart:developer';
 import 'dart:ui' show RootIsolateToken;
 
 import 'package:faro/src/configurations/batch_config.dart';
+import 'package:faro/src/configurations/dynamic_device_state_config.dart';
 import 'package:faro/src/configurations/faro_config.dart';
 import 'package:faro/src/core/pod.dart';
 import 'package:faro/src/data_collection_policy.dart';
@@ -223,6 +224,7 @@ class Faro {
             config: optionsConfiguration.dynamicDeviceState,
           )
         : null;
+    dynamicDeviceState?.onChanged = _persistDynamicDeviceState;
     await dynamicDeviceState?.start();
 
     config = optionsConfiguration;
@@ -310,6 +312,7 @@ class Faro {
         memusage: optionsConfiguration.memoryUsageVitals,
         cpuusage: optionsConfiguration.cpuUsageVitals,
         anr: optionsConfiguration.anrTracking,
+        refreshrate: optionsConfiguration.refreshRateVitals,
         setSendUsageInterval: optionsConfiguration.fetchVitalsInterval,
       );
     }
@@ -436,11 +439,67 @@ class Faro {
     SessionState state,
     SessionStateChangeKind changeKind,
   ) {
+    final storeCrashContext =
+        changeKind == SessionStateChangeKind.sessionStarted &&
+        _dataCollectionPolicy?.isEnabled != false;
     _sessionPersistence?.record(
       state,
       isSampled: _isSampled,
       immediate: changeKind == SessionStateChangeKind.sessionStarted,
+      dynamicDeviceState: storeCrashContext
+          ? _dynamicDeviceState?.current?.toNative()
+          : null,
+      metaSnapshot: storeCrashContext ? _staticMetaSnapshot() : null,
     );
+  }
+
+  Map<String, dynamic> _staticMetaSnapshot() {
+    final snapshot = Meta(
+      sdk: meta.sdk,
+      app: meta.app,
+      os: meta.os,
+      device: meta.device,
+    );
+    return snapshot.toJson();
+  }
+
+  /// Reads the stored meta of a crashed session. Returns null when nothing
+  /// usable was stored, and drops a part that cannot be read.
+  Meta? _readStaticMetaSnapshot(Map<String, dynamic>? snapshot) {
+    if (snapshot == null) {
+      return null;
+    }
+    T? read<T>(String key, T Function(Map<String, dynamic>) fromJson) {
+      final value = snapshot[key];
+      if (value is! Map) {
+        return null;
+      }
+      try {
+        return fromJson(Map<String, dynamic>.from(value));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final restored = Meta(
+      sdk: read('sdk', Sdk.fromJson),
+      app: read('app', App.fromJson),
+      os: read('os', Os.fromJson),
+      device: read('device', Device.fromJson),
+    );
+    final hasAnyPart =
+        restored.sdk != null ||
+        restored.app != null ||
+        restored.os != null ||
+        restored.device != null;
+    return hasAnyPart ? restored : null;
+  }
+
+  void _persistDynamicDeviceState(DynamicDeviceState state) {
+    if (_dataCollectionPolicy?.isEnabled == false) {
+      return;
+    }
+    _sessionPersistence?.recordDynamicDeviceState(state.toNative());
   }
 
   Future<PersistedSessionRecord?> _initializeSessionPersistence(
@@ -1289,15 +1348,18 @@ class Faro {
       attributes['previousSession'] = previousSessionId;
     }
 
+    // A session saved by an older SDK has no snapshot, so it falls back to the
+    // values of this launch.
+    final saved = _readStaticMetaSnapshot(recoveredSession.metaSnapshot);
     return Meta(
       session: Session(
         recoveredSession.currentSessionId,
         attributes: attributes,
       ),
-      sdk: meta.sdk,
-      app: meta.app,
-      device: meta.device,
-      os: meta.os,
+      sdk: saved == null ? meta.sdk : saved.sdk,
+      app: saved == null ? meta.app : saved.app,
+      device: saved == null ? meta.device : saved.device,
+      os: saved == null ? meta.os : saved.os,
     );
   }
 
@@ -1355,6 +1417,7 @@ class Faro {
             exception,
             _metaForRecoveredSession(recoveredSession),
             nativeRetryAvailable: false,
+            recoveredSession: recoveredSession,
           );
         }
       } catch (error, stacktrace) {
@@ -1431,6 +1494,7 @@ class Faro {
             exception,
             _metaForRecoveredSession(recoveredSession),
             nativeRetryAvailable: true,
+            recoveredSession: recoveredSession,
           );
           accepted = accepted && sent;
         }
@@ -1563,6 +1627,7 @@ class Faro {
     FaroException exception,
     Meta recoveredCrashMeta, {
     required bool nativeRetryAvailable,
+    PersistedSessionRecord? recoveredSession,
   }) async {
     if (_dataCollectionPolicy?.isEnabled == false) {
       return false;
@@ -1571,6 +1636,7 @@ class Faro {
     // must use an isolated payload.
     final payload = Payload(recoveredCrashMeta)..exceptions.add(exception);
     final payloadJson = payload.toJson();
+    _addStoredDeviceState(payloadJson, recoveredSession);
     var accepted = true;
     var hasDirectTransport = false;
     for (final transport in List<BaseTransport>.of(_transports)) {
@@ -1600,6 +1666,35 @@ class Faro {
         );
       }
     }
-    return accepted && (!nativeRetryAvailable || hasDirectTransport);
+    final sent = accepted && (!nativeRetryAvailable || hasDirectTransport);
+    if (sent && recoveredSession != null) {
+      _sessionPersistence?.discardDynamicDeviceState(
+        recoveredSession.currentSessionId,
+      );
+      await _sessionPersistence?.flush();
+    }
+    return sent;
+  }
+
+  /// Adds the last known values of the crashed session, if it stored any and
+  /// their groups are still on. The values of this launch never go in.
+  void _addStoredDeviceState(
+    Map<String, dynamic> payloadJson,
+    PersistedSessionRecord? recoveredSession,
+  ) {
+    final stored = recoveredSession?.dynamicDeviceState;
+    final metaJson = payloadJson['meta'];
+    final groups =
+        config?.dynamicDeviceState ?? const DynamicDeviceStateConfig();
+    if (stored == null ||
+        !groups.isAnyEnabled ||
+        metaJson is! Map<String, dynamic>) {
+      return;
+    }
+    try {
+      DynamicDeviceState.fromNative(stored, config: groups).addToMeta(metaJson);
+    } catch (error) {
+      log('Faro: Ignoring unreadable stored device state: $error');
+    }
   }
 }

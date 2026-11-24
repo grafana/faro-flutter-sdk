@@ -71,4 +71,33 @@ void main() {
       );
     });
   });
+
+  group('MethodChannelFaroSdk.initFrameMonitoring', () {
+    final platform = MethodChannelFaroSdk();
+    final calls = <MethodCall>[];
+
+    setUp(() {
+      calls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platform.methodChannel, (call) async {
+            calls.add(call);
+            return 0;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platform.methodChannel, null);
+    });
+
+    test('sends whether frame sampling is enabled', () async {
+      await platform.initFrameMonitoring();
+      await platform.initFrameMonitoring(enabled: false);
+      expect(calls.map((call) => call.method), [
+        'initFrameMonitoring',
+        'initFrameMonitoring',
+      ]);
+      expect(calls.map((call) => call.arguments), [true, false]);
+    });
+  });
 }

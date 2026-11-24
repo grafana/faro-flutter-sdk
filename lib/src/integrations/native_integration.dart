@@ -53,16 +53,21 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
     bool? memusage,
     bool? cpuusage,
     bool? anr,
+    bool? refreshrate,
     Duration? setSendUsageInterval,
   }) async {
     final interval = setSendUsageInterval ?? const Duration(seconds: 60);
-    _scheduleCalls(anr: anr ?? false, setSendUsageInterval: interval);
+    _scheduleCalls(
+      anr: anr ?? false,
+      frames: refreshrate ?? false,
+      setSendUsageInterval: interval,
+    );
     _startProcessVitals(
       cpu: cpuusage ?? false,
       memory: memusage ?? false,
       interval: interval,
     );
-    initFrameMonitoring();
+    initFrameMonitoring(enabled: refreshrate ?? false);
     initializeMethodChannel();
   }
 
@@ -158,15 +163,17 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
     return ProcessVitalsReading.fromMap(map);
   }
 
-  /// Starts the Android frame callback that counts slow and frozen frames.
+  /// Starts a short Android window that counts slow and frozen frames, or
+  /// stops frame sampling when [enabled] is false.
   ///
-  /// iOS has no frame sampler, so this does nothing there.
-  Future<void> initFrameMonitoring() async {
+  /// Android only opens a window while an activity is resumed and no window
+  /// is running. iOS has no frame sampler, so this does nothing there.
+  Future<void> initFrameMonitoring({bool enabled = true}) async {
     if (!_isAndroid) {
       return;
     }
     try {
-      await Faro().nativeChannel?.initFrameMonitoring();
+      await Faro().nativeChannel?.initFrameMonitoring(enabled: enabled);
     } catch (error) {
       log('Error initializing frame monitoring: $error');
     }
@@ -245,26 +252,29 @@ class NativeIntegration with WidgetsBindingObserver implements Disposable {
     }
   }
 
-  /// Polls the native ANR tracker on Android.
+  /// Polls the native ANR tracker and reopens the frame sampling window on
+  /// Android.
   ///
   /// Unlike CPU and memory, this keeps running while the app is hidden. That
-  /// is safe: it only reads what the native tracker collected, and the
-  /// tracker itself stops while the app is in the background.
-  ///
-  /// The timer does not touch the frame sampler. Android starts it on launch
-  /// and on each resume; restarting it from here would start a burst while
-  /// the app is hidden and could skip the one on the next resume.
+  /// is safe: the ANR poll only reads what the native tracker collected, and
+  /// Android only opens a frame window while an activity is resumed.
   void _scheduleCalls({
     bool anr = false,
+    bool frames = false,
     Duration setSendUsageInterval = const Duration(seconds: 60),
   }) {
     _vitalsTimer?.cancel();
     _vitalsTimer = null;
-    if (!_isAndroid || !anr) {
+    if (!_isAndroid || (!anr && !frames)) {
       return;
     }
     _vitalsTimer = Timer.periodic(setSendUsageInterval, (timer) {
-      _getAnrStatus();
+      if (anr) {
+        _getAnrStatus();
+      }
+      if (frames) {
+        initFrameMonitoring();
+      }
     });
   }
 

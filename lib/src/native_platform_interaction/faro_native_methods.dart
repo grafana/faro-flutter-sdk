@@ -14,9 +14,13 @@ class FaroNativeMethods {
     return FaroSdkPlatform.instance.getProcessVitals(cpu: cpu, memory: memory);
   }
 
-  /// Starts the Android slow and frozen frame sampler.
-  Future<void> initFrameMonitoring() {
-    return FaroSdkPlatform.instance.initFrameMonitoring();
+  /// Starts a short Android slow and frozen frame sampling window, or stops
+  /// sampling when [enabled] is false.
+  ///
+  /// Android only starts a window while an activity is resumed and no window
+  /// is running.
+  Future<void> initFrameMonitoring({bool enabled = true}) {
+    return FaroSdkPlatform.instance.initFrameMonitoring(enabled: enabled);
   }
 
   Future<Map<String, dynamic>?> getAppStart() {

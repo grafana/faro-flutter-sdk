@@ -32,8 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Payloads include battery, power, thermal and network state**, in
   `meta.device` and the new `meta.network`. Each signal carries the value
-  current when it was captured, and a crash sent on the next launch carries
-  none of them. Android also sends the carrier name. See the Reference docs
+  current when it was captured. Android also sends the carrier name. See the Reference docs
   for details
   ([#372](https://github.com/grafana/faro-flutter-sdk/issues/372)).
 
@@ -48,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `READ_BASIC_PHONE_STATE` permission from its manifest. See the Reference docs
   for details
   ([#389](https://github.com/grafana/faro-flutter-sdk/issues/389)).
+
+- **A crash recovered on the next launch carries the last known battery,
+  power, thermal and network state of the crashed session.** They are the last
+  values the SDK stored, up to 30 seconds behind the crash, not the values at
+  the moment of the crash. The values of the relaunch are never used. They
+  are stored with the session record, so they follow the session persistence
+  setting. See the Reference docs for details
+  ([#387](https://github.com/grafana/faro-flutter-sdk/issues/387)).
 
 ### Changed
 
@@ -73,14 +80,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   0.11 must upgrade it
   ([#383](https://github.com/grafana/faro-flutter-sdk/pull/383)).
 
-### Deprecated
-
-- **`FaroConfig.refreshRateVitals` is deprecated and has no effect.** The SDK
-  no longer collects a refresh rate. Android still samples slow and frozen
-  frames on start and each time the app returns to the foreground, whatever
-  the option is set to
-  ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
-
 ### Removed
 
 - **`getCpuUsage`, `getMemoryUsage`, `getRefreshRate` and `initRefreshRate`
@@ -91,8 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
 
 - **The SDK no longer sends `app_refresh_rate` measurements**, and iOS no
-  longer runs a display link for them. `app_frames_rate` and
-  `app_frozen_frame` are unchanged
+  longer runs a display link for them. `refreshRateVitals` now only turns
+  Android's `app_frames_rate` and `app_frozen_frame` sampling on and off
   ([#262](https://github.com/grafana/faro-flutter-sdk/issues/262)).
 
 - **iOS no longer sends `meta.device.type`.** It was `tablet` for an iPad and
@@ -107,11 +106,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Android frame vitals update on later foreground polls when refresh-rate
+  collection is enabled.** Periodic polls reopen a short sampling window;
+  headless and backgrounded polling do not. **The first callback in each window
+  no longer emits a false slow-frame measurement.** **Disabling refresh-rate
+  vitals now stops Android frame sampling, including after activity resumes**
+  ([#411](https://github.com/grafana/faro-flutter-sdk/pull/411)).
+
 - **Taps after cold-start deep links no longer produce layout errors.**
   Interaction tracking skips detached or unlaid-out render objects and
   continues past unavailable geometry without interrupting the app's tap
   callbacks
   ([#345](https://github.com/grafana/faro-flutter-sdk/issues/345)).
+
+- **A crash recovered on the next launch carries the app, OS, device and SDK
+  metadata of the crashed session.** It used the metadata of the relaunch, so
+  after an app or OS update the crash showed the new version. A session saved
+  by an earlier SDK version has no stored metadata, so its crash still uses
+  the relaunch values once. See the Reference docs for details
+  ([#387](https://github.com/grafana/faro-flutter-sdk/issues/387)).
 
 ## [0.18.0] - 2026-10-28
 
